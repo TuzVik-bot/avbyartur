@@ -20,7 +20,8 @@ Nginx/TLS не менялись. Детали, backup paths и ограниче�
 SMS/email/payment/Sentry провайдеры, offsite backup и host monitor не включены.
 Full latest loadp95670/979ms нарушает<=500ms; gate полной приёмки открыт,
 публичный MVP не принят. Активных объявлений0,100draftбезфото,2pausedс2фото.
-GitHub auth подтверждён, push ожидает URL репозитория.
+GitHub, 4 октября 2026: исходники загружены в приватный
+[TuzVik-bot/avbyartur](https://github.com/TuzVik-bot/avbyartur), ветка `main`.
 
 Ниже сохранён исторический отчёт о подготовке VPS, а не текущее состояние.
 

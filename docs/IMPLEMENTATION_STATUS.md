@@ -2,6 +2,13 @@
 
 Objective: deliver the complete closed marketplace pilot described in `docs/superpowers/plans/2026-09-26-avtorinok-pilot.md` and deploy the verified release to `suite-s1.denjik.by`.
 
+## GitHub — 4 October 2026
+
+Project source uploaded to private repository
+`https://github.com/TuzVik-bot/avbyartur`, branch `main`; local `origin` is configured.
+Runtime secrets/data, licensed catalog sources and local acceptance artifacts are
+excluded. Statements below about a missing remote describe earlier dated checks.
+
 ## Verified deployment — 2 October 2026
 
 The complete current source is deployed to the existing closed pilot as
