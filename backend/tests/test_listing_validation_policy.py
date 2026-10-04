@@ -88,6 +88,10 @@ def test_default_policy_preserves_one_ready_photo_and_current_year_behavior():
         "used_year_max": 2026,
         "minimum_photos": {"new": 1, "used": 1, "damaged": 1, "parts": 1},
         "maximum_photos": 30,
+        "category_codes": [
+            "cars", "trucks", "buses", "motorcycles", "special_equipment",
+            "agricultural_equipment", "trailers", "watercraft", "parts", "wheels", "tires",
+        ],
     }
 
 

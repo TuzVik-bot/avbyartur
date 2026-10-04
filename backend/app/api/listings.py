@@ -46,6 +46,7 @@ from app.models import (
     Favorite,
     IdempotencyRecord,
     Listing,
+    ListingCategoryDetails,
     ListingPhoto,
     ListingPromotion,
     ListingStatusEvent,
@@ -107,6 +108,7 @@ EDITABLE_FIELDS = {
     "region_id", "city_id", "manual_city", "contact_phone", "color", "customs_status",
     "technical_condition", "body_condition", "exchange", "bargaining", "credit", "leasing",
     "equipment", "district", "call_hours",
+    "category_code",
 }
 
 
@@ -231,6 +233,21 @@ def _safe_slug(value: str) -> str:
 def _apply_fields(db: Session, listing: Listing, values: dict, user: User, *, creating: bool) -> None:
     seller_type = values.pop("seller_type", None)
     price = values.pop("price", None)
+    category_details = values.pop("category_details", None)
+    confirm_category_change = values.pop("confirm_category_change", False)
+    current_category = listing.category_code or "cars"
+    requested_category = values.get("category_code", current_category)
+    if not creating and requested_category != current_category:
+        if not confirm_category_change:
+            fail(422, "category_change_confirmation_required", "Confirm category change before replacing category-specific details", {"confirm_category_change": "Confirmation is required"})
+        listing.category_details = None
+        for field in (
+            "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id",
+            "modification_id", "manual_make", "manual_model", "make_name_snapshot",
+            "model_name_snapshot", "generation_name_snapshot", "fuel", "transmission",
+            "drive", "engine_volume_l", "power_hp", "vin", "equipment",
+        ):
+            setattr(listing, field, None)
     if price is not None:
         listing.price_amount = price["amount"]
         listing.currency = price["currency"]
@@ -240,6 +257,13 @@ def _apply_fields(db: Session, listing: Listing, values: dict, user: User, *, cr
     for field in EDITABLE_FIELDS:
         if field in values:
             setattr(listing, field, values[field])
+    if category_details is not None:
+        if category_details["category_code"] != listing.category_code:
+            fail(422, "invalid_category_details", "Category details do not match the listing category", {"category_details": "Category does not match category_code"})
+        listing.category_details = ListingCategoryDetails(
+            category_code=listing.category_code,
+            details=category_details["details"],
+        )
 
     make = db.get(CatalogMake, listing.make_id) if listing.make_id else None
     model = db.get(CatalogModel, listing.model_id) if listing.model_id else None
@@ -892,7 +916,7 @@ def create_draft(
     values = payload.model_dump(exclude_unset=True)
     if values.get("seller_type") == "company":
         seller_company(db, user, "company")
-    listing = Listing(owner_id=user.id, slug=f"listing-{uuid4().hex}", status="draft", revision=1, title="", description="", contact_phone="", damaged=False, parts_only=False)
+    listing = Listing(owner_id=user.id, slug=f"listing-{uuid4().hex}", status="draft", revision=1, category_code="cars", title="", description="", contact_phone="", damaged=False, parts_only=False)
     _apply_fields(db, listing, values, user, creating=True)
     db.add(listing)
     db.flush()

@@ -21,3 +21,4 @@ class ListingValidationPolicyOut(BaseModel):
     used_year_max: int
     minimum_photos: MinimumListingPhotosOut
     maximum_photos: int = Field(ge=1, le=30)
+    category_codes: list[str] = Field(min_length=1)
