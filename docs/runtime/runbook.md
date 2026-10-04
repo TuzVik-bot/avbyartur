@@ -1,5 +1,7 @@
 # Runtime Runbook
 
+> **4 октября 2026:** пользователь разрешил отключить общий HTTP Basic Auth для тестирования. На `suite-s1.denjik.by` он снят; обычные сессии и роли, loopback-доступ API/БД и `noindex` сохранены. Не включать общий пароль повторно без нового запроса. Ниже инструкции закрытого пилота описывают исторический режим; текущий релиз и проверки — [RELEASE_2026-10-04.md](RELEASE_2026-10-04.md).
+
 ## Local Run
 
 Docker Compose builds the app from `backend/Dockerfile` and `web/Dockerfile`. PostgreSQL, API, worker, and web each run in Compose. The database and private photo volume are named volumes and survive `make down`; do not use `docker compose down -v` for routine stops.
