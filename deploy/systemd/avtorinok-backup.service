@@ -1,0 +1,21 @@
+[Unit]
+Description=Create a protected Avtorinok database and media backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=suite
+Group=suite
+SupplementaryGroups=docker
+WorkingDirectory=/home/suite/apps/avtorinok
+Environment=AVTORINOK_BACKUP_DIR=/home/suite/backups/avtorinok
+Environment=AVTORINOK_BACKUP_MIN_FREE_KB=2097152
+ExecStart=/home/suite/apps/avtorinok/scripts/daily-backup.sh
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/suite/backups/avtorinok
+NoNewPrivileges=true

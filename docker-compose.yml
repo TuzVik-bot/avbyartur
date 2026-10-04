@@ -1,0 +1,213 @@
+name: avtorinok
+
+services:
+  db:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-avtorinok}
+      POSTGRES_USER: ${POSTGRES_USER:-avtorinok}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/init-secrets.sh first}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - max_connections=40
+      - -c
+      - max_parallel_workers=2
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    stop_grace_period: 1m
+    logging: &bounded-logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - app
+
+  api:
+    image: avtorinok-api:${AVTORINOK_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-avtorinok}:${POSTGRES_PASSWORD:?Run scripts/init-secrets.sh first}@db:5432/${POSTGRES_DB:-avtorinok}
+      SESSION_SECRET: ${SESSION_SECRET:?Run scripts/init-secrets.sh first}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      SMS_LOGIN_ENABLED: ${SMS_LOGIN_ENABLED:-false}
+      PUBLIC_REGISTRATION_ENABLED: ${PUBLIC_REGISTRATION_ENABLED:-false}
+      PUBLIC_GUEST_CONTACT_ENABLED: ${PUBLIC_GUEST_CONTACT_ENABLED:-false}
+      LISTING_STOP_WORDS_CSV: ${LISTING_STOP_WORDS_CSV:-}
+      MINIMUM_PHOTOS_NEW: ${MINIMUM_PHOTOS_NEW:-1}
+      MINIMUM_PHOTOS_USED: ${MINIMUM_PHOTOS_USED:-1}
+      MINIMUM_PHOTOS_DAMAGED: ${MINIMUM_PHOTOS_DAMAGED:-1}
+      MINIMUM_PHOTOS_PARTS: ${MINIMUM_PHOTOS_PARTS:-1}
+      LISTING_YEAR_MIN: ${LISTING_YEAR_MIN:-1886}
+      LISTING_FUTURE_NEW_YEARS: ${LISTING_FUTURE_NEW_YEARS:-1}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      SMS_PROVIDER: ${SMS_PROVIDER:-disabled}
+      SMSC_API_KEY: ${SMSC_API_KEY:-}
+      SMSC_API_URL: ${SMSC_API_URL:-https://smsc.ru/sys/send.php}
+      SMSC_SENDER: ${SMSC_SENDER:-}
+      SMSC_TIMEOUT_SECONDS: ${SMSC_TIMEOUT_SECONDS:-5}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      SMTP_TIMEOUT_SECONDS: ${SMTP_TIMEOUT_SECONDS:-10}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SMS_OTP_SECRET: ${SMS_OTP_SECRET:-}
+      SMS_OTP_LIFETIME_SECONDS: ${SMS_OTP_LIFETIME_SECONDS:-300}
+      SMS_OTP_MAX_ATTEMPTS: ${SMS_OTP_MAX_ATTEMPTS:-5}
+      SMS_OTP_SENDS_PER_HOUR: ${SMS_OTP_SENDS_PER_HOUR:-5}
+      SMS_OTP_RESEND_COOLDOWN_SECONDS: ${SMS_OTP_RESEND_COOLDOWN_SECONDS:-60}
+      SMS_OTP_IP_REQUESTS_PER_HOUR: ${SMS_OTP_IP_REQUESTS_PER_HOUR:-30}
+      SMS_OTP_IP_VERIFICATIONS_PER_HOUR: ${SMS_OTP_IP_VERIFICATIONS_PER_HOUR:-30}
+      SMS_OTP_PHONE_VERIFICATIONS_PER_HOUR: ${SMS_OTP_PHONE_VERIFICATIONS_PER_HOUR:-10}
+      REGISTRATION_TERMS_VERSION: ${REGISTRATION_TERMS_VERSION:-}
+      REGISTRATION_PRIVACY_VERSION: ${REGISTRATION_PRIVACY_VERSION:-}
+      CATALOG_PATH: /app/data/catalog.json
+      MEDIA_ROOT: /app/private-media
+    volumes:
+      - ./data:/app/data:ro
+      - private_media:/app/private-media
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
+    mem_limit: 512m
+    cpus: 0.75
+    pids_limit: 128
+    logging: *bounded-logging
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - app
+
+  worker:
+    image: avtorinok-api:${AVTORINOK_IMAGE_TAG:-local}
+    command: ["python", "-m", "app.worker"]
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-avtorinok}:${POSTGRES_PASSWORD:?Run scripts/init-secrets.sh first}@db:5432/${POSTGRES_DB:-avtorinok}
+      SESSION_SECRET: ${SESSION_SECRET:?Run scripts/init-secrets.sh first}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      SMTP_TIMEOUT_SECONDS: ${SMTP_TIMEOUT_SECONDS:-10}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      MEDIA_ROOT: /app/private-media
+    volumes:
+      - private_media:/app/private-media
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import sys; sys.exit(0 if b'app.worker' in open('/proc/1/cmdline', 'rb').read() else 1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 96
+    logging: *bounded-logging
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - app
+
+  web:
+    image: avtorinok-web:${AVTORINOK_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      SITE_NAME: ${SITE_NAME:-Авторынок BY}
+      SITE_ORIGIN: ${SITE_ORIGIN:-https://suite-s1.denjik.by}
+      API_INTERNAL_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 20s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
+    mem_limit: 640m
+    cpus: 1.25
+    pids_limit: 128
+    logging: *bounded-logging
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - app
+
+volumes:
+  postgres_data:
+    name: ${POSTGRES_VOLUME_NAME:-avtorinok_postgres}
+  private_media:
+    name: ${PRIVATE_MEDIA_VOLUME:-avtorinok_private_media}
+
+networks:
+  app:
+    driver: bridge

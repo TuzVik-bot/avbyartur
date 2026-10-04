@@ -1,0 +1,4806 @@
+{
+  "schema_version": 1,
+  "source": {
+    "name": "Wikidata",
+    "license": "CC0 1.0",
+    "license_url": "https://www.wikidata.org/wiki/Wikidata:Reuse",
+    "retrieved_at": "2026-09-26T22:45:26Z",
+    "query_url": "https://query.wikidata.org/sparql",
+    "query_sha256": "da2a940fd76933c1c36d13548720b0006ac87e6f9c47ffdb76950b129af5ea80"
+  },
+  "geography_source": {
+    "name": "Wikidata",
+    "license": "CC0 1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "retrieved_at": "2026-09-26T22:42:14Z",
+    "query_url": "https://query.wikidata.org/sparql",
+    "query_sha256": "d47eaa5d15b48228d90355d30f021b9996d15facbffa915c447f808f385c939c"
+  },
+  "makes": [
+    {
+      "qid": "Q124983953",
+      "name": "Audi",
+      "slug": "audi",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q758720",
+          "name": "Audi 200",
+          "slug": "audi-200",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q758720",
+            "url": "https://www.wikidata.org/wiki/Q758720",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q209927",
+          "name": "Audi 225",
+          "slug": "audi-225",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q209927",
+            "url": "https://www.wikidata.org/wiki/Q209927",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q758726",
+          "name": "Audi 80 B3",
+          "slug": "audi-80-b3",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q758726",
+            "url": "https://www.wikidata.org/wiki/Q758726",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q389020",
+          "name": "Audi 80 b4",
+          "slug": "audi-80",
+          "aliases": [
+            "Audi 80"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q389020",
+            "url": "https://www.wikidata.org/wiki/Q389020",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q758727",
+          "name": "Audi 80 B4",
+          "slug": "audi-80-b4",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q758727",
+            "url": "https://www.wikidata.org/wiki/Q758727",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q758728",
+          "name": "Audi 90",
+          "slug": "audi-90",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q758728",
+            "url": "https://www.wikidata.org/wiki/Q758728",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q138508",
+          "name": "Audi 920",
+          "slug": "audi-920",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q138508",
+            "url": "https://www.wikidata.org/wiki/Q138508",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q55523869",
+          "name": "Audi A1 8X",
+          "slug": "audi-a1-8x",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q55523869",
+            "url": "https://www.wikidata.org/wiki/Q55523869",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q741656",
+          "name": "Audi A2",
+          "slug": "audi-a2",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q741656",
+            "url": "https://www.wikidata.org/wiki/Q741656",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q140247195",
+          "name": "Audi A2 e-tron",
+          "slug": "audi-a2-e-tron",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q140247195",
+            "url": "https://www.wikidata.org/wiki/Q140247195",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q473441",
+          "name": "Audi A3 8L",
+          "slug": "audi-a3-8l",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q473441",
+            "url": "https://www.wikidata.org/wiki/Q473441",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q758738",
+          "name": "Audi A3 8V",
+          "slug": "audi-a3-8v",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q758738",
+            "url": "https://www.wikidata.org/wiki/Q758738",
+            "brand_property": "P1716",
+            "brand_qid": "Q124983953",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q124983953",
+        "url": "https://www.wikidata.org/wiki/Q124983953",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q796364",
+      "name": "BMW",
+      "slug": "bmw",
+      "aliases": [
+        "БМВ"
+      ],
+      "models": [
+        {
+          "qid": "Q626846",
+          "name": "BMW 3-й серии (F30)",
+          "slug": "bmw-3-series-f30",
+          "aliases": [
+            "BMW 3 Series (F30)"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q626846",
+            "url": "https://www.wikidata.org/wiki/Q626846",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q730915",
+          "name": "BMW E21",
+          "slug": "bmw-3-series",
+          "aliases": [
+            "BMW 3 Series"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q730915",
+            "url": "https://www.wikidata.org/wiki/Q730915",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q756792",
+          "name": "BMW E46",
+          "slug": "bmw-3-series-e46",
+          "aliases": [
+            "BMW 3 Series (E46)"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q756792",
+            "url": "https://www.wikidata.org/wiki/Q756792",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q4311136",
+          "name": "BMW F34",
+          "slug": "bmw-3-series-gran-turismo",
+          "aliases": [
+            "BMW 3 Series Gran Turismo"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q4311136",
+            "url": "https://www.wikidata.org/wiki/Q4311136",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q796490",
+          "name": "BMW 1 (F20)",
+          "slug": "bmw-1-series",
+          "aliases": [
+            "BMW 1 Series"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q796490",
+            "url": "https://www.wikidata.org/wiki/Q796490",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q64085785",
+          "name": "BMW 1 (F40)",
+          "slug": "bmw-1-series-f40",
+          "aliases": [
+            "BMW 1 Series (F40)"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q64085785",
+            "url": "https://www.wikidata.org/wiki/Q64085785",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q28861726",
+          "name": "BMW 1 (F52)",
+          "slug": "bmw-1-series-q28861726",
+          "aliases": [
+            "BMW 1 Series"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q28861726",
+            "url": "https://www.wikidata.org/wiki/Q28861726",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q16060432",
+          "name": "BMW 1500",
+          "slug": "bmw-1500",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q16060432",
+            "url": "https://www.wikidata.org/wiki/Q16060432",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3631932",
+          "name": "BMW 1600",
+          "slug": "bmw-1600",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3631932",
+            "url": "https://www.wikidata.org/wiki/Q3631932",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q25245626",
+          "name": "BMW 1602 Elektro-Antrieb",
+          "slug": "bmw-1602-elektro-antrieb",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q25245626",
+            "url": "https://www.wikidata.org/wiki/Q25245626",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2056075",
+          "name": "BMW 1800",
+          "slug": "bmw-1800",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2056075",
+            "url": "https://www.wikidata.org/wiki/Q2056075",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3449486",
+          "name": "BMW 1M Coupe",
+          "slug": "bmw-1m-coupe",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3449486",
+            "url": "https://www.wikidata.org/wiki/Q3449486",
+            "brand_property": "P1716",
+            "brand_qid": "Q796364",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "name": "BMW 3 Series",
+          "slug": "bmw-3-series-family",
+          "aliases": [
+            "3 серия",
+            "3er"
+          ],
+          "generations": [
+            {
+              "name": "1st generation",
+              "slug": "bmw-3-series-1st-generation",
+              "year_from": 1975,
+              "year_to": 1983,
+              "source": {
+                "name": "BMW Group PressClub",
+                "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en",
+                "retrieved_at": "2026-09-27T10:07:32Z"
+              },
+              "body_variants": [
+                {
+                  "name": "Sedan",
+                  "slug": "bmw-3-series-1-sedan",
+                  "source": {
+                    "name": "BMW Group PressClub",
+                    "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en",
+                    "retrieved_at": "2026-09-27T10:07:32Z"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2nd generation",
+              "slug": "bmw-3-series-2nd-generation",
+              "year_from": 1982,
+              "year_to": 1994,
+              "source": {
+                "name": "BMW Group PressClub",
+                "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en",
+                "retrieved_at": "2026-09-27T10:07:32Z"
+              },
+              "body_variants": [
+                {
+                  "name": "Sedan",
+                  "slug": "bmw-3-series-2-sedan",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Convertible",
+                  "slug": "bmw-3-series-2-convertible",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Touring",
+                  "slug": "bmw-3-series-2-touring",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Coupé",
+                  "slug": "bmw-3-series-2-coupe",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                }
+              ]
+            },
+            {
+              "name": "3rd generation",
+              "slug": "bmw-3-series-3rd-generation",
+              "year_from": 1990,
+              "year_to": 2000,
+              "source": {
+                "name": "BMW Group PressClub",
+                "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en",
+                "retrieved_at": "2026-09-27T10:07:32Z"
+              },
+              "body_variants": [
+                {
+                  "name": "Sedan",
+                  "slug": "bmw-3-series-3-sedan",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Coupé",
+                  "slug": "bmw-3-series-3-coupe",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Convertible",
+                  "slug": "bmw-3-series-3-convertible",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Touring",
+                  "slug": "bmw-3-series-3-touring",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Compact",
+                  "slug": "bmw-3-series-3-compact",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                }
+              ]
+            },
+            {
+              "name": "4th generation",
+              "slug": "bmw-3-series-4th-generation",
+              "year_from": 1997,
+              "year_to": 2006,
+              "source": {
+                "name": "BMW Group PressClub",
+                "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en",
+                "retrieved_at": "2026-09-27T10:07:32Z"
+              },
+              "body_variants": [
+                {
+                  "name": "Sedan",
+                  "slug": "bmw-3-series-4-sedan",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Coupé",
+                  "slug": "bmw-3-series-4-coupe",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Convertible",
+                  "slug": "bmw-3-series-4-convertible",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Touring",
+                  "slug": "bmw-3-series-4-touring",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Compact",
+                  "slug": "bmw-3-series-4-compact",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                }
+              ]
+            },
+            {
+              "name": "5th generation",
+              "slug": "bmw-3-series-5th-generation",
+              "year_from": 2004,
+              "year_to": 2013,
+              "source": {
+                "name": "BMW Group PressClub",
+                "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en",
+                "retrieved_at": "2026-09-27T10:07:32Z"
+              },
+              "body_variants": [
+                {
+                  "name": "Sedan",
+                  "slug": "bmw-3-series-5-sedan",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Coupé",
+                  "slug": "bmw-3-series-5-coupe",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Convertible",
+                  "slug": "bmw-3-series-5-convertible",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Touring",
+                  "slug": "bmw-3-series-5-touring",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                }
+              ]
+            },
+            {
+              "name": "6th generation",
+              "slug": "bmw-3-series-6th-generation",
+              "year_from": 2011,
+              "year_to": 2021,
+              "source": {
+                "name": "BMW Group PressClub",
+                "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en",
+                "retrieved_at": "2026-09-27T10:07:32Z"
+              },
+              "body_variants": [
+                {
+                  "name": "Sedan",
+                  "slug": "bmw-3-series-6-sedan",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Touring",
+                  "slug": "bmw-3-series-6-touring",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Gran Turismo",
+                  "slug": "bmw-3-series-6-gran-turismo",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                }
+              ]
+            },
+            {
+              "name": "7th generation",
+              "slug": "bmw-3-series-7th-generation",
+              "year_from": 2018,
+              "year_to": null,
+              "source": {
+                "name": "BMW Group PressClub",
+                "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en",
+                "retrieved_at": "2026-09-27T10:07:32Z"
+              },
+              "body_variants": [
+                {
+                  "name": "Sedan",
+                  "slug": "bmw-3-series-7-sedan",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                },
+                {
+                  "name": "Touring",
+                  "slug": "bmw-3-series-7-touring",
+                  "source": {"name": "BMW Group PressClub", "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en", "retrieved_at": "2026-09-27T10:07:32Z"}
+                }
+              ]
+            }
+          ],
+          "source": {
+            "name": "BMW Group PressClub",
+            "url": "https://www.press.bmwgroup.com/canada/article/detail/T0454453EN/50-years-of-bmw-3-series-production-%20-an-international-success-story?language=en",
+            "retrieved_at": "2026-09-27T10:07:32Z"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q796364",
+        "url": "https://www.wikidata.org/wiki/Q796364",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q36008",
+      "name": "Mercedes-Benz",
+      "slug": "mercedes-benz",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q818412",
+          "name": "Benz 10/18 PS",
+          "slug": "benz-10-18-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q818412",
+            "url": "https://www.wikidata.org/wiki/Q818412",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q818413",
+          "name": "Benz 10/20 PS",
+          "slug": "benz-10-20-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q818413",
+            "url": "https://www.wikidata.org/wiki/Q818413",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q523884",
+          "name": "Benz 10/30 PS",
+          "slug": "benz-10-30-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q523884",
+            "url": "https://www.wikidata.org/wiki/Q523884",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q818414",
+          "name": "Benz 11/40 PS",
+          "slug": "benz-11-40-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q818414",
+            "url": "https://www.wikidata.org/wiki/Q818414",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q818416",
+          "name": "Benz 12/30 PS",
+          "slug": "benz-12-30-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q818416",
+            "url": "https://www.wikidata.org/wiki/Q818416",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q141794",
+          "name": "Benz 14/30 PS",
+          "slug": "benz-14-30-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q141794",
+            "url": "https://www.wikidata.org/wiki/Q141794",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q818417",
+          "name": "Benz 16/35 PS",
+          "slug": "benz-16-35-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q818417",
+            "url": "https://www.wikidata.org/wiki/Q818417",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q818420",
+          "name": "Benz 16/50 PS",
+          "slug": "benz-16-50-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q818420",
+            "url": "https://www.wikidata.org/wiki/Q818420",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q818419",
+          "name": "Benz 18/45 PS",
+          "slug": "benz-18-45-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q818419",
+            "url": "https://www.wikidata.org/wiki/Q818419",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q818421",
+          "name": "Benz 20/35 PS",
+          "slug": "benz-20-35-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q818421",
+            "url": "https://www.wikidata.org/wiki/Q818421",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q266622",
+          "name": "Benz 21/50 PS",
+          "slug": "benz-21-50-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q266622",
+            "url": "https://www.wikidata.org/wiki/Q266622",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q818425",
+          "name": "Benz 24/40 PS",
+          "slug": "benz-24-40-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q818425",
+            "url": "https://www.wikidata.org/wiki/Q818425",
+            "brand_property": "P1716",
+            "brand_qid": "Q36008",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q36008",
+        "url": "https://www.wikidata.org/wiki/Q36008",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q246",
+      "name": "Volkswagen",
+      "slug": "volkswagen",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q1543320",
+          "name": "Volkswagen Passat (B1)",
+          "slug": "volkswagen-passat-b1",
+          "aliases": [
+            "Volkswagen Passat B1"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1543320",
+            "url": "https://www.wikidata.org/wiki/Q1543320",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q30600",
+          "name": "Volkswagen Passat (B2)",
+          "slug": "volkswagen-passat-b2",
+          "aliases": [
+            "Volkswagen Passat B2"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q30600",
+            "url": "https://www.wikidata.org/wiki/Q30600",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1784892",
+          "name": "Volkswagen Passat (B3)",
+          "slug": "volkswagen-passat-b3",
+          "aliases": [
+            "Volkswagen Passat B3"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1784892",
+            "url": "https://www.wikidata.org/wiki/Q1784892",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1785526",
+          "name": "Volkswagen Passat (B4)",
+          "slug": "volkswagen-passat-b4",
+          "aliases": [
+            "Volkswagen Passat B4"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1785526",
+            "url": "https://www.wikidata.org/wiki/Q1785526",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2007797",
+          "name": "Volkswagen Passat (B5)",
+          "slug": "volkswagen-passat-b5",
+          "aliases": [
+            "Volkswagen Passat B5"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2007797",
+            "url": "https://www.wikidata.org/wiki/Q2007797",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1140232",
+          "name": "Volkswagen Passat (B7)",
+          "slug": "volkswagen-passat-b7",
+          "aliases": [
+            "Volkswagen Passat B7"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1140232",
+            "url": "https://www.wikidata.org/wiki/Q1140232",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q15305561",
+          "name": "Volkswagen Passat (B8)",
+          "slug": "volkswagen-passat-b8",
+          "aliases": [
+            "Volkswagen Passat B8"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q15305561",
+            "url": "https://www.wikidata.org/wiki/Q15305561",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2506880",
+          "name": "Volkswagen Passat (Северная Америка и Китай)",
+          "slug": "volkswagen-passat-nms",
+          "aliases": [
+            "Volkswagen Passat NMS"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2506880",
+            "url": "https://www.wikidata.org/wiki/Q2506880",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q12072924",
+          "name": "Volkswagen Passat Alltrack",
+          "slug": "volkswagen-passat-alltrack",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q12072924",
+            "url": "https://www.wikidata.org/wiki/Q12072924",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2007788",
+          "name": "Volkswagen Passat B6",
+          "slug": "volkswagen-passat-b6",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2007788",
+            "url": "https://www.wikidata.org/wiki/Q2007788",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q122145519",
+          "name": "Volkswagen Passat B9",
+          "slug": "volkswagen-passat-b9",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q122145519",
+            "url": "https://www.wikidata.org/wiki/Q122145519",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "name": "Volkswagen Passat",
+          "slug": "volkswagen-passat-family",
+          "aliases": [],
+          "generations": [
+            {
+              "name": "Passat B1",
+              "slug": "volkswagen-passat-b1-generation",
+              "year_from": 1973,
+              "year_to": 1980,
+              "source": {
+                "name": "manual",
+                "url": "https://www.volkswagen-newsroom.com/en/passat-b1-19731980-19534"
+              }
+            },
+            {
+              "name": "Passat B2",
+              "slug": "volkswagen-passat-b2-generation",
+              "year_from": 1980,
+              "year_to": 1988,
+              "source": {
+                "name": "manual",
+                "url": "https://www.volkswagen-newsroom.com/de/passat-b2-19801988-19537"
+              }
+            },
+            {
+              "name": "Passat B3",
+              "slug": "volkswagen-passat-b3-generation",
+              "year_from": 1988,
+              "year_to": 1993,
+              "source": {
+                "name": "manual",
+                "url": "https://www.volkswagen-newsroom.com/en/passat-b3-19881993-19540"
+              }
+            },
+            {
+              "name": "Passat B4",
+              "slug": "volkswagen-passat-b4-generation",
+              "year_from": 1993,
+              "year_to": 1997,
+              "source": {
+                "name": "manual",
+                "url": "https://www.volkswagen-newsroom.com/de/passat-b4-19931997-19543"
+              }
+            },
+            {
+              "name": "Passat B5",
+              "slug": "volkswagen-passat-b5-generation",
+              "year_from": 1996,
+              "year_to": 2005,
+              "source": {
+                "name": "manual",
+                "url": "https://www.volkswagen-newsroom.com/de/passat-b5-19962005-19546"
+              }
+            },
+            {
+              "name": "Passat B6",
+              "slug": "volkswagen-passat-b6-generation",
+              "year_from": 2005,
+              "year_to": 2010,
+              "source": {
+                "name": "manual",
+                "url": "https://www.volkswagen-newsroom.com/de/passat-b6-20052010-19549"
+              }
+            },
+            {
+              "name": "Passat B7",
+              "slug": "volkswagen-passat-b7-generation",
+              "year_from": 2010,
+              "year_to": 2015,
+              "source": {
+                "name": "manual",
+                "url": "https://www.volkswagen-newsroom.com/en/passat-b7-20102014-20036"
+              }
+            },
+            {
+              "name": "Passat B8",
+              "slug": "volkswagen-passat-b8-generation",
+              "year_from": 2014,
+              "year_to": 2023,
+              "source": {
+                "name": "manual",
+                "url": "https://www.volkswagen.de/de/besitzer-und-service/ueber-ihr-auto/vorgaengermodelle/mittelklasse/passat-b8.html"
+              }
+            },
+            {
+              "name": "Passat B9",
+              "slug": "volkswagen-passat-b9-generation",
+              "year_from": 2024,
+              "year_to": null,
+              "source": {
+                "name": "manual",
+                "url": "https://www.volkswagen-newsroom.com/en/press-releases/configurator-open-pre-sales-of-the-all-new-passat-have-now-started-17924"
+              }
+            }
+          ],
+          "source": {
+            "name": "manual",
+            "url": "https://www.volkswagen-newsroom.com/de/passat-19532"
+          }
+        },
+        {
+          "qid": "Q910892",
+          "name": "Volkswagen Passat CC",
+          "slug": "volkswagen-passat-cc",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q910892",
+            "url": "https://www.wikidata.org/wiki/Q910892",
+            "brand_property": "P1716",
+            "brand_qid": "Q246",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q246",
+        "url": "https://www.wikidata.org/wiki/Q246",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q135700024",
+      "name": "Škoda",
+      "slug": "skoda",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q63978770",
+          "name": "Škoda Citigo-e iV",
+          "slug": "skoda-citigo-e-iv",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q63978770",
+            "url": "https://www.wikidata.org/wiki/Q63978770",
+            "brand_property": "P1716",
+            "brand_qid": "Q135700024",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q52054487",
+          "name": "Škoda Kamiq",
+          "slug": "skoda-kamiq",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q52054487",
+            "url": "https://www.wikidata.org/wiki/Q52054487",
+            "brand_property": "P1716",
+            "brand_qid": "Q135700024",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q180270",
+          "name": "Škoda Rapid",
+          "slug": "skoda-rapid",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q180270",
+            "url": "https://www.wikidata.org/wiki/Q180270",
+            "brand_property": "P1716",
+            "brand_qid": "Q135700024",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q57340128",
+          "name": "Škoda Scala",
+          "slug": "skoda-scala",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q57340128",
+            "url": "https://www.wikidata.org/wiki/Q57340128",
+            "brand_property": "P1716",
+            "brand_qid": "Q135700024",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q392105",
+          "name": "Škoda Yeti",
+          "slug": "skoda-yeti",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q392105",
+            "url": "https://www.wikidata.org/wiki/Q392105",
+            "brand_property": "P1716",
+            "brand_qid": "Q135700024",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q135700024",
+        "url": "https://www.wikidata.org/wiki/Q135700024",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q125544573",
+      "name": "Renault",
+      "slug": "renault",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q2143689",
+          "name": "Renault 17",
+          "slug": "renault-17",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2143689",
+            "url": "https://www.wikidata.org/wiki/Q2143689",
+            "brand_property": "P1716",
+            "brand_qid": "Q125544573",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q728034",
+          "name": "Renault 19",
+          "slug": "renault-19",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q728034",
+            "url": "https://www.wikidata.org/wiki/Q728034",
+            "brand_property": "P1716",
+            "brand_qid": "Q125544573",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q215715",
+          "name": "Renault 25",
+          "slug": "renault-25",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q215715",
+            "url": "https://www.wikidata.org/wiki/Q215715",
+            "brand_property": "P1716",
+            "brand_qid": "Q125544573",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q676767",
+          "name": "Renault Dauphine",
+          "slug": "renault-dauphine",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q676767",
+            "url": "https://www.wikidata.org/wiki/Q676767",
+            "brand_property": "P1716",
+            "brand_qid": "Q125544573",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2702123",
+          "name": "Renault Symbol",
+          "slug": "renault-symbol",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2702123",
+            "url": "https://www.wikidata.org/wiki/Q2702123",
+            "brand_property": "P1716",
+            "brand_qid": "Q125544573",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q125544573",
+        "url": "https://www.wikidata.org/wiki/Q125544573",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q6742",
+      "name": "Peugeot",
+      "slug": "peugeot",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q214229",
+          "name": "Peugeot 107",
+          "slug": "peugeot-107",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q214229",
+            "url": "https://www.wikidata.org/wiki/Q214229",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q6166410",
+          "name": "Peugeot 207 Compact",
+          "slug": "peugeot-207-compact",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q6166410",
+            "url": "https://www.wikidata.org/wiki/Q6166410",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2006832",
+          "name": "Peugeot 207 S2000",
+          "slug": "peugeot-207-s2000",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2006832",
+            "url": "https://www.wikidata.org/wiki/Q2006832",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q60846030",
+          "name": "Peugeot 208 B",
+          "slug": "peugeot-208-b",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q60846030",
+            "url": "https://www.wikidata.org/wiki/Q60846030",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3125322",
+          "name": "Peugeot 20Cup",
+          "slug": "peugeot-20cup",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3125322",
+            "url": "https://www.wikidata.org/wiki/Q3125322",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q16589840",
+          "name": "Peugeot 308",
+          "slug": "peugeot-308",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q16589840",
+            "url": "https://www.wikidata.org/wiki/Q16589840",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3377742",
+          "name": "Peugeot 308 II",
+          "slug": "peugeot-308-ii",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3377742",
+            "url": "https://www.wikidata.org/wiki/Q3377742",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1867409",
+          "name": "Peugeot 308 RC Z",
+          "slug": "peugeot-308-rc-z",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1867409",
+            "url": "https://www.wikidata.org/wiki/Q1867409",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1139986",
+          "name": "Peugeot 309",
+          "slug": "peugeot-309",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1139986",
+            "url": "https://www.wikidata.org/wiki/Q1139986",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q914093",
+          "name": "Peugeot 4007",
+          "slug": "peugeot-4007",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q914093",
+            "url": "https://www.wikidata.org/wiki/Q914093",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q636908",
+          "name": "Peugeot 401",
+          "slug": "peugeot-401",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q636908",
+            "url": "https://www.wikidata.org/wiki/Q636908",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3377747",
+          "name": "Peugeot 405 Turbo-16",
+          "slug": "peugeot-405-turbo-16",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3377747",
+            "url": "https://www.wikidata.org/wiki/Q3377747",
+            "brand_property": "P1716",
+            "brand_qid": "Q6742",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q6742",
+        "url": "https://www.wikidata.org/wiki/Q6742",
+        "label_property": "rdfs:label",
+        "brand_class": null,
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q6746",
+      "name": "Citroën",
+      "slug": "citroen",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q326015",
+          "name": "Citroën 2CV",
+          "slug": "citroen-2cv",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q326015",
+            "url": "https://www.wikidata.org/wiki/Q326015",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q5122856",
+          "name": "Citroën 7U",
+          "slug": "citroen-7u",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q5122856",
+            "url": "https://www.wikidata.org/wiki/Q5122856",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1836612",
+          "name": "Citroën Acadiane",
+          "slug": "citroen-acadiane",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1836612",
+            "url": "https://www.wikidata.org/wiki/Q1836612",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q86733857",
+          "name": "Citroën Ami",
+          "slug": "citroen-ami",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q86733857",
+            "url": "https://www.wikidata.org/wiki/Q86733857",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1093535",
+          "name": "Citroën Ami 6",
+          "slug": "citroen-ami-6",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1093535",
+            "url": "https://www.wikidata.org/wiki/Q1093535",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2669766",
+          "name": "Citroën Ami 8",
+          "slug": "citroen-ami-8",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2669766",
+            "url": "https://www.wikidata.org/wiki/Q2669766",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1093538",
+          "name": "Citroën AX",
+          "slug": "citroen-ax",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1093538",
+            "url": "https://www.wikidata.org/wiki/Q1093538",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2974491",
+          "name": "Citroën B10",
+          "slug": "citroen-b10",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2974491",
+            "url": "https://www.wikidata.org/wiki/Q2974491",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q756741",
+          "name": "Citroën Berlingo",
+          "slug": "citroen-berlingo",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q756741",
+            "url": "https://www.wikidata.org/wiki/Q756741",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q118237449",
+          "name": "Citroën Berlingo III",
+          "slug": "citroen-berlingo-iii",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q118237449",
+            "url": "https://www.wikidata.org/wiki/Q118237449",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3555482",
+          "name": "Citroën Bijou",
+          "slug": "citroen-bijou",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3555482",
+            "url": "https://www.wikidata.org/wiki/Q3555482",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q939640",
+          "name": "Citroën BX",
+          "slug": "citroen-bx",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q939640",
+            "url": "https://www.wikidata.org/wiki/Q939640",
+            "brand_property": "P1716",
+            "brand_qid": "Q6746",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q6746",
+        "url": "https://www.wikidata.org/wiki/Q6746",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q40966",
+      "name": "Opel",
+      "slug": "opel",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q1486089",
+          "name": "GM HydroGen4",
+          "slug": "gm-hydrogen4",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1486089",
+            "url": "https://www.wikidata.org/wiki/Q1486089",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q6438673",
+          "name": "Opel 1,2 Liter",
+          "slug": "opel-1-2-litre",
+          "aliases": [
+            "Opel 1.2 litre"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q6438673",
+            "url": "https://www.wikidata.org/wiki/Q6438673",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3882813",
+          "name": "Opel 1.0 litre",
+          "slug": "opel-1-0-litre",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3882813",
+            "url": "https://www.wikidata.org/wiki/Q3882813",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q196120",
+          "name": "Opel 1.3 litre",
+          "slug": "opel-1-3-litre",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q196120",
+            "url": "https://www.wikidata.org/wiki/Q196120",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q213239",
+          "name": "Opel 1.8 litre",
+          "slug": "opel-1-8-litre",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q213239",
+            "url": "https://www.wikidata.org/wiki/Q213239",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q18026503",
+          "name": "Opel 10/12 PS",
+          "slug": "opel-10-12-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q18026503",
+            "url": "https://www.wikidata.org/wiki/Q18026503",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3882814",
+          "name": "Opel 10/18 PS",
+          "slug": "opel-10-18-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3882814",
+            "url": "https://www.wikidata.org/wiki/Q3882814",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1318430",
+          "name": "Opel 10/30 PS",
+          "slug": "opel-10-30-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1318430",
+            "url": "https://www.wikidata.org/wiki/Q1318430",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q322637",
+          "name": "Opel 10/40 PS",
+          "slug": "opel-10-40-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q322637",
+            "url": "https://www.wikidata.org/wiki/Q322637",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q18026506",
+          "name": "Opel 12/14 HP",
+          "slug": "opel-12-14-hp",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q18026506",
+            "url": "https://www.wikidata.org/wiki/Q18026506",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3882841",
+          "name": "Opel 12/50 PS",
+          "slug": "opel-12-50-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3882841",
+            "url": "https://www.wikidata.org/wiki/Q3882841",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3882820",
+          "name": "Opel 13/30 PS",
+          "slug": "opel-13-30-ps",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3882820",
+            "url": "https://www.wikidata.org/wiki/Q3882820",
+            "brand_property": "P1716",
+            "brand_qid": "Q40966",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q40966",
+        "url": "https://www.wikidata.org/wiki/Q40966",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q20827633",
+      "name": "Ford",
+      "slug": "ford",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q1436768",
+          "name": "1952 Ford",
+          "slug": "1952-ford",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1436768",
+            "url": "https://www.wikidata.org/wiki/Q1436768",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q5467629",
+          "name": "Ford 4F27E transmission",
+          "slug": "ford-4f27e-transmission",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q5467629",
+            "url": "https://www.wikidata.org/wiki/Q5467629",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1622915",
+          "name": "Ford 999",
+          "slug": "ford-999",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1622915",
+            "url": "https://www.wikidata.org/wiki/Q1622915",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1133667",
+          "name": "Ford Anglia",
+          "slug": "ford-anglia",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1133667",
+            "url": "https://www.wikidata.org/wiki/Q1133667",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q5467639",
+          "name": "Ford AOD transmission",
+          "slug": "ford-aod-transmission",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q5467639",
+            "url": "https://www.wikidata.org/wiki/Q5467639",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q5467640",
+          "name": "Ford ATX transmission",
+          "slug": "ford-atx-transmission",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q5467640",
+            "url": "https://www.wikidata.org/wiki/Q5467640",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3747964",
+          "name": "Ford AU Falcon",
+          "slug": "ford-au-falcon",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3747964",
+            "url": "https://www.wikidata.org/wiki/Q3747964",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q5467642",
+          "name": "Ford AXOD transmission",
+          "slug": "ford-axod-transmission",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q5467642",
+            "url": "https://www.wikidata.org/wiki/Q5467642",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q5467657",
+          "name": "Ford B",
+          "slug": "ford-b3-platform",
+          "aliases": [
+            "Ford B3 platform"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q5467657",
+            "url": "https://www.wikidata.org/wiki/Q5467657",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3747965",
+          "name": "Ford BA Falcon",
+          "slug": "ford-ba-falcon",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3747965",
+            "url": "https://www.wikidata.org/wiki/Q3747965",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2510516",
+          "name": "Ford Bantam",
+          "slug": "ford-bantam",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2510516",
+            "url": "https://www.wikidata.org/wiki/Q2510516",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q785623",
+          "name": "Ford BF Falcon",
+          "slug": "ford-bf-falcon",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q785623",
+            "url": "https://www.wikidata.org/wiki/Q785623",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827633",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q20827633",
+        "url": "https://www.wikidata.org/wiki/Q20827633",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q53268",
+      "name": "Toyota",
+      "slug": "toyota",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q1324772",
+          "name": "Toyota 2000GT",
+          "slug": "toyota-2000gt",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1324772",
+            "url": "https://www.wikidata.org/wiki/Q1324772",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1342063",
+          "name": "Toyota 4Runner",
+          "slug": "toyota-4runner",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1342063",
+            "url": "https://www.wikidata.org/wiki/Q1342063",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q8982052",
+          "name": "Toyota A1",
+          "slug": "toyota-a1",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q8982052",
+            "url": "https://www.wikidata.org/wiki/Q8982052",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q946724",
+          "name": "Toyota AA",
+          "slug": "toyota-aa",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q946724",
+            "url": "https://www.wikidata.org/wiki/Q946724",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q8982252",
+          "name": "Toyota AC",
+          "slug": "toyota-ac",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q8982252",
+            "url": "https://www.wikidata.org/wiki/Q8982252",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q8982302",
+          "name": "Toyota AE",
+          "slug": "toyota-ae",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q8982302",
+            "url": "https://www.wikidata.org/wiki/Q8982302",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q7830735",
+          "name": "Toyota AE85",
+          "slug": "toyota-ae85",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q7830735",
+            "url": "https://www.wikidata.org/wiki/Q7830735",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1377219",
+          "name": "Toyota AE86",
+          "slug": "toyota-ae86",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1377219",
+            "url": "https://www.wikidata.org/wiki/Q1377219",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q111019635",
+          "name": "Toyota Agya",
+          "slug": "toyota-agya",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q111019635",
+            "url": "https://www.wikidata.org/wiki/Q111019635",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q111021193",
+          "name": "Toyota Allex",
+          "slug": "toyota-allex",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q111021193",
+            "url": "https://www.wikidata.org/wiki/Q111021193",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2726227",
+          "name": "Toyota Allex",
+          "slug": "toyota-corolla-e120",
+          "aliases": [
+            "Toyota Corolla E120"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2726227",
+            "url": "https://www.wikidata.org/wiki/Q2726227",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1197010",
+          "name": "Toyota Allion",
+          "slug": "toyota-allion",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1197010",
+            "url": "https://www.wikidata.org/wiki/Q1197010",
+            "brand_property": "P1716",
+            "brand_qid": "Q53268",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q53268",
+        "url": "https://www.wikidata.org/wiki/Q53268",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q35919",
+      "name": "Lexus",
+      "slug": "lexus",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q1508311",
+          "name": "Lexus CT",
+          "slug": "lexus-ct",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1508311",
+            "url": "https://www.wikidata.org/wiki/Q1508311",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q577397",
+          "name": "Lexus ES",
+          "slug": "lexus-es",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q577397",
+            "url": "https://www.wikidata.org/wiki/Q577397",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1045746",
+          "name": "Lexus GS",
+          "slug": "lexus-gs",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1045746",
+            "url": "https://www.wikidata.org/wiki/Q1045746",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q6537920",
+          "name": "Lexus GS",
+          "slug": "lexus-gs-q6537920",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q6537920",
+            "url": "https://www.wikidata.org/wiki/Q6537920",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q90925643",
+          "name": "Lexus GS F",
+          "slug": "lexus-gs-f",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q90925643",
+            "url": "https://www.wikidata.org/wiki/Q90925643",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1458281",
+          "name": "Lexus GX",
+          "slug": "lexus-gx",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1458281",
+            "url": "https://www.wikidata.org/wiki/Q1458281",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1851045",
+          "name": "Lexus HS",
+          "slug": "lexus-hs",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1851045",
+            "url": "https://www.wikidata.org/wiki/Q1851045",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q838833",
+          "name": "Lexus IS",
+          "slug": "lexus-is",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q838833",
+            "url": "https://www.wikidata.org/wiki/Q838833",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q6537926",
+          "name": "Lexus IS (XE20)",
+          "slug": "lexus-is-xe20",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q6537926",
+            "url": "https://www.wikidata.org/wiki/Q6537926",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q21208921",
+          "name": "Lexus IS (XE30)",
+          "slug": "lexus-is-xe30",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q21208921",
+            "url": "https://www.wikidata.org/wiki/Q21208921",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1808616",
+          "name": "Lexus IS F",
+          "slug": "lexus-is-f",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1808616",
+            "url": "https://www.wikidata.org/wiki/Q1808616",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q119104237",
+          "name": "Lexus LBX",
+          "slug": "lexus-lbx",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q119104237",
+            "url": "https://www.wikidata.org/wiki/Q119104237",
+            "brand_property": "P1716",
+            "brand_qid": "Q35919",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q35919",
+        "url": "https://www.wikidata.org/wiki/Q35919",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q20165",
+      "name": "Nissan",
+      "slug": "nissan",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q1993688",
+          "name": "Interstar",
+          "slug": "nissan-interstar",
+          "aliases": [
+            "Nissan Interstar"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1993688",
+            "url": "https://www.wikidata.org/wiki/Q1993688",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1063020",
+          "name": "Nissan 180SX",
+          "slug": "nissan-180sx",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1063020",
+            "url": "https://www.wikidata.org/wiki/Q1063020",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3274515",
+          "name": "Nissan 240SX",
+          "slug": "nissan-240sx",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3274515",
+            "url": "https://www.wikidata.org/wiki/Q3274515",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q7040898",
+          "name": "Nissan 300C",
+          "slug": "nissan-300c",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q7040898",
+            "url": "https://www.wikidata.org/wiki/Q7040898",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q269036",
+          "name": "Nissan 350Z",
+          "slug": "nissan-350z",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q269036",
+            "url": "https://www.wikidata.org/wiki/Q269036",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q936668",
+          "name": "Nissan 370Z",
+          "slug": "nissan-370z",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q936668",
+            "url": "https://www.wikidata.org/wiki/Q936668",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1030229",
+          "name": "Nissan Actic",
+          "slug": "nissan-actic",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1030229",
+            "url": "https://www.wikidata.org/wiki/Q1030229",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2092725",
+          "name": "Nissan Almera Tino",
+          "slug": "nissan-almera-tino",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2092725",
+            "url": "https://www.wikidata.org/wiki/Q2092725",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q86674790",
+          "name": "Nissan Ariya",
+          "slug": "nissan-ariya",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q86674790",
+            "url": "https://www.wikidata.org/wiki/Q86674790",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1670279",
+          "name": "Nissan Avenir",
+          "slug": "nissan-avenir",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1670279",
+            "url": "https://www.wikidata.org/wiki/Q1670279",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q922059",
+          "name": "Nissan AZEAL",
+          "slug": "nissan-azeal",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q922059",
+            "url": "https://www.wikidata.org/wiki/Q922059",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1312105",
+          "name": "Nissan Bassara",
+          "slug": "nissan-bassara",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1312105",
+            "url": "https://www.wikidata.org/wiki/Q1312105",
+            "brand_property": "P1716",
+            "brand_qid": "Q20165",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q20165",
+        "url": "https://www.wikidata.org/wiki/Q20165",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q35996",
+      "name": "Mazda",
+      "slug": "mazda",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q1307082",
+          "name": "Kia Enterprise",
+          "slug": "mazda-sentia",
+          "aliases": [
+            "Mazda Sentia"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1307082",
+            "url": "https://www.wikidata.org/wiki/Q1307082",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q40686734",
+          "name": "Mazda 110 S Cosmo Sport",
+          "slug": "mazda-110-s-cosmo-sport",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q40686734",
+            "url": "https://www.wikidata.org/wiki/Q40686734",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q268800",
+          "name": "Mazda 121",
+          "slug": "mazda-121",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q268800",
+            "url": "https://www.wikidata.org/wiki/Q268800",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1656429",
+          "name": "Mazda 1500",
+          "slug": "mazda-1500",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1656429",
+            "url": "https://www.wikidata.org/wiki/Q1656429",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q20204834",
+          "name": "Mazda 616",
+          "slug": "mazda-616",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q20204834",
+            "url": "https://www.wikidata.org/wiki/Q20204834",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1542973",
+          "name": "Mazda 626",
+          "slug": "mazda-626",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1542973",
+            "url": "https://www.wikidata.org/wiki/Q1542973",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1914587",
+          "name": "Mazda 800",
+          "slug": "mazda-800",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1914587",
+            "url": "https://www.wikidata.org/wiki/Q1914587",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q6005605",
+          "name": "Mazda 929",
+          "slug": "mazda-929",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q6005605",
+            "url": "https://www.wikidata.org/wiki/Q6005605",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1567284",
+          "name": "Mazda AZ-Offroad",
+          "slug": "mazda-az-offroad",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1567284",
+            "url": "https://www.wikidata.org/wiki/Q1567284",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3090006",
+          "name": "Mazda AZ-Wagon",
+          "slug": "mazda-az-wagon",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3090006",
+            "url": "https://www.wikidata.org/wiki/Q3090006",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2302203",
+          "name": "Mazda B-Series",
+          "slug": "mazda-b-series",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2302203",
+            "url": "https://www.wikidata.org/wiki/Q2302203",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q6143187",
+          "name": "Mazda B360",
+          "slug": "mazda-b360",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q6143187",
+            "url": "https://www.wikidata.org/wiki/Q6143187",
+            "brand_property": "P1716",
+            "brand_qid": "Q35996",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q35996",
+        "url": "https://www.wikidata.org/wiki/Q35996",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q125054811",
+      "name": "Hyundai",
+      "slug": "hyundai",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q482596",
+          "name": "Hyundai Coupé",
+          "slug": "hyundai-tiburon",
+          "aliases": [
+            "Hyundai Tiburon"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q482596",
+            "url": "https://www.wikidata.org/wiki/Q482596",
+            "brand_property": "P1716",
+            "brand_qid": "Q125054811",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q18683502",
+          "name": "Hyundai Creta",
+          "slug": "hyundai-creta",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q18683502",
+            "url": "https://www.wikidata.org/wiki/Q18683502",
+            "brand_property": "P1716",
+            "brand_qid": "Q125054811",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q494384",
+          "name": "Hyundai i10",
+          "slug": "hyundai-i10",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q494384",
+            "url": "https://www.wikidata.org/wiki/Q494384",
+            "brand_property": "P1716",
+            "brand_qid": "Q125054811",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q482604",
+          "name": "Hyundai i30",
+          "slug": "hyundai-i30",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q482604",
+            "url": "https://www.wikidata.org/wiki/Q482604",
+            "brand_property": "P1716",
+            "brand_qid": "Q125054811",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q126028569",
+          "name": "Hyundai Ioniq 5 N",
+          "slug": "hyundai-ioniq-5-n",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q126028569",
+            "url": "https://www.wikidata.org/wiki/Q126028569",
+            "brand_property": "P1716",
+            "brand_qid": "Q125054811",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1807564",
+          "name": "Hyundai ix35",
+          "slug": "hyundai-ix35",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1807564",
+            "url": "https://www.wikidata.org/wiki/Q1807564",
+            "brand_property": "P1716",
+            "brand_qid": "Q125054811",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q62098523",
+          "name": "Hyundai KONA Electric",
+          "slug": "hyundai-kona-electric",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q62098523",
+            "url": "https://www.wikidata.org/wiki/Q62098523",
+            "brand_property": "P1716",
+            "brand_qid": "Q125054811",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q55735991",
+          "name": "Hyundai Palisade",
+          "slug": "hyundai-palisade",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q55735991",
+            "url": "https://www.wikidata.org/wiki/Q55735991",
+            "brand_property": "P1716",
+            "brand_qid": "Q125054811",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q4040922",
+          "name": "Hyundai Solaris",
+          "slug": "hyundai-solaris",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q4040922",
+            "url": "https://www.wikidata.org/wiki/Q4040922",
+            "brand_property": "P1716",
+            "brand_qid": "Q125054811",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q125054811",
+        "url": "https://www.wikidata.org/wiki/Q125054811",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q35349",
+      "name": "Kia Motors",
+      "slug": "kia",
+      "aliases": [
+        "Kia"
+      ],
+      "models": [
+        {
+          "qid": "Q461195",
+          "name": "Asia Rocsta",
+          "slug": "asia-rocsta",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q461195",
+            "url": "https://www.wikidata.org/wiki/Q461195",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q487038",
+          "name": "Besta",
+          "slug": "kia-besta",
+          "aliases": [
+            "Kia Besta"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q487038",
+            "url": "https://www.wikidata.org/wiki/Q487038",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q4038887",
+          "name": "Ford Aspire",
+          "slug": "kia-avella",
+          "aliases": [
+            "Kia Avella"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q4038887",
+            "url": "https://www.wikidata.org/wiki/Q4038887",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q484508",
+          "name": "Kia Bongo",
+          "slug": "kia-bongo",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q484508",
+            "url": "https://www.wikidata.org/wiki/Q484508",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1740740",
+          "name": "Kia Brisa",
+          "slug": "kia-brisa",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1740740",
+            "url": "https://www.wikidata.org/wiki/Q1740740",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q483342",
+          "name": "Kia Cadenza",
+          "slug": "kia-k7-cadenza",
+          "aliases": [
+            "Kia K7 (Cadenza)"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q483342",
+            "url": "https://www.wikidata.org/wiki/Q483342",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q488191",
+          "name": "Kia Carens",
+          "slug": "kia-carens",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q488191",
+            "url": "https://www.wikidata.org/wiki/Q488191",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q110156913",
+          "name": "Kia Carens (KY)",
+          "slug": "kia-carens-ky",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q110156913",
+            "url": "https://www.wikidata.org/wiki/Q110156913",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q488173",
+          "name": "Kia Carnival",
+          "slug": "kia-carnival",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q488173",
+            "url": "https://www.wikidata.org/wiki/Q488173",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q200970",
+          "name": "Kia cee’d",
+          "slug": "kia-cee-d",
+          "aliases": [
+            "Kia Cee'd"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q200970",
+            "url": "https://www.wikidata.org/wiki/Q200970",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1740747",
+          "name": "Kia cee’d (ED)",
+          "slug": "kia-cee-d-ed",
+          "aliases": [
+            "Kia cee'd (ED)"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1740747",
+            "url": "https://www.wikidata.org/wiki/Q1740747",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1740749",
+          "name": "Kia cee’d (JD)",
+          "slug": "kia-ceed",
+          "aliases": [
+            "Kia cee’d"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1740749",
+            "url": "https://www.wikidata.org/wiki/Q1740749",
+            "brand_property": "P1716",
+            "brand_qid": "Q35349",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q35349",
+        "url": "https://www.wikidata.org/wiki/Q35349",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q20827600",
+      "name": "Volvo",
+      "slug": "volvo",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q835043",
+          "name": "Volvo C30",
+          "slug": "volvo-c30",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q835043",
+            "url": "https://www.wikidata.org/wiki/Q835043",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q124957984",
+          "name": "Volvo ES90",
+          "slug": "volvo-es90",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q124957984",
+            "url": "https://www.wikidata.org/wiki/Q124957984",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q116769123",
+          "name": "Volvo EX30",
+          "slug": "volvo-ex30",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q116769123",
+            "url": "https://www.wikidata.org/wiki/Q116769123",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q135084540",
+          "name": "Volvo EX60",
+          "slug": "volvo-ex60",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q135084540",
+            "url": "https://www.wikidata.org/wiki/Q135084540",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2303581",
+          "name": "Volvo PV444 / PV544",
+          "slug": "volvo-pv444",
+          "aliases": [
+            "Volvo PV444"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2303581",
+            "url": "https://www.wikidata.org/wiki/Q2303581",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q756322",
+          "name": "Volvo S40",
+          "slug": "volvo-s40",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q756322",
+            "url": "https://www.wikidata.org/wiki/Q756322",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q125251713",
+          "name": "Volvo S60 Cross Country",
+          "slug": "volvo-s60-cross-country",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q125251713",
+            "url": "https://www.wikidata.org/wiki/Q125251713",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1537829",
+          "name": "Volvo S70",
+          "slug": "volvo-s70",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1537829",
+            "url": "https://www.wikidata.org/wiki/Q1537829",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1574600",
+          "name": "Volvo V40",
+          "slug": "volvo-v40",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1574600",
+            "url": "https://www.wikidata.org/wiki/Q1574600",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1511293",
+          "name": "Volvo V60",
+          "slug": "volvo-v60",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1511293",
+            "url": "https://www.wikidata.org/wiki/Q1511293",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q23306999",
+          "name": "Volvo V90",
+          "slug": "volvo-v90",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q23306999",
+            "url": "https://www.wikidata.org/wiki/Q23306999",
+            "brand_property": "P1716",
+            "brand_qid": "Q20827600",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q20827600",
+        "url": "https://www.wikidata.org/wiki/Q20827600",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q739000",
+      "name": "Geely Holding",
+      "slug": "geely",
+      "aliases": [
+        "Geely"
+      ],
+      "models": [
+        {
+          "qid": "Q20072234",
+          "name": "Geely Borui",
+          "slug": "geely-borui",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q20072234",
+            "url": "https://www.wikidata.org/wiki/Q20072234",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q50135075",
+          "name": "Geely Boyue",
+          "slug": "geely-boyue",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q50135075",
+            "url": "https://www.wikidata.org/wiki/Q50135075",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1497679",
+          "name": "Geely CD",
+          "slug": "geely-cd",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1497679",
+            "url": "https://www.wikidata.org/wiki/Q1497679",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q124790537",
+          "name": "Geely Emgrand EV450",
+          "slug": "geely-emgrand-ev450",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q124790537",
+            "url": "https://www.wikidata.org/wiki/Q124790537",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q50135318",
+          "name": "Geely Emgrand GL",
+          "slug": "geely-gl",
+          "aliases": [
+            "Geely GL"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q50135318",
+            "url": "https://www.wikidata.org/wiki/Q50135318",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q50135187",
+          "name": "Geely Emgrand GS",
+          "slug": "geely-gs",
+          "aliases": [
+            "Geely GS"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q50135187",
+            "url": "https://www.wikidata.org/wiki/Q50135187",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1387548",
+          "name": "Geely FC",
+          "slug": "gleagle-gc7",
+          "aliases": [
+            "Gleagle GC7"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1387548",
+            "url": "https://www.wikidata.org/wiki/Q1387548",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q12064270",
+          "name": "Geely GC7",
+          "slug": "geely-gc7",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q12064270",
+            "url": "https://www.wikidata.org/wiki/Q12064270",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q3100086",
+          "name": "Geely GE",
+          "slug": "geely-ge",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q3100086",
+            "url": "https://www.wikidata.org/wiki/Q3100086",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q20072235",
+          "name": "Geely GX2",
+          "slug": "geely-gx2",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q20072235",
+            "url": "https://www.wikidata.org/wiki/Q20072235",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q12064274",
+          "name": "Geely SC7",
+          "slug": "geely-sc7",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q12064274",
+            "url": "https://www.wikidata.org/wiki/Q12064274",
+            "brand_property": "P1716",
+            "brand_qid": "Q739000",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "name": "Geely Coolray",
+          "slug": "geely-coolray",
+          "aliases": [
+            "Binyue"
+          ],
+          "generations": [],
+          "source": {
+            "name": "manual",
+            "url": "https://global.geely.com/en/news/2025/geely-coolray-one-million-global"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q739000",
+        "url": "https://www.wikidata.org/wiki/Q739000",
+        "label_property": "rdfs:label",
+        "brand_class": null,
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q17324842",
+      "name": "БелДжи",
+      "slug": "belgee",
+      "aliases": [
+        "BelGee"
+      ],
+      "models": [
+        {
+          "name": "Belgee X50",
+          "slug": "belgee-x50",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "manual",
+            "url": "https://belgee.by/models/x50-new"
+          }
+        },
+        {
+          "name": "Belgee X70",
+          "slug": "belgee-x70",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "manual",
+            "url": "https://belgee.by/models/x70-new"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q17324842",
+        "url": "https://www.wikidata.org/wiki/Q17324842",
+        "label_property": "rdfs:label",
+        "brand_class": null,
+        "vehicle_brand_relation_property": null
+      }
+    },
+    {
+      "qid": "Q98172997",
+      "name": "Chery",
+      "slug": "chery",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q1070495",
+          "name": "Chery A-13",
+          "slug": "chery-a13",
+          "aliases": [
+            "Chery A13"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1070495",
+            "url": "https://www.wikidata.org/wiki/Q1070495",
+            "brand_property": "P1716",
+            "brand_qid": "Q98172997",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q31837879",
+          "name": "Chery Arrizo 5",
+          "slug": "chery-arrizo-5",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q31837879",
+            "url": "https://www.wikidata.org/wiki/Q31837879",
+            "brand_property": "P1716",
+            "brand_qid": "Q98172997",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q101001394",
+          "name": "Chery eQ5",
+          "slug": "chery-eq5",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q101001394",
+            "url": "https://www.wikidata.org/wiki/Q101001394",
+            "brand_property": "P1716",
+            "brand_qid": "Q98172997",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q139473737",
+          "name": "Chery Exeed EX7",
+          "slug": "chery-exeed-ex7",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q139473737",
+            "url": "https://www.wikidata.org/wiki/Q139473737",
+            "brand_property": "P1716",
+            "brand_qid": "Q98172997",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q43539709",
+          "name": "Chery Tiggo 4",
+          "slug": "chery-tiggo-5x",
+          "aliases": [
+            "Chery Tiggo 5x"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q43539709",
+            "url": "https://www.wikidata.org/wiki/Q43539709",
+            "brand_property": "P1716",
+            "brand_qid": "Q98172997",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q131522134",
+          "name": "Chery Tiggo 8L",
+          "slug": "chery-tiggo-8l",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q131522134",
+            "url": "https://www.wikidata.org/wiki/Q131522134",
+            "brand_property": "P1716",
+            "brand_qid": "Q98172997",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q117455406",
+          "name": "Chery Tiggo 9",
+          "slug": "chery-tiggo-9",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q117455406",
+            "url": "https://www.wikidata.org/wiki/Q117455406",
+            "brand_property": "P1716",
+            "brand_qid": "Q98172997",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q136377485",
+          "name": "Chery Tiggo 9X",
+          "slug": "chery-tiggo-9x",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q136377485",
+            "url": "https://www.wikidata.org/wiki/Q136377485",
+            "brand_property": "P1716",
+            "brand_qid": "Q98172997",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q98172997",
+        "url": "https://www.wikidata.org/wiki/Q98172997",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q98142348",
+      "name": "Changan",
+      "slug": "changan",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q63030634",
+          "name": "Chana Star 9",
+          "slug": "chana-star-9",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q63030634",
+            "url": "https://www.wikidata.org/wiki/Q63030634",
+            "brand_property": "P1716",
+            "brand_qid": "Q98142348",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q55606991",
+          "name": "Changan CS15",
+          "slug": "changan-cs15",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q55606991",
+            "url": "https://www.wikidata.org/wiki/Q55606991",
+            "brand_property": "P1716",
+            "brand_qid": "Q98142348",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q121095134",
+          "name": "Changan Lamore",
+          "slug": "changan-lamore",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q121095134",
+            "url": "https://www.wikidata.org/wiki/Q121095134",
+            "brand_property": "P1716",
+            "brand_qid": "Q98142348",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q115307316",
+          "name": "Changan Oshan X5 Plus",
+          "slug": "changan-oshan-x5-plus",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q115307316",
+            "url": "https://www.wikidata.org/wiki/Q115307316",
+            "brand_property": "P1716",
+            "brand_qid": "Q98142348",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q123187339",
+          "name": "Nevo A05",
+          "slug": "nevo-a05",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q123187339",
+            "url": "https://www.wikidata.org/wiki/Q123187339",
+            "brand_property": "P1716",
+            "brand_qid": "Q98142348",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q98142348",
+        "url": "https://www.wikidata.org/wiki/Q98142348",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q28223947",
+      "name": "Haval",
+      "slug": "haval",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q109311654",
+          "name": "Haval Cool Dog",
+          "slug": "haval-x-dog",
+          "aliases": [
+            "Haval X Dog"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q109311654",
+            "url": "https://www.wikidata.org/wiki/Q109311654",
+            "brand_property": "P1716",
+            "brand_qid": "Q28223947",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q57737742",
+          "name": "Haval F5",
+          "slug": "haval-f5",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q57737742",
+            "url": "https://www.wikidata.org/wiki/Q57737742",
+            "brand_property": "P1716",
+            "brand_qid": "Q28223947",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q16687853",
+          "name": "Haval H1",
+          "slug": "haval-h1",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q16687853",
+            "url": "https://www.wikidata.org/wiki/Q16687853",
+            "brand_property": "P1716",
+            "brand_qid": "Q28223947",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q28225745",
+          "name": "Haval H2",
+          "slug": "haval-h2",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q28225745",
+            "url": "https://www.wikidata.org/wiki/Q28225745",
+            "brand_property": "P1716",
+            "brand_qid": "Q28223947",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q12064314",
+          "name": "Haval H6",
+          "slug": "haval-h6",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q12064314",
+            "url": "https://www.wikidata.org/wiki/Q12064314",
+            "brand_property": "P1716",
+            "brand_qid": "Q28223947",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q44954392",
+          "name": "Haval H9",
+          "slug": "haval-h9",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q44954392",
+            "url": "https://www.wikidata.org/wiki/Q44954392",
+            "brand_property": "P1716",
+            "brand_qid": "Q28223947",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q123052422",
+          "name": "Haval Raptor",
+          "slug": "haval-raptor",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q123052422",
+            "url": "https://www.wikidata.org/wiki/Q123052422",
+            "brand_property": "P1716",
+            "brand_qid": "Q28223947",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q28223947",
+        "url": "https://www.wikidata.org/wiki/Q28223947",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q27423",
+      "name": "BYD Auto",
+      "slug": "byd",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q728323",
+          "name": "BYD e6",
+          "slug": "byd-e6",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q728323",
+            "url": "https://www.wikidata.org/wiki/Q728323",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q616740",
+          "name": "BYD F1",
+          "slug": "byd-f0",
+          "aliases": [
+            "BYD F0"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q616740",
+            "url": "https://www.wikidata.org/wiki/Q616740",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q797218",
+          "name": "BYD F3",
+          "slug": "byd-f3",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q797218",
+            "url": "https://www.wikidata.org/wiki/Q797218",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q631892",
+          "name": "BYD F3DM",
+          "slug": "byd-f3dm",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q631892",
+            "url": "https://www.wikidata.org/wiki/Q631892",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q797216",
+          "name": "BYD F3R",
+          "slug": "byd-f3r",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q797216",
+            "url": "https://www.wikidata.org/wiki/Q797216",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q5832821",
+          "name": "BYD F6",
+          "slug": "byd-f6",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q5832821",
+            "url": "https://www.wikidata.org/wiki/Q5832821",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q797228",
+          "name": "BYD F6DM",
+          "slug": "byd-f6dm",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q797228",
+            "url": "https://www.wikidata.org/wiki/Q797228",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q797230",
+          "name": "BYD Flyer",
+          "slug": "byd-flyer",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q797230",
+            "url": "https://www.wikidata.org/wiki/Q797230",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q797223",
+          "name": "BYD G3",
+          "slug": "byd-g3",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q797223",
+            "url": "https://www.wikidata.org/wiki/Q797223",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q12062571",
+          "name": "BYD G6",
+          "slug": "byd-g6",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q12062571",
+            "url": "https://www.wikidata.org/wiki/Q12062571",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q98886444",
+          "name": "BYD Han",
+          "slug": "byd-han",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q98886444",
+            "url": "https://www.wikidata.org/wiki/Q98886444",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q797220",
+          "name": "BYD L3",
+          "slug": "byd-l3",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q797220",
+            "url": "https://www.wikidata.org/wiki/Q797220",
+            "brand_property": "P1716",
+            "brand_qid": "Q27423",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "name": "BYD Atto 3",
+          "slug": "byd-atto-3",
+          "aliases": [
+            "Yuan Plus"
+          ],
+          "generations": [],
+          "source": {
+            "name": "manual",
+            "url": "https://en.byd.com/news/byd-hits-the-australian-passenger-vehicle-market-with-atto-3/"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q27423",
+        "url": "https://www.wikidata.org/wiki/Q27423",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q106621124",
+      "name": "Zeekr",
+      "slug": "zeekr",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q106553049",
+          "name": "Zeekr 001",
+          "slug": "zeekr-001",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q106553049",
+            "url": "https://www.wikidata.org/wiki/Q106553049",
+            "brand_property": "P1716",
+            "brand_qid": "Q106621124",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q123472070",
+          "name": "Zeekr 007",
+          "slug": "zeekr-007",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q123472070",
+            "url": "https://www.wikidata.org/wiki/Q123472070",
+            "brand_property": "P1716",
+            "brand_qid": "Q106621124",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q114608144",
+          "name": "Zeekr 009",
+          "slug": "zeekr-009",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q114608144",
+            "url": "https://www.wikidata.org/wiki/Q114608144",
+            "brand_property": "P1716",
+            "brand_qid": "Q106621124",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q137921385",
+          "name": "Zeekr 8X",
+          "slug": "zeekr-8x",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q137921385",
+            "url": "https://www.wikidata.org/wiki/Q137921385",
+            "brand_property": "P1716",
+            "brand_qid": "Q106621124",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q134103286",
+          "name": "Zeekr 9X",
+          "slug": "zeekr-9x",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q134103286",
+            "url": "https://www.wikidata.org/wiki/Q134103286",
+            "brand_property": "P1716",
+            "brand_qid": "Q106621124",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q137579308",
+          "name": "Zeekr RT",
+          "slug": "zeekr-rt",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q137579308",
+            "url": "https://www.wikidata.org/wiki/Q137579308",
+            "brand_property": "P1716",
+            "brand_qid": "Q106621124",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q106621124",
+        "url": "https://www.wikidata.org/wiki/Q106621124",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    },
+    {
+      "qid": "Q35676",
+      "name": "Lada",
+      "slug": "lada",
+      "aliases": [],
+      "models": [
+        {
+          "qid": "Q1434520",
+          "name": "LADA 110",
+          "slug": "lada-110",
+          "aliases": [
+            "Lada 110"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1434520",
+            "url": "https://www.wikidata.org/wiki/Q1434520",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1574740",
+          "name": "LADA Granta",
+          "slug": "lada-granta",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1574740",
+            "url": "https://www.wikidata.org/wiki/Q1574740",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1146667",
+          "name": "LADA Kalina",
+          "slug": "lada-kalina",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1146667",
+            "url": "https://www.wikidata.org/wiki/Q1146667",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2568",
+          "name": "LADA Largus",
+          "slug": "lada-largus",
+          "aliases": [
+            "Lada Largus"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2568",
+            "url": "https://www.wikidata.org/wiki/Q2568",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q650591",
+          "name": "Lada Niva Legend",
+          "slug": "lada-niva",
+          "aliases": [
+            "Lada Niva"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q650591",
+            "url": "https://www.wikidata.org/wiki/Q650591",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2636249",
+          "name": "LADA Niva Travel",
+          "slug": "lada-niva-q2636249",
+          "aliases": [
+            "Lada Niva"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2636249",
+            "url": "https://www.wikidata.org/wiki/Q2636249",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q2564",
+          "name": "LADA Priora",
+          "slug": "lada-priora",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q2564",
+            "url": "https://www.wikidata.org/wiki/Q2564",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1133879",
+          "name": "LADA Samara",
+          "slug": "lada-samara",
+          "aliases": [
+            "Lada Samara"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1133879",
+            "url": "https://www.wikidata.org/wiki/Q1133879",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q17376334",
+          "name": "LADA Vesta",
+          "slug": "lada-vesta",
+          "aliases": [
+            "Lada Vesta"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q17376334",
+            "url": "https://www.wikidata.org/wiki/Q17376334",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1651487",
+          "name": "Lada XRAY",
+          "slug": "lada-xray",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1651487",
+            "url": "https://www.wikidata.org/wiki/Q1651487",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q175938",
+          "name": "ВАЗ-2103",
+          "slug": "vaz-2103",
+          "aliases": [
+            "VAZ-2103"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q175938",
+            "url": "https://www.wikidata.org/wiki/Q175938",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        },
+        {
+          "qid": "Q1799858",
+          "name": "ВАЗ-2120",
+          "slug": "lada-nadezhda",
+          "aliases": [
+            "Lada Nadezhda"
+          ],
+          "generations": [],
+          "source": {
+            "name": "Wikidata",
+            "qid": "Q1799858",
+            "url": "https://www.wikidata.org/wiki/Q1799858",
+            "brand_property": "P1716",
+            "brand_qid": "Q35676",
+            "model_class": "Q3231690"
+          }
+        }
+      ],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q35676",
+        "url": "https://www.wikidata.org/wiki/Q35676",
+        "label_property": "rdfs:label",
+        "brand_class": "Q431289",
+        "vehicle_brand_relation_property": "P1716"
+      }
+    }
+  ],
+  "body_types": [
+    {
+      "qid": "Q190578",
+      "name": "Седан",
+      "slug": "sedan",
+      "aliases": ["sedan", "saloon", "седан (кузов)"],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q190578",
+        "url": "https://www.wikidata.org/wiki/Q190578",
+        "retrieved_at": "2026-09-27T10:07:32Z"
+      }
+    },
+    {
+      "qid": "Q188886",
+      "name": "Универсал",
+      "slug": "station-wagon",
+      "aliases": ["station wagon", "estate wagon", "wagon", "estate", "estate car"],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q188886",
+        "url": "https://www.wikidata.org/wiki/Q188886",
+        "retrieved_at": "2026-09-27T10:07:32Z"
+      }
+    },
+    {
+      "qid": "Q216762",
+      "name": "Хэтчбэк",
+      "slug": "hatchback",
+      "aliases": ["hatchback", "хетчбэк", "хетчбек", "хэчбек"],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q216762",
+        "url": "https://www.wikidata.org/wiki/Q216762",
+        "retrieved_at": "2026-09-27T10:07:32Z"
+      }
+    },
+    {
+      "qid": "Q213853",
+      "name": "Купе",
+      "slug": "coupe",
+      "aliases": ["coupe", "coupé", "купе (автомобиль)", "купе (кузов)"],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q213853",
+        "url": "https://www.wikidata.org/wiki/Q213853",
+        "retrieved_at": "2026-09-27T10:07:32Z"
+      }
+    },
+    {
+      "qid": "Q55989",
+      "name": "Кабриолет",
+      "slug": "convertible",
+      "aliases": ["convertible", "cabriolet", "drophead coupé"],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q55989",
+        "url": "https://www.wikidata.org/wiki/Q55989",
+        "retrieved_at": "2026-09-27T10:07:32Z"
+      }
+    },
+    {
+      "qid": "Q192152",
+      "name": "SUV",
+      "slug": "sport-utility-vehicle",
+      "aliases": ["sport utility vehicle", "Sports Utility Vehicles", "Паркетник"],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q192152",
+        "url": "https://www.wikidata.org/wiki/Q192152",
+        "retrieved_at": "2026-09-27T10:07:32Z"
+      }
+    },
+    {
+      "qid": "Q223189",
+      "name": "Минивэн",
+      "slug": "minivan",
+      "aliases": ["minivan", "people-carrier", "multi-purpose vehicle", "MPV", "MUV", "мини-вэн", "минивен"],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q223189",
+        "url": "https://www.wikidata.org/wiki/Q223189",
+        "retrieved_at": "2026-09-27T10:07:32Z"
+      }
+    },
+    {
+      "qid": "Q1580019",
+      "name": "Лифтбэк",
+      "slug": "liftback",
+      "aliases": ["liftback"],
+      "source": {
+        "name": "Wikidata",
+        "qid": "Q1580019",
+        "url": "https://www.wikidata.org/wiki/Q1580019",
+        "retrieved_at": "2026-09-27T10:07:32Z"
+      }
+    }
+  ],
+  "regions": [
+    {
+      "qid": "Q173822",
+      "name": "Брестская область",
+      "slug": "brest-region",
+      "cities": [
+        {
+          "qid": "Q140147",
+          "name": "Брест",
+          "slug": "brest"
+        },
+        {
+          "qid": "Q204150",
+          "name": "Пинск",
+          "slug": "pinsk"
+        }
+      ]
+    },
+    {
+      "qid": "Q185700",
+      "name": "Витебская область",
+      "slug": "vitebsk-region",
+      "cities": [
+        {
+          "qid": "Q102217",
+          "name": "Витебск",
+          "slug": "vitebsk"
+        },
+        {
+          "qid": "Q208609",
+          "name": "Орша",
+          "slug": "orsha"
+        }
+      ]
+    },
+    {
+      "qid": "Q188732",
+      "name": "Гомельская область",
+      "slug": "gomel-region",
+      "cities": [
+        {
+          "qid": "Q2678",
+          "name": "Гомель",
+          "slug": "gomel"
+        },
+        {
+          "qid": "Q386487",
+          "name": "Мозырь",
+          "slug": "mozyr"
+        }
+      ]
+    },
+    {
+      "qid": "Q191061",
+      "name": "Гродненская область",
+      "slug": "grodno-region",
+      "cities": [
+        {
+          "qid": "Q181376",
+          "name": "Гродно",
+          "slug": "grodno"
+        },
+        {
+          "qid": "Q241475",
+          "name": "Лида",
+          "slug": "lida"
+        }
+      ]
+    },
+    {
+      "qid": "Q192959",
+      "name": "Минская область",
+      "slug": "minsk-region",
+      "cities": [
+        {
+          "qid": "Q19313",
+          "name": "Борисов",
+          "slug": "borisov"
+        },
+        {
+          "qid": "Q201243",
+          "name": "Слуцк",
+          "slug": "slutsk"
+        }
+      ]
+    },
+    {
+      "qid": "Q189822",
+      "name": "Могилёвская область",
+      "slug": "mogilev-region",
+      "cities": [
+        {
+          "qid": "Q154835",
+          "name": "Могилёв",
+          "slug": "mogilev"
+        }
+      ]
+    },
+    {
+      "qid": "Q2280",
+      "name": "г. Минск",
+      "slug": "minsk-city",
+      "cities": [
+        {
+          "qid": "Q2280",
+          "name": "Минск",
+          "slug": "minsk"
+        }
+      ]
+    }
+  ]
+}

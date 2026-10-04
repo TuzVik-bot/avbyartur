@@ -1,0 +1,37 @@
+[Unit]
+Description=Check Avtorinok runtime health and backup integrity
+Requires=docker.service
+After=docker.service avtorinok-backup.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/home/suite/apps/avtorinok
+StateDirectory=avtorinok-monitor
+StateDirectoryMode=0755
+UMask=0077
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /home/suite/apps/avtorinok/scripts/monitor-runtime.py --project-dir /home/suite/apps/avtorinok --base-url https://suite-s1.denjik.by --access-file /etc/avtorinok/monitor-basic-auth --backup-root /home/suite/backups/avtorinok --state-file /var/lib/avtorinok-monitor/alerts.json --status-file /var/lib/avtorinok-monitor/status.json --status-owner-uid=10001
+Nice=15
+IOSchedulingClass=idle
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/avtorinok-monitor
+ReadOnlyPaths=/home/suite/apps/avtorinok /home/suite/backups/avtorinok
+InaccessiblePaths=/home/suite/apps/avtorinok/.env
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+PrivateDevices=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+RestrictSUIDSGID=true
+SystemCallArchitectures=native

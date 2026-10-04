@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "source": {
+    "name": "Wikidata",
+    "license": "CC0 1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "retrieved_at": "2026-09-26T22:42:14Z",
+    "query_url": "https://query.wikidata.org/sparql",
+    "query_sha256": "d47eaa5d15b48228d90355d30f021b9996d15facbffa915c447f808f385c939c"
+  },
+  "makes": [],
+  "body_types": [],
+  "regions": [
+    {
+      "qid": "Q173822",
+      "name": "Брестская область",
+      "slug": "brest-region",
+      "cities": [
+        { "qid": "Q140147", "name": "Брест", "slug": "brest" },
+        { "qid": "Q204150", "name": "Пинск", "slug": "pinsk" }
+      ]
+    },
+    {
+      "qid": "Q185700",
+      "name": "Витебская область",
+      "slug": "vitebsk-region",
+      "cities": [
+        { "qid": "Q102217", "name": "Витебск", "slug": "vitebsk" },
+        { "qid": "Q208609", "name": "Орша", "slug": "orsha" }
+      ]
+    },
+    {
+      "qid": "Q188732",
+      "name": "Гомельская область",
+      "slug": "gomel-region",
+      "cities": [
+        { "qid": "Q2678", "name": "Гомель", "slug": "gomel" },
+        { "qid": "Q386487", "name": "Мозырь", "slug": "mozyr" }
+      ]
+    },
+    {
+      "qid": "Q191061",
+      "name": "Гродненская область",
+      "slug": "grodno-region",
+      "cities": [
+        { "qid": "Q181376", "name": "Гродно", "slug": "grodno" },
+        { "qid": "Q241475", "name": "Лида", "slug": "lida" }
+      ]
+    },
+    {
+      "qid": "Q192959",
+      "name": "Минская область",
+      "slug": "minsk-region",
+      "cities": [
+        { "qid": "Q19313", "name": "Борисов", "slug": "borisov" },
+        { "qid": "Q201243", "name": "Слуцк", "slug": "slutsk" }
+      ]
+    },
+    {
+      "qid": "Q189822",
+      "name": "Могилёвская область",
+      "slug": "mogilev-region",
+      "cities": [
+        { "qid": "Q154835", "name": "Могилёв", "slug": "mogilev" }
+      ]
+    },
+    {
+      "qid": "Q2280",
+      "name": "г. Минск",
+      "slug": "minsk-city",
+      "cities": [
+        { "qid": "Q2280", "name": "Минск", "slug": "minsk" }
+      ]
+    }
+  ]
+}

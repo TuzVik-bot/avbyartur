@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Avtorinok backup once a day
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=avtorinok-backup.service
+
+[Install]
+WantedBy=timers.target

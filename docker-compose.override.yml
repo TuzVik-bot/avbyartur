@@ -1,0 +1,9 @@
+# Local override: keep the image tag explicit while allowing Makefile targets
+# and isolated previews to choose their own immutable tag.
+services:
+  api:
+    image: avtorinok-api:${AVTORINOK_IMAGE_TAG:-local}
+  worker:
+    image: avtorinok-api:${AVTORINOK_IMAGE_TAG:-local}
+  web:
+    image: avtorinok-web:${AVTORINOK_IMAGE_TAG:-local}

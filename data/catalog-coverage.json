@@ -1,0 +1,343 @@
+{
+  "generated_at": "2026-09-27T10:20:43Z",
+  "source": "data/catalog.json",
+  "counts": {
+    "makes": 25,
+    "makes_with_labeled_models": 25,
+    "labeled_models_available_before_cap": 1780,
+    "models_in_seed": 253,
+    "generations": 16,
+    "manual_models_added": 6,
+    "manual_generation_rows_added": 16,
+    "manual_body_variant_rows_added": 24,
+    "makes_verified_as_brand_entities": 24,
+    "body_types": 8,
+    "body_variants": 24,
+    "regions": 0
+  },
+  "row_count_threshold": {
+    "makes": 25,
+    "models": 50
+  },
+  "row_count_threshold_met": true,
+  "plan_acceptance": {
+    "status": "unverified",
+    "generation_depth_verified": false,
+    "reason": "BMW generation 7 and Passat B9 have sourced starts but no supported end years; five other controls have launch/update evidence without verified generation boundaries.",
+    "generation_rows_present": 16
+  },
+  "model_cap_per_make": 12,
+  "makes": [
+    {
+      "qid": "Q124983953",
+      "name": "Audi",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 48,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q796364",
+      "name": "BMW",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 129,
+      "models_in_seed": 13
+    },
+    {
+      "qid": "Q36008",
+      "name": "Mercedes-Benz",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 244,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q246",
+      "name": "Volkswagen",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 169,
+      "models_in_seed": 13
+    },
+    {
+      "qid": "Q135700024",
+      "name": "Škoda",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 5,
+      "models_in_seed": 5
+    },
+    {
+      "qid": "Q125544573",
+      "name": "Renault",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 5,
+      "models_in_seed": 5
+    },
+    {
+      "qid": "Q6742",
+      "name": "Peugeot",
+      "brand_class_verified": false,
+      "brand_relation_verified": true,
+      "labeled_models_available": 131,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q6746",
+      "name": "Citroën",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 90,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q40966",
+      "name": "Opel",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 123,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q20827633",
+      "name": "Ford",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 206,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q53268",
+      "name": "Toyota",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 249,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q35919",
+      "name": "Lexus",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 37,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q20165",
+      "name": "Nissan",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 127,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q35996",
+      "name": "Mazda",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 75,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q125054811",
+      "name": "Hyundai",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 9,
+      "models_in_seed": 9
+    },
+    {
+      "qid": "Q35349",
+      "name": "Kia Motors",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 48,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q20827600",
+      "name": "Volvo",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 11,
+      "models_in_seed": 11
+    },
+    {
+      "qid": "Q739000",
+      "name": "Geely Holding",
+      "brand_class_verified": false,
+      "brand_relation_verified": true,
+      "labeled_models_available": 11,
+      "models_in_seed": 12
+    },
+    {
+      "qid": "Q17324842",
+      "name": "БелДжи",
+      "brand_class_verified": false,
+      "brand_relation_verified": false,
+      "labeled_models_available": 0,
+      "models_in_seed": 2
+    },
+    {
+      "qid": "Q98172997",
+      "name": "Chery",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 8,
+      "models_in_seed": 8
+    },
+    {
+      "qid": "Q98142348",
+      "name": "Changan",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 5,
+      "models_in_seed": 5
+    },
+    {
+      "qid": "Q28223947",
+      "name": "Haval",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 7,
+      "models_in_seed": 7
+    },
+    {
+      "qid": "Q27423",
+      "name": "BYD Auto",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 24,
+      "models_in_seed": 13
+    },
+    {
+      "qid": "Q106621124",
+      "name": "Zeekr",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 6,
+      "models_in_seed": 6
+    },
+    {
+      "qid": "Q35676",
+      "name": "Lada",
+      "brand_class_verified": true,
+      "brand_relation_verified": true,
+      "labeled_models_available": 13,
+      "models_in_seed": 12
+    }
+  ],
+  "control_models": [
+    {
+      "requested": "BMW 3 Series",
+      "model_present_in_seed": true,
+      "matching_model_qid": null,
+      "matching_model_slug": "bmw-3-series-family",
+      "generation_count": 7,
+      "body_variant_count": 24,
+      "generation_depth_verified": false
+    },
+    {
+      "requested": "Volkswagen Passat",
+      "model_present_in_seed": true,
+      "matching_model_qid": null,
+      "matching_model_slug": "volkswagen-passat-family",
+      "generation_count": 9,
+      "body_variant_count": 0,
+      "generation_depth_verified": false
+    },
+    {
+      "requested": "Belgee X50",
+      "model_present_in_seed": true,
+      "matching_model_qid": null,
+      "matching_model_slug": "belgee-x50",
+      "generation_count": 0,
+      "body_variant_count": 0,
+      "generation_depth_verified": false,
+      "generation_evidence": {
+        "status": "insufficient",
+        "summary": "Official reporting dates Belgee production and the X50 launch, and later names X50 and X50+ releases; it does not establish generation boundaries or end years.",
+        "source_urls": [
+          "https://belgee.ru/about-belgee/news/zavod-v-belarusi-proizvel-bolee-50-000-avtomobilei-belgee/",
+          "https://belgee.ru/about-belgee/news/belgee-announces-start-production-and-exterior-of-new-x50/",
+          "https://belgee.ru/about-belgee/news/belgee-accepting-orders-for-new-compact-crossover-the-x50plus/"
+        ]
+      }
+    },
+    {
+      "requested": "Belgee X70",
+      "model_present_in_seed": true,
+      "matching_model_qid": null,
+      "matching_model_slug": "belgee-x70",
+      "generation_count": 0,
+      "body_variant_count": 0,
+      "generation_depth_verified": false,
+      "generation_evidence": {
+        "status": "insufficient",
+        "summary": "Official reporting dates X70 assembly from summer 2024 but does not identify a generation or its end year.",
+        "source_urls": [
+          "https://belgee.ru/about-belgee/news/zavod-v-belarusi-proizvel-bolee-90-000-avtomobilei-belgee/"
+        ]
+      }
+    },
+    {
+      "requested": "Geely Coolray",
+      "model_present_in_seed": true,
+      "matching_model_qid": null,
+      "matching_model_slug": "geely-coolray",
+      "generation_count": 0,
+      "body_variant_count": 0,
+      "generation_depth_verified": false,
+      "generation_evidence": {
+        "status": "insufficient",
+        "summary": "Geely dates Binyue/Coolray's debut to 2018 and New Coolray launches to 2023, but does not define a generation transition or end year.",
+        "source_urls": [
+          "https://global.geely.com/en/news/2025/geely-coolray-one-million-global"
+        ]
+      }
+    },
+    {
+      "requested": "BYD Atto 3",
+      "model_present_in_seed": true,
+      "matching_model_qid": null,
+      "matching_model_slug": "byd-atto-3",
+      "generation_count": 0,
+      "body_variant_count": 0,
+      "generation_depth_verified": false,
+      "generation_evidence": {
+        "status": "insufficient",
+        "summary": "BYD documents the Yuan Plus/ATTO 3 launch and a 2026 ATTO 3 EVO comprehensive update, but does not designate generation boundaries or an end year.",
+        "source_urls": [
+          "https://en.byd.com/news/byd-hits-the-australian-passenger-vehicle-market-with-atto-3/",
+          "https://media.byd.com/new-byd-atto-3-evo-redefines-electric-family-suvs-with-awd-510km-of-range-and-220kw-charging/?lang=eng"
+        ]
+      }
+    },
+    {
+      "requested": "Zeekr 001",
+      "model_present_in_seed": true,
+      "matching_model_qid": "Q106553049",
+      "generation_count": 0,
+      "body_variant_count": 0,
+      "generation_depth_verified": false,
+      "generation_evidence": {
+        "status": "insufficient",
+        "summary": "ZEEKR dates the first 001 to 2021 and calls the 2024 update all-new, but does not define generation boundaries or an end year.",
+        "source_urls": [
+          "https://zgh.com/media-center/news/2021-10-19/?lang=en",
+          "https://www.zeekrlife.com/global/posts/the-all-new-zeekr-001-is-now-coming"
+        ]
+      }
+    }
+  ],
+  "limitations": [
+    "Models are included only when the model links directly to the selected make QID through brand property P1716 and car-model class Q3231690 or a subclass. A make entity is verified as a brand only when Wikidata classifies it as Q431289 or a labeled vehicle model links directly to it through P1716.",
+    "A Wikidata QID and statement are provenance, not independent validation by the manufacturer; source statements may be incomplete or disputed.",
+    "Only up to the configured model cap per make is included; this is a starter subset, not market coverage.",
+    "The Wikidata make/model query does not infer generation years or generation-specific variants; generation records, years, and body variants remain separately sourced. The BMW seventh generation and Passat B9 have unknown end years, and five control models have no verified generation boundaries.",
+    "Manual model overrides are individually linked to manufacturer sources. The top-level CC0 license applies to the Wikidata snapshot only and does not assert reuse terms for those external sources.",
+    "BelGee remains unverified as a Wikidata vehicle-brand entity with direct P1716 model links; the two manually curated models do not change that source-specific status."
+  ]
+}

@@ -1,0 +1,9 @@
+# Installed as docker-compose.override.yml only on the deployment host.
+# Set AVTORINOK_IMAGE_TAG to the exact immutable candidate tag before preflight or use.
+services:
+  api:
+    image: avtorinok-api:${AVTORINOK_IMAGE_TAG:?Set AVTORINOK_IMAGE_TAG}
+  worker:
+    image: avtorinok-api:${AVTORINOK_IMAGE_TAG:?Set AVTORINOK_IMAGE_TAG}
+  web:
+    image: avtorinok-web:${AVTORINOK_IMAGE_TAG:?Set AVTORINOK_IMAGE_TAG}
