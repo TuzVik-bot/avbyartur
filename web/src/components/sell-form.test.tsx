@@ -1183,6 +1183,7 @@ it("validates non-car year bounds before leaving characteristics", async () => {
  expect(container.textContent).toContain("Год выпуска должен быть");
 });
 it("confirms category replacement in a separate revision before saving new fields", async () => {
+ const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
  const original = draft({ category_code: "cars" });
  await renderWithValidationPolicy(original);
  let current = original;
@@ -1191,10 +1192,42 @@ it("confirms category replacement in a separate revision before saving new field
    return { listing: current };
  });
  await act(async () => selectValue("Категория", "trucks"));
+ expect(confirm).toHaveBeenCalledWith(expect.stringContaining("очищены"));
  await clickContinue();
  expect(vi.mocked(api.updateDraft).mock.calls[0]?.[2]).toEqual({ category_code: "trucks", confirm_category_change: true });
  expect(vi.mocked(api.updateDraft).mock.calls[1]?.[1]).toBe(original.revision + 1);
  expect(vi.mocked(api.updateDraft).mock.calls[1]?.[2]).toMatchObject({ category_code: "trucks", category_details: { category_code: "trucks", details: {} }, make_id: null, model_id: null, year: null, mileage_km: null });
+});
+it("cancels category replacement without clearing entered fields or sending a PATCH", async () => {
+ await renderWithValidationPolicy(draft({ category_code: "special_equipment", category_details: { equipment_type: "Экскаватор", frame_serial_number: "FRAME-42" }, vin: "1HGCM82633A004352" }));
+ const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+ vi.useFakeTimers();
+ try {
+  await act(async () => selectValue("Категория", "trucks"));
+  expect(confirm).toHaveBeenCalledOnce();
+  expect(selectedValue("Категория")).toBe("special_equipment");
+  await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+  expect(api.updateDraft).not.toHaveBeenCalled();
+  await clickContinue();
+  expect(inputText("Тип спецтехники")).toBe("Экскаватор");
+  expect(inputText("Номер рамы / серийный номер")).toBe("FRAME-42");
+  expect(inputText("Год выпуска")).toBe("2020");
+  expect(api.updateDraft).not.toHaveBeenCalled();
+  await clickContinue();
+  expect(inputText("VIN")).toBe("1HGCM82633A004352");
+ } finally { vi.useRealTimers(); }
+});
+it("saves the equipment serial separately from VIN", async () => {
+ await renderWithValidationPolicy(draft({ category_code: "special_equipment", category_details: { equipment_type: "Экскаватор", frame_serial_number: "OLD-42" }, vin: "1HGCM82633A004352" }));
+ await clickContinue();
+ expect(inputText("Номер рамы / серийный номер")).toBe("OLD-42");
+ await act(async () => inputValue("Номер рамы / серийный номер", "FRAME-2026/42"));
+ await clickContinue();
+ expect(vi.mocked(api.updateDraft).mock.calls.at(-1)?.[2]).toMatchObject({
+  vin: "1HGCM82633A004352",
+  category_details: { category_code: "special_equipment", details: { equipment_type: "Экскаватор", frame_serial_number: "FRAME-2026/42" } }
+ });
+ expect(inputText("VIN")).toBe("1HGCM82633A004352");
 });
 it("requires a goods title and saves it with the characteristics", async () => {
  await renderWithValidationPolicy(draft({ title: "", category_code: "tires", category_details: { width_mm: 205, profile_percent: 55, diameter_in: 16, season: "winter" } }));

@@ -678,6 +678,14 @@ export function SellForm({ initialCategory = "cars", initialListing = null, make
     setFields((current) => ({ ...current, [key]: value }));
   }
 
+  function changeCategory(code: CategoryCode) {
+    if (code === category) return;
+    if (draftRef.current && !window.confirm("Сменить категорию? Название, марка, модель, год, пробег, VIN, номер рамы / серийный номер и характеристики категории будут очищены. Продолжить?")) return;
+    setError("");
+    setFieldErrors({});
+    setFields(previous => ({ ...previous, category_code: code, title: "", details: {}, make_mode: code === "cars" ? "catalog" : "manual", model_mode: code === "cars" ? "catalog" : "manual", make_id: "", model_id: "", manual_make: "", manual_model: "", generation_id: "", body_variant_id: "", body_type_id: "", modification_id: "", year: "", mileage_km: "", fuel: "", transmission: "", drive: "", engine_volume_l: "", power_hp: "", vin: "", equipment: [], parts_only: false }));
+  }
+
   function changeMake(makeId: string) {
     setError("");
     clearFieldErrors("make_id", "model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
@@ -1105,10 +1113,7 @@ export function SellForm({ initialCategory = "cars", initialListing = null, make
       {validationPolicyError && <p className="notice wide" role="alert">Не удалось загрузить правила подачи. <button className="button button-secondary button-small" type="button" onClick={() => setValidationPolicyRetry((attempt) => attempt + 1)} disabled={validationPolicyLoading}>Повторить</button></p>}
 
       {step === 1 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Продавец и предложение</h2>
-        <label className="field"><span>Категория</span><select aria-label="Категория" value={category} disabled={busy} onChange={event => {
- const code = event.target.value as CategoryCode;
- setFields(previous => ({ ...previous, category_code: code, title: "", details: {}, make_mode: code === "cars" ? "catalog" : "manual", model_mode: code === "cars" ? "catalog" : "manual", make_id: "", model_id: "", manual_make: "", manual_model: "", generation_id: "", body_variant_id: "", body_type_id: "", modification_id: "", year: "", mileage_km: "", fuel: "", transmission: "", drive: "", engine_volume_l: "", power_hp: "", vin: "", equipment: [], parts_only: false }));
-}}><option value="cars">Легковые автомобили</option>{categories.filter(item => item.code !== "cars").map(item => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
+        <label className="field"><span>Категория</span><select aria-label="Категория" value={category} disabled={busy} onChange={event => changeCategory(event.target.value as CategoryCode)}><option value="cars">Легковые автомобили</option>{categories.filter(item => item.code !== "cars").map(item => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         <label className="field"><span>Кто продаёт</span><select {...fieldProps("seller_type")} value={fields.seller_type} onChange={(event) => update("seller_type", event.target.value as FormFields["seller_type"])}>
           <option value="private">Частное лицо</option>
           <option value="company" disabled={company?.status !== "approved"}>{company?.name ? `Компания: ${company.name}` : "Компания (сначала оформите профиль)"}</option>

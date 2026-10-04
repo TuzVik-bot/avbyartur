@@ -25,6 +25,8 @@ const fields: Record<CategoryCode, CategoryField[]> = {
  wheels: [number("diameter_in", "Диаметр, дюймы", true, 40, 0.01, "any"), number("width_in", "Ширина, дюймы", true, 30, 0.01, "any"), number("bolt_holes", "Количество отверстий", true, 12, 1), number("pcd_mm", "PCD, мм", true, 300, 0.01, "any"), number("offset_et", "Вылет ET", false, 200, -200, "any"), number("dia_mm", "DIA, мм", false, 300, 0, "any"), { key: "material", label: "Материал", options: { steel: "Стальные", alloy: "Литые", forged: "Кованые", ...other } }, number("quantity", "Количество", false, 100)],
  tires: [number("width_mm", "Ширина, мм", true, 1000, 1), number("profile_percent", "Профиль, %", true, 100, 1), number("diameter_in", "Диаметр, дюймы", true, 40, 0.01, "any"), { key: "season", label: "Сезон", required: true, options: { summer: "Летние", winter: "Зимние", all_season: "Всесезонные" } }, number("load_index", "Индекс нагрузки", false, 1000), text("speed_index", "Индекс скорости", false, 8), number("quantity", "Количество", false, 100)]
 };
+const frameSerialNumber = text("frame_serial_number", "Номер рамы / серийный номер", false, 120);
+for (const code of ["trucks", "buses", "motorcycles", "special_equipment", "agricultural_equipment", "trailers", "watercraft"] as const) fields[code].push(frameSerialNumber);
 export const categoryFields = (code: string) => fields[code as CategoryCode] || [];
 export function detailPayload(code: string, values: Record<string, string>) {
  return Object.fromEntries(categoryFields(code).filter(f => values[f.key]?.trim()).map(f => [f.key, f.type === "number" ? Number(values[f.key]) : values[f.key].trim()]));
