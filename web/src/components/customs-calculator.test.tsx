@@ -12,8 +12,20 @@ const availableMeta: CustomsCalculatorMeta = {
   unavailable_reason: null,
   rules_version: "customs-2026-v1",
   verified_on: "2026-10-04",
-  sources: ["https://customs.gov.by/source-one"],
-  scope_notes: ["Физическое лицо: M1, бензиновый или дизельный двигатель, личное пользование, вне ЕАЭС, Беларусь, без льгот."]
+  sources: [
+    "https://docs.eaeunion.org/documents/317/8824/",
+    "https://pravo.by/document/?guid=12551&p0=P31700374",
+    "https://pravo.by/document/?guid=12551&p0=C22600195",
+    "https://customs.gov.by/calc/",
+    "https://api.nbrb.by/exrates/rates?periodicity=0&ondate=2026-10-04"
+  ],
+  scope_notes: [
+    "Расчет предназначен для физического лица, ввозящего для личного пользования автомобиль категории M1 с бензиновым или дизельным двигателем из-за пределов ЕАЭС в Беларусь без льгот.",
+    "Электромобили, гибриды, ввоз из ЕАЭС, юридические лица и льготы не поддерживаются.",
+    "Цена покупки является оценкой таможенной стоимости; окончательную стоимость определяет таможня.",
+    "Цена покупки, доставка, брокерские услуги и страхование не входят в сумму таможенных платежей.",
+    "Отдельный НДС не начисляется поверх единой ставки."
+  ]
 };
 
 const unavailableMeta: CustomsCalculatorMeta = {
@@ -22,7 +34,7 @@ const unavailableMeta: CustomsCalculatorMeta = {
   unavailable_reason: "customs_rules_unverified",
   rules_version: null,
   verified_on: null,
-  sources: ["https://customs.gov.by/source-one", "https://customs.gov.by/gtk-control"]
+  sources: availableMeta.sources
 };
 
 const result: CustomsCalculationResult = {
@@ -40,7 +52,12 @@ const result: CustomsCalculationResult = {
     { currency: "EUR", official_rate: "3.5", scale: 1, byn_per_unit: "3.5" },
     { currency: "USD", official_rate: "3.2", scale: 1, byn_per_unit: "3.2" }
   ],
-  sources: ["https://customs.gov.by/source-one", "https://api.nbrb.by/exrates/rates?ondate=2026-10-04"],
+  sources: [
+    "https://docs.eaeunion.org/documents/317/8824/",
+    "https://pravo.by/document/?guid=12551&p0=P31700374",
+    "https://pravo.by/document/?guid=12551&p0=C22600195",
+    "https://api.nbrb.by/exrates/rates?periodicity=0&ondate=2026-10-04"
+  ],
   warnings: ["Предварительная оценка; окончательную таможенную стоимость определяет таможня."]
 };
 
@@ -116,7 +133,8 @@ describe("customs calculator form", () => {
     }));
 
     expect(container.textContent).toContain("контрольные примеры ещё не подтверждены по данным ГТК");
-    expect(container.querySelector('a[href="https://customs.gov.by/gtk-control"]')).not.toBeNull();
+    expect(container.querySelector('a[href="https://customs.gov.by/calc/"]')).not.toBeNull();
+    expect([...container.querySelectorAll("a")].find((link) => link.href === "https://customs.gov.by/calc/")?.textContent).toContain("Контрольный калькулятор ГТК");
     expect(container.querySelector('[role="status"]')).not.toBeNull();
     await fillForm();
     await submitForm();
@@ -153,7 +171,13 @@ describe("customs calculator form", () => {
     expect(container.textContent).toContain("2026-10-04");
     expect(container.textContent).toContain("Окончательные платежи в BYN рассчитываются по курсу НБРБ на день регистрации пассажирской таможенной декларации.");
     expect(container.textContent).toContain("Предварительная оценка; окончательную таможенную стоимость определяет таможня.");
-    expect(container.querySelector('a[href="https://customs.gov.by/source-one"]')?.textContent).toContain("Государственный таможенный комитет Республики Беларусь");
+    const sourceLabel = (url: string) => [...container.querySelectorAll<HTMLAnchorElement>("a")].find((link) => link.href === url)?.textContent;
+    expect(sourceLabel("https://docs.eaeunion.org/documents/317/8824/")).toContain("Пошлина — решение ЕЭК №107");
+    expect(sourceLabel("https://pravo.by/document/?guid=12551&p0=P31700374")).toContain("Таможенный сбор — Указ №443 в редакции №374");
+    expect(sourceLabel("https://pravo.by/document/?guid=12551&p0=C22600195")).toContain("Утилизационный сбор — постановление №195");
+    expect(sourceLabel("https://customs.gov.by/calc/")).toContain("Контрольный калькулятор ГТК");
+    const scopeAside = container.querySelector("aside")!;
+    expect([...scopeAside.children].filter((child) => child.tagName === "P")).toHaveLength(1);
     expect(container.textContent).toContain("дата сверки правил: 2026-10-04");
   });
 
@@ -176,6 +200,32 @@ describe("customs calculator form", () => {
     });
     expect(container.querySelector<HTMLInputElement>('input[name="manufacture_date"]')!.value).toBe("");
     expect(form.checkValidity()).toBe(false);
+  });
+
+  it("does not POST a fractional price above the inclusive maximum", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => responseFor(String(input)));
+    await render(fetchMock as typeof fetch);
+    await fillForm();
+    const priceInput = container.querySelector<HTMLInputElement>('input[name="price_amount"]')!;
+    await act(async () => { setValue(priceInput, "1000000000000000000.1"); });
+
+    await submitForm();
+
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/calculate"))).toBe(false);
+    expect(priceInput.checkValidity()).toBe(false);
+  });
+
+  it("accepts the inclusive maximum when its decimal fraction is zero", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => responseFor(String(input)));
+    await render(fetchMock as typeof fetch);
+    await fillForm();
+    const priceInput = container.querySelector<HTMLInputElement>('input[name="price_amount"]')!;
+    await act(async () => { setValue(priceInput, "1000000000000000000.00"); });
+
+    await submitForm();
+
+    expect(priceInput.checkValidity()).toBe(true);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/calculate"))).toBe(true);
   });
 
   it("clears a previous result on every edit and ignores a late response from the old values", async () => {

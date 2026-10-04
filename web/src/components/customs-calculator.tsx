@@ -102,11 +102,20 @@ function issueFor(error: unknown): RequestIssue {
 
 function sourceLabel(value: string): string {
   try {
-    const host = new URL(value).hostname.toLowerCase();
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
     if (host === "api.nbrb.by" || host.endsWith(".nbrb.by")) return "Национальный банк Республики Беларусь — курсы валют";
-    if (host === "customs.gov.by" || host.endsWith(".customs.gov.by")) return "Государственный таможенный комитет Республики Беларусь";
-    if (host === "pravo.by" || host.endsWith(".pravo.by") || host === "etalonline.by" || host.endsWith(".etalonline.by")) return "Официальный правовой портал Республики Беларусь";
-    if (host === "eaeunion.org" || host.endsWith(".eaeunion.org")) return "Евразийская экономическая комиссия";
+    if (host === "customs.gov.by" || host.endsWith(".customs.gov.by")) {
+      return url.pathname.replace(/\/+$/, "") === "/calc" ? "Контрольный калькулятор ГТК" : "Государственный таможенный комитет Республики Беларусь";
+    }
+    if (host === "pravo.by" || host.endsWith(".pravo.by")) {
+      const sourceId = url.searchParams.get("p0")?.toUpperCase();
+      if (sourceId === "P31700374") return "Таможенный сбор — Указ №443 в редакции №374";
+      if (sourceId === "C22600195") return "Утилизационный сбор — постановление №195";
+      return "Официальный правовой портал Республики Беларусь";
+    }
+    if (host === "etalonline.by" || host.endsWith(".etalonline.by")) return "Официальный правовой портал Республики Беларусь";
+    if (host === "eaeunion.org" || host.endsWith(".eaeunion.org")) return "Пошлина — решение ЕЭК №107";
     return host;
   } catch {
     return "Источник";
@@ -134,11 +143,10 @@ function isPositivePrice(value: string): boolean {
   if (!match) return false;
   try {
     const whole = BigInt(match[1]);
-    const fractionIsPositive = (match[2] || "").includes("1") || (match[2] || "").includes("2") ||
-      (match[2] || "").includes("3") || (match[2] || "").includes("4") || (match[2] || "").includes("5") ||
-      (match[2] || "").includes("6") || (match[2] || "").includes("7") || (match[2] || "").includes("8") ||
-      (match[2] || "").includes("9");
-    return (whole > 0 || fractionIsPositive) && whole <= BigInt("1000000000000000000");
+    const fractionIsPositive = /[1-9]/.test(match[2] || "");
+    const max = BigInt("1000000000000000000");
+    return (whole > 0 || fractionIsPositive) &&
+      (whole < max || (whole === max && !fractionIsPositive));
   } catch {
     return false;
   }
@@ -358,8 +366,10 @@ export function CustomsCalculator() {
             <li>Автомобиль с бензиновым или дизельным двигателем ввозится из-за пределов ЕАЭС в Беларусь без льгот.</li>
             <li>Электромобили, любые гибриды, ввоз из ЕАЭС, юридические лица и льготы не поддерживаются.</li>
           </ul>}
-          <p>Цена покупки служит оценкой таможенной стоимости. Окончательную стоимость определяет таможня. Цена автомобиля, доставка, брокерские услуги и страхование не входят в сумму таможенных платежей.</p>
-          <p>Отдельный НДС не прибавляется поверх единой ставки.</p>
+          {!meta && <>
+            <p>Цена покупки служит оценкой таможенной стоимости. Окончательную стоимость определяет таможня. Цена автомобиля, доставка, брокерские услуги и страхование не входят в сумму таможенных платежей.</p>
+            <p>Отдельный НДС не прибавляется поверх единой ставки.</p>
+          </>}
           {meta && <SourceLinks sources={meta.sources} label="Источники и дата проверки" />}
         </aside>
       </div>
