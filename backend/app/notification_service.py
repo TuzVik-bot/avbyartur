@@ -49,11 +49,6 @@ def saved_search_email_content(payload: dict[str, Any], public_app_url: str) -> 
         or any(ord(character) < 0x20 or ord(character) == 0x7F for character in origin)
     ):
         raise ValueError("invalid_notification_url")
-    category = PATH_CATEGORIES[parsed_url.path.rstrip("/")]
-    url_category = parse_qs(parsed_url.query).get("category_code", ["cars"])
-    if len(url_category) != 1 or url_category[0] != category:
-        raise ValueError("invalid_notification_url")
-
     if (
         not raw_url.startswith("/")
         or raw_url.startswith("//")
@@ -66,6 +61,11 @@ def saved_search_email_content(payload: dict[str, Any], public_app_url: str) -> 
         or "\\" in raw_url
         or any(ord(character) < 0x20 or ord(character) == 0x7F for character in raw_url)
     ):
+        raise ValueError("invalid_notification_url")
+
+    category = PATH_CATEGORIES[parsed_url.path.rstrip("/")]
+    url_category = parse_qs(parsed_url.query).get("category_code", ["cars"])
+    if len(url_category) != 1 or url_category[0] != category:
         raise ValueError("invalid_notification_url")
 
     absolute_url = f"{origin.rstrip('/')}{raw_url}"

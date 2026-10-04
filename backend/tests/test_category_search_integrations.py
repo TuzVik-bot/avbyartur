@@ -60,6 +60,9 @@ def test_notification_link_cannot_point_to_another_category():
         "https://cars.example.test",
     )
     assert "https://cars.example.test/tires?category_code=tires" in body
+    for invalid in ("https://phishing.example/", "//phishing.example/", "cars?q=audi", "/unknown"):
+        with pytest.raises(ValueError, match="invalid_notification_url"):
+            saved_search_email_content({"url": invalid}, "https://cars.example.test")
 
 
 def test_details_filter_validates_every_category_field():
@@ -129,9 +132,9 @@ def test_public_search_isolated_by_category(integration):
     cars = client.get("/api/v1/listings")
     tires = client.get("/api/v1/listings?category_code=tires&details=%7B%22width_mm%22%3A205%7D")
     assert cars.status_code == tires.status_code == 200
-    assert cars.json()["total"] == tires.json()["total"] == 1
+    assert cars.json()["pagination"]["total"] == tires.json()["pagination"]["total"] == 1
     assert cars.json()["items"][0]["category_code"] == "cars"
     assert tires.json()["items"][0]["category_code"] == "tires"
     manual = client.get("/api/v1/listings?category_code=tires&q=ManualTireBrand")
     assert manual.status_code == 200
-    assert manual.json()["total"] == 1
+    assert manual.json()["pagination"]["total"] == 1
