@@ -1,4 +1,5 @@
 import type { Metadata, MetadataRoute } from "next";
+import { categories } from "@/lib/listing-categories";
 import { listingHref } from "@/lib/format";
 import { SITE_ORIGIN, siteUrl } from "@/lib/site-config";
 import type { CompanySummary, Listing, ListingSummary } from "@/lib/types";
@@ -46,6 +47,9 @@ function validImageUrl(value: string | null | undefined) {
 export function buildListingMetadata(listing: Listing): Metadata {
   if (listing.status !== "active" && listing.status !== "sold") return {};
 
+  const categoryCode = listing.category_code || "cars";
+  const isCar = categoryCode === "cars";
+  const categoryLabel = categories.find((category) => category.code === categoryCode)?.label || "транспорте";
   const title = listing.title.trim() || [listing.make?.name, listing.model?.name, listing.year]
     .filter((part) => part !== null && part !== undefined && part !== "")
     .join(" ");
@@ -60,7 +64,9 @@ export function buildListingMetadata(listing: Listing): Metadata {
 
   return {
     title,
-    description: details.length ? `${details.join(" · ")} — объявление об автомобиле в Беларуси.`.slice(0, 160) : "Объявление об автомобиле в Беларуси.",
+    description: details.length
+      ? `${details.join(" · ")} — объявление ${isCar ? "об автомобиле" : `в разделе «${categoryLabel}»`} в Беларуси.`.slice(0, 160)
+      : `Объявление ${isCar ? "об автомобиле" : `в разделе «${categoryLabel}»`} в Беларуси.`,
     alternates: { canonical },
     ...(listing.status === "sold" ? {
       robots: {
@@ -74,7 +80,7 @@ export function buildListingMetadata(listing: Listing): Metadata {
 }
 
 export function buildVehicleJsonLd(listing: Listing) {
-  if (listing.status !== "active") return null;
+  if (listing.status !== "active" || (listing.category_code && listing.category_code !== "cars")) return null;
 
   const canonical = siteUrl(listingHref(listing));
   const images = [...new Set([listing.cover_url, ...(listing.photo_urls || [])]
@@ -134,18 +140,20 @@ export function buildSitemapEntries(listings: SitemapListing[], dealers: Company
     if (listing.status && listing.status !== "active") continue;
     if (listing.seller.type === "company") listingCompanyIds.add(listing.seller.id);
 
-    if (listing.make?.slug) {
-      addListingToAggregate(makeListings, `/cars/${encodeURIComponent(listing.make.slug)}`, listing);
-    }
-    if (listing.make?.slug && listing.model?.slug) {
-      addListingToAggregate(
-        modelListings,
-        `/cars/${encodeURIComponent(listing.make.slug)}/${encodeURIComponent(listing.model.slug)}`,
-        listing,
-      );
-    }
-    if (listing.city?.slug) {
-      addListingToAggregate(cityListings, `/cars/city/${encodeURIComponent(listing.city.slug)}`, listing);
+    if (!listing.category_code || listing.category_code === "cars") {
+      if (listing.make?.slug) {
+        addListingToAggregate(makeListings, `/cars/${encodeURIComponent(listing.make.slug)}`, listing);
+      }
+      if (listing.make?.slug && listing.model?.slug) {
+        addListingToAggregate(
+          modelListings,
+          `/cars/${encodeURIComponent(listing.make.slug)}/${encodeURIComponent(listing.model.slug)}`,
+          listing,
+        );
+      }
+      if (listing.city?.slug) {
+        addListingToAggregate(cityListings, `/cars/city/${encodeURIComponent(listing.city.slug)}`, listing);
+      }
     }
     const listingUrl = siteUrl(listingHref(listing));
     urls.add(listingUrl);

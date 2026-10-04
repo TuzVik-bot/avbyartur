@@ -22,7 +22,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
   const href = listingHref(listing);
   const photo = listing.photo_urls?.find(Boolean) || listing.cover_url || fallbackPhoto;
   const hasActualPhoto = Boolean(listing.photo_urls?.some(Boolean) || listing.cover_url);
-  const title = listing.title || [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ") || "Автомобиль без названия";
+  const title = listing.title || [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ") || "Объявление без названия";
   return (
     <article className={`listing-card ${variant === "row" ? "listing-row" : ""}`}>
       <div className="listing-card-media">

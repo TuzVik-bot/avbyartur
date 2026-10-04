@@ -38,8 +38,12 @@ export function vehicleLabel(value: string | null | undefined) {
   return value ? vehicleLabels[value] || value : "Не указан";
 }
 
-export function listingHref(listing: { id: string; slug: string; make: { slug: string } | null; model: { slug: string } | null }) {
+export function listingHref(listing: { id: string; slug: string; category_code?: string | null; make: { slug: string } | null; model: { slug: string } | null }) {
   const fallback = listing.slug || listing.id;
+  if (listing.category_code && listing.category_code !== "cars") {
+    const categoryPath = listing.category_code.replaceAll("_", "-");
+    return `/${categoryPath}/${encodeURIComponent(fallback)}/${encodeURIComponent(listing.id)}`;
+  }
   const makeSlug = listing.make?.slug || fallback;
   const modelSlug = listing.model?.slug || fallback;
   return `/cars/${encodeURIComponent(makeSlug)}/${encodeURIComponent(modelSlug)}/${encodeURIComponent(listing.id)}`;

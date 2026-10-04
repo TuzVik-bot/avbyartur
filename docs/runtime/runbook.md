@@ -1,6 +1,6 @@
 # Runtime Runbook
 
-> **4 октября 2026:** последний read-only аудит VPS обнаружил отключённый HTTP Basic Auth на активном релизе `pilot-20261004T123401Z`; анонимный HTTPS-доступ отвечает 200, `noindex` сохранён. Проектные инструкции требуют Basic Auth и `noindex` для закрытого пилота. Не переключать новые изменения на production до восстановления пароля и проверки анонимного 401, авторизованного 200 и `noindex`. Актуальный статус и пределы проверок — [RELEASE_2026-10-04.md](RELEASE_2026-10-04.md).
+> **4 октября 2026:** по явному запросу пользователя общий HTTP Basic Auth отключён для проверки портала; не включать повторно без нового запроса. Анонимный HTTPS отвечает 200, `noindex` сохранён. Авторизация аккаунтов и внутренняя маршрутизация API/БД остаются обязательными. Актуальный статус и проверки — [RELEASE_2026-10-04.md](RELEASE_2026-10-04.md).
 
 ## Local Run
 
@@ -40,7 +40,7 @@ The pilot plan's sizing guideline is 4 vCPU, 8 GiB RAM, and at least 60 GB SSD. 
 
 Run the project under a separate application directory such as `/home/suite/apps/avtorinok`, outside `/var/www/suite-s1.denjik.by`. Create `.env` on the host with `./scripts/init-secrets.sh`; keep it mode `600`. Use the tagged `linux/amd64` images verified by the AMD64 release procedure above, then transfer and load those exact image tags on the VPS. Never deploy ARM images to this host. Compose uses ordinary named volumes, so PostgreSQL and media will live under Docker's configured data-root unless the deployment is changed. Before deployment, check `docker info --format '{{.DockerRootDir}}'`, its backing mount, and free space; the prior inventory does not confirm a separate data disk.
 
-Only web is published, as `127.0.0.1:8080:3000`. API port 8000 and PostgreSQL 5432 have no host port mapping. The existing Nginx and upstream TLS proxy remain in place. The checked-in `deploy/suite-s1.denjik.by.nginx.conf` is a static-site placeholder, not the pilot proxy, and no host Nginx config was changed. For an authorized pilot deployment, adapt the correct vhost to proxy the app to `127.0.0.1:8080` and apply HTTP Basic Auth at server scope so HTML, `/api/v1`, health paths, and every image path require the same credential. The reference fragment `deploy/avtorinok-pilot-auth-proxy.inc` contains the auth directives and loopback route; merge it into the vhost, replacing any existing `location /` handler. Review it against the host's existing TLS and trusted `X-Forwarded-Proto` configuration before reload.
+Only web is published, as `127.0.0.1:8080:3000`. API port 8000 and PostgreSQL 5432 have no host port mapping. The existing Nginx and upstream TLS proxy remain in place. The checked-in `deploy/suite-s1.denjik.by.nginx.conf` is a static-site placeholder, not the pilot proxy. For the pilot, the correct vhost proxies the app to `127.0.0.1:8080`; general HTTP Basic Auth is intentionally disabled by explicit user request for portal testing. Keep `noindex`, application-account authentication, private API/database routing, and review the proxy against trusted `X-Forwarded-Proto` settings before any Nginx reload. Re-enable general Basic Auth only after a new explicit request.
 
 Generate the hash and one-time password handoff file on the VPS with:
 
@@ -52,7 +52,7 @@ sudo ./scripts/generate-pilot-auth.sh \
 
 The script refuses to overwrite either output. It stores only a SHA-512 crypt hash in the Nginx file with mode `640` and group `www-data`; it does not print the hash or password. The plaintext handoff is mode `600`, outside the repository. Distribute the password through an approved private channel, then remove the handoff file when it is no longer needed. Keep `.env` separate; it contains the database and application session secrets, not the Basic Auth password.
 
-Before reloading Nginx, verify its config with `nginx -t`. Preserve the existing TLS and upstream proxy settings. Do not expose Compose ports directly or make the app public while Basic Auth is absent. The current server placeholder also sets `X-Robots-Tag: noindex, nofollow`; keep the pilot closed and review that header only as part of a separately approved public launch.
+Before reloading Nginx, verify its config with `nginx -t`. Preserve the existing TLS and upstream proxy settings. Do not expose Compose ports directly. While the portal is available without a general password for testing, keep `X-Robots-Tag: noindex, nofollow, noarchive` and application-account access controls. Removing `noindex`, enabling public registration, or declaring a public launch requires separate approval.
 
 ## Application Accounts
 

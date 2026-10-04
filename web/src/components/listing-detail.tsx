@@ -1,6 +1,6 @@
 "use client";
 
-import { categoryFacts } from "@/lib/listing-categories";
+import { categories, categoryFacts, categoryPath } from "@/lib/listing-categories";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -42,6 +42,9 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   const selectedPhoto = photos[safeSelectedPhotoIndex];
   const hasSyntheticPhoto = !actualPhotos.length && !listing.cover_url;
   const href = listingHref(listing);
+  const categoryCode = listing.category_code || "cars";
+  const categoryHref = categoryPath(categoryCode);
+  const categoryName = categoryCode === "cars" ? "Автомобили" : categories.find((category) => category.code === categoryCode)?.label || "Транспорт";
   const conversationStartPath = `/account/messages/new?listing_id=${encodeURIComponent(listing.id)}`;
   const conversationStartHref = user ? conversationStartPath : `/login?next=${encodeURIComponent(conversationStartPath)}`;
   const vinCheckApplicable = !["parts", "wheels", "tires"].includes(listing.category_code || "cars");
@@ -123,18 +126,18 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   return (
     <div className="page-width detail-page">
       <nav className="breadcrumb" aria-label="Хлебные крошки">
-        <Link href="/">Главная</Link><ChevronRight size={14} /><Link href="/cars">Автомобили</Link><ChevronRight size={14} />
-        {listing.make && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}`}>{listing.make.name}</Link></>}
-        {listing.make && listing.model && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}/${encodeURIComponent(listing.model.slug)}`}>{listing.model.name}</Link></>}
+        <Link href="/">Главная</Link><ChevronRight size={14} /><Link href={categoryHref}>{categoryName}</Link>
+        {categoryCode === "cars" && listing.make && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}`}>{listing.make.name}</Link></>}
+        {categoryCode === "cars" && listing.make && listing.model && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}/${encodeURIComponent(listing.model.slug)}`}>{listing.model.name}</Link></>}
       </nav>
       <div className="detail-layout">
         <div className="detail-main-column">
-          <div className="detail-gallery" role="region" aria-label={`Фотографии автомобиля «${listing.title}»`} tabIndex={0} onKeyDown={handleGalleryKeyDown}>
+          <div className="detail-gallery" role="region" aria-label={`Фотографии объявления «${listing.title}»`} tabIndex={0} onKeyDown={handleGalleryKeyDown}>
             <div className="detail-photo-wrap">
               <Image id="detail-main-image" className="detail-main-image" src={selectedPhoto} alt={hasSyntheticPhoto ? `Синтетическое изображение для объявления «${listing.title}»` : `Фотография ${safeSelectedPhotoIndex + 1} из ${photos.length}: ${listing.title}`} width={1448} height={1086} sizes="(max-width: 800px) calc(100vw - 28px), min(792px, 62vw)" unoptimized priority />
               {hasSyntheticPhoto && <span className="synthetic-label detail-synthetic-label">Синтетическое фото</span>}
             </div>
-            {photos.length > 1 && <div className="detail-thumbnails" role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt={`Фото ${index + 1} автомобиля: ${listing.title}`} width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" unoptimized /></button>)}</div>}
+            {photos.length > 1 && <div className="detail-thumbnails" role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt={`Фото ${index + 1} объявления: ${listing.title}`} width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" unoptimized /></button>)}</div>}
           </div>
           <section className="detail-summary section">
             <h1 className="detail-title">{listing.title}</h1>

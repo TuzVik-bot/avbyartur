@@ -27,6 +27,21 @@ it("shows published article cards, topic filters and a clear empty state", () =>
     items: [], selectedTopic: null
   }));
   expect(empty).toContain("Пока нет опубликованных материалов");
+  expect(empty).not.toContain('aria-label="Страницы материалов"');
+});
+
+it("shows only valid pagination links on the first and last article pages", () => {
+  const first = renderToStaticMarkup(createElement(informationalPages.UsefulInformationList, {
+    items: [summary], selectedTopic: null, page: 1, pageCount: 3
+  }));
+  expect(first).toContain('href="/useful-information?page=2"');
+  expect(first).not.toContain("Предыдущая страница");
+
+  const last = renderToStaticMarkup(createElement(informationalPages.UsefulInformationList, {
+    items: [summary], selectedTopic: "vin", page: 3, pageCount: 3
+  }));
+  expect(last).toContain('href="/useful-information?topic=vin&amp;page=2"');
+  expect(last).not.toContain("Следующая страница");
 });
 
 it("renders the article body as escaped text and provides a safe related-service link", () => {

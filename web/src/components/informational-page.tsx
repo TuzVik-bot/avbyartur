@@ -30,11 +30,17 @@ function formatArticleDate(value: string) {
     .format(new Date(`${value}T00:00:00.000Z`));
 }
 
-export function UsefulInformationList({ items, selectedTopic, unavailable = false }: {
+export function UsefulInformationList({ items, selectedTopic, page = 1, pageCount = 1, unavailable = false }: {
   items: ArticleSummary[];
   selectedTopic: ArticleTopic | null;
+  page?: number;
+  pageCount?: number;
   unavailable?: boolean;
 }) {
+  const pageUrl = (nextPage: number) => {
+    const query = new URLSearchParams({ ...(selectedTopic ? { topic: selectedTopic } : {}), ...(nextPage > 1 ? { page: String(nextPage) } : {}) });
+    return `/useful-information${query.size ? `?${query}` : ""}`;
+  };
   return <InformationalPage eyebrow="Полезная информация" title="Полезная информация"
     description="Практические материалы об осмотре транспорта, сделках, VIN-проверке и финансировании.">
     <nav className="quick-links" aria-label="Темы материалов">
@@ -48,6 +54,11 @@ export function UsefulInformationList({ items, selectedTopic, unavailable = fals
           <div><p className="eyebrow">{ARTICLE_TOPIC_LABELS[item.topic]}</p><h2><Link href={`/useful-information/${encodeURIComponent(item.slug)}`}>{item.title}</Link></h2>
             <p>{item.summary}</p><time dateTime={item.published_at}>{formatArticleDate(item.published_at)}</time></div>
         </li>)}</ol>}
+    {!unavailable && pageCount > 1 && <nav className="pagination" aria-label="Страницы материалов">
+      {page > 1 && <Link className="button button-secondary button-small" href={pageUrl(page - 1)} aria-label={`Предыдущая страница, страница ${page - 1}`}>Назад</Link>}
+      <span aria-current="page">Страница {page} из {pageCount}</span>
+      {page < pageCount && <Link className="button button-secondary button-small" href={pageUrl(page + 1)} aria-label={`Следующая страница, страница ${page + 1}`}>Дальше</Link>}
+    </nav>}
   </InformationalPage>;
 }
 

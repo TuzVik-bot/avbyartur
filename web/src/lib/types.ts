@@ -57,6 +57,7 @@ export type ConversationListing = {
   id: string;
   title: string;
   slug: string;
+  category_code?: NonNullable<ListingSearch["category_code"]>;
 };
 
 export type ConversationLastMessage = {

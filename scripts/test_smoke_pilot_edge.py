@@ -1,8 +1,7 @@
-import base64
-import http.server
 import os
 import subprocess
-import threading
+import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -11,56 +10,60 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "smoke-pilot-edge.sh"
 
 
-class EdgeHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):  # noqa: N802 - stdlib handler API
-        expected = "Basic " + base64.b64encode(b"pilot:secret").decode("ascii")
-        authenticated = self.headers.get("Authorization") == expected
-        self.send_response(200 if authenticated else 401)
-        self.send_header("X-Robots-Tag", "noindex, nofollow, noarchive")
-        self.end_headers()
-
-    def log_message(self, *_):
-        return
-
-
 class EdgeSmokeTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), EdgeHandler)
-        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
-        cls.thread.start()
+    def run_smoke(self, *, noindex=True, **env):
+        with tempfile.TemporaryDirectory(prefix="avtorinok-edge-smoke-test-") as temp_dir:
+            fake_curl = Path(temp_dir) / "curl"
+            fake_curl.write_text(textwrap.dedent("""\
+                #!/usr/bin/env python3
+                import os
+                import sys
+                from urllib.parse import urlsplit
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.shutdown()
-        cls.server.server_close()
-        cls.thread.join(timeout=5)
+                args = sys.argv[1:]
+                header_path = args[args.index("--dump-header") + 1]
+                url = args[-1]
+                path = urlsplit(url).path
+                status = "401" if path in {"/api/v1/me", "/api/v1/admin/users"} else "200"
+                with open(header_path, "w", encoding="utf-8") as headers:
+                    headers.write(f"HTTP/1.1 {status} Test\\r\\n")
+                    if os.environ.get("EDGE_SMOKE_TEST_NOINDEX") == "1":
+                        headers.write("X-Robots-Tag: noindex, nofollow, noarchive\\r\\n")
+                    headers.write("\\r\\n")
+                sys.stdout.write(status)
+            """), encoding="utf-8")
+            fake_curl.chmod(0o755)
+            smoke_env = {k: v for k, v in os.environ.items() if not k.startswith("SMOKE_BASIC_AUTH_")}
+            smoke_env.update(env)
+            smoke_env["PATH"] = f"{temp_dir}:{smoke_env.get('PATH', '')}"
+            smoke_env["EDGE_SMOKE_TEST_NOINDEX"] = "1" if noindex else "0"
+            return subprocess.run(
+                [str(SCRIPT), "--base-url", "https://pilot.example.invalid"],
+                text=True,
+                capture_output=True,
+                env=smoke_env,
+                check=False,
+            )
 
-    def run_smoke(self, **env):
-        smoke_env = {k: v for k, v in os.environ.items() if not k.startswith("SMOKE_BASIC_AUTH_")}
-        smoke_env.update(env)
-        return subprocess.run(
-            [str(SCRIPT), "--base-url", f"http://127.0.0.1:{self.server.server_port}"],
-            text=True,
-            capture_output=True,
-            env=smoke_env,
-            check=False,
-        )
-
-    def test_anonymous_boundary_passes_without_credentials(self):
+    def test_portal_and_category_routes_pass_without_shared_credentials(self):
         result = self.run_smoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("authenticated responses", result.stdout)
+        self.assertIn("portal routes are available without shared credentials", result.stdout)
+        self.assertIn("anonymous /agricultural-equipment HTTP 200", result.stdout)
+        self.assertIn("anonymous /vin-check HTTP 200", result.stdout)
+        self.assertIn("anonymous /financing HTTP 200", result.stdout)
 
-    def test_authenticated_boundary_passes(self):
-        result = self.run_smoke(SMOKE_BASIC_AUTH_USER="pilot", SMOKE_BASIC_AUTH_PASSWORD="secret")
+    def test_account_apis_remain_protected_and_noindex_is_present(self):
+        result = self.run_smoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("auth / HTTP 200", result.stdout)
+        self.assertIn("anonymous /api/v1/me HTTP 401", result.stdout)
+        self.assertIn("anonymous /api/v1/admin/users HTTP 401", result.stdout)
+        self.assertIn("anonymous /api/v1/me contains noindex", result.stdout)
 
-    def test_wrong_credentials_fail_authenticated_checks(self):
-        result = self.run_smoke(SMOKE_BASIC_AUTH_USER="pilot", SMOKE_BASIC_AUTH_PASSWORD="wrong")
+    def test_missing_noindex_fails(self):
+        result = self.run_smoke(noindex=False)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("expected HTTP 200", result.stdout)
+        self.assertIn("is missing X-Robots-Tag: noindex", result.stdout)
 
 
 if __name__ == "__main__":

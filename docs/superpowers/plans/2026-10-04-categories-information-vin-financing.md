@@ -151,7 +151,7 @@
 
 **Файлы:** `web/src/lib/seo.ts`, `web/src/app/sitemap.ts`, `robots.ts`; `docs/IMPLEMENTATION_STATUS.md`, `docs/runtime/runbook.md`; новый документ приёмки расширения.
 
-- [ ] Проверить заголовки, canonical, хлебные крошки, неизвестные адреса и пустую выдачу. Пока сайт закрытый, сохранить Basic Auth и `noindex`; новые маршруты не должны обходить их. Настройка публичной индексации — отдельный выпуск.
+- [ ] Проверить заголовки, canonical, хлебные крошки, неизвестные адреса и пустую выдачу. Для доступного без общего пароля портала сохранять `noindex`, авторизацию аккаунтов и внутреннюю маршрутизацию API/БД; новые маршруты не должны обходить эти барьеры. Возврат общего Basic Auth или снятие `noindex` требует отдельного нового запроса.
 - [ ] Проверить контракты API, миграции и ключевые пользовательские пути на локальном preview. Перед использованием порта проверить владельца процесса.
 - [ ] Выполнить `cd web && corepack pnpm generate:api-types`, затем `cd web && corepack pnpm typecheck`, `cd web && corepack pnpm test` и `cd web && corepack pnpm build`.
 - [ ] Для backend создать выделенную одноразовую PostgreSQL БД с окончанием `_test`, задать `TEST_DATABASE_URL` и `TEST_DATABASE_DISPOSABLE_CONFIRMATION` равным её точному имени; выполнить `cd backend && uv run pytest`. Известную preview-БД и runtime-БД использовать запрещено.

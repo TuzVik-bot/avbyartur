@@ -60,6 +60,26 @@ const listing: Listing = {
 };
 
 describe("contact reveal", () => {
+  it("uses the non-car listing route and category breadcrumb", async () => {
+    const truck: Listing = {
+      ...listing,
+      id: "truck-1",
+      slug: "volvo-fh",
+      title: "Volvo FH",
+      category_code: "trucks",
+      make: null,
+      model: null
+    };
+    await act(async () => root.render(createElement(ListingDetail, { listing: truck })));
+
+    const hrefs = [...container.querySelectorAll<HTMLAnchorElement>("a")].map((link) => link.getAttribute("href"));
+    expect(hrefs).toContain("/trucks");
+    expect(hrefs).not.toContain("/cars");
+    expect(container.querySelector('.breadcrumb a[href="/trucks"]')?.textContent).toBe("Грузовики");
+    await act(async () => container.querySelector<HTMLButtonElement>(".favorite-button")!.click());
+    expect(routerMocks.push).toHaveBeenCalledWith(`/login?next=${encodeURIComponent("/trucks/volvo-fh/truck-1")}`);
+  });
+
   it("takes a guest to login with the new chat route as the next path", async () => {
     await act(async () => root.render(createElement(ListingDetail, { listing })));
 

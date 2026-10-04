@@ -3162,6 +3162,12 @@ export interface components {
             title: string;
             /** Slug */
             slug: string;
+            /**
+             * Category Code
+             * @default cars
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
         };
         /** ConversationMessageInput */
         ConversationMessageInput: {

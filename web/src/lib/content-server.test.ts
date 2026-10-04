@@ -14,6 +14,12 @@ it("loads published articles with the selected topic through the internal server
   expect(serverApi.serverApiRequest).toHaveBeenCalledWith("content/articles?topic=vin");
 });
 
+it("requests a later page while retaining the topic filter", async () => {
+  vi.mocked(serverApi.serverApiRequest).mockResolvedValueOnce({ items: [], total: 40, page: 2, page_size: 20 });
+  await contentServerApi.articles("vin", 2);
+  expect(serverApi.serverApiRequest).toHaveBeenCalledWith("content/articles?topic=vin&page=2");
+});
+
 it("loads an article detail using an encoded slug", async () => {
   const method = (contentServerApi as unknown as { article?: (slug: string) => Promise<unknown> }).article;
   expect(method).toBeTypeOf("function");
