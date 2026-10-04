@@ -57,6 +57,7 @@ IDEMPOTENCY_REQUIRED_OPERATIONS = {
     ("/api/v1/me/listings/{listing_id}/catalog-requests", "post"),
 }
 CSRF_REQUIRED_OPERATIONS = {
+    ("/api/v1/auth/register", "post"),
     ("/api/v1/auth/otp/request", "post"),
     ("/api/v1/auth/register/otp/request", "post"),
     ("/api/v1/auth/otp/verify", "post"),
@@ -129,6 +130,7 @@ ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
     ("/api/v1/moderation/listings/{listing_id}/history", "get"): (401, 403, 404, 422),
     ("/api/v1/listings/{listing_id}/analytics", "get"): (401, 403, 404, 422),
     ("/api/v1/auth/logout", "post"): (401, 403),
+    ("/api/v1/auth/register", "post"): (403, 404, 409, 429, 503),
     ("/api/v1/auth/otp/request", "post"): (403, 404, 429, 503),
     ("/api/v1/auth/register/otp/request", "post"): (403, 404, 429, 503),
     ("/api/v1/auth/otp/verify", "post"): (401, 403, 404, 429),

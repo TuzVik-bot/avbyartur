@@ -12,7 +12,7 @@ vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ setSession: moc
 let container: HTMLDivElement;
 let root: Root;
 
-const capabilities = { sms_login: true, sms_registration: true, email_verification: false, password_recovery: false };
+const capabilities = { sms_login: true, sms_registration: true, email_registration: false, email_verification: false, password_recovery: false };
 const session: AuthSession = {
   user: { id: "phone-user-1", email: null, display_name: "Водитель", role: "user", company_id: null }, csrf_token: "phone-csrf"
 };

@@ -52,8 +52,9 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
       <label className="field"><span>Пароль</span><input name="password" type="password" autoComplete="current-password" required /></label>
       {error && <p className="inline-error" role="alert">{error}</p>}
       <button className="button button-primary" type="submit" disabled={busy}>{busy ? "Входим…" : <><LogIn size={17} /> Войти</>}</button>
-      <p className="muted login-note"><KeyRound size={15} /> Доступ выдаётся администратором закрытого пилота.</p>
+      {!capabilities?.email_registration && <p className="muted login-note"><KeyRound size={15} /> Доступ выдаётся администратором закрытого пилота.</p>}
     </form>
+    {capabilities?.email_registration && <p className="login-recovery-link">Нет аккаунта? <Link className="text-link" href={`/register${nextPath === "/" ? "" : `?next=${encodeURIComponent(nextPath)}`}`}>Зарегистрироваться</Link></p>}
     {capabilities?.password_recovery && <p className="login-recovery-link"><Link className="text-link" href="/recover">Не помню пароль</Link></p>}
     <PhoneAuth nextPath={nextPath} capabilities={capabilities} loadingCapabilities={!capabilitiesLoaded} consentVersions={consentVersions} />
   </>;

@@ -22,7 +22,7 @@ beforeEach(() => {
   container = document.createElement("div");
   document.body.append(container);
   act(() => { root = createRoot(container); });
-  vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_verification: false, password_recovery: false });
+  vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: false, email_verification: false, password_recovery: false });
 });
 
 afterEach(() => {

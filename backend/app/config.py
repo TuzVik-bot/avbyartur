@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     trusted_proxy_cidrs: str = ""
     sms_login_enabled: bool = False
     public_registration_enabled: bool = False
+    email_registration_enabled: bool = False
     public_guest_contact_enabled: bool = False
     sms_otp_secret: SecretStr = SecretStr("")
     sms_otp_lifetime_seconds: int = 300
@@ -125,6 +126,10 @@ class Settings(BaseSettings):
                 raise ValueError("PUBLIC_REGISTRATION_ENABLED requires SMS_LOGIN_ENABLED")
             if not self.registration_terms_version.strip() or not self.registration_privacy_version.strip():
                 raise ValueError("Registration consent document versions must be configured before public registration")
+        if self.email_registration_enabled and (
+            not self.registration_terms_version.strip() or not self.registration_privacy_version.strip()
+        ):
+            raise ValueError("Registration consent document versions must be configured before email registration")
         if self.sms_provider not in {"disabled", "smsc"}:
             raise ValueError("SMS_PROVIDER must be disabled or smsc")
         if not self.smsc_api_url.startswith("https://"):

@@ -25,9 +25,10 @@ from app.db import get_db
 from app.email_delivery import get_email_sender
 from app.models import SmsOtpChallenge, User, UserConsent, UserSession
 from app.profile_identity_service import registration_consent_error
-from app.schemas import LoginInput
+from app.schemas import EmailRegistrationInput, LoginInput
 from app.security import (
     client_ip,
+    hash_password,
     new_secret,
     normalize_email,
     secret_hash,
@@ -92,6 +93,7 @@ def auth_capabilities() -> dict[str, bool]:
     return {
         "sms_login": sms_ready,
         "sms_registration": sms_ready and settings.public_registration_enabled,
+        "email_registration": settings.email_registration_enabled,
         "email_notifications": email_ready and bool(settings.public_app_url),
         "email_verification": email_ready,
         "password_recovery": email_ready,
@@ -401,6 +403,65 @@ def login(payload: LoginInput, request: Request, response: Response, db: Annotat
 
     raw_csrf = _create_session(db, user, response)
     return {"user": user_out(db, user), "csrf_token": raw_csrf}
+
+
+def _email_registration_enabled() -> None:
+    # A dependency runs before body validation, so a disabled route is a plain 404.
+    if not get_settings().email_registration_enabled:
+        fail(404, "not_found", "The requested authentication method is not available")
+
+
+@router.post(
+    "/auth/register",
+    response_model=AuthSessionResponse,
+    status_code=201,
+    dependencies=[Depends(_email_registration_enabled)],
+)
+def register_with_email(
+    payload: EmailRegistrationInput,
+    request: Request,
+    response: Response,
+    db: Annotated[Session, Depends(get_db)],
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> dict:
+    settings = get_settings()
+    _require_pre_auth_csrf(request, csrf_token)
+    consume_rate_limit(db, "email-registration-ip", client_ip(request), 10, timedelta(hours=1))
+    consent_error = registration_consent_error(db, settings, payload.terms_version, payload.privacy_version)
+    if consent_error == "mismatch":
+        fail(409, "consent_version_mismatch", "The legal documents have changed; reload the page")
+    if consent_error is not None:
+        fail(503, "registration_unavailable", "Registration is not available")
+    terms_version = str(payload.terms_version).strip()
+    privacy_version = str(payload.privacy_version).strip()
+
+    email = normalize_email(str(payload.email))
+    if db.scalar(select(User.id).where(User.email == email)) is not None:
+        fail(409, "email_taken", "An account with this email already exists", {"email": "email_taken"})
+    try:
+        with db.begin_nested():
+            user = User(
+                email=email,
+                password_hash=hash_password(payload.password),
+                display_name=payload.display_name,
+                role="user",
+                status="active",
+            )
+            db.add(user)
+            db.flush()
+    except IntegrityError:
+        # A concurrent registration won the unique email key.
+        db.rollback()
+        fail(409, "email_taken", "An account with this email already exists", {"email": "email_taken"})
+    db.add_all(
+        [
+            UserConsent(user_id=user.id, document_type="terms", version=terms_version, source="email_registration"),
+            UserConsent(user_id=user.id, document_type="privacy", version=privacy_version, source="email_registration"),
+        ]
+    )
+    _prevent_session_caching(response)
+    csrf = _create_session(db, user, response)
+    return {"user": user_out(db, user), "csrf_token": csrf}
 
 
 @router.get("/auth/otp/csrf", response_model=OtpCsrfResponse)

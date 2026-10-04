@@ -13,6 +13,23 @@ class LoginInput(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
+class EmailRegistrationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+    password: str = Field(min_length=12, max_length=256)
+    display_name: str = Field(min_length=2, max_length=120)
+    accept_terms: Literal[True]
+    accept_privacy: Literal[True]
+    terms_version: str | None = Field(default=None, max_length=80)
+    privacy_version: str | None = Field(default=None, max_length=80)
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def trim_display_name(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
 class PriceInput(BaseModel):
     amount: Decimal = Field(gt=0, le=9999999999, decimal_places=2)
     currency: Literal["BYN", "USD"]
