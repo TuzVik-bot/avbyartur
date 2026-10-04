@@ -75,12 +75,13 @@ export function FinancingCalculator({
           <label className="field"><span>Известные комиссии за весь срок <small className="muted">распределяются по платежам равномерно</small></span><input inputMode="decimal" type="number" min="0" step="0.01" value={fees} onChange={(event) => { setFees(event.target.value); setEstimate(null); }} /></label>
         </div>
         <div className="form-actions"><span className="muted">Все суммы рассчитываются в выбранной валюте, без конвертации.</span><button className="button button-primary" type="button" onClick={recalculate}>Рассчитать платёж</button></div>
-        <p className="muted">Расчёт делит введённую годовую ставку на 12 и использует аннуитетную схему. Известные комиссии распределяются поровну по месяцам. В кредитных и лизинговых договорах могут применяться другие правила.</p>
+        <p className="muted">Расчёт делит введённую годовую ставку на 12 и использует аннуитетную схему. Известные комиссии распределяются поровну по месяцам. Платёж округляется до копеек. Последний платёж корректируется так, чтобы сохранить общую сумму расчёта; при малой сумме регулярный платёж уменьшается, чтобы последний не стал отрицательным. В кредитных и лизинговых договорах могут применяться другие правила.</p>
         {error && <p className="inline-error" role="alert">{error}</p>}
         {estimate && <section className="financing-result" aria-live="polite" aria-label="Результат расчёта">
           <h2>Предварительный расчёт</h2>
           <dl>
-            <div><dt>Платёж в месяц</dt><dd>{money(estimate.monthlyPayment)}</dd></div>
+            <div><dt>{Number(months) === 1 ? "Единственный платёж" : `Платёж в первые ${Number(months) - 1} мес.`}</dt><dd>{money(estimate.monthlyPayment)}</dd></div>
+            {Number(months) > 1 && <div><dt>Последний платёж без выкупного</dt><dd>{money(estimate.lastMonthlyPayment)}</dd></div>}
             {mode === "leasing" && Number(residual) > 0 && <div><dt>Выкупной платёж в конце срока</dt><dd>{money(Number(residual))}</dd></div>}
             <div><dt>Всего с авансом, платежами и выкупом</dt><dd>{money(estimate.totalCost)}</dd></div>
             <div><dt>Сверх цены транспорта</dt><dd>{money(estimate.interestAndFees)}</dd></div>

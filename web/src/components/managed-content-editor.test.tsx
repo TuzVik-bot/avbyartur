@@ -128,3 +128,52 @@ it("keeps an existing article slug stable while allowing its content to be edite
   expect(container.querySelector<HTMLInputElement>('[name="content_key"]')?.disabled).toBe(true);
   expect(container.querySelector<HTMLInputElement>('[name="title"]')?.disabled).not.toBe(true);
 });
+
+const article = (key: string) => ({ id: key, key, kind: "article" as const, status: "draft" as const, revision: 3,
+  updated_at: "2026-10-05T00:00:00Z", payload: { slug: key, title: `Материал ${key}`, summary: "Проверка перед покупкой транспорта.",
+    topic: "inspection", body: `Документы и идентификаторы транспорта проверяются до сделки: ${key}`, published_at: null, sources: [] } });
+
+it("selects existing articles explicitly and starts a blank new draft", () => {
+  act(() => root.render(createElement(ManagedContentEditor, { initialError: false, initialItems: [article("first"), article("second")] })));
+  act(() => chooseContentKind("article"));
+  expect(container.querySelector('[name="existing_article"]')).not.toBeNull();
+  act(() => selectValue("existing_article", "first"));
+  expect(container.querySelector('[name="title"]')).toHaveProperty("value", "Материал first");
+  expect(container.querySelector('[name="content_key"]')).toHaveProperty("disabled", true);
+  act(() => selectValue("existing_article", "second"));
+  expect(container.querySelector('[name="body"]')).toHaveProperty("value", expect.stringContaining("second"));
+  act(() => Array.from(container.querySelectorAll("button")).find(item => item.textContent?.includes("Новая статья"))!.click());
+  expect(container.querySelector('[name="content_key"]')).toHaveProperty("value", "");
+  expect(container.querySelector('[name="content_key"]')).toHaveProperty("disabled", false);
+  expect(container.querySelector('[name="title"]')).toHaveProperty("value", "");
+  expect(container.querySelector('[name="status"]')).toHaveProperty("value", "draft");
+});
+
+it("refreshes all admin pages so an article after the first page can be edited", async () => {
+  const firstPage = Array.from({ length: 100 }, (_, index) => article(`article-${index}`));
+  const later = article("later-page");
+  const list = vi.spyOn(contentApi, "list").mockResolvedValueOnce({ items: firstPage, total: 101, page: 1, page_size: 100 })
+    .mockResolvedValueOnce({ items: [later], total: 101, page: 2, page_size: 100 });
+  const save = vi.spyOn(contentApi, "save").mockResolvedValue({ content: { ...later, revision: 4 } });
+  act(() => root.render(createElement(ManagedContentEditor, { initialError: false, initialItems: firstPage })));
+  act(() => chooseContentKind("article"));
+  await act(async () => Array.from(container.querySelectorAll("button")).find(item => item.textContent?.includes("Обновить"))!.click());
+  expect(list).toHaveBeenCalledTimes(2);
+  act(() => selectValue("existing_article", "later-page"));
+  expect(container.querySelector('[name="title"]')).toHaveProperty("value", "Материал later-page");
+  await act(async () => {
+    value("title", "Исправленный материал"); value("reason", "Обновление"); value("current_password", "test-password");
+    container.querySelector<HTMLInputElement>('[name="confirmation"]')!.click();
+    container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  });
+  expect(save).toHaveBeenCalledWith("article", "later-page", expect.objectContaining({ expected_revision: 3,
+    payload: expect.objectContaining({ slug: "later-page", title: "Исправленный материал" }) }));
+});
+
+it("clears an unsaved new article when starting another new article", () => {
+  act(() => root.render(createElement(ManagedContentEditor, { initialError: false, initialItems: [] })));
+  act(() => chooseContentKind("article"));
+  act(() => value("title", "Несохранённый заголовок"));
+  act(() => Array.from(container.querySelectorAll("button")).find(item => item.textContent?.includes("Новая статья"))!.click());
+  expect(container.querySelector('[name="title"]')).toHaveProperty("value", "");
+});

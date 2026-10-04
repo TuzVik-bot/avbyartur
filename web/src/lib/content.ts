@@ -36,7 +36,22 @@ export type ArticlePublicItem = Omit<ContentItem, "payload"> & { kind: "article"
 export type ArticlePublicEnvelope = { content: ArticlePublicItem; indexable: boolean };
 
 export const contentApi = {
-  list: () => apiRequest<components["schemas"]["ManagedContentListOut"]>("admin/content?page_size=100"),
+  list: ({ page = 1, kind }: { page?: number; kind?: ContentKind } = {}) => {
+    const query = new URLSearchParams({ page_size: "100" });
+    if (page > 1) query.set("page", String(page));
+    if (kind) query.set("kind", kind);
+    return apiRequest<components["schemas"]["ManagedContentListOut"]>(`admin/content?${query}`);
+  },
+  listAll: async (kind?: ContentKind): Promise<ContentItem[]> => {
+    const items: ContentItem[] = [];
+    let page = 1;
+    while (true) {
+      const result = await contentApi.list({ page, kind });
+      items.push(...result.items);
+      if (result.items.length === 0 || result.page * result.page_size >= result.total) return items;
+      page = result.page + 1;
+    }
+  },
   save: (kind: ContentKind, key: string, input: ContentChange) => apiRequest<components["schemas"]["ManagedContentEnvelope"]>(`admin/content/${kind}/${encodeURIComponent(key)}`, { method: "PUT", body: JSON.stringify(input) }),
   versions: (kind: ContentKind, key: string) => apiRequest<components["schemas"]["ManagedContentVersionsOut"]>(`admin/content/${kind}/${encodeURIComponent(key)}/versions`)
 };

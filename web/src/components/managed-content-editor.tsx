@@ -20,6 +20,7 @@ function sourceText(value: unknown) {
 
 export function ManagedContentEditor({ initialItems, initialError }: { initialItems: ContentItem[]; initialError: boolean }) {
   const [items, setItems] = useState(initialItems);
+  const [newArticleSequence, setNewArticleSequence] = useState(0);
   const [kind, setKind] = useState<ContentKind>("notification_template");
   const [key, setKey] = useState("saved_search_email");
   const [versionList, setVersionList] = useState<ContentVersion[] | null>(null);
@@ -32,7 +33,7 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
 
   async function refresh() {
     setPending(true);
-    try { setItems((await contentApi.list()).items); setError(null); }
+    try { setItems(await contentApi.listAll()); setError(null); }
     catch { setError("Не удалось загрузить материалы. Повторите попытку."); }
     finally { setPending(false); }
   }
@@ -83,12 +84,20 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
     <div className="admin-filter-form">
       <label className="field"><span>Раздел</span><select value={kind} onChange={event => { const next = event.target.value as ContentKind; setKind(next); setKey(predefined[next]?.[0][0] || ""); setVersionList(null); setError(null); }}>
         {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <label className="field"><span>{kind === "article" ? "Slug статьи" : "Материал"}</span>{predefined[kind] ? <select value={key} onChange={event => { setKey(event.target.value); setVersionList(null); }}>{predefined[kind]!.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <><input name="content_key" list={kind === "article" ? "article-keys" : undefined} value={key} maxLength={100} pattern={kind === "article" ? "[a-z0-9]+(-[a-z0-9]+)*" : "[a-z0-9_-]+"} required={kind === "article"} disabled={kind === "article" && Boolean(current)} onChange={event => setKey(event.target.value)} />{kind === "article" && <datalist id="article-keys">{items.filter(item => item.kind === "article").map(item => <option key={item.key} value={item.key} />)}</datalist>}</>}</label>
+      {kind === "article" && <>
+        <label className="field"><span>Существующая статья</span><select name="existing_article" value={current?.key || ""} disabled={pending} onChange={event => { setKey(event.target.value); setVersionList(null); setError(null); setSuccess(null); }}>
+          <option value="">Выберите статью</option>
+          {items.filter(item => item.kind === "article").map(item => <option key={item.key} value={item.key}>{text(item.payload as Record<string, unknown>, "title") || item.key} · {item.key}</option>)}
+        </select></label>
+        <button type="button" className="button button-secondary" disabled={pending} onClick={() => { setKey(""); setNewArticleSequence(value => value + 1); setVersionList(null); setError(null); setSuccess(null); }}>Новая статья</button>
+      </>}
+      <label className="field"><span>{kind === "article" ? "Slug статьи" : "Материал"}</span>{predefined[kind] ? <select value={key} onChange={event => { setKey(event.target.value); setVersionList(null); }}>{predefined[kind]!.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <><input name="content_key" value={key} maxLength={100} pattern={kind === "article" ? "[a-z0-9]+(-[a-z0-9]+)*" : "[a-z0-9_-]+"} required={kind === "article"} disabled={kind === "article" && Boolean(current)} onChange={event => setKey(event.target.value)} /></>}</label>
       <button type="button" className="button button-secondary" disabled={pending} onClick={refresh}><RefreshCw size={16} />Обновить</button>
     </div>
+    {kind === "article" && <p className="muted">Выберите существующую статью или начните новую. Кнопка «Обновить» загружает все страницы списка материалов.</p>}
     <p className="muted">{current ? `Редакция ${current.revision} · ${current.status === "published" ? "Опубликован" : "Черновик"}` : "Новый материал"}</p>
     {error && <p className="notice" role="alert">{error}</p>}{success && <p className="notice" role="status">{success}</p>}
-    <form key={`${kind}:${key}:${current?.revision || 0}`} className="company-form" onSubmit={submit}>
+    <form key={`${kind}:${key}:${current?.revision || 0}:${newArticleSequence}`} className="company-form" onSubmit={submit}>
       {kind === "notification_template" ? <label className="field"><span>Тема письма</span><input name="subject" required maxLength={180} defaultValue={text(payload, "subject")} /></label> : <label className="field"><span>Заголовок</span><input name="title" required maxLength={180} defaultValue={text(payload, "title")} /></label>}
       {kind === "seo_page" && <>
         <label className="field"><span>Описание для поиска</span><textarea name="description" required minLength={10} maxLength={500} defaultValue={text(payload, "description")} /></label>
