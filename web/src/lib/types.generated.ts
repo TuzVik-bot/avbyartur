@@ -2929,6 +2929,13 @@ export interface components {
             };
             manual_parameters: components["schemas"]["CatalogRequestManualParametersOut"];
         };
+        /** CategorySubmissionRequirementsOut */
+        CategorySubmissionRequirementsOut: {
+            /** Top Level */
+            top_level: string[];
+            /** Category Details */
+            category_details: string[];
+        };
         /** CompanyBusinessHours */
         CompanyBusinessHours: {
             /** Mon */
@@ -3918,6 +3925,21 @@ export interface components {
             /** Year To */
             year_to?: number | null;
         };
+        /**
+         * ListingCategoryDetailsInput
+         * @description A typed, category-specific JSON payload stored separately from a listing.
+         */
+        ListingCategoryDetailsInput: {
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+            /** Details */
+            details?: {
+                [key: string]: unknown;
+            };
+        };
         /** ListingChangeHistoryItemOut */
         ListingChangeHistoryItemOut: {
             /** Revision */
@@ -3959,6 +3981,13 @@ export interface components {
         };
         /** ListingForm */
         ListingForm: {
+            /**
+             * Category Code
+             * @default cars
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+            category_details?: components["schemas"]["ListingCategoryDetailsInput"] | null;
             /** Seller Type */
             seller_type?: ("private" | "company") | null;
             /** Make Id */
@@ -4132,6 +4161,12 @@ export interface components {
             status: string;
             /** Revision */
             revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
             make: components["schemas"]["ListingCatalogItemOut"] | null;
             model: components["schemas"]["ListingCatalogItemOut"] | null;
             generation: components["schemas"]["ListingCatalogItemOut"] | null;
@@ -4233,6 +4268,9 @@ export interface components {
         };
         /** ListingPatch */
         ListingPatch: {
+            /** Category Code */
+            category_code?: ("cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires") | null;
+            category_details?: components["schemas"]["ListingCategoryDetailsInput"] | null;
             /** Seller Type */
             seller_type?: ("private" | "company") | null;
             /** Make Id */
@@ -4310,6 +4348,11 @@ export interface components {
             contact_phone?: string | null;
             /** Expected Revision */
             expected_revision: number;
+            /**
+             * Confirm Category Change
+             * @default false
+             */
+            confirm_category_change: boolean;
         };
         /** ListingPhotoOut */
         ListingPhotoOut: {
@@ -4389,6 +4432,12 @@ export interface components {
             status: string;
             /** Revision */
             revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
             make: components["schemas"]["ListingCatalogItemOut"] | null;
             model: components["schemas"]["ListingCatalogItemOut"] | null;
             generation: components["schemas"]["ListingCatalogItemOut"] | null;
@@ -4519,6 +4568,12 @@ export interface components {
             minimum_photos: components["schemas"]["MinimumListingPhotosOut"];
             /** Maximum Photos */
             maximum_photos: number;
+            /** Category Codes */
+            category_codes: string[];
+            /** Category Submission Requirements */
+            category_submission_requirements: {
+                [key: string]: components["schemas"]["CategorySubmissionRequirementsOut"];
+            };
         };
         /** LoginInput */
         LoginInput: {
@@ -4738,6 +4793,12 @@ export interface components {
             status: string;
             /** Revision */
             revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
             make: components["schemas"]["ListingCatalogItemOut"] | null;
             model: components["schemas"]["ListingCatalogItemOut"] | null;
             generation: components["schemas"]["ListingCatalogItemOut"] | null;
