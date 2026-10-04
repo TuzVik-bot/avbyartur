@@ -16,10 +16,12 @@ describe("Russian-only i18n scaffold", () => {
     expect(isSupportedLocale("en")).toBe(false);
     expect(getMessage("header.cars")).toBe("Автомобили");
     expect(getMessage("header.cars", "en")).toBe("Автомобили");
+    expect(getMessage("header.customsCalculator")).toBe("Таможенный калькулятор");
   });
 
   it("maps explicit Russian paths to the current unprefixed canonical route", () => {
     expect(localizedPath("/cars", "ru")).toBe("/cars");
+    expect(localizedPath("/customs-calculator", "ru")).toBe("/customs-calculator");
     expect(localizedPath("/ru/cars", "ru")).toBe("/cars");
     expect(localizedPath("/ru", "ru")).toBe("/");
     expect(() => localizedPath("/cars", "en")).toThrow(/Unsupported locale/);
