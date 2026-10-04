@@ -18,6 +18,7 @@ from app.listing_validation_policy import (
     is_listing_year_allowed,
     minimum_required_photos,
 )
+from app.listing_categories import CATEGORY_CODES, category_submission_errors, validate_category_details
 from app.models import (
     BillingOrder,
     CatalogBodyVariant,
@@ -264,25 +265,46 @@ def quota_limit(company: Company | None, db: Session | None = None) -> int:
 def validate_listing_for_submit(db: Session, listing: Listing) -> None:
     errors: dict[str, str] = {}
     policy_settings = get_settings()
-    if listing.make_id is None and not listing.manual_make:
-        errors["make_id"] = "Choose a catalog make or enter a manual make"
-    if listing.model_id is None and not listing.manual_model:
-        errors["model_id"] = "Choose a catalog model or enter a manual model"
-    if not is_listing_year_allowed(listing.year, listing, settings=policy_settings):
-        errors["year"] = "Year is outside the allowed range"
-    if listing.mileage_km is None or listing.mileage_km < 0:
-        errors["mileage_km"] = "Mileage must be zero or greater"
+    category_code = getattr(listing, "category_code", None) or "cars"
+    if category_code not in CATEGORY_CODES:
+        errors["category_code"] = "Choose a supported listing category"
+    elif category_code in {"cars", "trucks", "buses", "motorcycles", "special_equipment", "agricultural_equipment", "trailers", "watercraft"}:
+        if listing.make_id is None and not listing.manual_make:
+            errors["make_id"] = "Choose a catalog make or enter a manual make"
+        if listing.model_id is None and not listing.manual_model:
+            errors["model_id"] = "Choose a catalog model or enter a manual model"
+        if not is_listing_year_allowed(listing.year, listing, settings=policy_settings):
+            errors["year"] = "Year is outside the allowed range"
+    if category_code == "cars":
+        if listing.mileage_km is None or listing.mileage_km < 0:
+            errors["mileage_km"] = "Mileage must be zero or greater"
+    category_details = getattr(listing, "category_details", None)
+    if category_code not in CATEGORY_CODES:
+        pass
+    elif category_details is None:
+        if category_code != "cars":
+            errors["category_details"] = "Add category-specific characteristics"
+    else:
+        if category_details.category_code != category_code:
+            errors["category_details"] = "Category details do not match the listing category"
+        else:
+            try:
+                details = validate_category_details(category_code, category_details.details)
+            except ValueError:
+                errors["category_details"] = "Category details are invalid"
+            else:
+                errors.update(category_submission_errors(category_code, details))
     if listing.price_amount is None or listing.price_amount <= Decimal(0):
         errors["price_amount"] = "Price must be greater than zero"
     if not listing.contact_phone or not listing.contact_phone.strip():
         errors["contact_phone"] = "Contact phone is required"
     if not listing.description.strip():
         errors["description"] = "Description is required"
-    if not listing.fuel:
+    if category_code == "cars" and not listing.fuel:
         errors["fuel"] = "Fuel type is required"
-    if not listing.transmission:
+    if category_code == "cars" and not listing.transmission:
         errors["transmission"] = "Transmission is required"
-    if not listing.drive:
+    if category_code == "cars" and not listing.drive:
         errors["drive"] = "Drive type is required"
     if not listing.condition:
         errors["condition"] = "Vehicle condition is required"
@@ -293,9 +315,9 @@ def validate_listing_for_submit(db: Session, listing: Listing) -> None:
         errors["manual_city"] = "Choose a catalog city or enter a manual place, not both"
     elif listing.city_id is None and not listing.manual_city:
         errors["city_id"] = "Choose a catalog city or enter a manual place"
-    if listing.fuel == "electric" and listing.engine_volume_l and listing.engine_volume_l > 0:
+    if category_code == "cars" and listing.fuel == "electric" and listing.engine_volume_l and listing.engine_volume_l > 0:
         errors["engine_volume_l"] = "Electric vehicles cannot have a combustion engine volume"
-    if listing.generation_id and listing.year is not None:
+    if category_code == "cars" and listing.generation_id and listing.year is not None:
         generation = db.get(CatalogGeneration, listing.generation_id)
         if generation is not None and (
             (generation.year_from is not None and listing.year < generation.year_from)
@@ -559,6 +581,8 @@ def _serialize_listing(
     result = {
         "id": str(listing.id), "slug": listing.slug, "title": title,
         "status": listing.status, "revision": listing.revision,
+        "category_code": getattr(listing, "category_code", "cars"),
+        "category_details": dict(getattr(getattr(listing, "category_details", None), "details", None) or {}),
         "make": catalog_item(make) or (CatalogItemFallback(listing.make_name_snapshot, listing.manual_make)),
         "model": catalog_item(model, make_id=listing.make_id) or CatalogItemFallback(listing.model_name_snapshot, listing.manual_model, listing.make_id),
         "generation": catalog_item(generation, make_id=listing.make_id, model_id=listing.model_id),

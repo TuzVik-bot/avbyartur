@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Numeric,
@@ -20,7 +21,7 @@ from sqlalchemy import (
     inspect,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 
@@ -366,6 +367,8 @@ class Listing(Base):
         CheckConstraint("customs_status IS NULL OR customs_status IN ('cleared_rb', 'eaeu_import', 'uncleared', 'unknown')", name="ck_listing_customs_status"),
         CheckConstraint("technical_condition IS NULL OR technical_condition IN ('good', 'needs_repair', 'non_operational')", name="ck_listing_technical_condition"),
         CheckConstraint("body_condition IS NULL OR body_condition IN ('good', 'minor_damage', 'significant_damage', 'repaired')", name="ck_listing_body_condition"),
+        CheckConstraint("category_code IN ('cars', 'trucks', 'buses', 'motorcycles', 'special_equipment', 'agricultural_equipment', 'trailers', 'watercraft', 'parts', 'wheels', 'tires')", name="ck_listing_category_code"),
+        UniqueConstraint("id", "category_code", name="uq_listing_id_category_code"),
         Index("ix_listing_public_search", "status", "created_at", "id"),
         Index("ix_listing_make_model_year", "make_id", "model_id", "year"),
     )
@@ -375,6 +378,7 @@ class Listing(Base):
     company_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True)
     slug: Mapped[str] = mapped_column(String(240), unique=True)
     status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    category_code: Mapped[str] = mapped_column(String(32), default="cars", server_default="cars", nullable=False)
     revision: Mapped[int] = mapped_column(Integer, default=1)
     submitted_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     moderation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -423,6 +427,27 @@ class Listing(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     moderated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    category_details: Mapped["ListingCategoryDetails | None"] = relationship(
+        back_populates="listing", uselist=False, cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class ListingCategoryDetails(Base):
+    __tablename__ = "listing_category_details"
+    __table_args__ = (
+        CheckConstraint("category_code IN ('cars', 'trucks', 'buses', 'motorcycles', 'special_equipment', 'agricultural_equipment', 'trailers', 'watercraft', 'parts', 'wheels', 'tires')", name="ck_listing_category_details_code"),
+        ForeignKeyConstraint(
+            ["listing_id", "category_code"],
+            ["listings.id", "listings.category_code"],
+            name="fk_listing_category_details_listing_category",
+            ondelete="CASCADE",
+        ),
+    )
+
+    listing_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    category_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    details: Mapped[dict] = mapped_column(JSONB().with_variant(JSON(), "sqlite"), default=dict, nullable=False)
+    listing: Mapped[Listing] = relationship(back_populates="category_details")
 
 
 class Conversation(Base):

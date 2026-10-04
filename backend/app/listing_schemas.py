@@ -96,6 +96,8 @@ class ListingPublicOut(BaseModel):
     title: str
     status: str
     revision: int
+    category_code: str
+    category_details: dict[str, object]
     make: ListingCatalogItemOut | None
     model: ListingCatalogItemOut | None
     generation: ListingCatalogItemOut | None

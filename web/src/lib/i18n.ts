@@ -13,6 +13,7 @@ const russianMessages = {
   "header.navigation": "Основная навигация",
   "header.cars": "Автомобили",
   "header.companies": "Компании",
+  "header.customsCalculator": "Таможенный калькулятор",
   "header.moderation": "Модерация",
   "header.administration": "Администрирование",
   "header.favorites": "Избранное",

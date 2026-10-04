@@ -92,6 +92,8 @@ class DealerListingSummaryOut(BaseModel):
     title: str
     status: Literal["active"]
     revision: int
+    category_code: str
+    category_details: dict[str, object]
     make: DealerCatalogItemOut | None
     model: DealerCatalogItemOut | None
     generation: DealerCatalogItemOut | None

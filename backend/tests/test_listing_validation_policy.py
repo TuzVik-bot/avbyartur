@@ -88,6 +88,23 @@ def test_default_policy_preserves_one_ready_photo_and_current_year_behavior():
         "used_year_max": 2026,
         "minimum_photos": {"new": 1, "used": 1, "damaged": 1, "parts": 1},
         "maximum_photos": 30,
+        "category_codes": [
+            "cars", "trucks", "buses", "motorcycles", "special_equipment",
+            "agricultural_equipment", "trailers", "watercraft", "parts", "wheels", "tires",
+        ],
+        "category_submission_requirements": {
+            "cars": {"top_level": ["make", "model", "year", "mileage_km", "fuel", "transmission", "drive"], "category_details": []},
+            "trucks": {"top_level": ["make", "model", "year"], "category_details": ["vehicle_type"]},
+            "buses": {"top_level": ["make", "model", "year"], "category_details": ["vehicle_type"]},
+            "motorcycles": {"top_level": ["make", "model", "year"], "category_details": ["vehicle_type"]},
+            "special_equipment": {"top_level": ["make", "model", "year"], "category_details": ["equipment_type"]},
+            "agricultural_equipment": {"top_level": ["make", "model", "year"], "category_details": ["equipment_type"]},
+            "trailers": {"top_level": ["make", "model", "year"], "category_details": ["trailer_type"]},
+            "watercraft": {"top_level": ["make", "model", "year"], "category_details": ["watercraft_type"]},
+            "parts": {"top_level": [], "category_details": ["part_group"]},
+            "wheels": {"top_level": [], "category_details": ["diameter_in", "width_in", "bolt_holes", "pcd_mm"]},
+            "tires": {"top_level": [], "category_details": ["width_mm", "profile_percent", "diameter_in", "season"]},
+        },
     }
 
 

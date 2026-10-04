@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from app.listing_categories import CategoryCode, ListingCategoryDetailsInput
+
 
 class LoginInput(BaseModel):
     email: EmailStr
@@ -61,6 +63,8 @@ class CatalogItemOut(BaseModel):
 
 
 class ListingForm(BaseModel):
+    category_code: CategoryCode = "cars"
+    category_details: ListingCategoryDetailsInput | None = None
     seller_type: Literal["private", "company"] | None = None
     make_id: UUID | None = None
     model_id: UUID | None = None
@@ -107,6 +111,12 @@ class ListingForm(BaseModel):
     manual_city: str | None = Field(default=None, max_length=160)
     contact_phone: str | None = Field(default=None, min_length=5, max_length=40)
 
+    @model_validator(mode="after")
+    def category_details_match_category(self) -> "ListingForm":
+        if self.category_details is not None and self.category_code is not None and self.category_details.category_code != self.category_code:
+            raise ValueError("category_details.category_code must match category_code")
+        return self
+
     @field_validator("manual_city", mode="before")
     @classmethod
     def normalize_manual_city(cls, value: object) -> object:
@@ -151,7 +161,16 @@ class RevisionInput(BaseModel):
 
 
 class ListingPatch(ListingForm):
+    category_code: CategoryCode | None = None
     expected_revision: int = Field(ge=1)
+    confirm_category_change: bool = False
+
+    @field_validator("category_code", mode="before")
+    @classmethod
+    def reject_explicit_null_category_code(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("category_code cannot be null; omit it to preserve the current category")
+        return value
 
 
 class ModerationInput(RevisionInput):
@@ -239,6 +258,8 @@ class ListingOut(BaseModel):
     title: str
     status: str
     revision: int
+    category_code: str
+    category_details: dict[str, object] = Field(default_factory=dict)
     make: CatalogItemOut | None
     model: CatalogItemOut | None
     generation: CatalogItemOut | None = None
