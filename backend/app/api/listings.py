@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import String, case, cast, func, inspect as sa_inspect, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from app.api.dependencies import (
     get_current_user,
@@ -238,6 +238,10 @@ def _apply_fields(db: Session, listing: Listing, values: dict, user: User, *, cr
     category_details = values.pop("category_details", None)
     confirm_category_change = values.pop("confirm_category_change", False)
     current_category = listing.category_code or "cars"
+    if not creating and listing.category_code is None:
+        # Rows created before category support are cars. Keep in-memory legacy
+        # fixtures and any unmigrated object on the same compatibility path.
+        listing.category_code = current_category
     requested_category = values.get("category_code", current_category)
     if not creating and requested_category != current_category:
         if not confirm_category_change:
@@ -290,7 +294,7 @@ def _apply_fields(db: Session, listing: Listing, values: dict, user: User, *, cr
         else:
             listing.category_details.details = category_details["details"]
 
-    if listing.category_code != "cars" and any(getattr(listing, field) is not None for field in (
+    if (listing.category_code or "cars") != "cars" and any(getattr(listing, field) is not None for field in (
         "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id", "modification_id",
     )):
         fail(422, "invalid_catalog_reference", "The current make and model catalog is available for cars only", {"make_id": "Use manual make and model for this category"})
@@ -499,7 +503,7 @@ def search_listings(
 
     query = _active_query().where(Listing.category_code == category_code)
     if selected_details:
-        query = query.join(ListingCategoryDetails, ListingCategoryDetails.listing_id == Listing.id)
+        query = query.join(Listing.category_details)
         for key, value in selected_details.items():
             detail = ListingCategoryDetails.details[key]
             if isinstance(value, bool):
@@ -609,6 +613,10 @@ def search_listings(
         )
         query = query.outerjoin(active_boost, active_boost.c.listing_id == Listing.id)
         order = (active_boost.c.rank.desc().nullslast(), *order)
+    if selected_details:
+        query = query.options(contains_eager(Listing.category_details))
+    else:
+        query = query.outerjoin(Listing.category_details).options(contains_eager(Listing.category_details))
     rows = db.scalars(query.order_by(*order).offset((page - 1) * page_size).limit(page_size)).all()
     result = {
         "items": _listed(db, rows, rate_info=rate_info, display_currency=currency),

@@ -44,6 +44,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   const href = listingHref(listing);
   const conversationStartPath = `/account/messages/new?listing_id=${encodeURIComponent(listing.id)}`;
   const conversationStartHref = user ? conversationStartPath : `/login?next=${encodeURIComponent(conversationStartPath)}`;
+  const vinCheckApplicable = !["parts", "wheels", "tires"].includes(listing.category_code || "cars");
   const location = `${listing.manual_city || listing.city?.name || "Населённый пункт не указан"}, ${listing.region?.name || "Область не указана"}`;
   const powerHp = listing.power_hp ?? listing.modification?.specs?.power_hp;
   const facts = listing.category_code && listing.category_code !== "cars" ? categoryFacts(listing) : [
@@ -159,6 +160,15 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
           </> : <p className="muted">Контакт недоступен для проданного автомобиля.</p>}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
+          {vinCheckApplicable && <Link className="button button-secondary" href="/vin-check">Условия проверки по VIN</Link>}
+          {listing.status === "active" && listing.price && <>
+            {listing.credit && <Link className="button button-secondary" href={`/financing?${new URLSearchParams({ price: listing.price.amount, currency: listing.price.currency, mode: "credit" })}`}>
+              Рассчитать платёж по кредиту
+            </Link>}
+            {listing.leasing && <Link className="button button-secondary" href={`/financing?${new URLSearchParams({ price: listing.price.amount, currency: listing.price.currency, mode: "leasing" })}`}>
+              Рассчитать платёж в лизинг
+            </Link>}
+          </>}
           <div className="seller-box">
             <span className={`seller-tag ${listing.seller.type === "private" ? "private" : ""}`}>
               {listing.seller.type === "company" ? <Building2 size={16} /> : <CircleUserRound size={16} />}

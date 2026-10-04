@@ -30,6 +30,7 @@ from app.models import (
     Company,
     DealerTeamMember,
     Listing,
+    ListingCategoryDetails,
     ListingPhoto,
     ListingPromotion,
     LocationCity,
@@ -435,6 +436,24 @@ def serialize_listings(
     include_contact: bool = False,
 ) -> list[dict]:
     badges_by_listing = _active_promotion_badges(db, [listing.id for listing in listings])
+    category_details_by_listing: dict[UUID, ListingCategoryDetails | None] = {}
+    unloaded_category_details_ids: set[UUID] = set()
+    for listing in listings:
+        if "category_details" in sa_inspect(listing).unloaded:
+            unloaded_category_details_ids.add(listing.id)
+        else:
+            category_details_by_listing[listing.id] = listing.__dict__.get("category_details")
+    if unloaded_category_details_ids:
+        category_details_by_listing.update(
+            {
+                row.listing_id: row
+                for row in db.scalars(
+                    select(ListingCategoryDetails).where(
+                        ListingCategoryDetails.listing_id.in_(unloaded_category_details_ids)
+                    )
+                ).all()
+            }
+        )
     if len(listings) < 2:
         return [
             _serialize_listing(
@@ -443,6 +462,7 @@ def serialize_listings(
                 public=public,
                 include_modification=False,
                 include_contact=include_contact,
+                category_details_by_listing=category_details_by_listing,
                 promotion_badges=badges_by_listing.get(listing.id, []),
             )
             for listing in listings
@@ -485,6 +505,7 @@ def serialize_listings(
             public=public,
             records=records,
             photos_by_listing=photos_by_listing,
+            category_details_by_listing=category_details_by_listing,
             include_modification=False,
             include_contact=include_contact,
             promotion_badges=badges_by_listing.get(listing.id, []),
@@ -543,6 +564,7 @@ def _serialize_listing(
     public: bool,
     records: dict[type, dict[UUID, Any]] | None = None,
     photos_by_listing: dict[UUID, list[ListingPhoto]] | None = None,
+    category_details_by_listing: dict[UUID, ListingCategoryDetails | None] | None = None,
     include_modification: bool = False,
     include_contact: bool = False,
     promotion_badges: list[str] | None = None,
@@ -568,6 +590,11 @@ def _serialize_listing(
         if photos_by_listing is None
         else photos_by_listing.get(listing.id, [])
     )
+    category_details = (
+        listing.category_details
+        if category_details_by_listing is None
+        else category_details_by_listing.get(listing.id)
+    )
     company = get_record(Company, listing.company_id)
     user = get_record(User, listing.owner_id)
     seller = {"type": "company", "id": str(company.id), "name": company.name, "slug": company.slug} if company else {
@@ -582,7 +609,7 @@ def _serialize_listing(
         "id": str(listing.id), "slug": listing.slug, "title": title,
         "status": listing.status, "revision": listing.revision,
         "category_code": getattr(listing, "category_code", "cars"),
-        "category_details": dict(getattr(getattr(listing, "category_details", None), "details", None) or {}),
+        "category_details": dict(getattr(category_details, "details", None) or {}),
         "make": catalog_item(make) or (CatalogItemFallback(listing.make_name_snapshot, listing.manual_make)),
         "model": catalog_item(model, make_id=listing.make_id) or CatalogItemFallback(listing.model_name_snapshot, listing.manual_model, listing.make_id),
         "generation": catalog_item(generation, make_id=listing.make_id, model_id=listing.model_id),

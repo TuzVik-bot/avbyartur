@@ -18,6 +18,7 @@ from app.models import (
     Company,
     ExchangeRate,
     Listing,
+    ListingCategoryDetails,
     ListingPhoto,
     User,
 )
@@ -32,7 +33,10 @@ def currency_api():
     )
     Base.metadata.create_all(
         engine,
-        tables=[User.__table__, Company.__table__, Listing.__table__, ListingPhoto.__table__, ExchangeRate.__table__],
+        tables=[
+            User.__table__, Company.__table__, Listing.__table__, ListingCategoryDetails.__table__,
+            ListingPhoto.__table__, ExchangeRate.__table__,
+        ],
     )
     with engine.begin() as connection:
         connection.exec_driver_sql(

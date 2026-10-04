@@ -247,6 +247,18 @@ h3 { font-size: 17px; margin-bottom: 8px; }
 @keyframes skeleton-shimmer { to { background-position: -120% 0; } }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 13px; }
 .form-grid .wide { grid-column: 1 / -1; }
+.financing-page { max-width: 900px; padding-block: 28px 48px; }
+.financing-lead { max-width: 760px; margin-bottom: 20px; }
+.financing-form { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.financing-result { margin-top: 18px; padding: 16px; border: 1px solid #c8d6f7; border-radius: var(--radius); background: var(--soft-accent); }
+.financing-result h2 { margin-bottom: 10px; }
+.financing-result dl { display: grid; gap: 0; margin: 0 0 12px; }
+.financing-result dl div { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #d8e1f0; }
+.financing-result dt { color: var(--muted); }
+.financing-result dd { margin: 0; font-weight: 800; text-align: right; }
+.financing-result p { margin: 0; font-size: 13px; }
+.financing-unavailable { margin-bottom: 24px; padding: 12px 14px; border: 1px solid #e8d59e; border-radius: var(--radius); }
+.financing-form .form-actions { flex-wrap: wrap; }
 .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 17px; }
 .seller-offer { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 0; padding: 0; border: 0; }
 .seller-offer legend { margin-bottom: 7px; color: #485350; font-size: 12px; font-weight: 750; }
@@ -304,6 +316,13 @@ h3 { font-size: 17px; margin-bottom: 8px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .inline-error { margin: 0; color: var(--danger); font-size: 13px; }
 .inline-success { margin: 0; color: var(--green); font-size: 13px; }
+@media (max-width: 640px) {
+  .financing-form { padding: 14px; }
+  .financing-form .form-actions { align-items: stretch; }
+  .financing-form .form-actions .button { width: 100%; }
+  .financing-result dl div { flex-direction: column; gap: 2px; }
+  .financing-result dd { text-align: left; }
+}
 .notifications-inbox { display: grid; gap: 16px; max-width: 920px; padding-bottom: 28px; }
 .notification-support-note { display: flex; align-items: flex-start; gap: 12px; padding: 15px 16px; border: 1px solid #d8e1f0; border-radius: var(--radius); background: var(--soft-accent); color: #304d9e; }
 .notification-support-icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #fff; color: var(--accent); }

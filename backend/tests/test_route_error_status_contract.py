@@ -1,7 +1,7 @@
 from app.main import app
 
-
 EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
+    ("/api/v1/catalog/category-subtypes", "get"): set(),
     ("/api/v1/admin/users", "get"): {"401", "403", "422"},
     ("/api/v1/admin/users/{user_id}", "patch"): {"401", "403", "404", "409", "422", "429"},
     ("/api/v1/admin/audit", "get"): {"401", "403", "422"},
@@ -54,6 +54,7 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     ("/api/v1/admin/content/{kind}/{key}", "put"): {"401", "403", "409", "422", "429"},
     ("/api/v1/admin/content/{kind}/{key}/versions", "get"): {"401", "403", "404", "422"},
     ("/api/v1/content/{kind}/{key}", "get"): {"404", "422"},
+    ("/api/v1/content/articles", "get"): set(),
     ("/api/v1/me/profile", "get"): {"401", "403"},
     ("/api/v1/me/notification-preferences", "get"): {"401", "403"},
     ("/api/v1/me/notification-preferences", "put"): {"401", "403", "409", "422"},
@@ -138,6 +139,7 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     ("/api/v1/companies/{company_id}", "patch"): {"401", "403", "404", "409"},
     ("/api/v1/dealers", "get"): set(),
     ("/api/v1/dealers/{slug}", "get"): {"404"},
+    ("/api/v1/vin-check/status", "get"): set(),
     ("/api/v1/moderation/listings", "get"): {"401", "403"},
     ("/api/v1/moderation/listings/{listing_id}/approve", "post"): {
         "401", "403", "404", "409"
@@ -194,3 +196,10 @@ def test_openapi_documents_exact_route_specific_error_statuses() -> None:
             assert response["content"]["application/json"]["schema"] == {
                 "$ref": "#/components/schemas/ApiErrorOut"
             }, f"{method.upper()} {path} {status}"
+
+
+def test_openapi_documents_dealer_listing_category_fields() -> None:
+    summary = app.openapi()["components"]["schemas"]["DealerListingSummaryOut"]
+
+    assert {"category_code", "category_details"} <= set(summary["properties"])
+    assert {"category_code", "category_details"} <= set(summary["required"])

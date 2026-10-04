@@ -12,6 +12,14 @@ type FooterGroup = {
 const footerGroups: FooterGroup[] = [
   { id: "categories", title: "Каталог", links: categories },
   {
+    id: "services",
+    title: "Сервисы",
+    links: [
+      { href: "/vin-check", label: "Проверка транспорта по VIN" },
+      { href: "/financing", label: "Подбор кредита или лизинга" }
+    ]
+  },
+  {
     id: "information",
     title: "Информация",
     links: [

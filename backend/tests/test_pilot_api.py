@@ -17,6 +17,7 @@ from app.models import (
     Company,
     ExchangeRate,
     Listing,
+    ListingCategoryDetails,
     ListingPhoto,
     ListingStatusEvent,
     LocationCity,
@@ -184,23 +185,28 @@ def test_non_retention_archived_published_listing_returns_gone(integration):
 def test_listing_search_uses_a_bounded_number_of_relation_queries(integration):
     factory = integration["SessionLocal"]
     owner = add_user(factory, f"search-batch-{uuid.uuid4().hex[:8]}@example.com")
-    with factory() as db:
-        db.add_all(
-            [
-                Listing(
-                    owner_id=owner.id,
-                    slug=f"search-batch-{uuid.uuid4().hex}",
-                    status="active",
-                    title=f"Synthetic car {index}",
-                    description="Synthetic load test listing",
-                    contact_phone="+375291234567",
-                    damaged=False,
-                    parts_only=False,
-                )
-                for index in range(25)
-            ]
+    listings = [
+        Listing(
+            owner_id=owner.id,
+            slug=f"search-batch-{uuid.uuid4().hex}",
+            status="active",
+            category_code="trucks",
+            title=f"Synthetic truck {index}",
+            description="Synthetic load test listing",
+            contact_phone="+375291234567",
+            damaged=False,
+            parts_only=False,
         )
+        for index in range(25)
+    ]
+    listings[0].category_details = ListingCategoryDetails(
+        category_code="trucks",
+        details={"vehicle_type": "truck", "payload_kg": 18_500},
+    )
+    with factory() as db:
+        db.add_all(listings)
         db.commit()
+        category_details_listing_id = str(listings[0].id)
 
     client = integration["client"].__class__(integration["client"].app, base_url="http://testserver")
     statements = []
@@ -212,12 +218,25 @@ def test_listing_search_uses_a_bounded_number_of_relation_queries(integration):
     engine = integration["engine"]
     event.listen(engine, "before_cursor_execute", record_select)
     try:
-        response = client.get("/api/v1/listings", params={"page_size": 25})
+        response = client.get("/api/v1/listings", params={"category_code": "trucks", "page_size": 25})
     finally:
         event.remove(engine, "before_cursor_execute", record_select)
 
     assert response.status_code == 200, response.text
     assert len(response.json()["items"]) == 25
+    details_listing = next(
+        item for item in response.json()["items"] if item["id"] == category_details_listing_id
+    )
+    assert details_listing["category_details"] == {"vehicle_type": "truck", "payload_kg": 18_500}
+    category_details_relation_selects = [
+        statement
+        for statement in statements
+        if "from listing_category_details" in statement.casefold()
+    ]
+    assert category_details_relation_selects == [], (
+        "listing search must not lazy-load category details once per result; "
+        f"observed {len(category_details_relation_selects)} relation SELECTs"
+    )
     assert len(statements) <= 6
 
 

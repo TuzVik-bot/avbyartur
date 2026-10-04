@@ -2033,6 +2033,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vin-check/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Vin Check Status */
+        get: operations["get_vin_check_status_api_v1_vin_check_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -5659,6 +5676,17 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VinCheckStatusOut */
+        VinCheckStatusOut: {
+            /** Available */
+            available: boolean;
+            /** Provider */
+            provider: string | null;
+            /** Supported Categories */
+            supported_categories: string[];
+            /** Message */
+            message: string;
         };
     };
     responses: never;
@@ -14333,6 +14361,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    get_vin_check_status_api_v1_vin_check_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VinCheckStatusOut"];
                 };
             };
             /** @description API error */

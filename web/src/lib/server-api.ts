@@ -4,11 +4,13 @@ import type { components } from "@/lib/types.generated";
 import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, Report, UserNotificationList } from "@/lib/types";
 import type { NotificationPreferences } from "@/lib/api";
 
-export async function serverApiRequest<T>(path: string): Promise<T> {
-  const incoming = await headers();
+export async function serverApiRequest<T>(path: string, options: { forwardCookies?: boolean } = {}): Promise<T> {
   const requestHeaders = new Headers();
-  const cookie = incoming.get("cookie");
-  if (cookie) requestHeaders.set("cookie", cookie);
+  if (options.forwardCookies !== false) {
+    const incoming = await headers();
+    const cookie = incoming.get("cookie");
+    if (cookie) requestHeaders.set("cookie", cookie);
+  }
   const response = await fetch(`${internalApiBase()}/${path.replace(/^\//, "")}`, { headers: requestHeaders, cache: "no-store" });
   const payload: unknown = await response.json().catch(() => undefined);
   if (!response.ok) throw new ApiClientError(response.status, (payload || {}) as Partial<ApiErrorShape>);
@@ -24,6 +26,7 @@ export async function getSessionServer(): Promise<AuthSession | null> {
 }
 
 export const serverApi = {
+  vinCheckStatus: () => serverApiRequest<components["schemas"]["VinCheckStatusOut"]>("vin-check/status", { forwardCookies: false }),
   listings: (search: ListingSearch = {}) => serverApiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
   listing: (id: string) => serverApiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   relatedListings: (id: string) => serverApiRequest<{ items: ListingSummary[] }>(`listings/${encodeURIComponent(id)}/related`),

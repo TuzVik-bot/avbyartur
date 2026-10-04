@@ -91,6 +91,31 @@ describe("contact reveal", () => {
     expect(container.textContent).toContain("+375 29 000 00 00");
   });
 
+  it("links to the local calculator with only the seller's financing flag and listed price", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, credit: true } })));
+
+    const link = container.querySelector<HTMLAnchorElement>('a[href^="/financing?"]');
+    expect(link?.textContent).toContain("Рассчитать платёж по кредиту");
+    expect(new URLSearchParams(link?.getAttribute("href")?.split("?")[1]).get("price")).toBe("10000");
+    expect(new URLSearchParams(link?.getAttribute("href")?.split("?")[1]).get("currency")).toBe("BYN");
+    expect(link?.getAttribute("href")).not.toContain(listing.id);
+  });
+
+  it("offers both financing modes when the seller marked credit and leasing", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, credit: true, leasing: true } })));
+
+    const links = [...container.querySelectorAll<HTMLAnchorElement>('a[href^="/financing?"]')];
+    expect(links).toHaveLength(2);
+    expect(links.map((link) => new URLSearchParams(link.href.split("?")[1]).get("mode"))).toEqual(["credit", "leasing"]);
+    expect(links.map((link) => link.textContent?.trim())).toEqual(["Рассчитать платёж по кредиту", "Рассчитать платёж в лизинг"]);
+  });
+
+  it("does not imply seller financing when the listing has no financing flag", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+
+    expect(container.querySelector('a[href^="/financing?"]')).toBeNull();
+  });
+
   it("keeps the disabled pilot login redirect after an unauthenticated reveal is rejected", async () => {
     vi.spyOn(api, "revealPhone").mockRejectedValue(new ApiClientError(401, { code: "unauthorized" }));
     await act(async () => root.render(createElement(ListingDetail, { listing })));
