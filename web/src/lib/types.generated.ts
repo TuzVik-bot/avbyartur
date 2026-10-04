@@ -3685,6 +3685,12 @@ export interface components {
             status: "active";
             /** Revision */
             revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
             make: components["schemas"]["DealerCatalogItemOut"] | null;
             model: components["schemas"]["DealerCatalogItemOut"] | null;
             generation: components["schemas"]["DealerCatalogItemOut"] | null;

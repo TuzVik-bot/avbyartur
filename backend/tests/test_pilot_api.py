@@ -218,7 +218,9 @@ def test_listing_search_uses_a_bounded_number_of_relation_queries(integration):
 
     assert response.status_code == 200, response.text
     assert len(response.json()["items"]) == 25
-    assert len(statements) <= 6
+    # Category characteristics add one batched query, never one per listing.
+    assert len(statements) <= 7
+    assert sum("listing_category_details" in statement for statement in statements) == 1
 
 
 def test_login_csrf_draft_idempotency_and_ownership(integration):
