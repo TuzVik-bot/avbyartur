@@ -66,6 +66,7 @@ export function resetCsrfToken() {
 export type AuthCapabilities = {
   sms_login: boolean;
   sms_registration: boolean;
+  email_registration: boolean;
   email_verification: boolean;
   password_recovery: boolean;
 };
@@ -102,7 +103,7 @@ async function responseData<T>(response: Response): Promise<T> {
 }
 
 async function ensureCsrfToken(path: string) {
-  const preAuthOtp = ["auth/otp/request", "auth/register/otp/request", "auth/otp/verify"].includes(path.replace(/^\//, ""));
+  const preAuthOtp = ["auth/register", "auth/otp/request", "auth/register/otp/request", "auth/otp/verify"].includes(path.replace(/^\//, ""));
   if (preAuthOtp && otpCsrfToken && Date.now() < otpCsrfTokenExpiresAt) return otpCsrfToken;
   if (!preAuthOtp && currentCsrfToken) return currentCsrfToken;
   if (typeof window === "undefined") return undefined;
@@ -206,6 +207,7 @@ export function searchPath(search: ListingSearch = {}) {
 
 export const api = {
   login: (email: string, password: string) => apiRequest<AuthSession>("auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  register: (data: { email: string; password: string; display_name: string; accept_terms: true; accept_privacy: true; terms_version: string; privacy_version: string }) => apiRequest<AuthSession>("auth/register", { method: "POST", body: JSON.stringify(data) }),
   authCapabilities: () => apiRequest<AuthCapabilities>("auth/capabilities"),
   requestLoginOtp: (phone: string) => apiRequest<components["schemas"]["OtpAcceptedResponse"]>("auth/otp/request", { method: "POST", body: JSON.stringify({ phone }), headers: idempotencyHeaders() }),
   requestRegistrationOtp: (data: { phone: string; display_name: string; accept_terms: true; accept_privacy: true; terms_version: string; privacy_version: string }) => apiRequest<components["schemas"]["OtpAcceptedResponse"]>("auth/register/otp/request", { method: "POST", body: JSON.stringify(data), headers: idempotencyHeaders() }),

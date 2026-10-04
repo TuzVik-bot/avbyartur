@@ -45,6 +45,7 @@ class AuthCapabilitiesResponse(BaseModel):
 
     sms_login: bool
     sms_registration: bool
+    email_registration: bool
     email_notifications: bool
     email_verification: bool
     password_recovery: bool

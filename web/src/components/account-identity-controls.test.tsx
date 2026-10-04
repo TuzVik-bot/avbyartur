@@ -25,7 +25,7 @@ beforeEach(() => {
   act(() => { root = createRoot(container); });
   mocks.setSession.mockReset();
   mocks.refresh.mockReset();
-  vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_verification: true, password_recovery: true });
+  vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: false, email_verification: true, password_recovery: true });
 });
 
 afterEach(() => {

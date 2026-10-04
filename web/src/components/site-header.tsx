@@ -40,7 +40,7 @@ export function SiteHeader() {
           {user && user.role !== "user" && <Link className="nav-icon-link" href={localizedPath("/moderation")} onClick={() => setOpen(false)}><ShieldCheck size={17} /> {message("header.moderation")}</Link>}
           {user?.role === "admin" && <Link className="nav-icon-link" href={localizedPath("/admin")} onClick={() => setOpen(false)}><ShieldCheck size={17} /> {message("header.administration")}</Link>}
           <Link className="nav-icon-link" href={localizedPath("/account/favorites")} onClick={() => setOpen(false)}><Heart size={17} /> {message("header.favorites")}</Link>
-          {user ? <Link className="nav-icon-link" href={localizedPath("/account")} onClick={() => setOpen(false)}><UserRound size={17} /> {message("header.account")}</Link> : <Link href={localizedPath("/login")} onClick={() => setOpen(false)}>{message("header.signIn")}</Link>}
+          {user ? <Link className="nav-icon-link" href={localizedPath("/account")} onClick={() => setOpen(false)}><UserRound size={17} /> {message("header.account")}</Link> : <><Link href={localizedPath("/login")} onClick={() => setOpen(false)}>{message("header.signIn")}</Link><Link href={localizedPath("/register")} onClick={() => setOpen(false)}>{message("header.register")}</Link></>}
           {user && <button className="mobile-signout" type="button" onClick={onSignOut}><LogOut size={17} /> {message("header.signOut")}</button>}
         </nav>
         <div className="header-actions">

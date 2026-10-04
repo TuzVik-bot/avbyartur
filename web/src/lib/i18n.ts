@@ -18,6 +18,7 @@ const russianMessages = {
   "header.favorites": "Избранное",
   "header.account": "Кабинет",
   "header.signIn": "Войти",
+  "header.register": "Регистрация",
   "header.signOut": "Выйти",
   "header.sellListing": "Подать объявление",
   "header.signOutError": "Не удалось завершить сеанс. Повторите попытку."
