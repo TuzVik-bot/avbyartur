@@ -34,8 +34,12 @@ def currency_api():
     Base.metadata.create_all(
         engine,
         tables=[
-            User.__table__, Company.__table__, Listing.__table__, ListingCategoryDetails.__table__,
-            ListingPhoto.__table__, ExchangeRate.__table__,
+            User.__table__,
+            Company.__table__,
+            Listing.__table__,
+            ListingCategoryDetails.__table__,
+            ListingPhoto.__table__,
+            ExchangeRate.__table__,
         ],
     )
     with engine.begin() as connection:

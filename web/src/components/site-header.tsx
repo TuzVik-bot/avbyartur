@@ -39,6 +39,7 @@ export function SiteHeader() {
           <Link href={localizedPath("/cars")} onClick={() => setOpen(false)}>{message("header.cars")}</Link>
           <Link href={localizedPath("/dealers")} onClick={() => setOpen(false)}>{message("header.companies")}</Link>
           <Link href={localizedPath("/useful-information")} onClick={() => setOpen(false)}>{message("header.usefulInformation")}</Link>
+          <Link href={localizedPath("/customs-calculator")} onClick={() => setOpen(false)}>{message("header.customsCalculator")}</Link>
           {user && user.role !== "user" && <Link className="nav-icon-link" href={localizedPath("/moderation")} onClick={() => setOpen(false)}><ShieldCheck size={17} /> {message("header.moderation")}</Link>}
           {user?.role === "admin" && <Link className="nav-icon-link" href={localizedPath("/admin")} onClick={() => setOpen(false)}><ShieldCheck size={17} /> {message("header.administration")}</Link>}
           <Link className="nav-icon-link" href={localizedPath("/account/favorites")} onClick={() => setOpen(false)}><Heart size={17} /> {message("header.favorites")}</Link>

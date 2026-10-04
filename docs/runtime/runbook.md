@@ -1,5 +1,7 @@
 # Runtime Runbook
 
+> **4 октября 2026:** последний read-only аудит VPS обнаружил отключённый HTTP Basic Auth на активном релизе `pilot-20261004T123401Z`; анонимный HTTPS-доступ отвечает 200, `noindex` сохранён. Проектные инструкции требуют Basic Auth и `noindex` для закрытого пилота. Не переключать новые изменения на production до восстановления пароля и проверки анонимного 401, авторизованного 200 и `noindex`. Актуальный статус и пределы проверок — [RELEASE_2026-10-04.md](RELEASE_2026-10-04.md).
+
 ## Local Run
 
 Docker Compose builds the app from `backend/Dockerfile` and `web/Dockerfile`. PostgreSQL, API, worker, and web each run in Compose. The database and private photo volume are named volumes and survive `make down`; do not use `docker compose down -v` for routine stops.

@@ -2033,6 +2033,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customs-calculator/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Customs Calculator Meta */
+        get: operations["customs_calculator_meta_api_v1_customs_calculator_meta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customs-calculator/calculate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Calculate Customs Public */
+        post: operations["calculate_customs_public_api_v1_customs_calculator_calculate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vin-check/status": {
         parameters: {
             query?: never;
@@ -3208,6 +3242,114 @@ export interface components {
             /** Is Blocked */
             is_blocked: boolean;
         };
+        /** CustomsCalculationRequest */
+        CustomsCalculationRequest: {
+            /** Price Amount */
+            price_amount: string;
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "EUR" | "USD" | "BYN" | "RUB" | "CNY";
+            /**
+             * Manufacture Date
+             * Format: date
+             */
+            manufacture_date: string;
+            /**
+             * Engine Type
+             * @enum {string}
+             */
+            engine_type: "petrol" | "diesel";
+            /** Engine Volume Cc */
+            engine_volume_cc: number;
+            /**
+             * Personal Use
+             * @constant
+             */
+            personal_use: true;
+            /**
+             * Origin Outside Eaeu
+             * @constant
+             */
+            origin_outside_eaeu: true;
+        };
+        /** CustomsCalculationResponse */
+        CustomsCalculationResponse: {
+            /**
+             * Calculation Date
+             * Format: date
+             */
+            calculation_date: string;
+            /** Rules Version */
+            rules_version: string;
+            /**
+             * Age Band
+             * @enum {string}
+             */
+            age_band: "up_to_3_years" | "over_3_to_5_years" | "over_5_years";
+            /** Customs Value Eur */
+            customs_value_eur: string;
+            /** Duty Eur */
+            duty_eur: string;
+            /** Duty Byn */
+            duty_byn: string;
+            /** Recycling Fee Byn */
+            recycling_fee_byn: string;
+            /** Customs Fee Byn */
+            customs_fee_byn: string;
+            /** Total Byn */
+            total_byn: string;
+            /**
+             * Rate Date
+             * Format: date
+             */
+            rate_date: string;
+            /** Rates Used */
+            rates_used: components["schemas"]["CustomsRateUsed"][];
+            /** Sources */
+            sources: string[];
+            /** Warnings */
+            warnings: string[];
+        };
+        /** CustomsMetaResponse */
+        CustomsMetaResponse: {
+            /**
+             * Scenario
+             * @constant
+             */
+            scenario: "private_m1_personal_use_outside_eaeu";
+            /** Supported Currencies */
+            supported_currencies: ("EUR" | "USD" | "BYN" | "RUB" | "CNY")[];
+            /** Supported Engines */
+            supported_engines: ("petrol" | "diesel")[];
+            /** Calculation Available */
+            calculation_available: boolean;
+            /** Unavailable Reason */
+            unavailable_reason: string | null;
+            /** Rules Version */
+            rules_version: string | null;
+            /** Verified On */
+            verified_on: string | null;
+            /** Sources */
+            sources: string[];
+            /** Scope Notes */
+            scope_notes: string[];
+        };
+        /** CustomsRateUsed */
+        CustomsRateUsed: {
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "EUR" | "USD" | "BYN" | "RUB" | "CNY";
+            /** Official Rate */
+            official_rate: string;
+            /** Scale */
+            scale: number;
+            /** Byn Per Unit */
+            byn_per_unit: string;
+        };
         /** DealerAnalyticsItemOut */
         DealerAnalyticsItemOut: {
             /**
@@ -3624,6 +3766,15 @@ export interface components {
             status: "active";
             /** Revision */
             revision: number;
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
             make: components["schemas"]["DealerCatalogItemOut"] | null;
             model: components["schemas"]["DealerCatalogItemOut"] | null;
             generation: components["schemas"]["DealerCatalogItemOut"] | null;
@@ -14356,6 +14507,86 @@ export interface operations {
             };
             /** @description The request rate limit was exceeded */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    customs_calculator_meta_api_v1_customs_calculator_meta_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomsMetaResponse"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    calculate_customs_public_api_v1_customs_calculator_calculate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomsCalculationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomsCalculationResponse"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Customs rules or official rates are unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

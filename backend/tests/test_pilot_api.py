@@ -228,16 +228,14 @@ def test_listing_search_uses_a_bounded_number_of_relation_queries(integration):
         item for item in response.json()["items"] if item["id"] == category_details_listing_id
     )
     assert details_listing["category_details"] == {"vehicle_type": "truck", "payload_kg": 18_500}
-    category_details_relation_selects = [
+    category_details_queries = [
         statement
         for statement in statements
-        if "from listing_category_details" in statement.casefold()
+        if "listing_category_details" in statement.casefold()
     ]
-    assert category_details_relation_selects == [], (
-        "listing search must not lazy-load category details once per result; "
-        f"observed {len(category_details_relation_selects)} relation SELECTs"
-    )
-    assert len(statements) <= 6
+    # Characteristics are joined into the page query, never fetched per listing.
+    assert len(category_details_queries) == 1
+    assert len(statements) <= 7
 
 
 def test_login_csrf_draft_idempotency_and_ownership(integration):

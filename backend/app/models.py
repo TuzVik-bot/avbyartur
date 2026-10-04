@@ -428,7 +428,7 @@ class Listing(Base):
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     moderated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     category_details: Mapped["ListingCategoryDetails | None"] = relationship(
-        back_populates="listing", uselist=False, cascade="all, delete-orphan"
+        back_populates="listing", uselist=False, cascade="all, delete-orphan", lazy="selectin"
     )
 
 

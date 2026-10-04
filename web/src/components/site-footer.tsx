@@ -58,7 +58,8 @@ const footerGroups: FooterGroup[] = [
       { href: "/promotion", label: "Продвижение" },
       { href: "/pro-subscription", label: "PRO-подписка" },
       { href: "/dealers", label: "Компании" },
-      { href: "/sell", label: "Подать объявление" }
+      { href: "/sell", label: "Подать объявление" },
+      { href: "/customs-calculator", label: "Таможенный калькулятор" }
     ]
   }
 ];
