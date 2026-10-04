@@ -148,6 +148,13 @@ class ListingPatch(ListingForm):
     expected_revision: int = Field(ge=1)
     confirm_category_change: bool = False
 
+    @field_validator("category_code", mode="before")
+    @classmethod
+    def reject_explicit_null_category_code(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("category_code cannot be null; omit it to preserve the current category")
+        return value
+
 
 class ModerationInput(RevisionInput):
     reason: str | None = Field(default=None, max_length=2000)

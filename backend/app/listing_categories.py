@@ -144,10 +144,24 @@ _POSITIVE_REQUIRED_FIELDS: dict[str, frozenset[str]] = {
 }
 
 
-def category_submission_requirements() -> dict[str, list[str]]:
+def category_submission_requirements() -> dict[str, dict[str, list[str]]]:
     """Public form hints for the category details required on submission."""
 
-    return {code: list(fields) for code, fields in _REQUIRED_SUBMISSION_FIELDS.items()}
+    transport_categories = {
+        "cars", "trucks", "buses", "motorcycles", "special_equipment",
+        "agricultural_equipment", "trailers", "watercraft",
+    }
+    return {
+        code: {
+            "top_level": (
+                ["make", "model", "year", "mileage_km", "fuel", "transmission", "drive"]
+                if code == "cars"
+                else ["make", "model", "year"] if code in transport_categories else []
+            ),
+            "category_details": list(fields),
+        }
+        for code, fields in _REQUIRED_SUBMISSION_FIELDS.items()
+    }
 
 
 class ListingCategoryDetailsInput(BaseModel):

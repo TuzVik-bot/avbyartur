@@ -42,7 +42,6 @@ def _ambiguous_legacy_listings() -> int:
           AND make_id IS NULL AND model_id IS NULL
           AND NULLIF(btrim(COALESCE(manual_make, '')), '') IS NULL
           AND NULLIF(btrim(COALESCE(manual_model, '')), '') IS NULL
-          AND year IS NULL AND mileage_km IS NULL
           AND fuel IS NULL AND transmission IS NULL AND drive IS NULL
           AND body_type_id IS NULL AND body_variant_id IS NULL AND modification_id IS NULL
           AND engine_volume_l IS NULL AND power_hp IS NULL AND vin IS NULL

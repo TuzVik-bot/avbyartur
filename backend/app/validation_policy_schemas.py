@@ -12,6 +12,13 @@ class MinimumListingPhotosOut(BaseModel):
     parts: int = Field(ge=1, le=30)
 
 
+class CategorySubmissionRequirementsOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    top_level: list[str]
+    category_details: list[str]
+
+
 class ListingValidationPolicyOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -22,4 +29,4 @@ class ListingValidationPolicyOut(BaseModel):
     minimum_photos: MinimumListingPhotosOut
     maximum_photos: int = Field(ge=1, le=30)
     category_codes: list[str] = Field(min_length=1)
-    category_submission_requirements: dict[str, list[str]]
+    category_submission_requirements: dict[str, CategorySubmissionRequirementsOut]

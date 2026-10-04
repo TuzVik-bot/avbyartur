@@ -169,6 +169,13 @@ def test_listing_patch_does_not_replace_category_when_category_is_omitted():
     assert "category_code" not in payload.model_dump(exclude_unset=True)
 
 
+def test_listing_patch_rejects_an_explicit_null_category_code():
+    from app.schemas import ListingPatch
+
+    with pytest.raises(ValidationError):
+        ListingPatch.model_validate({"expected_revision": 4, "category_code": None})
+
+
 def test_listing_patch_allows_non_car_details_without_repeating_category_code():
     from app.schemas import ListingPatch
 
@@ -246,6 +253,32 @@ def test_migration_guard_helpers_raise_without_a_database(monkeypatch):
     monkeypatch.setattr(migration.sa, "inspect", lambda _bind: Inspector())
     with pytest.raises(RuntimeError, match="Refusing a lossy category downgrade"):
         migration._require_non_lossy_downgrade()
+
+
+def test_migration_treats_year_and_mileage_only_as_ambiguous(monkeypatch):
+    migration_path = Path(__file__).parents[1] / "alembic/versions/0022_listing_categories.py"
+    spec = importlib.util.spec_from_file_location("listing_categories_migration_year_test", migration_path)
+    migration = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(migration)
+
+    captured = []
+
+    class Scalar:
+        def scalar_one(self):
+            return 1
+
+    class Bind:
+        def execute(self, statement):
+            captured.append(str(statement))
+            return Scalar()
+
+    monkeypatch.setattr(migration.op, "get_bind", lambda: Bind())
+    with pytest.raises(RuntimeError, match="Refusing to classify 1 ambiguous"):
+        migration._require_unambiguous_legacy_listings()
+
+    assert "year IS NULL" not in captured[0]
+    assert "mileage_km IS NULL" not in captured[0]
 
 
 def test_postgres_category_details_updates_and_switches_obey_composite_fk(integration):
