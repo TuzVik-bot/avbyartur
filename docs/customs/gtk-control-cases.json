@@ -1,0 +1,454 @@
+{
+  "checked_on": "2026-10-04",
+  "source_url": "https://customs.gov.by/calc/",
+  "evidence_file": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md",
+  "evidence_method": "root_cua_visible_ui",
+  "evidence_sha256": "04802ade4f25f7a8d6fb94cfea1e123447e070b992f3fbe540de14c5e70d461f",
+  "cases_sha256": "08f0711d5b863f648d848fab8f226c8518a0c7c21fda6ddef69c5b4ad749af1c",
+  "cases": [
+    {
+      "id": "up_to_3_price_1_percent",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "8500",
+        "price_currency": "EUR",
+        "engine_volume_cc": 1600,
+        "exchange_rate_byn_per_eur": "3.5"
+      },
+      "local_expected_duty_eur": "4590",
+      "gtk_actual_duty_eur": "4590",
+      "local_expected_duty_byn": "16065.00",
+      "gtk_actual_duty_byn": "16065",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-8500-1600-percent"
+    },
+    {
+      "id": "up_to_3_price_2_percent",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "16700",
+        "price_currency": "EUR",
+        "engine_volume_cc": 1600,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "8016",
+      "gtk_actual_duty_eur": "8016",
+      "local_expected_duty_byn": "24048.00",
+      "gtk_actual_duty_byn": "24048",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-16700-1600-percent"
+    },
+    {
+      "id": "up_to_3_price_3_percent",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "42300",
+        "price_currency": "EUR",
+        "engine_volume_cc": 1600,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "20304",
+      "gtk_actual_duty_eur": "20304",
+      "local_expected_duty_byn": "60912.00",
+      "gtk_actual_duty_byn": "60912",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-42300-1600-percent"
+    },
+    {
+      "id": "up_to_3_price_4_percent",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "84500",
+        "price_currency": "EUR",
+        "engine_volume_cc": 1600,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "40560",
+      "gtk_actual_duty_eur": "40560",
+      "local_expected_duty_byn": "121680.00",
+      "gtk_actual_duty_byn": "121680",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-84500-1600-percent"
+    },
+    {
+      "id": "up_to_3_price_5_percent",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "169000",
+        "price_currency": "EUR",
+        "engine_volume_cc": 1600,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "81120",
+      "gtk_actual_duty_eur": "81120",
+      "local_expected_duty_byn": "243360.00",
+      "gtk_actual_duty_byn": "243360",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-169000-1600-percent"
+    },
+    {
+      "id": "up_to_3_price_6_percent",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "169001",
+        "price_currency": "EUR",
+        "engine_volume_cc": 1600,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "81120.48",
+      "gtk_actual_duty_eur": "81120.48",
+      "local_expected_duty_byn": "243361.44",
+      "gtk_actual_duty_byn": "243361.44",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-169001-1600-percent"
+    },
+    {
+      "id": "up_to_3_price_1_minimum",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "8500",
+        "price_currency": "EUR",
+        "engine_volume_cc": 10000,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "25000",
+      "gtk_actual_duty_eur": "25000",
+      "local_expected_duty_byn": "75000.00",
+      "gtk_actual_duty_byn": "75000",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-8500-10000-minimum"
+    },
+    {
+      "id": "up_to_3_price_2_minimum",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "16700",
+        "price_currency": "EUR",
+        "engine_volume_cc": 10000,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "35000",
+      "gtk_actual_duty_eur": "35000",
+      "local_expected_duty_byn": "105000.00",
+      "gtk_actual_duty_byn": "105000",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-16700-10000-minimum"
+    },
+    {
+      "id": "up_to_3_price_3_minimum",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "42300",
+        "price_currency": "EUR",
+        "engine_volume_cc": 10000,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "55000",
+      "gtk_actual_duty_eur": "55000",
+      "local_expected_duty_byn": "165000.00",
+      "gtk_actual_duty_byn": "165000",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-42300-10000-minimum"
+    },
+    {
+      "id": "up_to_3_price_4_minimum",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "84500",
+        "price_currency": "EUR",
+        "engine_volume_cc": 10000,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "75000",
+      "gtk_actual_duty_eur": "75000",
+      "local_expected_duty_byn": "225000.00",
+      "gtk_actual_duty_byn": "225000",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-84500-10000-minimum"
+    },
+    {
+      "id": "up_to_3_price_5_minimum",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "169000",
+        "price_currency": "EUR",
+        "engine_volume_cc": 10000,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "150000",
+      "gtk_actual_duty_eur": "150000",
+      "local_expected_duty_byn": "450000.00",
+      "gtk_actual_duty_byn": "450000",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-169000-10000-minimum"
+    },
+    {
+      "id": "up_to_3_price_6_minimum",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "up_to_3_years",
+        "gtk_age_group_label": "<=3",
+        "vehicle_price_eur": "169001",
+        "price_currency": "EUR",
+        "engine_volume_cc": 10000,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "200000",
+      "gtk_actual_duty_eur": "200000",
+      "local_expected_duty_byn": "600000.00",
+      "gtk_actual_duty_byn": "600000",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: young-169001-10000-minimum"
+    },
+    {
+      "id": "over_3_to_5_volume_1",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_3_to_5_years",
+        "gtk_age_group_label": ">3<=5",
+        "engine_volume_cc": 1000,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "1500",
+      "gtk_actual_duty_eur": "1500",
+      "local_expected_duty_byn": "4500.00",
+      "gtk_actual_duty_byn": "4500",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: middle-1000"
+    },
+    {
+      "id": "over_3_to_5_volume_2",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_3_to_5_years",
+        "gtk_age_group_label": ">3<=5",
+        "engine_volume_cc": 1500,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "2550",
+      "gtk_actual_duty_eur": "2550",
+      "local_expected_duty_byn": "7650.00",
+      "gtk_actual_duty_byn": "7650",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: middle-1500"
+    },
+    {
+      "id": "over_3_to_5_volume_3",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_3_to_5_years",
+        "gtk_age_group_label": ">3<=5",
+        "engine_volume_cc": 1800,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "4500",
+      "gtk_actual_duty_eur": "4500",
+      "local_expected_duty_byn": "13500.00",
+      "gtk_actual_duty_byn": "13500",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: middle-1800"
+    },
+    {
+      "id": "over_3_to_5_volume_4",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_3_to_5_years",
+        "gtk_age_group_label": ">3<=5",
+        "engine_volume_cc": 2300,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "6210",
+      "gtk_actual_duty_eur": "6210",
+      "local_expected_duty_byn": "18630.00",
+      "gtk_actual_duty_byn": "18630",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: middle-2300"
+    },
+    {
+      "id": "over_3_to_5_volume_5",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_3_to_5_years",
+        "gtk_age_group_label": ">3<=5",
+        "engine_volume_cc": 3000,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "9000",
+      "gtk_actual_duty_eur": "9000",
+      "local_expected_duty_byn": "27000.00",
+      "gtk_actual_duty_byn": "27000",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: middle-3000"
+    },
+    {
+      "id": "over_3_to_5_volume_6",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_3_to_5_years",
+        "gtk_age_group_label": ">3<=5",
+        "engine_volume_cc": 3001,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "10803.6",
+      "gtk_actual_duty_eur": "10803.6",
+      "local_expected_duty_byn": "32410.80",
+      "gtk_actual_duty_byn": "32410.800000000003",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: middle-3001"
+    },
+    {
+      "id": "over_5_volume_1",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_5_years",
+        "gtk_age_group_label": ">5",
+        "engine_volume_cc": 1000,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "3000",
+      "gtk_actual_duty_eur": "3000",
+      "local_expected_duty_byn": "9000.00",
+      "gtk_actual_duty_byn": "9000",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: adult-1000"
+    },
+    {
+      "id": "over_5_volume_2",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_5_years",
+        "gtk_age_group_label": ">5",
+        "engine_volume_cc": 1500,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "4800",
+      "gtk_actual_duty_eur": "4800",
+      "local_expected_duty_byn": "14400.00",
+      "gtk_actual_duty_byn": "14400",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: adult-1500"
+    },
+    {
+      "id": "over_5_volume_3",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_5_years",
+        "gtk_age_group_label": ">5",
+        "engine_volume_cc": 1800,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "6300",
+      "gtk_actual_duty_eur": "6300",
+      "local_expected_duty_byn": "18900.00",
+      "gtk_actual_duty_byn": "18900",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: adult-1800"
+    },
+    {
+      "id": "over_5_volume_4",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_5_years",
+        "gtk_age_group_label": ">5",
+        "engine_volume_cc": 2300,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "11040",
+      "gtk_actual_duty_eur": "11040",
+      "local_expected_duty_byn": "33120.00",
+      "gtk_actual_duty_byn": "33120",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: adult-2300"
+    },
+    {
+      "id": "over_5_volume_5",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_5_years",
+        "gtk_age_group_label": ">5",
+        "engine_volume_cc": 3000,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "15000",
+      "gtk_actual_duty_eur": "15000",
+      "local_expected_duty_byn": "45000.00",
+      "gtk_actual_duty_byn": "45000",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: adult-3000"
+    },
+    {
+      "id": "over_5_volume_6",
+      "status": "matched",
+      "verified": true,
+      "checked_on": "2026-10-04",
+      "input": {
+        "age_band": "over_5_years",
+        "gtk_age_group_label": ">5",
+        "engine_volume_cc": 3001,
+        "price_field_present": false,
+        "exchange_rate_byn_per_eur": "3"
+      },
+      "local_expected_duty_eur": "17105.7",
+      "gtk_actual_duty_eur": "17105.7",
+      "local_expected_duty_byn": "51317.10",
+      "gtk_actual_duty_byn": "51317.100000000006",
+      "evidence": "docs/customs/GTK_OBSERVATIONS_2026-10-04.md; raw observation ID: adult-3001"
+    }
+  ]
+}
