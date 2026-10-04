@@ -1,5 +1,7 @@
 import pytest
 from pathlib import Path
+import importlib.util
+from sqlalchemy import func, select
 from fastapi import HTTPException
 from decimal import Decimal
 from types import SimpleNamespace
@@ -215,6 +217,99 @@ def test_migration_refuses_ambiguous_legacy_rows_and_lossy_downgrade():
     assert "_ambiguous_legacy_listings" in source
     assert "Refusing to classify" in source
     assert "Refusing a lossy category downgrade" in source
+
+
+def test_migration_guard_helpers_raise_without_a_database(monkeypatch):
+    migration_path = Path(__file__).parents[1] / "alembic/versions/0022_listing_categories.py"
+    spec = importlib.util.spec_from_file_location("listing_categories_migration_test", migration_path)
+    migration = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(migration)
+
+    monkeypatch.setattr(migration, "_ambiguous_legacy_listings", lambda: 2)
+    with pytest.raises(RuntimeError, match="Refusing to classify 2 ambiguous"):
+        migration._require_unambiguous_legacy_listings()
+
+    class Scalar:
+        def scalar_one(self):
+            return 1
+
+    class Bind:
+        def execute(self, _statement):
+            return Scalar()
+
+    class Inspector:
+        def has_table(self, table):
+            return table == "listing_category_details"
+
+    monkeypatch.setattr(migration.op, "get_bind", lambda: Bind())
+    monkeypatch.setattr(migration.sa, "inspect", lambda _bind: Inspector())
+    with pytest.raises(RuntimeError, match="Refusing a lossy category downgrade"):
+        migration._require_non_lossy_downgrade()
+
+
+def test_postgres_category_details_updates_and_switches_obey_composite_fk(integration):
+    """Run only with the guarded dedicated PostgreSQL integration fixture."""
+    from app.api.listings import _apply_fields
+    from app.models import Listing, ListingCategoryDetails, User
+
+    db = integration["SessionLocal"]()
+    try:
+        owner = User(email="category-fk@example.test", display_name="Category FK")
+        db.add(owner)
+        db.flush()
+        listing = Listing(
+            owner_id=owner.id,
+            slug="category-fk-listing",
+            status="draft",
+            category_code="trucks",
+            title="Truck",
+            description="Category foreign key integration test",
+            contact_phone="+375291234567",
+            damaged=False,
+            parts_only=False,
+        )
+        listing.category_details = ListingCategoryDetails(
+            category_code="trucks", details={"vehicle_type": "truck", "payload_kg": 1_000}
+        )
+        db.add(listing)
+        db.commit()
+
+        _apply_fields(
+            db, listing,
+            {"category_details": {"category_code": "trucks", "details": {"vehicle_type": "truck", "payload_kg": 2_000}}},
+            owner, creating=False,
+        )
+        db.commit()
+        db.refresh(listing)
+        assert listing.category_details is not None
+        assert listing.category_details.listing_id == listing.id
+        assert listing.category_details.details["payload_kg"] == 2_000
+        assert db.scalar(
+            select(func.count()).select_from(ListingCategoryDetails).where(ListingCategoryDetails.listing_id == listing.id)
+        ) == 1
+
+        _apply_fields(
+            db, listing,
+            {
+                "category_code": "buses",
+                "confirm_category_change": True,
+                "category_details": {"category_code": "buses", "details": {"vehicle_type": "bus"}},
+            },
+            owner, creating=False,
+        )
+        db.commit()
+        db.refresh(listing)
+        details = db.get(ListingCategoryDetails, listing.id)
+        assert listing.category_code == "buses"
+        assert details is not None
+        assert details.category_code == "buses"
+        assert details.listing_id == listing.id
+        assert db.scalar(
+            select(func.count()).select_from(ListingCategoryDetails).where(ListingCategoryDetails.listing_id == listing.id)
+        ) == 1
+    finally:
+        db.close()
 
 
 def test_parts_submission_keeps_common_rules_without_car_only_requirements(monkeypatch):

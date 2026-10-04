@@ -50,6 +50,27 @@ def _ambiguous_legacy_listings() -> int:
     )
 
 
+def _require_unambiguous_legacy_listings() -> None:
+    ambiguous_count = _ambiguous_legacy_listings()
+    if ambiguous_count:
+        raise RuntimeError(
+            f"Refusing to classify {ambiguous_count} ambiguous legacy listings as cars. "
+            "Export their IDs for review, assign a confirmed category, then rerun the migration."
+        )
+
+
+def _require_non_lossy_downgrade() -> None:
+    non_car_count = _scalar_int("SELECT count(*) FROM listings WHERE category_code <> 'cars'")
+    inspector = sa.inspect(op.get_bind())
+    detail_count = _scalar_int("SELECT count(*) FROM listing_category_details") if inspector.has_table("listing_category_details") else 0
+    if non_car_count or detail_count:
+        raise RuntimeError(
+            "Refusing a lossy category downgrade. Preserve listings.category_code and "
+            "listing_category_details in a backup/export, remove category data only with "
+            "an approved migration plan, then rerun downgrade."
+        )
+
+
 def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
@@ -59,12 +80,7 @@ def upgrade() -> None:
                 "listings",
                 sa.Column("category_code", sa.String(length=32), nullable=True),
             )
-        ambiguous_count = _ambiguous_legacy_listings()
-        if ambiguous_count:
-            raise RuntimeError(
-                f"Refusing to classify {ambiguous_count} ambiguous legacy listings as cars. "
-                "Export their IDs for review, assign a confirmed category, then rerun the migration."
-            )
+        _require_unambiguous_legacy_listings()
         # Known historical API and dealer-feed paths use the passenger-car
         # form. This update only classifies rows carrying that form's evidence.
         # It does not change IDs or related rows (photos, messages, owner,
@@ -120,14 +136,7 @@ def downgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
     if inspector.has_table("listings"):
-        non_car_count = _scalar_int("SELECT count(*) FROM listings WHERE category_code <> 'cars'")
-        detail_count = _scalar_int("SELECT count(*) FROM listing_category_details") if inspector.has_table("listing_category_details") else 0
-        if non_car_count or detail_count:
-            raise RuntimeError(
-                "Refusing a lossy category downgrade. Preserve listings.category_code and "
-                "listing_category_details in a backup/export, remove category data only with "
-                "an approved migration plan, then rerun downgrade."
-            )
+        _require_non_lossy_downgrade()
     if inspector.has_table("listing_category_details"):
         op.drop_table("listing_category_details")
     if inspector.has_table("listings"):
