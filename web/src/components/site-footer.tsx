@@ -19,6 +19,7 @@ const footerGroups: FooterGroup[] = [
       { href: "/faq", label: "Часто задаваемые вопросы" },
       { href: "/support", label: "Служба поддержки" },
       { href: "/partner", label: "Информация для рекламодателей" },
+      { href: "/useful-information", label: "Полезная информация" },
       { href: "/help", label: "Помощь и документы" }
     ]
   },

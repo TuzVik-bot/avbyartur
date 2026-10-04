@@ -1,10 +1,12 @@
 """Versioned non-secret editorial content and safe notification templates."""
 
-from datetime import datetime
+from datetime import date, datetime
 from string import Formatter
+from typing import Literal
+from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, ValidationError, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, EmailStr, Field, ValidationError, field_validator
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import JSON
@@ -12,7 +14,16 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.db import Base
 
-CONTENT_KINDS = {"notification_template", "seo_page", "legal_document"}
+CONTENT_KINDS = {"notification_template", "seo_page", "legal_document", "article"}
+ARTICLE_TOPICS = {
+    "vehicle_selection": "Выбор транспорта",
+    "inspection": "Осмотр перед покупкой",
+    "vin": "Проверка VIN",
+    "transaction": "Оформление сделки",
+    "credit_leasing": "Кредит и лизинг",
+    "tires_wheels": "Шины и диски",
+}
+ArticleTopic = Literal["vehicle_selection", "inspection", "vin", "transaction", "credit_leasing", "tires_wheels"]
 TEMPLATE_VARIABLES = {
     "saved_search_email": {"listing_title", "listing_url", "search_name"},
     "email_verification": {"confirmation_url", "confirmation_code", "display_name"},
@@ -25,7 +36,7 @@ class ManagedContent(Base):
     __tablename__ = "managed_content"
     __table_args__ = (
         UniqueConstraint("kind", "key", name="uq_managed_content_kind_key"),
-        CheckConstraint("kind IN ('notification_template', 'seo_page', 'legal_document')", name="ck_managed_content_kind"),
+        CheckConstraint("kind IN ('notification_template', 'seo_page', 'legal_document', 'article')", name="ck_managed_content_kind"),
         CheckConstraint("status IN ('draft', 'published')", name="ck_managed_content_status"),
         CheckConstraint("revision >= 1", name="ck_managed_content_revision"),
     )
@@ -114,6 +125,29 @@ class LegalPayload(PlainContent):
     operator: OperatorPayload
 
 
+class ArticleSource(PlainContent):
+    title: str = Field(min_length=2, max_length=180)
+    url: AnyHttpUrl
+
+    @field_validator("url")
+    @classmethod
+    def secure_source(cls, value: AnyHttpUrl):
+        parsed = urlsplit(str(value))
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError("Article sources must use a credential-free HTTPS URL")
+        return value
+
+
+class ArticlePayload(PlainContent):
+    slug: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", min_length=3, max_length=100)
+    title: str = Field(min_length=2, max_length=180)
+    summary: str = Field(min_length=20, max_length=600)
+    topic: ArticleTopic
+    body: str = Field(min_length=40, max_length=50000)
+    published_at: date | None = None
+    sources: list[ArticleSource] = Field(default_factory=list, max_length=20)
+
+
 def validate_content(kind: str, key: str, payload: dict, status: str) -> dict:
     if kind == "notification_template":
         if key not in TEMPLATE_VARIABLES:
@@ -132,6 +166,15 @@ def validate_content(kind: str, key: str, payload: dict, status: str) -> dict:
         content = LegalPayload.model_validate(payload)
         if status == "published" and not content.approved:
             raise ValueError("Publication requires document approval")
+        return content.model_dump(mode="json")
+    if kind == "article":
+        if not key or len(key) > 100 or not all(part and part.isascii() and part.isalnum() for part in key.split("-")):
+            raise ValueError("Article key must be a lowercase ASCII slug")
+        content = ArticlePayload.model_validate(payload)
+        if content.slug != key:
+            raise ValueError("Article slug must match its content key")
+        if status == "published" and content.published_at is None:
+            raise ValueError("Publication requires an article date")
         return content.model_dump(mode="json")
     raise ValueError("Unsupported content resource")
 

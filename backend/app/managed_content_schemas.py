@@ -1,11 +1,12 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
-ContentKind = Literal["notification_template", "seo_page", "legal_document"]
+ContentKind = Literal["notification_template", "seo_page", "legal_document", "article"]
 ContentStatus = Literal["draft", "published"]
+ArticleTopic = Literal["vehicle_selection", "inspection", "vin", "transaction", "credit_leasing", "tires_wheels"]
 
 
 class ManagedContentChangeInput(BaseModel):
@@ -62,3 +63,19 @@ class ManagedContentVersionOut(BaseModel):
 
 class ManagedContentVersionsOut(BaseModel):
     items: list[ManagedContentVersionOut]
+
+
+class ManagedArticleSummaryOut(BaseModel):
+    slug: str
+    title: str
+    summary: str
+    topic: ArticleTopic
+    published_at: date
+    updated_at: datetime
+
+
+class ManagedArticleListOut(BaseModel):
+    items: list[ManagedArticleSummaryOut]
+    total: int
+    page: int
+    page_size: int

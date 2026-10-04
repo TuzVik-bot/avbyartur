@@ -58,6 +58,7 @@ describe("moderation navigation", () => {
     expect(container.querySelector('nav[aria-label="Основная навигация"]')).not.toBeNull();
     expect(container.querySelector('nav a[href="/cars"]')?.textContent).toBe("Автомобили");
     expect(container.querySelector('nav a[href="/dealers"]')?.textContent).toBe("Компании");
+    expect(container.querySelector('nav a[href="/useful-information"]')?.textContent).toBe("Полезная информация");
     expect(container.querySelector('nav a[href="/login"]')?.textContent).toBe("Войти");
     expect(container.querySelector('a[href="/sell"]')?.textContent).toContain("Подать объявление");
   });

@@ -15,8 +15,8 @@ from app.api.moderation import require_admin
 from app.db import get_db
 from app.managed_content import ManagedContent, ManagedContentVersion, validate_content
 from app.managed_content_schemas import (
-    ContentKind, ManagedContentChangeInput, ManagedContentEnvelope, ManagedContentListOut,
-    ManagedContentPublicEnvelope, ManagedContentVersionsOut,
+    ArticleTopic, ContentKind, ManagedArticleListOut, ManagedContentChangeInput, ManagedContentEnvelope,
+    ManagedContentListOut, ManagedContentPublicEnvelope, ManagedContentVersionsOut,
 )
 from app.models import AuditEvent, Listing, LocationCity, User
 from app.security import verify_password
@@ -118,3 +118,35 @@ def public_content(kind: ContentKind, key: str, db: Annotated[Session, Depends(g
         indexable = available >= valid_payload["minimum_results"]
     result = _out(row); result["payload"] = valid_payload
     return {"content": result, "indexable": indexable}
+
+
+@router.get("/content/articles", response_model=ManagedArticleListOut)
+def public_articles(
+    db: Annotated[Session, Depends(get_db)], response: Response,
+    topic: ArticleTopic | None = None,
+    page: int = Query(default=1, ge=1), page_size: int = Query(default=20, ge=1, le=100),
+) -> dict:
+    response.headers["Cache-Control"] = "no-store"
+    rows = db.scalars(select(ManagedContent).where(
+        ManagedContent.kind == "article", ManagedContent.status == "published",
+    )).all()
+    items = []
+    for row in rows:
+        try:
+            payload = validate_content(row.kind, row.key, row.payload, row.status)
+        except (ValidationError, ValueError):
+            continue
+        if topic is not None and payload["topic"] != topic:
+            continue
+        items.append({
+            "slug": row.key,
+            "title": payload["title"],
+            "summary": payload["summary"],
+            "topic": payload["topic"],
+            "published_at": payload["published_at"],
+            "updated_at": row.updated_at,
+        })
+    items.sort(key=lambda item: (item["published_at"], item["updated_at"]), reverse=True)
+    total = len(items)
+    offset = (page - 1) * page_size
+    return {"items": items[offset:offset + page_size], "total": total, "page": page, "page_size": page_size}

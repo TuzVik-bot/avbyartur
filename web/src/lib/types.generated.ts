@@ -1878,6 +1878,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Articles */
+        get: operations["public_articles_api_v1_content_articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/monitoring": {
         parameters: {
             query?: never;
@@ -4503,6 +4520,41 @@ export interface components {
              */
             ok: true;
         };
+        /** ManagedArticleListOut */
+        ManagedArticleListOut: {
+            /** Items */
+            items: components["schemas"]["ManagedArticleSummaryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** ManagedArticleSummaryOut */
+        ManagedArticleSummaryOut: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /**
+             * Topic
+             * @enum {string}
+             */
+            topic: "vehicle_selection" | "inspection" | "vin" | "transaction" | "credit_leasing" | "tires_wheels";
+            /**
+             * Published At
+             * Format: date
+             */
+            published_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** ManagedContentChangeInput */
         ManagedContentChangeInput: {
             /** Payload */
@@ -4556,7 +4608,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "notification_template" | "seo_page" | "legal_document";
+            kind: "notification_template" | "seo_page" | "legal_document" | "article";
             /** Key */
             key: string;
             /** Payload */
@@ -13282,7 +13334,7 @@ export interface operations {
             query?: {
                 page?: number;
                 page_size?: number;
-                kind?: ("notification_template" | "seo_page" | "legal_document") | null;
+                kind?: ("notification_template" | "seo_page" | "legal_document" | "article") | null;
             };
             header?: never;
             path?: never;
@@ -13342,7 +13394,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "notification_template" | "seo_page" | "legal_document";
+                kind: "notification_template" | "seo_page" | "legal_document" | "article";
                 key: string;
             };
             cookie?: never;
@@ -13423,7 +13475,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "notification_template" | "seo_page" | "legal_document";
+                kind: "notification_template" | "seo_page" | "legal_document" | "article";
                 key: string;
             };
             cookie?: never;
@@ -13491,7 +13543,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "notification_template" | "seo_page" | "legal_document";
+                kind: "notification_template" | "seo_page" | "legal_document" | "article";
                 key: string;
             };
             cookie?: never;
@@ -13514,6 +13566,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    public_articles_api_v1_content_articles_get: {
+        parameters: {
+            query?: {
+                topic?: ("vehicle_selection" | "inspection" | "vin" | "transaction" | "credit_leasing" | "tires_wheels") | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedArticleListOut"];
                 };
             };
             /** @description Request validation error */
