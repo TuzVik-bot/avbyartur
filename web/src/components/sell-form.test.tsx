@@ -1138,3 +1138,71 @@ describe("manual city entry", () => {
     expect(payload).toMatchObject({ region_id: "region-1", city_id: null, manual_city: "Новый Заславль" });
   });
 });
+
+it("uses category characteristics and manual identity for a truck draft", async () => {
+  await renderWithValidationPolicy(draft({ category_code: "trucks", category_details: { vehicle_type: "truck" } } as Partial<Listing>));
+  expect(selectedValue("Категория")).toBe("trucks");
+  await clickContinue();
+  expect(container.querySelector('input[aria-label="Марка вручную"]')).not.toBeNull();
+  expect(selectedValue("Тип грузовика")).toBe("truck");
+  expect(container.querySelector('select[aria-label="Источник марки"]')).toBeNull();
+});
+it("uses goods characteristics without required vehicle fields for tires", async () => {
+ await renderWithValidationPolicy(draft({ title: "Комплект шин", category_code: "tires", category_details: { width_mm: 205, profile_percent: 55, diameter_in: 16, season: "winter" } } as Partial<Listing>));
+ expect(container.textContent).toContain("Б/у");
+ await clickContinue();
+ expect(inputText("Ширина, мм")).toBe("205");
+ expect(inputText("Год выпуска")).toBeUndefined();
+ expect(inputText("Пробег, км")).toBeUndefined();
+ await clickContinue();
+ expect(container.textContent).toContain("Состояние и описание");
+});
+it.each([
+ ["trucks", "Тип грузовика", "truck"], ["buses", "Тип автобуса", "bus"], ["motorcycles", "Тип мототехники", "motorcycle"],
+ ["special_equipment", "Тип спецтехники", "Экскаватор"], ["agricultural_equipment", "Тип сельхозтехники", "Трактор"],
+ ["trailers", "Тип прицепа", "Бортовой"], ["watercraft", "Тип водного транспорта", "Катер"], ["parts", "Группа запчастей", "Двигатель"]
+])("saves %s details through the draft contract", async (category, label, value) => {
+ await renderWithValidationPolicy(draft({ title: "Товар", category_code: category as NonNullable<Listing["category_code"]>, category_details: {} }));
+ await clickContinue();
+ expect(container.textContent).toContain(label);
+ await act(async () => {
+  if (["trucks", "buses", "motorcycles"].includes(category)) selectValue(label, value);
+  else inputValue(label, value);
+ });
+ await clickContinue();
+ expect(api.updateDraft).toHaveBeenLastCalledWith("draft-1", expect.any(Number), expect.objectContaining({ category_code: category, category_details: { category_code: category, details: expect.any(Object) } }));
+ const payload = vi.mocked(api.updateDraft).mock.calls.at(-1)?.[2];
+ expect(Object.values(payload?.category_details?.details || {})).toContain(value);
+});
+it("validates non-car year bounds before leaving characteristics", async () => {
+ await renderWithValidationPolicy(draft({ category_code: "trucks", category_details: { vehicle_type: "truck" } }));
+ await clickContinue();
+ await act(async () => inputValue("Год выпуска", "1800"));
+ await clickContinue();
+ expect(container.querySelector('h2')?.textContent).toBe("Характеристики объявления");
+ expect(container.textContent).toContain("Год выпуска должен быть");
+});
+it("confirms category replacement in a separate revision before saving new fields", async () => {
+ const original = draft({ category_code: "cars" });
+ await renderWithValidationPolicy(original);
+ let current = original;
+ vi.mocked(api.updateDraft).mockImplementation(async (_id, _revision, payload) => {
+   current = { ...current, category_code: payload.category_code || current.category_code, revision: current.revision + 1 };
+   return { listing: current };
+ });
+ await act(async () => selectValue("Категория", "trucks"));
+ await clickContinue();
+ expect(vi.mocked(api.updateDraft).mock.calls[0]?.[2]).toEqual({ category_code: "trucks", confirm_category_change: true });
+ expect(vi.mocked(api.updateDraft).mock.calls[1]?.[1]).toBe(original.revision + 1);
+ expect(vi.mocked(api.updateDraft).mock.calls[1]?.[2]).toMatchObject({ category_code: "trucks", category_details: { category_code: "trucks", details: {} }, make_id: null, model_id: null, year: null, mileage_km: null });
+});
+it("requires a goods title and saves it with the characteristics", async () => {
+ await renderWithValidationPolicy(draft({ title: "", category_code: "tires", category_details: { width_mm: 205, profile_percent: 55, diameter_in: 16, season: "winter" } }));
+ await clickContinue();
+ expect(inputText("Название объявления")).toBe("");
+ await clickContinue();
+ expect(container.querySelector('h2')?.textContent).toBe("Характеристики объявления");
+ await act(async () => inputValue("Название объявления", "Комплект зимних шин"));
+ await clickContinue();
+ expect(vi.mocked(api.updateDraft).mock.calls.at(-1)?.[2]).toMatchObject({ title: "Комплект зимних шин" });
+});

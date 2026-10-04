@@ -109,6 +109,9 @@ export type Money = {
 };
 
 export type ListingSummary = {
+  category_code?: NonNullable<ListingSearch["category_code"]>;
+  category_details?: Record<string, unknown>;
+  condition?: string | null;
   id: string;
   slug: string;
   title: string;

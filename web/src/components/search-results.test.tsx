@@ -144,3 +144,16 @@ describe("search result controls", () => {
     expect(container.querySelector<HTMLOptionElement>('option[value="price_asc"]')?.disabled).toBe(true);
   });
 });
+it("keeps resets and submission in the empty category", async () => {
+ await render({ category_code: "trucks", q: "MAN" });
+ expect(container.querySelector('a[href="/trucks"]')).not.toBeNull();
+ expect(container.querySelector('a[href="/sell?category=trucks"]')).not.toBeNull();
+ expect(container.querySelector('.filter-chip[href="/cars"]')).toBeNull();
+});
+it("labels goods search characteristics for people rather than JSON", async () => {
+ await render({ category_code: "tires", details: '{"diameter_in":16,"season":"winter"}' });
+ const chips = container.querySelector('.active-filters')?.textContent;
+ expect(chips).toContain('Диаметр, дюймы: 16');
+ expect(chips).toContain('Сезон: Зимние');
+ expect(chips).not.toContain('"season"');
+});

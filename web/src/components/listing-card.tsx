@@ -1,5 +1,6 @@
 "use client";
 
+import { categoryFacts, categoryPath } from "@/lib/listing-categories";
 import Image from "next/image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
@@ -35,17 +36,14 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
         <Link className="card-title" href={href}>{title}</Link>
         <p className="card-price">{formatMoney(listing.price)}</p>
         <div className="card-specs">
-          <span>{listing.year ? `${listing.year} г.` : "Год не указан"}</span>
-          <span>{formatMileage(listing.mileage_km)}</span>
-          <span>{vehicleLabel(listing.fuel)}</span>
-          <span>{vehicleLabel(listing.transmission)}</span>
+          {categoryFacts(listing).map(([label, value]) => <span key={label}>{value}</span>)}
         </div>
         <div className="card-footer">
           <span className={`seller-tag ${listing.seller.type === "private" ? "private" : ""}`}>
             <span aria-hidden="true">{listing.seller.type === "company" ? "◆" : "●"}</span>
             {listing.seller.type === "company" ? "Компания" : "Частный продавец"}
           </span>
-          {listing.city?.slug ? <Link href={`/cars/city/${encodeURIComponent(listing.city.slug)}`}>{listing.city.name}</Link> : <span>{listing.manual_city || "Населённый пункт не указан"}</span>}
+          {listing.city?.slug ? <Link href={listing.category_code && listing.category_code !== "cars" ? `${categoryPath(listing.category_code)}?city_id=${encodeURIComponent(listing.city.id)}` : `/cars/city/${encodeURIComponent(listing.city.slug)}`}>{listing.city.name}</Link> : <span>{listing.manual_city || "Населённый пункт не указан"}</span>}
         </div>
       </div>
     </article>

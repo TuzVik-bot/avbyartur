@@ -1,3 +1,4 @@
+import { categories } from "@/lib/listing-categories";
 import Link from "next/link";
 
 type FooterLink = { href: string; label: string };
@@ -9,6 +10,7 @@ type FooterGroup = {
 };
 
 const footerGroups: FooterGroup[] = [
+  { id: "categories", title: "Каталог", links: categories },
   {
     id: "information",
     title: "Информация",

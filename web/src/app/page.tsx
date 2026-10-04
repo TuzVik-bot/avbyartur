@@ -1,3 +1,4 @@
+import { CategoryNavigation } from "@/components/category-navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Search } from "lucide-react";
@@ -14,7 +15,7 @@ export const metadata = {
 
 export default async function HomePage() {
   const [listingResult, makeResult, savedListingIdsResult] = await Promise.allSettled([
-    serverApi.listings({ page_size: "9", sort: "newest" }),
+    serverApi.listings({ category_code: "cars", page_size: "9", sort: "newest" }),
     serverApi.catalog("makes"),
     getSavedListingIds()
   ]);
@@ -40,6 +41,7 @@ export default async function HomePage() {
           <span className="home-image-note">Иллюстрация автомобиля</span>
         </div>
       </section>
+      <CategoryNavigation />
       <section className="page-width section home-listings">
         <div className="section-heading"><h2>Новые объявления</h2><Link className="text-link" href="/cars">Все предложения <ArrowRight size={16} /></Link></div>
         {failed && <p className="notice" role="status">Каталог временно недоступен. Обновите страницу чуть позже.</p>}

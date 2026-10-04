@@ -1,5 +1,6 @@
 "use client";
 
+import { categoryFacts } from "@/lib/listing-categories";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -45,7 +46,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   const conversationStartHref = user ? conversationStartPath : `/login?next=${encodeURIComponent(conversationStartPath)}`;
   const location = `${listing.manual_city || listing.city?.name || "Населённый пункт не указан"}, ${listing.region?.name || "Область не указана"}`;
   const powerHp = listing.power_hp ?? listing.modification?.specs?.power_hp;
-  const facts = [
+  const facts = listing.category_code && listing.category_code !== "cars" ? categoryFacts(listing) : [
     ["Год выпуска", listing.year ? `${listing.year} г.` : "Не указан"],
     ["Пробег", formatMileage(listing.mileage_km)],
     ["Топливо", vehicleLabel(listing.fuel)],

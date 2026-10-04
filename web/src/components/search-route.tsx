@@ -19,6 +19,7 @@ export async function getCatalogCities(regionsPromise?: Promise<CatalogItem[]>):
 }
 
 export async function SearchRoute({ search, title, initialCities }: { search: ListingSearch; title: string; initialCities?: CatalogCity[] }) {
+  const isCars = !search.category_code || search.category_code === "cars";
   const regionsPromise = serverApi.regions();
   const citiesPromise = initialCities
     ? Promise.resolve({ items: initialCities })
@@ -31,12 +32,12 @@ export async function SearchRoute({ search, title, initialCities }: { search: Li
         : Promise.resolve({ items: [] as CatalogCity[] });
   const [listingsResult, makesResult, modelsResult, generationsResult, regionsResult, citiesResult, bodyTypesResult, bodyVariantsResult, modificationsResult, savedListingIdsResult] = await Promise.allSettled([
     serverApi.listings({ ...search, page_size: search.page_size || "25" }),
-    serverApi.catalog("makes"),
+    isCars ? serverApi.catalog("makes") : Promise.resolve({ items: [] as CatalogItem[] }),
     search.make_id ? serverApi.catalog("models", { make_id: search.make_id }) : Promise.resolve({ items: [] as CatalogItem[] }),
     search.model_id ? serverApi.catalog("generations", { model_id: search.model_id }) : Promise.resolve({ items: [] as CatalogItem[] }),
     regionsPromise,
     citiesPromise,
-    serverApi.catalog("body-types"),
+    isCars ? serverApi.catalog("body-types") : Promise.resolve({ items: [] as CatalogItem[] }),
     search.generation_id && search.body_variant_id
       ? serverApi.catalog("body-variants", { generation_id: search.generation_id })
       : Promise.resolve({ items: [] as CatalogItem[] }),

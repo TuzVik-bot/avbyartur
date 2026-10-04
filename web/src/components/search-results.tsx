@@ -1,3 +1,4 @@
+import { categoryPath, categoryFields, isGoods } from "@/lib/listing-categories";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { ListingCard } from "@/components/listing-card";
@@ -57,6 +58,20 @@ export function SearchResults({ search, data, title, makes, models, generations,
   catalogsFailed?: boolean;
   priceOperationsAvailable?: boolean;
 }) {
+  const category = search.category_code || "cars";
+  const resetHref = categoryPath(category);
+  function characteristicValue(key: string, value: string) {
+    if (key === "details") {
+      try {
+        const details = JSON.parse(value) as Record<string, unknown>;
+        return categoryFields(category).filter(field => details[field.key] !== undefined).map(field => `${field.label}: ${field.options?.[String(details[field.key])] || details[field.key]}`).join(" · ") || "Характеристики выбраны";
+      } catch { return "Проверьте выбранные характеристики"; }
+    }
+    const field = categoryFields(category).find(field => field.key === key || key === "subtype" && field.required);
+    if (field) return field.options?.[value] || value;
+    return filterValue(key, value, catalog);
+  }
+  const filterKeys = activeSearchKeys.filter(key => key !== "category_code");
   const catalog = [...makes, ...models, ...(generations || []), ...regions, ...cities, ...bodyTypes, ...bodyVariants, ...modifications];
   const entries = data?.items || [];
   const page = Number(search.page || 1);
@@ -73,14 +88,14 @@ export function SearchResults({ search, data, title, makes, models, generations,
       <div className="results-layout">
         <SearchFilters search={search} makes={makes} initialModels={models} initialGenerations={generations} initialModifications={modifications} regions={regions} initialCities={cities} bodyTypes={bodyTypes} priceOperationsAvailable={priceOperationsAvailable} />
         <section aria-label="Результаты поиска">
-          {activeSearchKeys.filter((key) => search[key]).length > 0 && (
+          {filterKeys.filter((key) => search[key]).length > 0 && (
             <div className="active-filters" aria-label="Выбранные фильтры">
-              {activeSearchKeys.filter((key) => search[key]).map((key) => (
+              {filterKeys.filter((key) => search[key]).map((key) => (
                 <Link className="filter-chip" key={key} href={searchUrl(search, { [key]: undefined })}>
-                  {readableFilter[key]}: {filterValue(key, Array.isArray(search[key]) ? search[key].join(",") : String(search[key]), catalog)} <X size={13} aria-hidden="true" />
+                  {(readableFilter[key] || ({ details: "Характеристики", subtype: "Тип", diameter_in: "Диаметр", width_mm: "Ширина", season: "Сезон" } as Record<string, string>)[key] || key)}: {(key === "condition" && search.condition === "used" && isGoods(category) ? "Б/у" : characteristicValue(key, Array.isArray(search[key]) ? search[key].join(",") : String(search[key])))} <X size={13} aria-hidden="true" />
                 </Link>
               ))}
-              <Link className="filter-chip" href="/cars">Сбросить все</Link>
+              <Link className="filter-chip" href={resetHref}>Сбросить все</Link>
             </div>
           )}
           <div className="results-toolbar">
@@ -91,7 +106,8 @@ export function SearchResults({ search, data, title, makes, models, generations,
             <div className="empty-state">
               <h2>{failed ? "Не удалось загрузить объявления" : "По этим условиям объявлений пока нет"}</h2>
               <p className="muted">{failed ? "Проверьте соединение с каталогом." : "Измените или сбросьте часть фильтров, чтобы увидеть другие варианты."}</p>
-              <Link className="button button-secondary" href="/cars">Сбросить фильтры</Link>
+              <Link className="button button-secondary" href={resetHref}>Сбросить фильтры</Link>
+              {!failed && <Link className="button button-primary" href={`/sell?category=${category}`}>Подать объявление</Link>}
             </div>
           )}
           {pages > 1 && <nav className="pagination" aria-label="Страницы выдачи">

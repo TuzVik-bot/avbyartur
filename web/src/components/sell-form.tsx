@@ -1,5 +1,7 @@
 "use client";
 
+import { CategoryFields } from "@/components/category-fields";
+import { categories, categoryFields, detailPayload, isGoods, hasMileage, type CategoryCode } from "@/lib/listing-categories";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -38,6 +40,9 @@ function enumValue<T extends readonly string[]>(value: string | null | undefined
 }
 
 type FormFields = {
+  category_code?: CategoryCode;
+  title?: string;
+  details?: Record<string, string>;
   seller_type: "private" | "company";
   make_mode: "catalog" | "manual";
   model_mode: "catalog" | "manual";
@@ -82,9 +87,12 @@ type FormFields = {
 };
 
 function initialFields(listing: Listing | null): FormFields {
-  const manualMake = listing?.make?.slug.startsWith("manual-") || false;
+  const manualMake = (listing?.category_code && listing.category_code !== "cars") || listing?.make?.slug.startsWith("manual-") || false;
   const manualModel = manualMake || listing?.model?.slug.startsWith("manual-") || false;
   return {
+    category_code: listing?.category_code || "cars",
+    title: listing?.title || "",
+    details: Object.fromEntries(Object.entries(listing?.category_details || {}).map(([key, value]) => [key, String(value)])),
     seller_type: listing?.seller.type || "private",
     make_mode: manualMake ? "manual" : "catalog",
     model_mode: manualModel ? "manual" : "catalog",
@@ -139,6 +147,9 @@ type SellDraftPayload = Omit<Partial<ListingDraftInput>, "make_id" | "model_id">
 
 export function payloadFor(fields: FormFields): SellDraftPayload {
   const payload: SellDraftPayload = {
+    category_code: fields.category_code || "cars",
+    ...(fields.category_code && fields.category_code !== "cars" ? { title: fields.title || "" } : {}),
+    category_details: { category_code: fields.category_code || "cars", details: detailPayload(fields.category_code || "cars", fields.details || {}) },
     seller_type: fields.seller_type,
     damaged: fields.damaged,
     parts_only: fields.parts_only,
@@ -170,7 +181,9 @@ export function payloadFor(fields: FormFields): SellDraftPayload {
   payload.city_id = fields.city_mode === "manual" ? null : fields.city_id || null;
   payload.manual_city = fields.city_mode === "manual" ? fields.manual_city.trim() || null : null;
   if (fields.year) payload.year = Number(fields.year);
+  else if (fields.category_code && fields.category_code !== "cars") payload.year = null;
   if (fields.mileage_km) payload.mileage_km = Number(fields.mileage_km);
+  else if (fields.category_code && fields.category_code !== "cars") payload.mileage_km = null;
   if (fields.fuel) payload.fuel = fields.fuel;
   if (fields.transmission) payload.transmission = fields.transmission;
   if (fields.drive) payload.drive = fields.drive;
@@ -371,7 +384,8 @@ function safeSourceUrl(value: string) {
   }
 }
 
-export function SellForm({ initialListing = null, makes, models: initialModels, generations: initialGenerations, bodyTypes, regions, cities: initialCities, company }: {
+export function SellForm({ initialCategory = "cars", initialListing = null, makes, models: initialModels, generations: initialGenerations, bodyTypes, regions, cities: initialCities, company }: {
+  initialCategory?: CategoryCode;
   initialListing?: Listing | null;
   makes: CatalogItem[];
   models: CatalogItem[];
@@ -382,8 +396,9 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   company: Company | null;
 }) {
   const router = useRouter();
-  const firstFields = useMemo(() => ({ ...initialFields(initialListing), body_type_id: bodyTypes.find((item) => item.name === initialListing?.body_type)?.id || "" }), [initialListing, bodyTypes]);
+  const firstFields = useMemo(() => ({ ...initialFields(initialListing), ...(!initialListing && initialCategory !== "cars" ? { category_code: initialCategory, make_mode: "manual" as const, model_mode: "manual" as const } : {}), body_type_id: bodyTypes.find((item) => item.name === initialListing?.body_type)?.id || "" }), [initialListing, bodyTypes, initialCategory]);
   const [fields, setFields] = useState(firstFields);
+  const category = fields.category_code || "cars";
   const [missingModificationSelected, setMissingModificationSelected] = useState(false);
   const [manualModificationName, setManualModificationName] = useState("");
   const [catalogRequestNote, setCatalogRequestNote] = useState("");
@@ -628,8 +643,14 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
     if (snapshot === savedSnapshot.current) return saveQueue.current;
     setSaveState("saving");
     const currentQueue = saveQueue.current.catch(() => undefined).then(async () => {
-      const current = draftRef.current;
+      let current = draftRef.current;
       if (!current || snapshot === savedSnapshot.current) return;
+      if (payload.category_code && payload.category_code !== (current.category_code || "cars")) {
+        const changed = await api.updateDraft(current.id, current.revision, { category_code: payload.category_code, confirm_category_change: true } as Partial<ListingDraftInput> & { confirm_category_change: boolean });
+        current = changed.listing;
+        draftRef.current = current;
+        setDraft(current);
+      }
       const result = await api.updateDraft(current.id, current.revision, payload as Partial<ListingDraftInput>);
       draftRef.current = result.listing;
       setDraft(result.listing);
@@ -806,6 +827,18 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
 
   function validateStep(target: number, photoState: ListingPhoto[] = photos): StepValidationError | null {
     if (target === 1 && fields.seller_type === "company" && company?.status !== "approved") return { message: "Чтобы публиковать от имени компании, дождитесь её допуска.", fields: ["seller_type"], focusField: "seller_type" };
+    if (target === 2 && category !== "cars") {
+      if (isGoods(category) && !fields.title?.trim()) return { message: "Добавьте название объявления.", fields: ["title"] };
+      const missing = categoryFields(category).find(f => f.required && !fields.details?.[f.key]?.trim());
+      if (missing) return { message: `Заполните: ${missing.label}.`, fields: ["details"] };
+      if (!isGoods(category) && (!fields.manual_make.trim() || !fields.manual_model.trim() || !fields.year)) return { message: "Укажите марку, модель и год выпуска.", fields: ["manual_make", "manual_model", "year"] };
+      if (!isGoods(category)) {
+        if (!validationPolicy) return { message: "Дождитесь загрузки правил подачи.", fields: ["year"] };
+        const maximumYear = fields.condition === "new" ? validationPolicy.new_year_max : validationPolicy.used_year_max;
+        if (!Number.isInteger(Number(fields.year)) || Number(fields.year) < validationPolicy.listing_year_min || Number(fields.year) > maximumYear) return { message: `Год выпуска должен быть от ${validationPolicy.listing_year_min} до ${maximumYear}.`, fields: ["year"], messages: { year: `Год выпуска должен быть от ${validationPolicy.listing_year_min} до ${maximumYear}.` } };
+      }
+      return null;
+    }
     if (target === 2) {
       if (!validationPolicy) {
         const message = validationPolicyLoading
@@ -1057,7 +1090,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   const bodyType = bodyTypes.find((item) => item.id === fields.body_type_id);
   const makeName = fields.make_mode === "manual" ? fields.manual_make : make?.name || initialListing?.make?.name;
   const modelName = fields.model_mode === "manual" ? fields.manual_model : model?.name || initialListing?.model?.name;
-  const title = [makeName, modelName].filter(Boolean).join(" ");
+  const title = isGoods(category) ? fields.title || "" : [makeName, modelName].filter(Boolean).join(" ");
   const cityName = fields.city_mode === "manual" ? fields.manual_city : cities.find((city) => city.id === fields.city_id)?.name;
   const sortedPhotos = [...photos].sort((a, b) => a.position - b.position);
   const reviewPhotos = sortedPhotos.filter((photo) => photo.status === "ready" && photo.url);
@@ -1065,26 +1098,42 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
 
   return (
     <form className="form-page" onSubmit={submitListing}>
-      <header className="page-head"><p className="eyebrow">Подача автомобиля</p><h1>{initialListing ? "Редактировать объявление" : "Новое объявление"}</h1><p role="status" aria-live="polite">Шаг {step} из 6</p></header>
+      <header className="page-head"><p className="eyebrow">{category === "cars" ? "Подача автомобиля" : "Подача объявления"}</p><h1>{initialListing ? "Редактировать объявление" : "Новое объявление"}</h1><p role="status" aria-live="polite">Шаг {step} из 6</p></header>
       <div className="step-progress" role="progressbar" aria-label="Шаг подачи объявления" aria-valuemin={1} aria-valuemax={6} aria-valuenow={step} aria-valuetext={`Шаг ${step} из 6`}>{Array.from({ length: 6 }, (_, index) => <span key={index} className={index < step ? "is-complete" : ""} />)}</div>
       <p className={saveState === "error" ? "inline-error" : "inline-success"} role="status">{saveCopy}{draft && ` · ревизия ${draft.revision}`}</p>
       {validationPolicyLoading && <p className="muted" role="status">Загружаем правила подачи…</p>}
       {validationPolicyError && <p className="notice wide" role="alert">Не удалось загрузить правила подачи. <button className="button button-secondary button-small" type="button" onClick={() => setValidationPolicyRetry((attempt) => attempt + 1)} disabled={validationPolicyLoading}>Повторить</button></p>}
 
       {step === 1 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Продавец и предложение</h2>
+        <label className="field"><span>Категория</span><select aria-label="Категория" value={category} disabled={busy} onChange={event => {
+ const code = event.target.value as CategoryCode;
+ setFields(previous => ({ ...previous, category_code: code, title: "", details: {}, make_mode: code === "cars" ? "catalog" : "manual", model_mode: code === "cars" ? "catalog" : "manual", make_id: "", model_id: "", manual_make: "", manual_model: "", generation_id: "", body_variant_id: "", body_type_id: "", modification_id: "", year: "", mileage_km: "", fuel: "", transmission: "", drive: "", engine_volume_l: "", power_hp: "", vin: "", equipment: [], parts_only: false }));
+}}><option value="cars">Легковые автомобили</option>{categories.filter(item => item.code !== "cars").map(item => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         <label className="field"><span>Кто продаёт</span><select {...fieldProps("seller_type")} value={fields.seller_type} onChange={(event) => update("seller_type", event.target.value as FormFields["seller_type"])}>
           <option value="private">Частное лицо</option>
           <option value="company" disabled={company?.status !== "approved"}>{company?.name ? `Компания: ${company.name}` : "Компания (сначала оформите профиль)"}</option>
         </select>{fieldError("seller_type")}</label>
-        <label className="field"><span>Состояние</span><select {...fieldProps("condition")} value={fields.condition} onChange={(event) => update("condition", enumValue(event.target.value, CONDITION_OPTIONS))} required><option value="new">Новый</option><option value="used">С пробегом</option></select>{fieldError("condition")}</label>
+        <label className="field"><span>Состояние</span><select {...fieldProps("condition")} value={fields.condition} onChange={(event) => update("condition", enumValue(event.target.value, CONDITION_OPTIONS))} required><option value="new">Новый</option><option value="used">{isGoods(category) ? "Б/у" : "С пробегом"}</option></select>{fieldError("condition")}</label>
         {company && company.status !== "approved" && <p className="notice">Публикация от имени компании станет доступна после проверки её профиля.</p>}
-        <fieldset className="seller-offer"><legend>Как продаётся автомобиль</legend>
+        {!isGoods(category) && <fieldset className="seller-offer"><legend>Как продаётся транспорт</legend>
           <label className="choice-card"><input type="radio" name="parts_only" checked={!fields.parts_only} onChange={() => update("parts_only", false)} /> Целиком</label>
           <label className="choice-card"><input type="radio" name="parts_only" checked={fields.parts_only} onChange={() => update("parts_only", true)} /> На запчасти</label>
-        </fieldset>
+        </fieldset>}
       </section>}
 
-      {step === 2 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Автомобиль и характеристики</h2><div className="form-grid">
+      {step === 2 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>{category === "cars" ? "Автомобиль и характеристики" : "Характеристики объявления"}</h2><div className="form-grid">
+        {category !== "cars" && <>
+          {isGoods(category) && <label className="field"><span>Название объявления</span><input value={fields.title || ""} onChange={event => update("title", event.target.value)} maxLength={180} required />{fieldError("title")}</label>}
+          {!isGoods(category) && <>
+            <label className="field"><span>Марка</span><input aria-label="Марка вручную" value={fields.manual_make} onChange={event => update("manual_make", event.target.value)} maxLength={180} required /></label>
+            <label className="field"><span>Модель</span><input aria-label="Модель вручную" value={fields.manual_model} onChange={event => update("manual_model", event.target.value)} maxLength={180} required /></label>
+            <label className="field"><span>Год выпуска</span><input type="number" min={validationPolicy?.listing_year_min} max={fields.condition === "new" ? validationPolicy?.new_year_max : validationPolicy?.used_year_max} value={fields.year} onChange={event => update("year", event.target.value)} required />{fieldError("year")}</label>
+          </>}
+          {hasMileage(category) && <label className="field"><span>Пробег, км</span><input type="number" min={0} step="1" value={fields.mileage_km} onChange={event => update("mileage_km", event.target.value)} /></label>}
+          <CategoryFields code={category} values={fields.details || {}} onChange={(key, value) => update("details", { ...fields.details, [key]: value })} />
+          {fieldError("details")}
+        </>}
+        {category === "cars" && <>
         <label className="field"><span>Способ выбора марки</span><select aria-label="Источник марки" value={fields.make_mode} onChange={(event) => changeMakeMode(event.target.value as FormFields["make_mode"])}><option value="catalog">Из каталога</option><option value="manual">Марки нет в каталоге</option></select></label>
         {fields.make_mode === "manual" ? <label className="field"><span>Марка</span><input {...fieldProps("manual_make")} aria-label="Марка вручную" value={fields.manual_make} onChange={(event) => update("manual_make", event.target.value)} maxLength={180} required />{fieldError("manual_make")}</label> : <label className="field"><span>Марка</span><select {...fieldProps("make_id")} value={fields.make_id} onChange={(event) => changeMake(event.target.value)} required><option value="">Выберите марку</option>{makes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("make_id")}</label>}
         {fields.make_mode === "catalog" && <label className="field"><span>Способ выбора модели</span><select aria-label="Источник модели" value={fields.model_mode} onChange={(event) => changeModelMode(event.target.value as FormFields["model_mode"])} disabled={!fields.make_id}><option value="catalog">Из каталога</option><option value="manual">Модели нет в каталоге</option></select></label>}
@@ -1139,9 +1188,11 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
         <label className="field"><span>Привод</span><select {...fieldProps("drive")} value={fields.drive} onChange={(event) => update("drive", enumValue(event.target.value, DRIVE_OPTIONS))} required><option value="">Выберите</option><option value="front">Передний</option><option value="rear">Задний</option><option value="all">Полный</option><option value="other">Другое</option></select>{fieldError("drive")}</label>
         <label className="field"><span>Объём двигателя, л</span><input {...fieldProps("engine_volume_l")} type="number" inputMode="decimal" min="0" max="20" step="0.1" value={fields.engine_volume_l} onChange={(event) => update("engine_volume_l", event.target.value)} />{fieldError("engine_volume_l")}</label>
         <label className="field"><span>Мощность, л.с.</span><input {...fieldProps("power_hp")} type="number" inputMode="numeric" min="1" max="2500" value={fields.power_hp} onChange={(event) => update("power_hp", event.target.value)} />{fieldError("power_hp")}</label>
+      </>}
       </div></section>}
 
       {step === 3 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Состояние и описание</h2><div className="form-grid">
+        {category === "cars" && <>
         <label className="field"><span>Цвет</span><select value={fields.color} onChange={(event) => update("color", event.target.value as FormFields["color"])}><option value="">Не указан</option>{listingOptions?.colors.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         <label className="field"><span>Растаможка</span><select value={fields.customs_status} onChange={(event) => update("customs_status", event.target.value as FormFields["customs_status"])}><option value="">Не указана</option>{listingOptions?.customs_statuses.map((item) => item.code !== "unknown" && <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         <label className="field"><span>Техническое состояние</span><select value={fields.technical_condition} onChange={(event) => update("technical_condition", event.target.value as FormFields["technical_condition"])}><option value="">Не указано</option>{listingOptions?.technical_conditions.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
@@ -1152,12 +1203,13 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
         <label className="check-field"><input type="checkbox" checked={fields.leasing} onChange={(event) => update("leasing", event.target.checked)} /> Возможен лизинг</label>
         {listingOptions && <fieldset className="equipment-options wide"><legend className="field-label">Комплектация</legend><div className="equipment-options-grid">{listingOptions.equipment.map((item) => <label className="check-field" key={item.code}><input type="checkbox" checked={fields.equipment.includes(item.code)} onChange={(event) => update("equipment", event.target.checked ? [...fields.equipment, item.code] : fields.equipment.filter((code) => code !== item.code))} /> {item.label}</label>)}</div></fieldset>}
         {listingOptionsError && <p className="notice wide" role="status">Список комплектации недоступен; можно продолжить без этих характеристик.</p>}
+        </>}
         <label className="field"><span>Район <small className="muted">необязательно</small></span><input maxLength={120} value={fields.district} onChange={(event) => update("district", event.target.value)} /></label>
         <label className="field"><span>Время звонков <small className="muted">необязательно</small></span><input maxLength={80} placeholder="Например, 9:00–20:00" value={fields.call_hours} onChange={(event) => update("call_hours", event.target.value)} /></label>
         <label className="check-field"><input type="checkbox" checked={fields.damaged} onChange={(event) => update("damaged", event.target.checked)} /> Есть повреждения</label>
         <label className="check-field"><input type="checkbox" checked={fields.parts_only} onChange={(event) => update("parts_only", event.target.checked)} /> Продаётся на запчасти</label>
-        <label className="field wide"><span>Описание</span><textarea {...fieldProps("description")} value={fields.description} onChange={(event) => update("description", event.target.value)} maxLength={5000} placeholder="Расскажите об автомобиле, обслуживании и важных особенностях" required />{fieldError("description")}</label>
-        <label className="field"><span>VIN <small className="muted">необязательно</small></span><input {...fieldProps("vin")} value={fields.vin} onChange={(event) => update("vin", event.target.value.toUpperCase())} maxLength={17} autoComplete="off" />{fieldError("vin")}</label>
+        <label className="field wide"><span>Описание</span><textarea {...fieldProps("description")} value={fields.description} onChange={(event) => update("description", event.target.value)} maxLength={5000} placeholder="Расскажите о состоянии и важных особенностях" required />{fieldError("description")}</label>
+        {!isGoods(category) && <label className="field"><span>VIN <small className="muted">необязательно</small></span><input {...fieldProps("vin")} value={fields.vin} onChange={(event) => update("vin", event.target.value.toUpperCase())} maxLength={17} autoComplete="off" />{fieldError("vin")}</label>}
       </div></section>}
 
       {step === 4 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Цена, расположение и контакт</h2><div className="form-grid">
@@ -1188,8 +1240,11 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
 
       {step === 6 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Проверьте объявление</h2>
         <dl className="review-list">
-          <div><dt>Автомобиль</dt><dd>{title || "Выберите автомобиль"}{generation && ` · ${generation.name}`}{bodyType && ` · ${bodyType.name}`}</dd></div>
+          <div><dt>Категория</dt><dd>{category === "cars" ? "Легковые автомобили" : categories.find(item => item.code === category)?.label}</dd></div>
+          {categoryFields(category).filter(f => fields.details?.[f.key]).map(f => <div key={f.key}><dt>{f.label}</dt><dd>{f.options?.[fields.details![f.key]] || fields.details![f.key]}</dd></div>)}
+          <div><dt>Объявление</dt><dd>{title || (isGoods(category) ? categories.find(item => item.code === category)?.label : "Укажите марку и модель")}{generation && ` · ${generation.name}`}{bodyType && ` · ${bodyType.name}`}</dd></div>
           {selectedBodyVariant && <div><dt>Вариант кузова</dt><dd>{selectedBodyVariant.name}</dd></div>}
+          {category === "cars" && <>
           <div><dt>Год и пробег</dt><dd>{fields.year || "—"} · {fields.mileage_km ? `${Number(fields.mileage_km).toLocaleString("ru-BY")} км` : "—"}</dd></div>
           <div><dt>Топливо</dt><dd>{reviewFuelLabels[fields.fuel] || fields.fuel || "—"}</dd></div>
           <div><dt>Коробка передач</dt><dd>{reviewTransmissionLabels[fields.transmission] || fields.transmission || "—"}</dd></div>
@@ -1198,7 +1253,10 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
             fields.engine_volume_l && `${fields.engine_volume_l} л`,
             fields.power_hp && `${Number(fields.power_hp).toLocaleString("ru-BY")} л.с.`
           ].filter(Boolean).join(" · ")}</dd></div>}
-          <div><dt>Состояние</dt><dd>{fields.condition === "new" ? "Новый" : "С пробегом"}{fields.damaged ? " · есть повреждения" : ""}{fields.parts_only ? " · на запчасти" : ""}</dd></div>
+          </>}
+          {category !== "cars" && !isGoods(category) && <div><dt>Год выпуска</dt><dd>{fields.year || "—"}</dd></div>}
+          {category !== "cars" && hasMileage(category) && fields.mileage_km && <div><dt>Пробег</dt><dd>{fields.mileage_km} км</dd></div>}
+          <div><dt>Состояние</dt><dd>{fields.condition === "new" ? "Новый" : isGoods(category) ? "Б/у" : "С пробегом"}{fields.damaged ? " · есть повреждения" : ""}{fields.parts_only ? " · на запчасти" : ""}</dd></div>
           {(fields.color || fields.customs_status || fields.technical_condition || fields.body_condition || fields.exchange || fields.bargaining || fields.credit || fields.leasing || fields.equipment.length || fields.district || fields.call_hours) && <div><dt>Дополнительные сведения</dt><dd>{[
             listingOptions?.colors.find((option) => option.code === fields.color)?.label,
             listingOptions?.customs_statuses.find((option) => option.code === fields.customs_status)?.label,

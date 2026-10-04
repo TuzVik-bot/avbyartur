@@ -429,3 +429,22 @@ describe("search filter dependencies", () => {
     expect(modificationSelect?.options[0]?.textContent).toBe("Нет доступных модификаций");
   });
 });
+it("offers year and mileage ranges on transport categories without car catalogs", async () => {
+ await act(async () => root.render(createElement(SearchFilters, { search: { category_code: "trucks" }, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [] })));
+ expect(container.querySelector('form')?.getAttribute('action')).toBe('/trucks');
+ expect(container.querySelector('select[name="make_id"]')).toBeNull();
+ expect(container.querySelector('input[name="year_min"]')).not.toBeNull();
+ expect(container.querySelector('input[name="mileage_min"]')).not.toBeNull();
+});
+it("keeps tire query aliases in the editable characteristics and serialized search", async () => {
+ await act(async () => root.render(createElement(SearchFilters, { search: { category_code: "tires", width_mm: "205", diameter_in: "16", season: "winter" }, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [] })));
+ expect(container.querySelector<HTMLInputElement>('input[aria-label="Ширина, мм"]')?.value).toBe("205");
+ expect(container.querySelector<HTMLInputElement>('input[name="details"]')?.value).toBe('{"width_mm":205,"diameter_in":16,"season":"winter"}');
+ expect(container.querySelector('input[name="year_min"]')).toBeNull();
+});
+it("updates category characteristic controls after search navigation", async () => {
+ const props = { makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [] };
+ await act(async () => root.render(createElement(SearchFilters, { ...props, search: { category_code: "tires", season: "winter" } })));
+ await act(async () => root.render(createElement(SearchFilters, { ...props, search: { category_code: "tires", season: "summer" } })));
+ expect(container.querySelector<HTMLSelectElement>('select[aria-label="Сезон"]')?.value).toBe("summer");
+});

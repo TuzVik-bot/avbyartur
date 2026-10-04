@@ -1,5 +1,6 @@
 "use client";
 
+import { CategoryNavigation } from "@/components/category-navigation";
 import Link from "next/link";
 import { useState } from "react";
 import { Heart, LogOut, Menu, Plus, ShieldCheck, UserRound, X } from "lucide-react";
@@ -48,6 +49,7 @@ export function SiteHeader() {
           <Link className="button button-primary header-sell" href={localizedPath("/sell")} onClick={() => setOpen(false)}><Plus size={17} /> {message("header.sellListing")}</Link>
         </div>
       </div>
+      <details className="page-width"><summary>Разделы объявлений</summary><CategoryNavigation /></details>
       {error && <p className="header-error" role="alert">{error}</p>}
     </header>
   );

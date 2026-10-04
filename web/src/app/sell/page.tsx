@@ -1,3 +1,4 @@
+import { categories } from "@/lib/listing-categories";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -7,12 +8,14 @@ import { serverApi } from "@/lib/server-api";
 import { requireSession } from "@/lib/server";
 import type { CatalogItem, Company, Listing, ListingPhoto } from "@/lib/types";
 
-type SearchParams = { listing?: string | string[] };
+type SearchParams = { listing?: string | string[]; category?: string | string[] };
 export const metadata: Metadata = { title: "Подать объявление" };
 
 export default async function SellPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requireSession("/sell");
   const params = await searchParams;
+  const requestedCategory = Array.isArray(params.category) ? params.category[0] : params.category;
+  const initialCategory = categories.find(item => item.code === requestedCategory)?.code || "cars";
   const id = Array.isArray(params.listing) ? params.listing[0] : params.listing;
   const [makesResult, regionsResult, typesResult, companyResult, listingResult] = await Promise.allSettled([
     serverApi.catalog("makes"),
@@ -55,7 +58,7 @@ export default async function SellPage({ searchParams }: { searchParams: Promise
       {regionCatalogUnavailable && <p className="notice" role="alert">Справочник областей недоступен. Объявление можно сохранить как черновик, но отправить его на проверку получится после загрузки справочника. <Link href={retryHref}>Повторить загрузку</Link></p>}
       {companyResult.status === "rejected" && <p className="notice" role="status">Не удалось загрузить профиль компании. Сейчас доступна подача от частного лица.</p>}
       {initialListing && (modelsResult.status === "rejected" || generationsResult.status === "rejected" || citiesResult.status === "rejected") && <p className="notice" role="status">Не удалось загрузить часть справочников редактирования. Текущие значения сохранены; повторите загрузку перед изменением каталожных данных.</p>}
-      <SellForm initialListing={listingWithPhotos} makes={makes} models={models} generations={generations} bodyTypes={bodyTypes} regions={regions} cities={cities} company={company} />
+      <SellForm initialCategory={initialCategory} initialListing={listingWithPhotos} makes={makes} models={models} generations={generations} bodyTypes={bodyTypes} regions={regions} cities={cities} company={company} />
     </div>
   );
 }
