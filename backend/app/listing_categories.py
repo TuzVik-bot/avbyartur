@@ -144,6 +144,12 @@ _POSITIVE_REQUIRED_FIELDS: dict[str, frozenset[str]] = {
 }
 
 
+def category_submission_requirements() -> dict[str, list[str]]:
+    """Public form hints for the category details required on submission."""
+
+    return {code: list(fields) for code, fields in _REQUIRED_SUBMISSION_FIELDS.items()}
+
+
 class ListingCategoryDetailsInput(BaseModel):
     """A typed, category-specific JSON payload stored separately from a listing."""
 

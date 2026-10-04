@@ -92,6 +92,14 @@ def test_default_policy_preserves_one_ready_photo_and_current_year_behavior():
             "cars", "trucks", "buses", "motorcycles", "special_equipment",
             "agricultural_equipment", "trailers", "watercraft", "parts", "wheels", "tires",
         ],
+        "category_submission_requirements": {
+            "cars": [], "trucks": ["vehicle_type"], "buses": ["vehicle_type"],
+            "motorcycles": ["vehicle_type"], "special_equipment": ["equipment_type"],
+            "agricultural_equipment": ["equipment_type"], "trailers": ["trailer_type"],
+            "watercraft": ["watercraft_type"], "parts": ["part_group"],
+            "wheels": ["diameter_in", "width_in", "bolt_holes", "pcd_mm"],
+            "tires": ["width_mm", "profile_percent", "diameter_in", "season"],
+        },
     }
 
 

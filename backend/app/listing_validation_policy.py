@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config import get_settings
-from app.listing_categories import CATEGORY_CODES
+from app.listing_categories import CATEGORY_CODES, category_submission_requirements
 
 MAXIMUM_LISTING_PHOTOS = 30
 
@@ -72,6 +72,7 @@ class _Policy:
             },
             "maximum_photos": MAXIMUM_LISTING_PHOTOS,
             "category_codes": list(CATEGORY_CODES),
+            "category_submission_requirements": category_submission_requirements(),
         }
 
 

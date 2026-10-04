@@ -96,7 +96,7 @@ class ListingForm(BaseModel):
 
     @model_validator(mode="after")
     def category_details_match_category(self) -> "ListingForm":
-        if self.category_details is not None and self.category_details.category_code != self.category_code:
+        if self.category_details is not None and self.category_code is not None and self.category_details.category_code != self.category_code:
             raise ValueError("category_details.category_code must match category_code")
         return self
 
@@ -144,6 +144,7 @@ class RevisionInput(BaseModel):
 
 
 class ListingPatch(ListingForm):
+    category_code: CategoryCode | None = None
     expected_revision: int = Field(ge=1)
     confirm_category_change: bool = False
 

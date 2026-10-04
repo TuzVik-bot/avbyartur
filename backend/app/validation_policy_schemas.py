@@ -22,3 +22,4 @@ class ListingValidationPolicyOut(BaseModel):
     minimum_photos: MinimumListingPhotosOut
     maximum_photos: int = Field(ge=1, le=30)
     category_codes: list[str] = Field(min_length=1)
+    category_submission_requirements: dict[str, list[str]]

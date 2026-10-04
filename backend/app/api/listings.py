@@ -240,6 +240,26 @@ def _apply_fields(db: Session, listing: Listing, values: dict, user: User, *, cr
     if not creating and requested_category != current_category:
         if not confirm_category_change:
             fail(422, "category_change_confirmation_required", "Confirm category change before replacing category-specific details", {"confirm_category_change": "Confirmation is required"})
+        incompatible_fields = {
+            "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id",
+            "modification_id", "manual_make", "manual_model", "fuel", "transmission",
+            "drive", "engine_volume_l", "power_hp", "vin", "equipment",
+        }
+        supplied_incompatible_fields = sorted(incompatible_fields.intersection(values))
+        if supplied_incompatible_fields:
+            fail(
+                422,
+                "category_change_incompatible_fields",
+                "Update category-specific vehicle fields after changing category",
+                {field: "Cannot be changed in the same request as category_code" for field in supplied_incompatible_fields},
+            )
+        existing_details = listing.category_details
+        if existing_details is not None:
+            # The composite FK includes category_code. Remove the old row and
+            # flush before changing its parent category, so PostgreSQL never
+            # observes a mismatched pair during the update.
+            db.delete(existing_details)
+            db.flush()
         listing.category_details = None
         for field in (
             "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id",
@@ -260,10 +280,13 @@ def _apply_fields(db: Session, listing: Listing, values: dict, user: User, *, cr
     if category_details is not None:
         if category_details["category_code"] != listing.category_code:
             fail(422, "invalid_category_details", "Category details do not match the listing category", {"category_details": "Category does not match category_code"})
-        listing.category_details = ListingCategoryDetails(
-            category_code=listing.category_code,
-            details=category_details["details"],
-        )
+        if listing.category_details is None:
+            listing.category_details = ListingCategoryDetails(
+                category_code=listing.category_code,
+                details=category_details["details"],
+            )
+        else:
+            listing.category_details.details = category_details["details"]
 
     make = db.get(CatalogMake, listing.make_id) if listing.make_id else None
     model = db.get(CatalogModel, listing.model_id) if listing.model_id else None

@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 from fastapi import HTTPException
 from decimal import Decimal
 from types import SimpleNamespace
@@ -60,6 +61,12 @@ def test_category_change_requires_confirmation_and_replaces_incompatible_details
     from app.models import Listing, ListingCategoryDetails
 
     class Db:
+        def delete(self, _row):
+            pass
+
+        def flush(self):
+            pass
+
         def get(self, _model, _identity):
             return None
 
@@ -118,6 +125,28 @@ def test_category_change_requires_confirmation_and_replaces_incompatible_details
         assert getattr(listing, field) is None
 
 
+def test_same_category_details_update_reuses_the_existing_one_to_one_row():
+    from app.api.listings import _apply_fields
+    from app.models import Listing, ListingCategoryDetails
+
+    class Db:
+        def get(self, _model, _identity):
+            return None
+
+    existing = ListingCategoryDetails(category_code="trucks", details={"payload_kg": 1_000})
+    listing = Listing(category_code="trucks")
+    listing.category_details = existing
+
+    _apply_fields(
+        Db(), listing,
+        {"category_details": {"category_code": "trucks", "details": {"payload_kg": 2_000}}},
+        None, creating=False,
+    )
+
+    assert listing.category_details is existing
+    assert existing.details == {"payload_kg": 2_000}
+
+
 def test_category_details_use_a_database_foreign_key_for_listing_category_match():
     from app.models import Listing, ListingCategoryDetails
 
@@ -136,6 +165,56 @@ def test_listing_patch_does_not_replace_category_when_category_is_omitted():
     payload = ListingPatch(expected_revision=4, title="Updated title")
 
     assert "category_code" not in payload.model_dump(exclude_unset=True)
+
+
+def test_listing_patch_allows_non_car_details_without_repeating_category_code():
+    from app.schemas import ListingPatch
+
+    payload = ListingPatch(
+        expected_revision=4,
+        category_details={"category_code": "trucks", "details": {"vehicle_type": "truck"}},
+    )
+
+    assert payload.category_code is None
+    assert payload.category_details.category_code == "trucks"
+
+
+def test_listing_patch_rejects_a_details_category_mismatch_when_both_are_supplied():
+    from app.schemas import ListingPatch
+
+    with pytest.raises(ValidationError):
+        ListingPatch(
+            expected_revision=4,
+            category_code="buses",
+            category_details={"category_code": "trucks", "details": {"vehicle_type": "truck"}},
+        )
+
+
+def test_category_change_rejects_legacy_car_fields_in_the_same_payload():
+    from app.api.listings import _apply_fields
+    from app.models import Listing
+
+    class Db:
+        def get(self, _model, _identity):
+            return None
+
+    with pytest.raises(HTTPException) as exc:
+        _apply_fields(
+            Db(), Listing(category_code="cars"),
+            {"category_code": "trucks", "confirm_category_change": True, "vin": "1HGCM82633A004352"},
+            None, creating=False,
+        )
+
+    assert exc.value.detail["code"] == "category_change_incompatible_fields"
+
+
+def test_migration_refuses_ambiguous_legacy_rows_and_lossy_downgrade():
+    migration = Path(__file__).parents[1] / "alembic/versions/0022_listing_categories.py"
+    source = migration.read_text()
+
+    assert "_ambiguous_legacy_listings" in source
+    assert "Refusing to classify" in source
+    assert "Refusing a lossy category downgrade" in source
 
 
 def test_parts_submission_keeps_common_rules_without_car_only_requirements(monkeypatch):

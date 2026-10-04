@@ -23,6 +23,33 @@ def _columns(table: str) -> set[str]:
     return {column["name"] for column in inspector.get_columns(table)} if inspector.has_table(table) else set()
 
 
+def _scalar_int(statement: str) -> int:
+    return int(op.get_bind().execute(sa.text(statement)).scalar_one())
+
+
+def _ambiguous_legacy_listings() -> int:
+    """Count rows that cannot be proven to be historical car-form listings.
+
+    Before this revision, every known API and dealer-feed path used the car
+    form. A row with no car-form evidence may have been written outside those
+    paths, so migration must stop for an operator review instead of guessing.
+    """
+
+    return _scalar_int(
+        """
+        SELECT count(*) FROM listings
+        WHERE category_code IS NULL
+          AND make_id IS NULL AND model_id IS NULL
+          AND NULLIF(btrim(COALESCE(manual_make, '')), '') IS NULL
+          AND NULLIF(btrim(COALESCE(manual_model, '')), '') IS NULL
+          AND year IS NULL AND mileage_km IS NULL
+          AND fuel IS NULL AND transmission IS NULL AND drive IS NULL
+          AND body_type_id IS NULL AND body_variant_id IS NULL AND modification_id IS NULL
+          AND engine_volume_l IS NULL AND power_hp IS NULL AND vin IS NULL
+        """
+    )
+
+
 def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
@@ -30,12 +57,20 @@ def upgrade() -> None:
         if "category_code" not in _columns("listings"):
             op.add_column(
                 "listings",
-                sa.Column("category_code", sa.String(length=32), nullable=False, server_default="cars"),
+                sa.Column("category_code", sa.String(length=32), nullable=True),
             )
-        # Every historical write path was the passenger-car listing form. This
-        # only supplies its compatible default and does not change any listing
-        # identifier or relation (photos, messages, owner, status, addresses).
+        ambiguous_count = _ambiguous_legacy_listings()
+        if ambiguous_count:
+            raise RuntimeError(
+                f"Refusing to classify {ambiguous_count} ambiguous legacy listings as cars. "
+                "Export their IDs for review, assign a confirmed category, then rerun the migration."
+            )
+        # Known historical API and dealer-feed paths use the passenger-car
+        # form. This update only classifies rows carrying that form's evidence.
+        # It does not change IDs or related rows (photos, messages, owner,
+        # status, or address).
         op.execute(sa.text("UPDATE listings SET category_code = 'cars' WHERE category_code IS NULL"))
+        op.alter_column("listings", "category_code", nullable=False, server_default="cars")
         constraints = {item["name"] for item in sa.inspect(bind).get_check_constraints("listings")}
         if "ck_listing_category_code" not in constraints:
             op.create_check_constraint(
@@ -84,6 +119,15 @@ def upgrade() -> None:
 def downgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
+    if inspector.has_table("listings"):
+        non_car_count = _scalar_int("SELECT count(*) FROM listings WHERE category_code <> 'cars'")
+        detail_count = _scalar_int("SELECT count(*) FROM listing_category_details") if inspector.has_table("listing_category_details") else 0
+        if non_car_count or detail_count:
+            raise RuntimeError(
+                "Refusing a lossy category downgrade. Preserve listings.category_code and "
+                "listing_category_details in a backup/export, remove category data only with "
+                "an approved migration plan, then rerun downgrade."
+            )
     if inspector.has_table("listing_category_details"):
         op.drop_table("listing_category_details")
     if inspector.has_table("listings"):
