@@ -13,6 +13,7 @@ from app.customs_calculator import (
     CustomsRuleVersion,
     CustomsVolumeBand,
     DEFAULT_RULES_PATH,
+    REQUIRED_GTK_CASE_IDS,
     calculate_customs,
     determine_age_band,
     get_rules_for_date,
@@ -553,6 +554,46 @@ def test_public_gate_requires_all_version_bound_real_gtk_cases() -> None:
             },
         )
     )
+
+
+def test_public_gate_rejects_valid_cases_relabelled_to_fake_band_coverage() -> None:
+    source_cases = {case["id"]: case for case in _verified_cases()}
+    template_for_id = {}
+    for case_id in REQUIRED_GTK_CASE_IDS:
+        if case_id.startswith("up_to_3_price_"):
+            mode = "percent" if case_id.endswith("_percent") else "minimum"
+            template_for_id[case_id] = f"up_to_3_price_1_{mode}"
+        elif case_id.startswith("over_3_to_5_volume_"):
+            template_for_id[case_id] = "over_3_to_5_volume_1"
+        else:
+            template_for_id[case_id] = "over_5_volume_1"
+
+    reused_cases = []
+    for case_id, template_id in template_for_id.items():
+        case = json.loads(json.dumps(source_cases[template_id]))
+        case["id"] = case_id
+        reused_cases.append(case)
+
+    fingerprint = "a" * 64
+    control = {
+        "status": "verified",
+        "rules_version": "test-rules-v1",
+        "verified_on": "2026-10-04",
+        "source_url": "https://customs.gov.by/calc/",
+        "evidence_reference": "docs/customs/gtk-control-cases.json",
+        "evidence_sha256": "b" * 64,
+        "tariff_fingerprint": fingerprint,
+        "cases_sha256": _canonical_sha256(reused_cases),
+        "cases": reused_cases,
+    }
+    rules = replace(
+        _rules(),
+        tariff_fingerprint=fingerprint,
+        gtk_verification=control,
+    )
+
+    assert len({case["id"] for case in reused_cases}) == len(REQUIRED_GTK_CASE_IDS)
+    assert not is_publicly_available(rules)
 
 
 def test_packaged_gtk_control_cases_match_runtime_decimal_engine() -> None:

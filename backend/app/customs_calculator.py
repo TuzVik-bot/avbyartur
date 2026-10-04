@@ -32,6 +32,42 @@ REQUIRED_GTK_CASE_IDS = frozenset(
         *(f"over_5_volume_{index}" for index in range(1, 7)),
     }
 )
+_GTK_PRICE_CASE_EUR = ("8500", "16700", "42300", "84500", "169000", "169001")
+_GTK_VOLUME_CASE_CC = (1000, 1500, 1800, 2300, 3000, 3001)
+_EXPECTED_GTK_CASE_INPUTS: dict[str, dict[str, str | int | bool]] = {
+    **{
+        f"up_to_3_price_{index}_{mode}": {
+            "age_band": "up_to_3_years",
+            "gtk_age_group_label": "<=3",
+            "vehicle_price_eur": price_eur,
+            "price_currency": "EUR",
+            "engine_volume_cc": volume_cc,
+            "exchange_rate_byn_per_eur": "3.5" if index == 1 and mode == "percent" else "3",
+        }
+        for index, price_eur in enumerate(_GTK_PRICE_CASE_EUR, start=1)
+        for mode, volume_cc in (("percent", 1600), ("minimum", 10_000))
+    },
+    **{
+        f"over_3_to_5_volume_{index}": {
+            "age_band": "over_3_to_5_years",
+            "gtk_age_group_label": ">3<=5",
+            "engine_volume_cc": volume_cc,
+            "price_field_present": False,
+            "exchange_rate_byn_per_eur": "3",
+        }
+        for index, volume_cc in enumerate(_GTK_VOLUME_CASE_CC, start=1)
+    },
+    **{
+        f"over_5_volume_{index}": {
+            "age_band": "over_5_years",
+            "gtk_age_group_label": ">5",
+            "engine_volume_cc": volume_cc,
+            "price_field_present": False,
+            "exchange_rate_byn_per_eur": "3",
+        }
+        for index, volume_cc in enumerate(_GTK_VOLUME_CASE_CC, start=1)
+    },
+}
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _OFFICIAL_SOURCE_SUFFIXES = (
     ".eaeunion.org",
@@ -375,6 +411,12 @@ def _valid_control_case(case: Any, expected_id: str, rules: CustomsRuleVersion) 
     if gtk_input_rate > Decimal("1000000"):
         return False
     if local_eur != gtk_eur or not isinstance(evidence, str) or not evidence.strip():
+        return False
+    expected_inputs = _EXPECTED_GTK_CASE_INPUTS.get(expected_id)
+    if expected_inputs is None or any(
+        input_values.get(name) != expected_value
+        for name, expected_value in expected_inputs.items()
+    ):
         return False
 
     age_band = input_values.get("age_band")
