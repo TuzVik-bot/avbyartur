@@ -75,6 +75,7 @@ def test_auth_capabilities_endpoint_reports_safe_defaults():
     assert response.json() == {
         "sms_login": False,
         "sms_registration": False,
+        "email_registration": False,
         "email_notifications": False,
         "email_verification": False,
         "password_recovery": False,
@@ -87,6 +88,7 @@ def test_auth_capabilities_enable_email_only_for_a_complete_smtp_configuration(m
         "get_settings",
         lambda: SimpleNamespace(
             sms_login_enabled=False,
+            email_registration_enabled=False,
             public_registration_enabled=False,
             sms_provider="disabled",
             smtp_host="smtp.example.test",
@@ -109,6 +111,7 @@ def test_auth_capabilities_enable_email_only_for_a_complete_smtp_configuration(m
     assert response.json() == {
         "sms_login": False,
         "sms_registration": False,
+        "email_registration": False,
         "email_notifications": True,
         "email_verification": True,
         "password_recovery": True,

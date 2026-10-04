@@ -70,6 +70,7 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     ("/api/v1/auth/otp/csrf", "get"): set(),
     ("/api/v1/auth/otp/request", "post"): {"403", "404", "429", "503"},
     ("/api/v1/auth/otp/verify", "post"): {"401", "403", "404", "429"},
+    ("/api/v1/auth/register", "post"): {"403", "404", "409", "429", "503"},
     ("/api/v1/auth/register/otp/request", "post"): {"403", "404", "429", "503"},
     ("/api/v1/me", "get"): {"401", "403"},
     ("/api/v1/me/sessions", "get"): {"401", "403"},

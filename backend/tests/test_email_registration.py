@@ -119,7 +119,10 @@ def test_registration_requires_csrf_strong_password_and_current_consent(integrat
     _seed_documents(integration["SessionLocal"])
     client = _client(integration["client"].app)
 
-    no_csrf = client.post("/api/v1/auth/register", json={"email": "x@example.com"})
+    no_csrf = client.post("/api/v1/auth/register", json={
+        "email": "nocsrf@example.com", "password": "correct-horse-battery", "display_name": "Без токена",
+        "accept_terms": True, "accept_privacy": True, "terms_version": TERMS, "privacy_version": PRIVACY,
+    })
     assert no_csrf.status_code == 403
 
     assert _register(client, "short@example.com", password="short").status_code == 422
@@ -129,7 +132,7 @@ def test_registration_requires_csrf_strong_password_and_current_consent(integrat
     assert stale.json()["code"] == "consent_version_mismatch"
     with integration["SessionLocal"]() as db:
         assert db.scalar(select(models.User).where(models.User.email.in_(
-            ["short@example.com", "noconsent@example.com", "stale@example.com"]
+            ["nocsrf@example.com", "short@example.com", "noconsent@example.com", "stale@example.com"]
         ))) is None
 
 

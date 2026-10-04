@@ -405,7 +405,18 @@ def login(payload: LoginInput, request: Request, response: Response, db: Annotat
     return {"user": user_out(db, user), "csrf_token": raw_csrf}
 
 
-@router.post("/auth/register", response_model=AuthSessionResponse, status_code=201)
+def _email_registration_enabled() -> None:
+    # A dependency runs before body validation, so a disabled route is a plain 404.
+    if not get_settings().email_registration_enabled:
+        fail(404, "not_found", "The requested authentication method is not available")
+
+
+@router.post(
+    "/auth/register",
+    response_model=AuthSessionResponse,
+    status_code=201,
+    dependencies=[Depends(_email_registration_enabled)],
+)
 def register_with_email(
     payload: EmailRegistrationInput,
     request: Request,
@@ -414,8 +425,6 @@ def register_with_email(
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> dict:
     settings = get_settings()
-    if not settings.email_registration_enabled:
-        fail(404, "not_found", "The requested authentication method is not available")
     _require_pre_auth_csrf(request, csrf_token)
     consume_rate_limit(db, "email-registration-ip", client_ip(request), 10, timedelta(hours=1))
     consent_error = registration_consent_error(db, settings, payload.terms_version, payload.privacy_version)
