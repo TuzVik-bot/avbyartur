@@ -228,6 +228,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalog/category-subtypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Category Subtypes
+         * @description Internal subtype codes; open text categories use manual entry.
+         */
+        get: operations["category_subtypes_api_v1_catalog_category_subtypes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/catalog/generations": {
         parameters: {
             query?: never;
@@ -2895,6 +2915,35 @@ export interface components {
             };
             manual_parameters: components["schemas"]["CatalogRequestManualParametersOut"];
         };
+        /** CategorySubmissionRequirementsOut */
+        CategorySubmissionRequirementsOut: {
+            /** Top Level */
+            top_level: string[];
+            /** Category Details */
+            category_details: string[];
+        };
+        /** CategorySubtypeItemOut */
+        CategorySubtypeItemOut: {
+            /** Code */
+            code: string;
+        };
+        /** CategorySubtypesOut */
+        CategorySubtypesOut: {
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+            /** Field */
+            field: string | null;
+            /**
+             * Entry Mode
+             * @enum {string}
+             */
+            entry_mode: "codes" | "manual" | "none";
+            /** Items */
+            items: components["schemas"]["CategorySubtypeItemOut"][];
+        };
         /** CompanyBusinessHours */
         CompanyBusinessHours: {
             /** Mon */
@@ -3776,6 +3825,21 @@ export interface components {
             /** Year To */
             year_to?: number | null;
         };
+        /**
+         * ListingCategoryDetailsInput
+         * @description A typed, category-specific JSON payload stored separately from a listing.
+         */
+        ListingCategoryDetailsInput: {
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+            /** Details */
+            details?: {
+                [key: string]: unknown;
+            };
+        };
         /** ListingChangeHistoryItemOut */
         ListingChangeHistoryItemOut: {
             /** Revision */
@@ -3817,6 +3881,13 @@ export interface components {
         };
         /** ListingForm */
         ListingForm: {
+            /**
+             * Category Code
+             * @default cars
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+            category_details?: components["schemas"]["ListingCategoryDetailsInput"] | null;
             /** Seller Type */
             seller_type?: ("private" | "company") | null;
             /** Make Id */
@@ -3990,6 +4061,12 @@ export interface components {
             status: string;
             /** Revision */
             revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
             make: components["schemas"]["ListingCatalogItemOut"] | null;
             model: components["schemas"]["ListingCatalogItemOut"] | null;
             generation: components["schemas"]["ListingCatalogItemOut"] | null;
@@ -4091,6 +4168,9 @@ export interface components {
         };
         /** ListingPatch */
         ListingPatch: {
+            /** Category Code */
+            category_code?: ("cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires") | null;
+            category_details?: components["schemas"]["ListingCategoryDetailsInput"] | null;
             /** Seller Type */
             seller_type?: ("private" | "company") | null;
             /** Make Id */
@@ -4168,6 +4248,11 @@ export interface components {
             contact_phone?: string | null;
             /** Expected Revision */
             expected_revision: number;
+            /**
+             * Confirm Category Change
+             * @default false
+             */
+            confirm_category_change: boolean;
         };
         /** ListingPhotoOut */
         ListingPhotoOut: {
@@ -4247,6 +4332,12 @@ export interface components {
             status: string;
             /** Revision */
             revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
             make: components["schemas"]["ListingCatalogItemOut"] | null;
             model: components["schemas"]["ListingCatalogItemOut"] | null;
             generation: components["schemas"]["ListingCatalogItemOut"] | null;
@@ -4377,6 +4468,12 @@ export interface components {
             minimum_photos: components["schemas"]["MinimumListingPhotosOut"];
             /** Maximum Photos */
             maximum_photos: number;
+            /** Category Codes */
+            category_codes: string[];
+            /** Category Submission Requirements */
+            category_submission_requirements: {
+                [key: string]: components["schemas"]["CategorySubmissionRequirementsOut"];
+            };
         };
         /** LoginInput */
         LoginInput: {
@@ -4596,6 +4693,12 @@ export interface components {
             status: string;
             /** Revision */
             revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
             make: components["schemas"]["ListingCatalogItemOut"] | null;
             model: components["schemas"]["ListingCatalogItemOut"] | null;
             generation: components["schemas"]["ListingCatalogItemOut"] | null;
@@ -6124,6 +6227,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 limit?: number;
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             };
             header?: never;
             path?: never;
@@ -6166,6 +6270,7 @@ export interface operations {
                 make_id?: string | null;
                 q?: string | null;
                 limit?: number;
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             };
             header?: never;
             path?: never;
@@ -6180,6 +6285,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogItemsOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    category_subtypes_api_v1_catalog_category_subtypes_get: {
+        parameters: {
+            query: {
+                category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategorySubtypesOut"];
                 };
             };
             /** @description Request validation error */
@@ -6485,6 +6630,12 @@ export interface operations {
     search_listings_api_v1_listings_get: {
         parameters: {
             query?: {
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+                subtype?: string | null;
+                details?: string | null;
+                diameter_in?: number | null;
+                width_mm?: number | null;
+                season?: string | null;
                 q?: string | null;
                 make_id?: string | null;
                 model_id?: string | null;

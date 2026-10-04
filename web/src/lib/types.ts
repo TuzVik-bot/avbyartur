@@ -201,6 +201,12 @@ export type ReportCategory = components["schemas"]["ReportInput"]["category"];
 export type ApiErrorShape = components["schemas"]["ApiErrorOut"];
 
 export type ListingSearch = {
+  category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+  subtype?: string;
+  details?: string;
+  diameter_in?: string;
+  width_mm?: string;
+  season?: string;
   q?: string;
   make_id?: string;
   model_id?: string;

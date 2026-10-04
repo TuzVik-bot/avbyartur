@@ -47,6 +47,8 @@ _REFERENCE_MODELS: dict[str, type] = {
     "city_id": LocationCity,
 }
 _TRACKED_FIELDS = (
+    "category_code",
+    "category_details",
     "make_id",
     "model_id",
     "generation_id",
@@ -181,7 +183,14 @@ def snapshot_listing_fields(db: Session, listing: Listing) -> ListingEditSnapsho
     result: dict[str, Any] = {}
     comparison_values: dict[str, Any] = {}
     for field in _TRACKED_FIELDS:
-        if field == "seller_type":
+        if field == "category_details":
+            details = dict(listing.category_details.details or {}) if listing.category_details else {}
+            comparison_values[field] = details
+            result[field] = {
+                str(key)[:80]: _safe_text(value, limit=500) if isinstance(value, str) else value
+                for key, value in details.items()
+            }
+        elif field == "seller_type":
             comparison_values[field] = str(listing.company_id) if listing.company_id is not None else "private"
             result[field] = (
                 {"type": "company", "company_id": str(listing.company_id)}
@@ -333,6 +342,14 @@ def _safe_integer(value: Any, *, maximum: int) -> int:
 
 
 def _project_value(field: str, value: Any) -> Any:
+    if field == "category_details":
+        if not isinstance(value, Mapping):
+            return {}
+        return {
+            str(key)[:80]: _safe_text(item, limit=500) if isinstance(item, str) else item
+            for key, item in list(value.items())[:30]
+            if isinstance(item, (str, bool, int, float)) or item is None
+        }
     if field == "contact_phone":
         return _masked_phone(value)
     if field == "vin":

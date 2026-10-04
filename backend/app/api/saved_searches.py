@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_csrf
 from app.config import get_settings
+from app.category_search import PATH_CATEGORIES, category_filter_error, detail_filters
 from app.db import get_db
 from app.listing_options import LISTING_OPTIONS
 from app.models import IdempotencyRecord, SavedSearch, User, UserSession
@@ -36,6 +37,7 @@ _MAX_FILTER_LIST_ITEMS = 50
 _ALLOWED_FILTERS = frozenset(
     {
         "q",
+        "category_code", "subtype", "details", "diameter_in", "width_mm", "season",
         "make_id",
         "model_id",
         "generation_id",
@@ -106,7 +108,7 @@ def _normalise_name(value: str) -> str:
 
 
 def _normalise_url(value: str) -> str:
-    """Accept only a relative search URL from the local `/cars` surface.
+    """Accept only a relative URL from a known category search surface.
 
     Keeping this as a relative URL prevents a saved-search link from becoming
     an open redirect if it is later rendered as a button in the account area.
@@ -115,19 +117,25 @@ def _normalise_url(value: str) -> str:
     value = value.strip()
     if not value or len(value) > _MAX_URL_LENGTH:
         raise ValueError("URL must contain 1 to 2048 characters")
-    if any(ord(character) < 0x20 or ord(character) == 0x7F for character in value):
+    if "\\" in value or any(ord(character) < 0x20 or ord(character) == 0x7F for character in value):
         raise ValueError("URL contains a control character")
     parsed = urlsplit(value)
     if parsed.scheme or parsed.netloc or parsed.username or parsed.password:
-        raise ValueError("URL must be a relative /cars search URL")
+        raise ValueError("URL must be a relative category search URL")
     if parsed.fragment:
         raise ValueError("URL fragments are not supported")
-    if parsed.path not in {"/cars", "/cars/"}:
-        raise ValueError("URL must point to the /cars search")
+    if parsed.path.rstrip("/") not in PATH_CATEGORIES:
+        raise ValueError("URL must point to a category search")
     query_values = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=_MAX_FILTER_KEYS)
     unknown_query = sorted(set(query_values) - _ALLOWED_FILTERS)
     if unknown_query:
         raise ValueError(f"Unsupported URL filter: {unknown_query[0]}")
+    category = PATH_CATEGORIES[parsed.path.rstrip("/")]
+    query_category = query_values.get("category_code", [category])
+    if len(query_category) != 1 or query_category[0] != category:
+        raise ValueError("URL category_code must match the search path")
+    if category != "cars" and "category_code" not in query_values:
+        raise ValueError("Non-car search URLs require category_code")
     return value
 
 
@@ -170,6 +178,18 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Filters are too large")
 
     normalized = dict(value)
+    category = normalized.get("category_code", "cars")
+    if not isinstance(category, str):
+        raise ValueError("Unsupported category_code filter")
+    error = category_filter_error(category, normalized)
+    if error:
+        raise ValueError(error)
+    try:
+        normalized_details = detail_filters(category, normalized)
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
+    if "details" in normalized:
+        normalized["details"] = normalized_details
     for field, option_group in _FILTER_ENUMS.items():
         if field not in normalized or normalized[field] is None:
             continue
@@ -228,6 +248,21 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
         normalized[field] = " ".join(raw.split())[:120]
 
     return normalized
+
+
+def _validate_category_pair(url: str, filters: dict[str, Any]) -> None:
+    category = PATH_CATEGORIES[urlsplit(url).path.rstrip("/")]
+    if filters.get("category_code", "cars") != category:
+        raise ValueError("Saved-search category must match its URL")
+    query = parse_qs(urlsplit(url).query)
+    for field in ("category_code", "subtype", "season"):
+        if field in query and str(filters.get(field, "")) != query[field][0]:
+            raise ValueError(f"Saved-search {field} must match its URL")
+    detail_keys = {"details", "subtype", "diameter_in", "width_mm", "season"}
+    if detail_keys.intersection(query) or detail_keys.intersection(filters):
+        url_details = {field: query[field][0] for field in detail_keys if field in query}
+        if detail_filters(category, url_details) != detail_filters(category, filters):
+            raise ValueError("Saved-search details must match its URL")
 
 
 def _validate_notification(enabled: bool, channel: str | None) -> None:
@@ -460,6 +495,10 @@ def create_saved_search(
     if current_count >= runtime_limit(db, "saved_search_limit", fallback=get_settings().saved_search_limit):
         fail(409, "saved_search_limit", "Saved search limit reached")
 
+    try:
+        _validate_category_pair(payload.url, payload.filters)
+    except ValueError as exc:
+        fail(422, "invalid_category_filter", str(exc))
     _validate_notification(payload.notifications_enabled, payload.notification_channel)
     saved_search = SavedSearch(
         user_id=user.id,
@@ -522,6 +561,11 @@ def update_saved_search(
     _mutation_limit(db, user)
     saved_search = _owned_saved_search(db, saved_search_id, user, lock=True)
     _check_revision(saved_search, expected_revision)
+
+    try:
+        _validate_category_pair(values.get("url", saved_search.search_url), values.get("filters", saved_search.filters or {}))
+    except ValueError as exc:
+        fail(422, "invalid_category_filter", str(exc))
 
     merged_enabled = values.get("notifications_enabled", saved_search.notifications_enabled)
     merged_channel = values.get("notification_channel", saved_search.notification_channel)

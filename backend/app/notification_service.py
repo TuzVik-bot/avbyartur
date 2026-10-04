@@ -9,12 +9,13 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import CatalogBodyType, Listing, ListingPhoto, SavedSearch
+from app.category_search import PATH_CATEGORIES, category_filter_error, detail_filters
 
 SAVED_SEARCH_EMAIL_SUBJECT = "Новое объявление по сохранённому поиску"
 
@@ -48,6 +49,10 @@ def saved_search_email_content(payload: dict[str, Any], public_app_url: str) -> 
         or any(ord(character) < 0x20 or ord(character) == 0x7F for character in origin)
     ):
         raise ValueError("invalid_notification_url")
+    category = PATH_CATEGORIES[parsed_url.path.rstrip("/")]
+    url_category = parse_qs(parsed_url.query).get("category_code", ["cars"])
+    if len(url_category) != 1 or url_category[0] != category:
+        raise ValueError("invalid_notification_url")
 
     if (
         not raw_url.startswith("/")
@@ -57,7 +62,7 @@ def saved_search_email_content(payload: dict[str, Any], public_app_url: str) -> 
         or parsed_url.username is not None
         or parsed_url.password is not None
         or parsed_url.fragment
-        or parsed_url.path not in {"/cars", "/cars/"}
+        or parsed_url.path.rstrip("/") not in PATH_CATEGORIES
         or "\\" in raw_url
         or any(ord(character) < 0x20 or ord(character) == 0x7F for character in raw_url)
     ):
@@ -102,6 +107,18 @@ def saved_search_matches(db: Session, saved_search: SavedSearch, listing: Listin
     """Return whether a saved-search filter matches one published listing."""
 
     filters = dict(saved_search.filters or {})
+    category = filters.get("category_code", "cars")
+    if category != (listing.category_code or "cars"):
+        return False
+    if category_filter_error(category, filters):
+        return False
+    try:
+        selected_details = detail_filters(category, filters)
+    except ValueError:
+        return False
+    actual_details = listing.category_details.details if listing.category_details else {}
+    if any(actual_details.get(key) != value for key, value in selected_details.items()):
+        return False
     if not filters:
         return True
 
@@ -118,6 +135,7 @@ def saved_search_matches(db: Session, saved_search: SavedSearch, listing: Listin
                 listing.manual_make,
                 listing.manual_model,
                 listing.manual_city,
+                listing.district,
             )
             if value
         ).casefold()

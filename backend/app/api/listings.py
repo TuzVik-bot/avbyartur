@@ -17,6 +17,7 @@ from app.api.dependencies import (
     require_csrf,
 )
 from app.config import get_settings
+from app.category_search import category_filter_error, detail_filters
 from app.db import get_db
 from app.dealer_services import company_ids_for_user, company_role_for
 from app.listing_schemas import (
@@ -65,6 +66,7 @@ from app.schemas import (
     RevisionInput,
 )
 from app.listing_options import LISTING_OPTIONS, ListingOptionsOut
+from app.listing_categories import CategoryCode
 from app.listing_validation_policy import listing_validation_policy
 from app.validation_policy_schemas import ListingValidationPolicyOut
 from app.listing_change_audit import build_listing_edit_event, snapshot_listing_fields
@@ -288,6 +290,11 @@ def _apply_fields(db: Session, listing: Listing, values: dict, user: User, *, cr
         else:
             listing.category_details.details = category_details["details"]
 
+    if listing.category_code != "cars" and any(getattr(listing, field) is not None for field in (
+        "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id", "modification_id",
+    )):
+        fail(422, "invalid_catalog_reference", "The current make and model catalog is available for cars only", {"make_id": "Use manual make and model for this category"})
+
     make = db.get(CatalogMake, listing.make_id) if listing.make_id else None
     model = db.get(CatalogModel, listing.model_id) if listing.model_id else None
     if listing.make_id and make is None:
@@ -418,6 +425,12 @@ def listing_options() -> dict:
 @router.get("/listings", response_model=ListingSearchOut, response_model_exclude_unset=True)
 def search_listings(
     db: Annotated[Session, Depends(get_db)],
+    category_code: CategoryCode = "cars",
+    subtype: Annotated[str | None, Query(max_length=120)] = None,
+    details: Annotated[str | None, Query(max_length=4096)] = None,
+    diameter_in: Annotated[float | None, Query(gt=0, le=40)] = None,
+    width_mm: Annotated[int | None, Query(gt=0, le=1000)] = None,
+    season: str | None = None,
     q: str | None = None,
     make_id: UUID | None = None,
     model_id: UUID | None = None,
@@ -475,11 +488,33 @@ def search_listings(
     if price_operation and not rate_fresh:
         fail(422, "exchange_rate_unavailable", "Price filtering and sorting require a fresh official exchange rate", {"currency": "A fresh exchange rate is unavailable"})
 
-    query = _active_query()
+    category_filters = {"subtype": subtype, "details": details, "diameter_in": diameter_in, "width_mm": width_mm, "season": season}
+    category_error = category_filter_error(category_code, category_filters)
+    if category_error:
+        fail(422, "invalid_category_filter", category_error)
+    try:
+        selected_details = detail_filters(category_code, category_filters)
+    except ValueError as exc:
+        fail(422, "invalid_category_filter", str(exc))
+
+    query = _active_query().where(Listing.category_code == category_code)
+    if selected_details:
+        query = query.join(ListingCategoryDetails, ListingCategoryDetails.listing_id == Listing.id)
+        for key, value in selected_details.items():
+            detail = ListingCategoryDetails.details[key]
+            if isinstance(value, bool):
+                query = query.where(detail.as_boolean() == value)
+            elif isinstance(value, int):
+                query = query.where(detail.as_integer() == value)
+            elif isinstance(value, float):
+                query = query.where(detail.as_float() == value)
+            else:
+                query = query.where(detail.as_string() == value)
     if q:
         term = f"%{q.strip()[:100]}%"
         query = query.outerjoin(CatalogMake, Listing.make_id == CatalogMake.id).outerjoin(CatalogModel, Listing.model_id == CatalogModel.id).where(
             or_(Listing.title.ilike(term), Listing.make_name_snapshot.ilike(term), Listing.model_name_snapshot.ilike(term),
+                Listing.generation_name_snapshot.ilike(term), Listing.manual_make.ilike(term), Listing.manual_model.ilike(term),
                 CatalogMake.name.ilike(term), cast(CatalogMake.aliases, String).ilike(term), CatalogModel.name.ilike(term), cast(CatalogModel.aliases, String).ilike(term),
                 Listing.manual_city.ilike(term), Listing.district.ilike(term))
         )
@@ -710,7 +745,7 @@ def related_listings(
     if listing is None or not listing_is_public(db, listing):
         fail(404, "not_found", "Listing not found")
 
-    query = _active_query().where(Listing.id != listing.id)
+    query = _active_query().where(Listing.id != listing.id, Listing.category_code == listing.category_code)
     if listing.model_id is not None:
         related_rank = case((Listing.model_id == listing.model_id, 0), else_=1)
         same_model_or_make = Listing.model_id == listing.model_id

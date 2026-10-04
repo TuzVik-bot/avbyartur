@@ -5,8 +5,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import String, cast, select
 from sqlalchemy.orm import Session
 
-from app.api.catalog_schemas import CatalogItemsOut, CatalogModificationsOut
+from app.api.catalog_schemas import CatalogItemsOut, CatalogModificationsOut, CategorySubtypesOut
+from app.category_search import SUBTYPE_FIELD
 from app.db import get_db
+from app.listing_categories import CategoryCode
 from app.models import (
     CatalogBodyType,
     CatalogBodyVariant,
@@ -27,7 +29,11 @@ def items(rows: list, **relations) -> dict:
 
 
 @router.get("/catalog/makes", response_model=CatalogItemsOut, response_model_exclude_unset=True)
-def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: Annotated[int, Query(ge=1, le=200)] = 200) -> dict:
+def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: Annotated[int, Query(ge=1, le=200)] = 200, category_code: CategoryCode = "cars") -> dict:
+    if category_code != "cars":
+        # Existing imported catalog data has car provenance only. Manual make
+        # entry remains available until a licensed category catalog is added.
+        return {"items": []}
     query = select(CatalogMake).order_by(CatalogMake.sort_order, CatalogMake.name).limit(limit)
     if q:
         term = f"%{q[:80]}%"
@@ -36,7 +42,9 @@ def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: 
 
 
 @router.get("/catalog/models", response_model=CatalogItemsOut, response_model_exclude_unset=True)
-def models(db: Annotated[Session, Depends(get_db)], make_id: UUID | None = None, q: str | None = None, limit: Annotated[int, Query(ge=1, le=300)] = 300) -> dict:
+def models(db: Annotated[Session, Depends(get_db)], make_id: UUID | None = None, q: str | None = None, limit: Annotated[int, Query(ge=1, le=300)] = 300, category_code: CategoryCode = "cars") -> dict:
+    if category_code != "cars":
+        return {"items": []}
     query = select(CatalogModel).order_by(CatalogModel.name).limit(limit)
     if make_id:
         query = query.where(CatalogModel.make_id == make_id)
@@ -45,6 +53,22 @@ def models(db: Annotated[Session, Depends(get_db)], make_id: UUID | None = None,
         query = query.where(CatalogModel.name.ilike(term) | CatalogModel.slug.ilike(term) | cast(CatalogModel.aliases, String).ilike(term))
     rows = db.scalars(query).all()
     return items(rows, **{str(row.id): {"make_id": row.make_id} for row in rows})
+
+
+@router.get("/catalog/category-subtypes", response_model=CategorySubtypesOut)
+def category_subtypes(category_code: CategoryCode) -> dict:
+    """Internal subtype codes; open text categories use manual entry."""
+    coded = {
+        "trucks": ("truck", "tractor_unit", "van", "other"),
+        "buses": ("bus", "minibus", "coach", "other"),
+        "motorcycles": ("motorcycle", "scooter", "atv", "snowmobile", "other"),
+    }
+    return {
+        "category_code": category_code,
+        "field": SUBTYPE_FIELD.get(category_code),
+        "entry_mode": "codes" if category_code in coded else "manual" if category_code in SUBTYPE_FIELD else "none",
+        "items": [{"code": code} for code in coded.get(category_code, ())],
+    }
 
 
 @router.get("/catalog/generations", response_model=CatalogItemsOut, response_model_exclude_unset=True)
