@@ -89,7 +89,7 @@ _FILTER_ENUMS = {
     "body_condition": "body_conditions",
 }
 _FILTER_BOOLEAN_KEYS = frozenset(
-    {"exchange", "bargaining", "credit", "leasing", "has_vin", "has_photos"}
+    {"exchange", "bargaining", "credit", "leasing", "has_vin", "has_photos", "damaged", "parts_only"}
 )
 _FILTER_NUMERIC_BOUNDS = {
     "engine_volume_min": (Decimal("0"), Decimal("30"), False),
@@ -97,6 +97,13 @@ _FILTER_NUMERIC_BOUNDS = {
     "power_min": (Decimal("1"), Decimal("3000"), True),
     "power_max": (Decimal("1"), Decimal("3000"), True),
 }
+_FILTER_NUMERIC_KEYS = frozenset(
+    {
+        "price_min", "price_max", "year_min", "year_max", "mileage_min", "mileage_max",
+        "engine_volume_min", "engine_volume_max", "power_min", "power_max", "page", "page_size",
+    }
+)
+_CATEGORY_DETAIL_FILTERS = frozenset({"details", "subtype", "diameter_in", "width_mm", "season"})
 _FILTER_EQUIPMENT = {item["code"] for item in LISTING_OPTIONS["equipment"]}
 
 
@@ -251,18 +258,55 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _validate_category_pair(url: str, filters: dict[str, Any]) -> None:
-    category = PATH_CATEGORIES[urlsplit(url).path.rstrip("/")]
-    if filters.get("category_code", "cars") != category:
+    parsed_url = urlsplit(url)
+    category = PATH_CATEGORIES[parsed_url.path.rstrip("/")]
+    normalized_filters = _normalise_filters(filters)
+    if normalized_filters.get("category_code", "cars") != category:
         raise ValueError("Saved-search category must match its URL")
-    query = parse_qs(urlsplit(url).query)
-    for field in ("category_code", "subtype", "season"):
-        if field in query and str(filters.get(field, "")) != query[field][0]:
-            raise ValueError(f"Saved-search {field} must match its URL")
-    detail_keys = {"details", "subtype", "diameter_in", "width_mm", "season"}
-    if detail_keys.intersection(query) or detail_keys.intersection(filters):
-        url_details = {field: query[field][0] for field in detail_keys if field in query}
-        if detail_filters(category, url_details) != detail_filters(category, filters):
-            raise ValueError("Saved-search details must match its URL")
+
+    query = parse_qs(parsed_url.query, keep_blank_values=False, max_num_fields=_MAX_FILTER_KEYS)
+    raw_url_filters = {
+        field: values[0] if len(values) == 1 else values
+        for field, values in query.items()
+    }
+    normalized_url_filters = _normalise_filters(raw_url_filters)
+    url_details = {field: normalized_url_filters[field] for field in _CATEGORY_DETAIL_FILTERS if field in normalized_url_filters}
+    saved_details = {field: normalized_filters[field] for field in _CATEGORY_DETAIL_FILTERS if field in normalized_filters}
+    if detail_filters(category, url_details) != detail_filters(category, saved_details):
+        raise ValueError("Saved-search details must match its URL")
+
+    regular_url_filters = {
+        field: value for field, value in normalized_url_filters.items()
+        if field not in _CATEGORY_DETAIL_FILTERS and field != "category_code" and value not in (None, "", [])
+    }
+    regular_saved_filters = {
+        field: value for field, value in normalized_filters.items()
+        if field not in _CATEGORY_DETAIL_FILTERS and field != "category_code" and value not in (None, "", [])
+    }
+    if _canonical_filter_map(regular_url_filters) != _canonical_filter_map(regular_saved_filters):
+        raise ValueError("Saved-search filters must match its URL")
+
+
+def _canonical_filter_map(filters: dict[str, Any]) -> dict[str, Any]:
+    return {field: _canonical_filter_value(field, value) for field, value in sorted(filters.items())}
+
+
+def _canonical_filter_value(field: str, value: Any) -> Any:
+    if isinstance(value, bool):
+        return ("boolean", value)
+    if isinstance(value, dict):
+        return tuple((key, _canonical_filter_value(key, child)) for key, child in sorted(value.items()))
+    if isinstance(value, list):
+        normalized = tuple(_canonical_filter_value(field, item) for item in value)
+        return tuple(sorted(normalized, key=repr)) if field == "equipment" else normalized
+    if field in _FILTER_NUMERIC_KEYS:
+        try:
+            number = Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError):
+            return ("value", str(value))
+        if number.is_finite():
+            return ("number", number.normalize())
+    return ("value", str(value))
 
 
 def _validate_notification(enabled: bool, channel: str | None) -> None:

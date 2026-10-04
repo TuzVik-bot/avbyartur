@@ -846,6 +846,7 @@ def listing_analytics(
     }
     return {
         "listing_id": listing.id,
+        "category_code": listing.category_code or "cars",
         "period": {"start": date_from.isoformat(), "end": date_to.isoformat()},
         **counts,
     }

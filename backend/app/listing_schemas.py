@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.listing_categories import CategoryCode
+
 
 class ListingPublicCapabilitiesOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -222,6 +224,7 @@ class ListingAnalyticsOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     listing_id: UUID
+    category_code: CategoryCode
     period: ListingAnalyticsPeriodOut
     views: int
     contact_reveals: int

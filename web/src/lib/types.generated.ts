@@ -3181,6 +3181,11 @@ export interface components {
              * Format: uuid
              */
             listing_id: string;
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             /** Title */
             title: string;
             /** Status */
@@ -3786,6 +3791,11 @@ export interface components {
              * Format: uuid
              */
             listing_id: string;
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             period: components["schemas"]["ListingAnalyticsPeriodOut"];
             /** Views */
             views: number;

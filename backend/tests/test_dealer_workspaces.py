@@ -358,7 +358,8 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
             owner_id=owner_id,
             company_id=company_id,
             slug=f"analytics-{uuid.uuid4().hex}",
-            title="Analytics car",
+            category_code="trucks",
+            title="Analytics truck",
             description="A test listing",
             contact_phone="+375291234567",
             status="active",
@@ -388,6 +389,7 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
         "views": 1,
     }
     assert response.json()["items"][0]["views"] == 1
+    assert response.json()["items"][0]["category_code"] == "trucks"
 
     isolated = outsider.get("/api/v1/dealer/analytics")
     assert isolated.status_code == 200, isolated.text

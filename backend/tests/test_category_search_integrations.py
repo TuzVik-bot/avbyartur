@@ -4,9 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app import models
-from app.api.saved_searches import SavedSearchCreate, _normalise_filters, _validate_category_pair
+from app.api.saved_searches import SavedSearchCreate, SavedSearchPatch, _normalise_filters, _validate_category_pair
 from app.category_search import detail_filters
 from app.feed_schemas import DealerFeedRecord
 from app.feed_services import _normalized_record, parse_feed_bytes
@@ -45,8 +46,53 @@ def test_saved_search_category_url_and_filter_contract():
         "/tires?category_code=tires&width_mm=205",
         {"category_code": "tires", "width_mm": "205"},
     )
+    _validate_category_pair(
+        "/tires?category_code=tires&season=winter",
+        {"category_code": "tires", "details": {"season": "winter"}},
+    )
     with pytest.raises(ValueError):
         _validate_category_pair("/tires?category_code=tires", {})
+
+
+@pytest.mark.parametrize(
+    ("url", "filters"),
+    [
+        ("/cars?q=toyota", {"q": "honda"}),
+        ("/cars?fuel=diesel", {}),
+        ("/cars", {"q": "toyota"}),
+        ("/cars?currency=USD", {"currency": "BYN"}),
+    ],
+)
+def test_saved_search_requires_all_regular_filters_to_match_url(url, filters):
+    with pytest.raises(ValueError, match="match its URL"):
+        _validate_category_pair(url, filters)
+
+
+def test_saved_search_regular_filter_values_accept_equivalent_query_types():
+    _validate_category_pair(
+        "/cars?price_max=20000&currency=USD",
+        {"price_max": 20000, "currency": "USD"},
+    )
+
+
+def test_unsupported_legacy_subtype_is_a_validation_error_for_create_and_update():
+    with pytest.raises(ValueError, match="subtype is unavailable"):
+        detail_filters("tires", {"subtype": "winter"})
+
+    with pytest.raises(ValueError, match="subtype is unavailable"):
+        _validate_category_pair(
+            "/tires?category_code=tires&subtype=winter",
+            {"category_code": "tires", "subtype": "winter"},
+        )
+
+    with pytest.raises(ValidationError, match="subtype is unavailable"):
+        SavedSearchCreate(
+            name="Invalid tires subtype",
+            url="/tires?category_code=tires",
+            filters={"category_code": "tires", "subtype": "winter"},
+        )
+    with pytest.raises(ValidationError, match="subtype is unavailable"):
+        SavedSearchPatch(filters={"category_code": "tires", "subtype": "winter"})
 
 
 def test_notification_link_cannot_point_to_another_category():

@@ -53,7 +53,7 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
         "/api/v1/me/saved-searches",
         json={
             "name": "  BMW   under 20k ",
-            "url": "/cars?q=bmw&price_max=20000",
+            "url": "/cars?q=bmw&price_max=20000&currency=USD",
             "filters": {"q": "bmw", "price_max": "20000", "currency": "USD"},
             "notifications_enabled": True,
             "notification_channel": "email",
@@ -164,6 +164,42 @@ def test_saved_search_rejects_external_urls_unknown_filters_and_invalid_notifica
         response = client.post("/api/v1/me/saved-searches", json=payload, headers=headers)
         assert response.status_code == 422, response.text
         assert response.json()["code"] == "validation_error"
+
+
+def test_saved_search_rejects_mismatched_url_and_filters_on_create_and_update(integration):
+    factory = integration["SessionLocal"]
+    owner = add_user(factory, f"saved-mismatch-{uuid.uuid4().hex[:8]}@example.com")
+    client = TestClient(app, base_url="http://testserver")
+    csrf = login(client, owner.email)
+    headers = {"X-CSRF-Token": csrf, "Idempotency-Key": "saved-mismatch"}
+
+    created = client.post(
+        "/api/v1/me/saved-searches",
+        json={"name": "Cars", "url": "/cars?q=toyota", "filters": {"q": "toyota"}},
+        headers=headers,
+    )
+    assert created.status_code == 200, created.text
+    saved_id = created.json()["saved_search"]["id"]
+
+    for payload in (
+        {"url": "/cars?q=honda", "filters": {"q": "toyota"}},
+        {"url": "/cars?q=honda", "filters": {"q": "honda", "fuel": "diesel"}},
+    ):
+        response = client.patch(
+            f"/api/v1/me/saved-searches/{saved_id}",
+            json={**payload, "expected_revision": 1},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert response.status_code == 422, response.text
+        assert response.json()["code"] == "invalid_category_filter"
+
+    mismatch = client.post(
+        "/api/v1/me/saved-searches",
+        json={"name": "Wrong", "url": "/cars?q=toyota", "filters": {"q": "honda"}},
+        headers={"X-CSRF-Token": csrf, "Idempotency-Key": "saved-mismatch-create"},
+    )
+    assert mismatch.status_code == 422, mismatch.text
+    assert mismatch.json()["code"] == "invalid_category_filter"
 
 
 def test_saved_search_limit_is_enforced(integration, monkeypatch):

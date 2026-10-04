@@ -59,6 +59,9 @@ def category_filter_error(category_code: str, filters: dict) -> str | None:
 
 
 def detail_filters(category_code: str, filters: dict) -> dict[str, object]:
+    error = category_filter_error(category_code, filters)
+    if error:
+        raise ValueError(error)
     result = {}
     result.update(normalized_details(category_code, filters.get("details")))
     if filters.get("subtype") is not None:
