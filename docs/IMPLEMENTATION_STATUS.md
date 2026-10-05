@@ -39,12 +39,14 @@ used the existing backend test image and the host venv's installed `urllib3`,
 which was missing from that image; two third-party deprecation warnings remain.
 
 The user explicitly requested push and deployment on 5 October. Commit
-`809cd10` and the feature branch are pushed to private origin; `origin/main` was
-verified at that commit before this status-only follow-up. Deployment remains
-blocked: the fresh SSH check returned `Permission denied (publickey,password)`
-and `ssh-add -l` found no identities. No release, VPS migration, article
-publication, or production data change has occurred. Keep the current pilot
-access mode, account authentication and `noindex` boundary.
+`0f0cd76b0c1c71207a46dc35dd739de04bfdca0a` is pushed to private origin on
+`codex/categories-information-vin-financing`; a read-only remote check confirmed
+that exact branch SHA and left `main` at `16802ace0d16b013a4398fbcf52b116bd65fd39a`.
+Deployment remains blocked: fresh normal and elevated SSH preflights returned
+`Permission denied (publickey,password)`, and no SSH-agent identities are
+available. No release, VPS migration, article publication, or production data
+change has occurred. Keep the current pilot access mode, account authentication
+and `noindex` boundary.
 
 ## GitHub — 4 October 2026
 
