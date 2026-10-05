@@ -8,8 +8,9 @@ The isolated branch `codex/categories-information-vin-financing` now contains
 local work for every requested catalog category, used/new filters, the managed
 article section, an input-driven credit/leasing calculator, and an explicitly
 unavailable VIN status. The article editor lists all pages and supports
-selecting an existing article or starting a new one. Category changes clear
-incompatible listing fields. Electric vehicles link to the supported electric-fuel
+selecting an existing article or starting a new one; editing a new slug does
+not reset its fields or select a same-named existing article. Category changes
+clear incompatible listing fields. Electric vehicles link to the supported electric-fuel
 filter. Listing details now have a print layout. The currency converter uses
 the official NBRB rate snapshot and performs conversion in the browser without
 sending the entered amount back to the server.
@@ -30,7 +31,7 @@ Belarus personal-data consent checklist are in
 manager, actual retention schedule and approved consent were not supplied, so
 real application collection and partner transfer remain disabled.
 
-Verification on this worktree: web tests **523 passed**; TypeScript typecheck,
+Verification on this worktree: web tests **524 passed**; TypeScript typecheck,
 production build with `next build --webpack`, OpenAPI type generation and
 `make config-check` passed. The backend suite passed **639 tests** on a new
 disposable PostgreSQL database inside the isolated Colima network. The runner

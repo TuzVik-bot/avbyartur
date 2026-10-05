@@ -124,7 +124,7 @@ it("keeps an existing article slug stable while allowing its content to be edite
       body: "Проверьте документы и идентификаторы до сделки. Осмотрите состояние транспортного средства.", published_at: null, sources: [] }
   }] })));
   act(() => chooseContentKind("article"));
-  act(() => value("content_key", "inspection-before-buying"));
+  act(() => selectValue("existing_article", "inspection-before-buying"));
   expect(container.querySelector<HTMLInputElement>('[name="content_key"]')?.disabled).toBe(true);
   expect(container.querySelector<HTMLInputElement>('[name="title"]')?.disabled).not.toBe(true);
 });
@@ -196,4 +196,34 @@ it("preserves an unsaved article draft when its slug changes", () => {
   expect(container.querySelector('[name="sources"]')).toHaveProperty("value", "Госорган | https://example.gov.by/guide");
   expect(container.querySelector('[name="body"]')).toHaveProperty("value", "Сверьте документы, VIN и состояние транспорта до заключения сделки.");
   expect(container.querySelector('[name="content_key"]')).toHaveProperty("value", "vehicle-inspection");
+});
+
+it("keeps a new article separate when its slug matches an existing article", async () => {
+  const existing = article("vehicle-check");
+  const save = vi.spyOn(contentApi, "save").mockRejectedValue(new Error("Материал изменён; обновите редактор"));
+  act(() => root.render(createElement(ManagedContentEditor, { initialError: false, initialItems: [existing] })));
+  act(() => chooseContentKind("article"));
+  act(() => {
+    value("title", "Новая редакция для отдельной статьи");
+    value("summary", "Краткая памятка для новой статьи с совпадающим slug.");
+    value("body", "Этот текст должен остаться в новой статье после проверки совпадающего slug.");
+    value("content_key", "vehicle-check");
+  });
+
+  expect(container.querySelector('[name="title"]')).toHaveProperty("value", "Новая редакция для отдельной статьи");
+  expect(container.querySelector('[name="content_key"]')).toHaveProperty("disabled", false);
+  expect(container.textContent).toContain("Новый материал");
+
+  await act(async () => {
+    value("reason", "Новый материал, не изменение существующей статьи");
+    value("current_password", "step-up-test-password");
+    container.querySelector<HTMLInputElement>('[name="confirmation"]')!.click();
+    container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  });
+
+  expect(save).toHaveBeenCalledWith("article", "vehicle-check", expect.objectContaining({
+    expected_revision: 0,
+    payload: expect.objectContaining({ title: "Новая редакция для отдельной статьи", slug: "vehicle-check" })
+  }));
+  expect(container.querySelector('[name="title"]')).toHaveProperty("value", "Новая редакция для отдельной статьи");
 });

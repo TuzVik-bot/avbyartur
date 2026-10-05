@@ -23,11 +23,13 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
   const [newArticleSequence, setNewArticleSequence] = useState(0);
   const [kind, setKind] = useState<ContentKind>("notification_template");
   const [key, setKey] = useState("saved_search_email");
+  const [selectedArticleKey, setSelectedArticleKey] = useState<string | null>(null);
   const [versionList, setVersionList] = useState<ContentVersion[] | null>(null);
   const [error, setError] = useState<string | null>(initialError ? "Не удалось загрузить материалы. Обновите список." : null);
   const [success, setSuccess] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const current = items.find(item => item.kind === kind && item.key === key);
+  const currentKey = kind === "article" ? selectedArticleKey : key;
+  const current = currentKey === null ? undefined : items.find(item => item.kind === kind && item.key === currentKey);
   const formKey = kind === "article" && !current
     ? `article:new:${newArticleSequence}`
     : `${kind}:${current?.key || key}:${current?.revision || 0}`;
@@ -74,6 +76,7 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
       const result = await contentApi.save(kind, key, { payload: data, status: get("status") as "draft" | "published", expected_revision: current?.revision || 0,
         reason: get("reason"), current_password: get("current_password"), confirmation: "UPDATE_CONTENT" });
       setItems(previous => [...previous.filter(item => !(item.kind === kind && item.key === key)), result.content]);
+      if (kind === "article") setSelectedArticleKey(key);
       setVersionList(null); setSuccess(`Сохранена редакция ${result.content.revision}.`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось сохранить материал."); }
     finally {
@@ -85,14 +88,14 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
 
   return <section className="info-content">
     <div className="admin-filter-form">
-      <label className="field"><span>Раздел</span><select value={kind} onChange={event => { const next = event.target.value as ContentKind; setKind(next); setKey(predefined[next]?.[0][0] || ""); setVersionList(null); setError(null); }}>
+      <label className="field"><span>Раздел</span><select value={kind} onChange={event => { const next = event.target.value as ContentKind; setKind(next); setKey(predefined[next]?.[0][0] || ""); setSelectedArticleKey(null); setVersionList(null); setError(null); }}>
         {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       {kind === "article" && <>
-        <label className="field"><span>Существующая статья</span><select name="existing_article" value={current?.key || ""} disabled={pending} onChange={event => { setKey(event.target.value); setVersionList(null); setError(null); setSuccess(null); }}>
+        <label className="field"><span>Существующая статья</span><select name="existing_article" value={selectedArticleKey || ""} disabled={pending} onChange={event => { const selected = event.target.value || null; setSelectedArticleKey(selected); setKey(selected || ""); setVersionList(null); setError(null); setSuccess(null); }}>
           <option value="">Выберите статью</option>
           {items.filter(item => item.kind === "article").map(item => <option key={item.key} value={item.key}>{text(item.payload as Record<string, unknown>, "title") || item.key} · {item.key}</option>)}
         </select></label>
-        <button type="button" className="button button-secondary" disabled={pending} onClick={() => { setKey(""); setNewArticleSequence(value => value + 1); setVersionList(null); setError(null); setSuccess(null); }}>Новая статья</button>
+        <button type="button" className="button button-secondary" disabled={pending} onClick={() => { setSelectedArticleKey(null); setKey(""); setNewArticleSequence(value => value + 1); setVersionList(null); setError(null); setSuccess(null); }}>Новая статья</button>
       </>}
       <label className="field"><span>{kind === "article" ? "Slug статьи" : "Материал"}</span>{predefined[kind] ? <select value={key} onChange={event => { setKey(event.target.value); setVersionList(null); }}>{predefined[kind]!.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <><input name="content_key" value={key} maxLength={100} pattern={kind === "article" ? "[a-z0-9]+(-[a-z0-9]+)*" : "[a-z0-9_-]+"} required={kind === "article"} disabled={kind === "article" && Boolean(current)} onChange={event => setKey(event.target.value)} /></>}</label>
       <button type="button" className="button button-secondary" disabled={pending} onClick={refresh}><RefreshCw size={16} />Обновить</button>
