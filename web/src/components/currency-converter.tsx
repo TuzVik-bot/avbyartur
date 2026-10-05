@@ -43,7 +43,6 @@ export function CurrencyConverter({ rates }: { rates: CurrencyRates }) {
               inputMode="decimal"
               autoComplete="off"
               maxLength={28}
-              aria-describedby="currency-amount-help"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
             />
@@ -81,7 +80,6 @@ export function CurrencyConverter({ rates }: { rates: CurrencyRates }) {
           </div>}
         </div>
       </div>
-      <p className="muted" id="currency-amount-help">Введите сумму цифрами; можно использовать точку или запятую.</p>
       <p className="currency-converter-source">Официальный курс НБРБ на {rates.rate_date}. Сумма ориентировочная. <a className="text-link" href={sourceUrl} target="_blank" rel="noreferrer">Источник курса</a></p>
     </section>
   );
