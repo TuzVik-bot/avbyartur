@@ -34,6 +34,7 @@ export function HomeSearch({ makes, priceOperationsAvailable }: { makes: Catalog
 
   return (
     <form className="search-strip home-search" action="/cars" method="get" role="search">
+      <input type="hidden" name="currency" value="BYN" />
       <label className="field"><span>Марка</span><select name="make_id" value={makeId} onChange={(event) => { setModelId(""); setMakeId(event.target.value); }}><option value="">Любая марка</option>{makes.map((make) => <option key={make.id} value={make.id}>{make.name}</option>)}</select></label>
       <label className="field"><span>Модель</span><select name="model_id" value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={!makeId || modelsLoading || (!models.length && !modelsError)} aria-busy={modelsLoading} aria-describedby={modelsError ? "home-model-status" : undefined}>
         <option value="">{!makeId ? "Любая модель" : modelsLoading ? "Загрузка моделей…" : modelsError ? "Модели временно недоступны" : models.length ? "Любая модель" : "Нет доступных моделей"}</option>

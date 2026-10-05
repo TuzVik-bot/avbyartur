@@ -59,6 +59,7 @@ describe("home search", () => {
     expect(submitted.get("make_id")).toBe(makeA.id);
     expect(submitted.get("model_id")).toBe(modelA.id);
     expect(submitted.get("price_max")).toBe("25000");
+    expect(submitted.get("currency")).toBe("BYN");
   });
 
   it("does not submit the previous model when the make changes immediately before submit", async () => {
