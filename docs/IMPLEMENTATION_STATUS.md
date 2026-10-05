@@ -2,7 +2,39 @@
 
 Objective: deliver the complete closed marketplace pilot described in `docs/superpowers/plans/2026-09-26-avtorinok-pilot.md` and deploy the verified release to `suite-s1.denjik.by`.
 
-## Local categories and services continuation — 5 October 2026
+## Verified deployed release — 5 October 2026
+
+The merged source commit `baa9102af3bca289c08a0cfd6aa50ed2fe15039e` is on
+private GitHub `main`, and release `marketplace-20261005T0956Z-baa9102` is
+active on `suite-s1.denjik.by`. The database migrated from
+`0022_listing_categories` to `0023_managed_articles`. All four services are
+healthy with restart count 0; `.env` mode is 600, and PostgreSQL/media named
+volumes are preserved. The prior UX release remains available for application
+rollback. The [release report](runtime/RELEASE_2026-10-05-MARKETPLACE.md)
+records image IDs, backups, live browser routes and feature limitations.
+
+Pre-deploy and post-deploy format-5 backups each passed 31 checksum entries;
+`pg_restore --list` read 454 TOC entries from each. The post-deploy snapshot is
+`/home/suite/backups/avtorinok/post-deploy-marketplace-20261005T0956Z-baa9102/avtorinok-20261005T101700Z`.
+The release preflight passed for the active release, runtime env permissions,
+image tags, Compose config and rollback directory.
+
+The live browser opened `/`, `/cars?condition=used`, `/currency-converter`,
+`/financing`, `/useful-information`, `/vin-check` and `/customs-calculator`.
+Noindex and the application account-authentication boundary remain in place.
+Existing `[ТЕСТ] AI-DEMO` listings predate this release; the deployment did not
+create or change listings. VIN lookup has no provider, financing is an estimate
+only, and there are no published articles yet.
+
+Local verification before deployment: backend suite **639 passed**, web suite
+**545 passed**, TypeScript typecheck, production build and `make config-check`
+passed. The exact deployed release has not had a full load run; the known
+full-pilot performance gate remains open. This confirms deployment for closed
+pilot review, not full public-launch acceptance.
+
+## Earlier local-only status snapshot — 5 October 2026 (superseded by current release above)
+
+### Local categories and services continuation — before deployment
 
 The isolated branch `codex/categories-information-vin-financing` now contains
 local work for every requested catalog category, used/new filters, the managed
