@@ -7,6 +7,7 @@ import { ModerationListingPreview } from "@/components/moderation-listing-previe
 import { ModerationRiskSignals, type ModerationRiskSignal } from "@/components/moderation-risk-signals";
 import { serverApi } from "@/lib/server-api";
 import { requireSession } from "@/lib/server";
+import { companyStatusBadge, listingStatusBadge, reportStatusBadge } from "@/lib/status-presentation";
 import type { ListResponse, Listing } from "@/lib/types";
 
 type Queue = "listings" | "active" | "companies" | "reports";
@@ -66,15 +67,16 @@ export default async function ModerationPage({ searchParams }: { searchParams: P
       {failed && <p className="notice" role="alert">Не удалось загрузить эту очередь. Проверьте доступ и повторите попытку.</p>}
       {showingListings && listingsResult.status === "fulfilled" && <div className="account-list">{listingsResult.value.items.length ? listingsResult.value.items.map((listing) => {
         const moderatedListing = listing as ModerationQueueListing;
-        return <article className="account-list-item moderation-item" key={listing.id}><div><h2>{listing.title}</h2><p className="muted">{listing.seller.name} · ревизия {listing.revision} · {listing.status}</p><ModerationRiskSignals signals={moderatedListing.risk_signals} /><ModerationListingPreview listing={listing} /></div><ListingModerationActions listing={listing} /></article>;
+        const status = listingStatusBadge(listing.status);
+        return <article className="account-list-item moderation-item" key={listing.id}><div><h2>{listing.title}</h2><p className="muted">{listing.seller.name} · ревизия {listing.revision} · <span className={status.className}>{status.label}</span></p><ModerationRiskSignals signals={moderatedListing.risk_signals} /><ModerationListingPreview listing={listing} /></div><ListingModerationActions listing={listing} /></article>;
       }) : <div className="empty-state"><h2>{queue === "active" ? "Активных объявлений нет" : "Очередь объявлений пуста"}</h2></div>}</div>}
       {showingListings && listingsData?.pagination && pageCount > 1 && <nav className="pagination" aria-label="Страницы очереди">
         {page > 1 && <Link className="button button-secondary button-small" href={pageUrl(queue, page - 1)}>Назад</Link>}
         <span>Страница {page} из {pageCount}</span>
         {page < pageCount && <Link className="button button-secondary button-small" href={pageUrl(queue, page + 1)}>Дальше</Link>}
       </nav>}
-      {queue === "companies" && companiesResult.status === "fulfilled" && <div className="account-list">{companiesResult.value.items.length ? companiesResult.value.items.map((company) => <article className="account-list-item moderation-item" key={company.id}><div><h2>{company.name}</h2><p className="muted">УНП {company.unp} · {company.address} · {company.phone}</p><span className={`status-pill status-${company.status}`}>{company.status}</span></div><CompanyModerationActions company={company} /></article>) : <div className="empty-state"><h2>Заявок компаний нет</h2></div>}</div>}
-      {queue === "reports" && reportsResult.status === "fulfilled" && <div className="account-list">{reportsResult.value.items.length ? reportsResult.value.items.map((report) => <article className="account-list-item moderation-item" key={report.id}><div><h2>Жалоба: {report.category}</h2><p>{report.comment || "Комментарий не добавлен."}</p><p className="muted">Объявление: {report.listing_id || "не указано"} · {report.status}</p></div><ReportResolution report={report} /></article>) : <div className="empty-state"><h2>Нерассмотренных жалоб нет</h2></div>}</div>}
+      {queue === "companies" && companiesResult.status === "fulfilled" && <div className="account-list">{companiesResult.value.items.length ? companiesResult.value.items.map((company) => { const status = companyStatusBadge(company.status); return <article className="account-list-item moderation-item" key={company.id}><div><h2>{company.name}</h2><p className="muted">УНП {company.unp} · {company.address} · {company.phone}</p><span className={status.className}>{status.label}</span></div><CompanyModerationActions company={company} /></article>; }) : <div className="empty-state"><h2>Заявок компаний нет</h2></div>}</div>}
+      {queue === "reports" && reportsResult.status === "fulfilled" && <div className="account-list">{reportsResult.value.items.length ? reportsResult.value.items.map((report) => { const status = reportStatusBadge(report.status); return <article className="account-list-item moderation-item" key={report.id}><div><h2>Жалоба: {report.category}</h2><p>{report.comment || "Комментарий не добавлен."}</p><p className="muted">Объявление: {report.listing_id || "не указано"} · <span className={status.className}>{status.label}</span></p></div><ReportResolution report={report} /></article>; }) : <div className="empty-state"><h2>Нерассмотренных жалоб нет</h2></div>}</div>}
     </div>
   );
 }

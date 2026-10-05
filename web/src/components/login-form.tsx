@@ -13,12 +13,14 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
   const { setSession } = useAuth();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState("");
   const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
   const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
 
   useEffect(() => {
     let active = true;
+    setHydrated(true);
     api.authCapabilities().then((result) => { if (active) setCapabilities(result); })
       .catch(() => { if (active) setCapabilities(null); })
       .finally(() => { if (active) setCapabilitiesLoaded(true); });
@@ -47,11 +49,11 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
   }
 
   return <>
-    <form onSubmit={submit}>
+    <form method="post" onSubmit={submit}>
       <label className="field"><span>Электронная почта</span><input name="email" type="email" autoComplete="username" required maxLength={254} /></label>
       <label className="field"><span>Пароль</span><input name="password" type="password" autoComplete="current-password" required /></label>
       {error && <p className="inline-error" role="alert">{error}</p>}
-      <button className="button button-primary" type="submit" disabled={busy}>{busy ? "Входим…" : <><LogIn size={17} /> Войти</>}</button>
+      <button className="button button-primary" type="submit" disabled={busy || !hydrated}>{busy ? "Входим…" : <><LogIn size={17} /> Войти</>}</button>
       <p className="muted login-note"><KeyRound size={15} /> Доступ выдаётся администратором закрытого пилота.</p>
     </form>
     {capabilities?.password_recovery && <p className="login-recovery-link"><Link className="text-link" href="/recover">Не помню пароль</Link></p>}

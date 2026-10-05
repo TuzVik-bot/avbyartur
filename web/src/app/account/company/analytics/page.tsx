@@ -3,6 +3,7 @@ import { AccountNav } from "@/components/account-nav";
 import type { DealerAnalytics, DealerTeamMember } from "@/lib/dealer";
 import { requireSession } from "@/lib/server";
 import { serverApiRequest } from "@/lib/server-api";
+import { listingStatusBadge } from "@/lib/status-presentation";
 
 export const metadata: Metadata = { title: "Аналитика компании" };
 
@@ -52,7 +53,7 @@ export default async function DealerAnalyticsPage({ searchParams }: { searchPara
           <article><span>Просмотров</span><strong>{analytics.totals.views}</strong></article>
         </div>
         <section className="section" aria-labelledby="dealer-analytics-listings"><div className="section-heading"><h2 id="dealer-analytics-listings">По объявлениям</h2></div>
-          {!analytics.items.length ? <p className="muted" role="status">За этот период нет объявлений для отображения.</p> : <div className="info-table-wrap"><table className="info-table"><thead><tr><th>Объявление</th><th>Состояние</th><th>Показы телефона</th><th>Диалоги</th><th>Просмотры</th></tr></thead><tbody>{analytics.items.map((item) => <tr key={item.listing_id}><td>{item.title}</td><td>{item.status}</td><td>{item.contact_reveals}</td><td>{item.chats}</td><td>{item.views}</td></tr>)}</tbody></table></div>}
+          {!analytics.items.length ? <p className="muted" role="status">За этот период нет объявлений для отображения.</p> : <div className="info-table-wrap"><table className="info-table"><thead><tr><th>Объявление</th><th>Состояние</th><th>Показы телефона</th><th>Диалоги</th><th>Просмотры</th></tr></thead><tbody>{analytics.items.map((item) => { const status = listingStatusBadge(item.status); return <tr key={item.listing_id}><td>{item.title}</td><td><span className={status.className}>{status.label}</span></td><td>{item.contact_reveals}</td><td>{item.chats}</td><td>{item.views}</td></tr>; })}</tbody></table></div>}
         </section>
       </>}
   </div>;

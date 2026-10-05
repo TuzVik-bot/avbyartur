@@ -3,7 +3,7 @@
 import { CategoryFields } from "@/components/category-fields";
 import { categoryPath, detailPayload, isGoods, hasMileage } from "@/lib/listing-categories";
 import { useEffect, useRef, useState } from "react";
-import { Filter, SlidersHorizontal } from "lucide-react";
+import { Filter, SlidersHorizontal, X } from "lucide-react";
 import { api } from "@/lib/api";
 import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch } from "@/lib/types";
 
@@ -40,6 +40,7 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
   useEffect(() => { setDetails(searchDetails(search)); }, [search.details, search.category_code, search.subtype, search.diameter_in, search.width_mm, search.season]);
   const initialRegionId = search.region_id || initialCities.find((city) => city.id === search.city_id)?.region_id || "";
   const [open, setOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [makeId, setMakeId] = useState(search.make_id || "");
   const [modelId, setModelId] = useState(search.model_id || "");
   const [generationId, setGenerationId] = useState(search.generation_id || "");
@@ -69,6 +70,68 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
   const firstGenerationModelId = useRef<string | undefined>(initialGenerations !== undefined && (!search.generation_id || initialGenerations.some((item) => item.id === search.generation_id)) ? search.model_id || "" : undefined);
   const firstRegionId = useRef<string | undefined>(initialRegionId && initialCities.some((city) => city.region_id === initialRegionId) ? initialRegionId : undefined);
   const firstGenerationId = useRef<string | undefined>(search.generation_id || "");
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+  const filterCloseRef = useRef<HTMLButtonElement>(null);
+  const mobileDialogWasOpen = useRef(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 800px)");
+    const updateViewport = () => {
+      setIsMobileViewport(media.matches);
+      if (!media.matches) setOpen(false);
+    };
+    updateViewport();
+    media.addEventListener?.("change", updateViewport);
+    return () => media.removeEventListener?.("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileViewport || !open) {
+      if (mobileDialogWasOpen.current) {
+        mobileDialogWasOpen.current = false;
+        filterTriggerRef.current?.focus();
+      }
+      return;
+    }
+
+    mobileDialogWasOpen.current = true;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    filterCloseRef.current?.focus();
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isMobileViewport, open]);
+
+  useEffect(() => {
+    if (!isMobileViewport || !open) return;
+    function onDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = filterPanelRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!filterPanelRef.current?.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onDialogKeyDown);
+    return () => document.removeEventListener("keydown", onDialogKeyDown);
+  }, [isMobileViewport, open]);
 
   useEffect(() => {
     firstMakeId.current = search.model_id && !initialModels.some((item) => item.id === search.model_id) ? undefined : search.make_id || "";
@@ -253,12 +316,16 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
   }
 
   return (
-    <aside aria-label="Фильтры поиска">
-      <button className="button button-secondary filter-toggle" type="button" aria-expanded={open} aria-controls="search-filter-panel" onClick={() => setOpen(!open)}>
+    <aside className="search-filter-area" aria-label="Фильтры поиска">
+      <button ref={filterTriggerRef} className="button button-secondary filter-toggle" type="button" aria-expanded={open} aria-controls="search-filter-panel" onClick={() => setOpen(!open)}>
         <SlidersHorizontal size={17} /> Фильтры <Filter size={15} />
       </button>
-      <div id="search-filter-panel" className={`filter-panel ${open ? "is-open" : ""}`}>
-        <h2>Параметры поиска</h2>
+      {isMobileViewport && open && <button className="filter-backdrop" type="button" aria-label="Закрыть фильтры" tabIndex={-1} onClick={() => setOpen(false)} />}
+      <div ref={filterPanelRef} id="search-filter-panel" className={`filter-panel ${open ? "is-open" : ""}`} role={isMobileViewport ? "dialog" : "region"} aria-label="Параметры поиска" aria-modal={isMobileViewport && open ? "true" : undefined} aria-hidden={isMobileViewport && !open ? "true" : undefined} hidden={isMobileViewport && !open}>
+        <header className="filter-panel-header">
+          <div><p className="eyebrow">Подберите транспорт</p><h2>Параметры поиска</h2></div>
+          <button ref={filterCloseRef} className="icon-button filter-close" type="button" aria-label="Закрыть фильтры" onClick={() => setOpen(false)}><X size={20} /></button>
+        </header>
         <form key={JSON.stringify(search)} action={categoryPath(category)} method="get" className="filter-grid">
           <input type="hidden" name="category_code" value={category} />
           {category !== "cars" && <>
@@ -397,7 +464,10 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <label className="field"><span>Время звонков</span><input name="call_hours" maxLength={80} defaultValue={search.call_hours || ""} /></label>
           </>}
           <input type="hidden" name="page_size" value={search.page_size || "25"} />
-          <div className="filter-wide"><button className="button button-primary" type="submit">{category === "cars" ? "Показать автомобили" : "Показать объявления"}</button></div>
+          <div className="filter-actions">
+            <a className="button button-secondary filter-reset" href={categoryPath(category)}>Сбросить</a>
+            <button className="button button-primary filter-apply" type="submit">{category === "cars" ? "Показать автомобили" : "Показать объявления"}</button>
+          </div>
         </form>
       </div>
     </aside>

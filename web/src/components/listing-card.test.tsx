@@ -93,11 +93,11 @@ describe("listing card city navigation", () => {
 
 describe("listing card photos", () => {
   it("uses responsive source sizes for grid and row layouts", () => {
-    act(() => root.render(createElement(ListingCard, { listing: listing() })));
+    act(() => root.render(createElement(ListingCard, { listing: listing({ photo_urls: ["/real-photo.webp"] }) })));
     expect(container.querySelector("img")?.getAttribute("sizes")).toContain("(max-width: 520px)");
     expect(container.querySelector("img")?.getAttribute("sizes")).toContain("(max-width: 1020px)");
 
-    act(() => root.render(createElement(ListingCard, { listing: listing(), variant: "row" })));
+    act(() => root.render(createElement(ListingCard, { listing: listing({ photo_urls: ["/real-photo.webp"] }), variant: "row" })));
     expect(container.querySelector("img")?.getAttribute("sizes")).toBe("(max-width: 520px) 118px, 220px");
   });
 
@@ -122,13 +122,13 @@ describe("listing card photos", () => {
     expect(container.querySelector(".synthetic-label")).toBeNull();
   });
 
-  it("shows the synthetic fallback when neither photo source exists", () => {
+  it("shows a neutral accessible placeholder when neither photo source exists", () => {
     act(() => root.render(createElement(ListingCard, { listing: listing({ photo_urls: [], cover_url: null }) })));
 
-    const image = container.querySelector("img");
-    expect(image?.getAttribute("src")).toBe("/vehicles/silver-wagon.png");
-    expect(image?.getAttribute("alt")).toBe("Синтетическое изображение для объявления «Марка Модель»");
-    expect(container.querySelector(".synthetic-label")?.textContent).toBe("Синтетическое фото");
+    expect(container.querySelector(".listing-card-media img")).toBeNull();
+    expect(container.querySelector('[role="img"][aria-label="Фото не добавлено"]')).not.toBeNull();
+    expect(container.querySelector(".photo-placeholder > span:last-child")?.textContent).toBe("Фото не добавлено");
+    expect(container.querySelector(".synthetic-label")).toBeNull();
   });
 });
 
