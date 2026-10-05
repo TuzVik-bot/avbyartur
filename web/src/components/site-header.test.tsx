@@ -50,6 +50,24 @@ describe("moderation navigation", () => {
     expect(container.querySelector('a[href="/admin"]')?.textContent).toContain("Администрирование");
   });
 
+  it.each(["moderator", "admin"] as const)("keeps %s routes available from its compact navigation", (role) => {
+    act(() => {
+      root.render(createElement(AuthProvider, { initialSession: makeSession(role), children: createElement(SiteHeader) }));
+    });
+
+    const header = container.querySelector("header.staff-header");
+    const toggle = header?.querySelector<HTMLButtonElement>(".mobile-menu-toggle");
+    expect(toggle?.getAttribute("aria-controls")).toBe("main-navigation");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => toggle?.click());
+
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(header?.querySelector('nav a[href="/moderation"]')).not.toBeNull();
+    if (role === "admin") expect(header?.querySelector('nav a[href="/admin"]')).not.toBeNull();
+    else expect(header?.querySelector('nav a[href="/admin"]')).toBeNull();
+  });
+
   it("keeps Russian dictionary copy and the current unprefixed routes", () => {
     act(() => {
       root.render(createElement(AuthProvider, { initialSession: null, children: createElement(SiteHeader) }));

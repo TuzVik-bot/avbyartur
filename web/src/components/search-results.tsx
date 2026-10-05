@@ -71,26 +71,30 @@ export function SearchResults({ search, data, title, makes, models, generations,
     if (field) return field.options?.[value] || value;
     return filterValue(key, value, catalog);
   }
-  const filterKeys = activeSearchKeys.filter(key => key !== "category_code");
   const catalog = [...makes, ...models, ...(generations || []), ...regions, ...cities, ...bodyTypes, ...bodyVariants, ...modifications];
   const entries = data?.items || [];
   const page = Number(search.page || 1);
   const pages = data?.pagination?.pages || 1;
   const total = data?.pagination?.total ?? entries.length;
   const savedIds = new Set(savedListingIds);
+  const selectedFilterKeys = activeSearchKeys.filter((key) => key !== "category_code").filter((key) => {
+    const value = search[key];
+    return Array.isArray(value) ? value.length > 0 : Boolean(value);
+  });
+  const hasFilters = selectedFilterKeys.length > 0;
 
   return (
     <>
       <div className="page-head"><h1>{title}</h1><p>{total ? `${total.toLocaleString("ru-BY")} объявлений` : "Объявления Беларуси"}</p></div>
       {failed && <p className="notice" role="status">Каталог временно недоступен. Обновите страницу чуть позже.</p>}
-      {catalogsFailed && <p className="notice" role="status">Часть справочников фильтров временно недоступна. Объявления остаются доступны; повторите загрузку страницы позже.</p>}
+      {catalogsFailed && <p className="notice" role="status">Часть справочников фильтров временно недоступна. Объявления остаются доступны — <Link href="/cars">открыть каталог</Link>.</p>}
       {!priceOperationsAvailable && <p className="notice" role="status">Фильтрация и сортировка по цене временно недоступны: нет подтверждённого курса НБРБ за последние 72 часа. Цены показаны в исходной валюте.</p>}
       <div className="results-layout">
         <SearchFilters search={search} makes={makes} initialModels={models} initialGenerations={generations} initialModifications={modifications} regions={regions} initialCities={cities} bodyTypes={bodyTypes} priceOperationsAvailable={priceOperationsAvailable} />
         <section aria-label="Результаты поиска">
-          {filterKeys.filter((key) => search[key]).length > 0 && (
+          {selectedFilterKeys.length > 0 && (
             <div className="active-filters" aria-label="Выбранные фильтры">
-              {filterKeys.filter((key) => search[key]).map((key) => (
+              {selectedFilterKeys.map((key) => (
                 <Link className="filter-chip" key={key} href={searchUrl(search, { [key]: undefined })}>
                   {(readableFilter[key] || ({ details: "Характеристики", subtype: "Тип", diameter_in: "Диаметр", width_mm: "Ширина", season: "Сезон" } as Record<string, string>)[key] || key)}: {(key === "condition" && search.condition === "used" && isGoods(category) ? "Б/у" : characteristicValue(key, Array.isArray(search[key]) ? search[key].join(",") : String(search[key])))} <X size={13} aria-hidden="true" />
                 </Link>
@@ -103,11 +107,14 @@ export function SearchResults({ search, data, title, makes, models, generations,
             <SearchSort search={search} priceOperationsAvailable={priceOperationsAvailable} />
           </div>
           {entries.length ? <div className="listing-stack">{entries.map((listing) => <ListingCard key={listing.id} listing={listing} variant="row" saved={savedIds.has(listing.id)} />)}</div> : (
-            <div className="empty-state">
-              <h2>{failed ? "Не удалось загрузить объявления" : "По этим условиям объявлений пока нет"}</h2>
-              <p className="muted">{failed ? "Проверьте соединение с каталогом." : "Измените или сбросьте часть фильтров, чтобы увидеть другие варианты."}</p>
-              <Link className="button button-secondary" href={resetHref}>Сбросить фильтры</Link>
-              {!failed && <Link className="button button-primary" href={`/sell?category=${category}`}>Подать объявление</Link>}
+            <div className="empty-state search-empty">
+              <div className="empty-illustration empty-search-illustration" aria-hidden="true" />
+              <div className="search-empty-copy">
+                <h2>{failed ? "Не удалось загрузить объявления" : hasFilters ? "По этим условиям объявлений пока нет" : "Пока нет опубликованных предложений"}</h2>
+                <p className="muted">{failed ? "Проверьте соединение с каталогом и повторите загрузку." : hasFilters ? "Измените или сбросьте часть фильтров, чтобы увидеть другие варианты." : "Когда появятся объявления, вы сможете найти их здесь."}</p>
+                {failed ? <Link className="button button-secondary" href={searchUrl(search)}>Повторить загрузку</Link> : hasFilters && <Link className="button button-secondary" href={resetHref}>Сбросить фильтры</Link>}
+                {!failed && (category !== "cars" || !hasFilters) && <Link className="button button-primary" href={category === "cars" ? "/sell" : `/sell?category=${category}`}>Подать объявление</Link>}
+              </div>
             </div>
           )}
           {pages > 1 && <nav className="pagination" aria-label="Страницы выдачи">

@@ -27,7 +27,11 @@ describe("dealer analytics page", () => {
       .mockResolvedValueOnce({
         period: { start: "2026-09-01", end: "2026-09-30" },
         totals: { listings: 8, active_listings: 5, contact_reveals: 11, chats: 4, views: 230 },
-        items: [{ listing_id: "listing-1", title: "Toyota Camry", status: "active", contact_reveals: 3, chats: 2, views: 70 }]
+        items: [
+          { listing_id: "listing-1", title: "Toyota Camry", status: "active", contact_reveals: 3, chats: 2, views: 70 },
+          { listing_id: "listing-2", title: "Skoda Octavia", status: "pending_review", contact_reveals: 0, chats: 0, views: 0 },
+          { listing_id: "listing-3", title: "Volvo XC60", status: "rejected", contact_reveals: 0, chats: 0, views: 0 }
+        ]
       });
     const html = renderToStaticMarkup(await DealerAnalyticsPage({ searchParams: Promise.resolve({ from: "2026-09-01", to: "2026-09-30" }) }));
     expect(mocks.requireSession).toHaveBeenCalledWith("/account/company/analytics");
@@ -36,6 +40,10 @@ describe("dealer analytics page", () => {
     expect(html).toContain("Показов телефона");
     expect(html).toContain("230");
     expect(html).toContain("Toyota Camry");
+    expect(html).toContain('class="status-pill status-active">Опубликовано</span>');
+    expect(html).toContain('class="status-pill status-pending_review">На проверке</span>');
+    expect(html).toContain('class="status-pill status-rejected">Нужно исправить</span>');
+    expect(html).not.toContain(">pending_review<");
   });
 
   it("does not request analytics when the signed-in user has no active company membership", async () => {

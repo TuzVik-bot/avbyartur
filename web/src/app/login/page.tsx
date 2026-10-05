@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { LoginForm } from "@/components/login-form";
 import { contentServerApi } from "@/lib/content-server";
 import type { RegistrationConsentVersions } from "@/lib/api";
@@ -31,6 +32,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const next = Array.isArray(params.next) ? params.next[0] : params.next;
   return (
     <section className="auth-page">
+      <div className="auth-visual"><Image src="/design/sell.webp" alt="Ключи от автомобиля на фоне серебристого седана" width={1200} height={800} sizes="(max-width: 640px) 100vw, 50vw" /></div>
       <div className="auth-card">
         <p className="eyebrow">Закрытый пилот</p>
         <h1>Вход в кабинет</h1>

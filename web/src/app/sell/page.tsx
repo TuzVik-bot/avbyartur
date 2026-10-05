@@ -1,5 +1,6 @@
 import { categories } from "@/lib/listing-categories";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SellForm } from "@/components/sell-form";
@@ -53,11 +54,15 @@ export default async function SellPage({ searchParams }: { searchParams: Promise
   const regionCatalogUnavailable = regionsResult.status === "rejected" || !regions.length;
   const retryHref = id ? `/sell?listing=${encodeURIComponent(id)}` : "/sell";
   return (
-    <div className="page-width">
+    <div className="page-width sell-page">
       {makeCatalogUnavailable && <p className="notice" role="status">Справочник марок недоступен. Марку можно указать вручную в форме. <Link href={retryHref}>Повторить загрузку</Link></p>}
       {regionCatalogUnavailable && <p className="notice" role="alert">Справочник областей недоступен. Объявление можно сохранить как черновик, но отправить его на проверку получится после загрузки справочника. <Link href={retryHref}>Повторить загрузку</Link></p>}
       {companyResult.status === "rejected" && <p className="notice" role="status">Не удалось загрузить профиль компании. Сейчас доступна подача от частного лица.</p>}
       {initialListing && (modelsResult.status === "rejected" || generationsResult.status === "rejected" || citiesResult.status === "rejected") && <p className="notice" role="status">Не удалось загрузить часть справочников редактирования. Текущие значения сохранены; повторите загрузку перед изменением каталожных данных.</p>}
+      <aside className="sell-page-visual">
+        <div><p className="eyebrow">Подача объявления</p><p>Форма состоит из шести шагов. Черновик сохраняется автоматически, а фотографии можно добавить на отдельном шаге.</p></div>
+        <Image src="/design/sell.webp" alt="Ключи от автомобиля на фоне серебристого седана" width={1200} height={800} sizes="(max-width: 640px) 100vw, 40vw" />
+      </aside>
       <SellForm initialCategory={initialCategory} initialListing={listingWithPhotos} makes={makes} models={models} generations={generations} bodyTypes={bodyTypes} regions={regions} cities={cities} company={company} />
     </div>
   );

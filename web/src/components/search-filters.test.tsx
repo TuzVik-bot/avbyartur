@@ -43,6 +43,87 @@ function choose(name: string, value: string) {
 }
 
 describe("search filter dependencies", () => {
+  it("opens a mobile filter dialog, traps Escape close, and restores focus to the trigger", async () => {
+    vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
+      matches: query.includes("max-width: 800px"),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    })));
+
+    await act(async () => {
+      root.render(createElement(SearchFilters, {
+        search: { make_id: makeA.id, q: "BMW", sort: "price_asc" },
+        makes: [makeA],
+        initialModels: [],
+        regions: [],
+        initialCities: [],
+        bodyTypes: []
+      }));
+    });
+
+    const trigger = container.querySelector<HTMLButtonElement>(".filter-toggle")!;
+    await act(async () => { trigger.click(); });
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"][aria-modal="true"]');
+    expect(dialog).not.toBeNull();
+    const closeButton = dialog?.querySelector<HTMLButtonElement>(".filter-close");
+    const applyButton = dialog?.querySelector<HTMLButtonElement>(".filter-apply");
+    expect(closeButton?.ownerDocument.activeElement).toBe(closeButton);
+    expect(container.querySelector<HTMLButtonElement>('button[type="submit"].filter-apply')).not.toBeNull();
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/cars"].filter-reset')).not.toBeNull();
+
+    await act(async () => {
+      closeButton?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }));
+    });
+    expect(document.activeElement).toBe(applyButton);
+    await act(async () => {
+      applyButton?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    });
+    expect(document.activeElement).toBe(closeButton);
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(container.querySelector('[role="dialog"][aria-modal="true"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    const submitted = new FormData(container.querySelector<HTMLFormElement>("form")!);
+    expect(submitted.get("make_id")).toBe(makeA.id);
+    expect(submitted.get("q")).toBe("BMW");
+    expect(submitted.get("sort")).toBe("price_asc");
+  });
+
+  it("keeps models from the latest make when an earlier catalog response arrives last", async () => {
+    let resolveMakeA!: (value: { items: CatalogItem[] }) => void;
+    let resolveMakeB!: (value: { items: CatalogItem[] }) => void;
+    const makeAModels = new Promise<{ items: CatalogItem[] }>((resolve) => { resolveMakeA = resolve; });
+    const makeBModels = new Promise<{ items: CatalogItem[] }>((resolve) => { resolveMakeB = resolve; });
+    const catalog = vi.spyOn(api, "catalog").mockImplementation((kind, params = {}) => {
+      if (kind === "models" && params.make_id === makeA.id) return makeAModels;
+      if (kind === "models" && params.make_id === makeB.id) return makeBModels;
+      return Promise.resolve({ items: [] });
+    });
+
+    await act(async () => {
+      root.render(createElement(SearchFilters, {
+        search: {}, makes: [makeA, makeB], initialModels: [], regions: [], initialCities: [], bodyTypes: []
+      }));
+    });
+    await act(async () => { choose("make_id", makeA.id); });
+    await act(async () => { choose("make_id", makeB.id); });
+    expect(catalog).toHaveBeenCalledWith("models", { make_id: makeA.id });
+    expect(catalog).toHaveBeenCalledWith("models", { make_id: makeB.id });
+
+    await act(async () => { resolveMakeB({ items: [modelB] }); await Promise.resolve(); });
+    await act(async () => { resolveMakeA({ items: [modelA] }); await Promise.resolve(); });
+
+    expect(container.querySelector(`option[value="${modelB.id}"]`)?.textContent).toBe(modelB.name);
+    expect(container.querySelector(`option[value="${modelA.id}"]`)).toBeNull();
+  });
+
   it("preserves selected catalog IDs when option catalog requests fail temporarily", async () => {
     vi.spyOn(api, "catalog").mockRejectedValue(new Error("catalog temporarily unavailable"));
     vi.spyOn(api, "cities").mockRejectedValue(new Error("cities temporarily unavailable"));

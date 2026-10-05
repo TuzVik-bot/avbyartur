@@ -17,5 +17,5 @@ const tabs = [
 ];
 
 export function AccountNav({ current }: { current: string }) {
-  return <nav className="account-nav" aria-label="Кабинет">{tabs.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={current === href ? "page" : undefined}><Icon size={16} /> {label}</Link>)}</nav>;
+  return <nav className="account-nav account-sidebar" aria-label="Кабинет">{tabs.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={current === href ? "page" : undefined}><Icon size={16} /> {label}</Link>)}</nav>;
 }

@@ -12,6 +12,7 @@ import type {
   ListingPhoto,
   ListingSearch,
   ListingSummary,
+  ListingSearchResponse,
   ListResponse,
   Report,
   ReportCategory,
@@ -244,7 +245,7 @@ export const api = {
   markConversationRead: (id: string, idempotencyKey?: string) => apiRequest<{ ok: true }>(`conversations/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({}), headers: idempotencyHeaders(idempotencyKey) }),
   blockConversation: (id: string, idempotencyKey?: string) => apiRequest<{ ok: true }>(`conversations/${encodeURIComponent(id)}/block`, { method: "POST", body: JSON.stringify({}), headers: idempotencyHeaders(idempotencyKey) }),
   markNotificationRead: (id: string) => apiRequest<{ ok: true }>(`me/notifications/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({}) }),
-  listings: (search: ListingSearch = {}) => apiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
+  listings: (search: ListingSearch = {}) => apiRequest<ListingSearchResponse>(searchPath(search).replace("/api/v1/", "")),
   listing: (id: string) => apiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: Record<string, string> = {}) => {
     const query = new URLSearchParams(params).toString();

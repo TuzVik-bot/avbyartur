@@ -268,6 +268,15 @@ const localFieldMessages: Partial<Record<FieldErrorKey, string>> = {
   photos: "Добавьте хотя бы одну обработанную фотографию."
 };
 
+const listingFormSteps = [
+  { label: "Продавец и предложение", shortLabel: "Продавец" },
+  { label: "Автомобиль и характеристики", shortLabel: "Автомобиль" },
+  { label: "Состояние и описание", shortLabel: "Описание" },
+  { label: "Цена, расположение и контакт", shortLabel: "Цена и контакт" },
+  { label: "Фотографии", shortLabel: "Фото" },
+  { label: "Проверьте объявление", shortLabel: "Проверка" }
+] as const;
+
 const fieldSteps: Partial<Record<FieldErrorKey, number>> = {
   seller_type: 1,
   condition: 1,
@@ -427,6 +436,7 @@ export function SellForm({ initialCategory = "cars", initialListing = null, make
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const savedSnapshot = useRef(initialListing ? JSON.stringify(payloadFor(firstFields)) : "");
   const [step, setStep] = useState(1);
+  const [furthestStep, setFurthestStep] = useState(1);
   const [photos, setPhotos] = useState<ListingPhoto[]>(initialListing?.photos || []);
   const [saveState, setSaveState] = useState(initialListing ? "saved" : "unsaved");
   const [error, setError] = useState("");
@@ -944,7 +954,9 @@ export function SellForm({ initialCategory = "cars", initialListing = null, make
           return;
         }
       }
-      setStep((value) => Math.min(6, value + 1));
+      const nextStepNumber = Math.min(listingFormSteps.length, step + 1);
+      setStep(nextStepNumber);
+      setFurthestStep((furthest) => Math.max(furthest, nextStepNumber));
     } catch (issue) {
       applyIssue(issue);
     } finally {
@@ -952,7 +964,14 @@ export function SellForm({ initialCategory = "cars", initialListing = null, make
     }
   }
 
-  function previousStep() { setError(""); setFieldErrors({}); setStep((value) => Math.max(1, value - 1)); }
+  function navigateToStep(targetStep: number) {
+    if (busy || targetStep < 1 || targetStep > furthestStep) return;
+    setError("");
+    setFieldErrors({});
+    setStep(targetStep);
+  }
+
+  function previousStep() { navigateToStep(step - 1); }
 
   async function refreshPhotos(id: string): Promise<ListingPhoto[]> {
     const response = await api.photos(id);
@@ -1107,7 +1126,19 @@ export function SellForm({ initialCategory = "cars", initialListing = null, make
   return (
     <form className="form-page" onSubmit={submitListing}>
       <header className="page-head"><p className="eyebrow">{category === "cars" ? "Подача автомобиля" : "Подача объявления"}</p><h1>{initialListing ? "Редактировать объявление" : "Новое объявление"}</h1><p role="status" aria-live="polite">Шаг {step} из 6</p></header>
-      <div className="step-progress" role="progressbar" aria-label="Шаг подачи объявления" aria-valuemin={1} aria-valuemax={6} aria-valuenow={step} aria-valuetext={`Шаг ${step} из 6`}>{Array.from({ length: 6 }, (_, index) => <span key={index} className={index < step ? "is-complete" : ""} />)}</div>
+      <nav className="step-navigation" aria-label="Этапы подачи объявления">
+        <ol>{listingFormSteps.map((stage, index) => {
+          const stageNumber = index + 1;
+          return <li key={stage.label}><button
+            className="step-navigation-button"
+            type="button"
+            aria-label={`Шаг ${stageNumber}: ${stage.label}`}
+            aria-current={step === stageNumber ? "step" : undefined}
+            disabled={busy || stageNumber > furthestStep}
+            onClick={() => navigateToStep(stageNumber)}
+          ><span className="step-navigation-number" aria-hidden="true">{stageNumber}</span><span className="step-navigation-label">{stage.shortLabel}</span></button></li>;
+        })}</ol>
+      </nav>
       <p className={saveState === "error" ? "inline-error" : "inline-success"} role="status">{saveCopy}{draft && ` · ревизия ${draft.revision}`}</p>
       {validationPolicyLoading && <p className="muted" role="status">Загружаем правила подачи…</p>}
       {validationPolicyError && <p className="notice wide" role="alert">Не удалось загрузить правила подачи. <button className="button button-secondary button-small" type="button" onClick={() => setValidationPolicyRetry((attempt) => attempt + 1)} disabled={validationPolicyLoading}>Повторить</button></p>}
