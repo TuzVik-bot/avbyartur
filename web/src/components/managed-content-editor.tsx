@@ -28,6 +28,9 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
   const [success, setSuccess] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const current = items.find(item => item.kind === kind && item.key === key);
+  const formKey = kind === "article" && !current
+    ? `article:new:${newArticleSequence}`
+    : `${kind}:${current?.key || key}:${current?.revision || 0}`;
   const payload = (current?.payload || {}) as Record<string, unknown>;
   const operator = typeof payload.operator === "object" && payload.operator !== null ? payload.operator as Record<string, unknown> : {};
 
@@ -97,7 +100,7 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
     {kind === "article" && <p className="muted">Выберите существующую статью или начните новую. Кнопка «Обновить» загружает все страницы списка материалов.</p>}
     <p className="muted">{current ? `Редакция ${current.revision} · ${current.status === "published" ? "Опубликован" : "Черновик"}` : "Новый материал"}</p>
     {error && <p className="notice" role="alert">{error}</p>}{success && <p className="notice" role="status">{success}</p>}
-    <form key={`${kind}:${key}:${current?.revision || 0}:${newArticleSequence}`} className="company-form" onSubmit={submit}>
+    <form key={formKey} className="company-form" onSubmit={submit}>
       {kind === "notification_template" ? <label className="field"><span>Тема письма</span><input name="subject" required maxLength={180} defaultValue={text(payload, "subject")} /></label> : <label className="field"><span>Заголовок</span><input name="title" required maxLength={180} defaultValue={text(payload, "title")} /></label>}
       {kind === "seo_page" && <>
         <label className="field"><span>Описание для поиска</span><textarea name="description" required minLength={10} maxLength={500} defaultValue={text(payload, "description")} /></label>

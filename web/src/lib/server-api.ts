@@ -27,6 +27,7 @@ export async function getSessionServer(): Promise<AuthSession | null> {
 
 export const serverApi = {
   vinCheckStatus: () => serverApiRequest<components["schemas"]["VinCheckStatusOut"]>("vin-check/status", { forwardCookies: false }),
+  customsRates: () => serverApiRequest<components["schemas"]["CustomsRatesResponse"]>("customs-calculator/rates", { forwardCookies: false }),
   listings: (search: ListingSearch = {}) => serverApiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
   listing: (id: string) => serverApiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   relatedListings: (id: string) => serverApiRequest<{ items: ListingSummary[] }>(`listings/${encodeURIComponent(id)}/related`),

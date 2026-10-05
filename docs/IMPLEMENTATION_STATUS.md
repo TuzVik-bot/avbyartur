@@ -2,6 +2,47 @@
 
 Objective: deliver the complete closed marketplace pilot described in `docs/superpowers/plans/2026-09-26-avtorinok-pilot.md` and deploy the verified release to `suite-s1.denjik.by`.
 
+## Local categories and services continuation — 5 October 2026
+
+The isolated branch `codex/categories-information-vin-financing` now contains
+local work for every requested catalog category, used/new filters, the managed
+article section, an input-driven credit/leasing calculator, and an explicitly
+unavailable VIN status. The article editor lists all pages and supports
+selecting an existing article or starting a new one. Category changes clear
+incompatible listing fields. Electric vehicles link to the supported electric-fuel
+filter. Listing details now have a print layout. The currency converter uses
+the official NBRB rate snapshot and performs conversion in the browser without
+sending the entered amount back to the server.
+
+GlobalVIN was assessed from its public Belarus API, pricing, privacy and terms
+pages. The Belarus Quick Report is advertised at USD 8 with a typical 5–15
+minute turnaround; the generic developer plan advertises a sandbox, but the
+specific Belarus service key, test VINs, sandbox billing behavior, processor
+locations, report retention and display rights remain unconfirmed. Per the
+user's instruction, paid lookups require separate approval. The integration
+remains disabled. Findings and vendor questions are in
+`docs/research/globalvin-assessment-2026-10-05.md`.
+
+Financing currently performs a local estimate only; it does not send form
+values or create a lead. A synthetic test-only example and an unapproved
+Belarus personal-data consent checklist are in
+`docs/compliance/financing-demo-fixture-2026-10-05.md`. The operator identity,
+manager, actual retention schedule and approved consent were not supplied, so
+real application collection and partner transfer remain disabled.
+
+Verification on this worktree: web tests **523 passed**; TypeScript typecheck,
+production build with `next build --webpack`, OpenAPI type generation and
+`make config-check` passed. The backend suite passed **639 tests** on a new
+disposable PostgreSQL database inside the isolated Colima network. The runner
+used the existing backend test image and the host venv's installed `urllib3`,
+which was missing from that image; two third-party deprecation warnings remain.
+
+The user explicitly requested push and deployment on 5 October. Neither has
+completed: the fresh HTTPS SSH check returned `Permission denied` and the GitHub
+remote lookup could not resolve `github.com`. No release, VPS migration, article
+publication, or production data change has occurred. Keep the current pilot
+access mode, account authentication and `noindex` boundary.
+
 ## GitHub — 4 October 2026
 
 Project source uploaded to private repository

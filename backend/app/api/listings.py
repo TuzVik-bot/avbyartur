@@ -271,9 +271,10 @@ def _apply_fields(db: Session, listing: Listing, values: dict, user: User, *, cr
             "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id",
             "modification_id", "manual_make", "manual_model", "make_name_snapshot",
             "model_name_snapshot", "generation_name_snapshot", "fuel", "transmission",
-            "drive", "engine_volume_l", "power_hp", "vin", "equipment",
+            "drive", "engine_volume_l", "power_hp", "vin", "equipment", "year", "mileage_km",
         ):
             setattr(listing, field, None)
+        listing.title = ""
     if price is not None:
         listing.price_amount = price["amount"]
         listing.currency = price["currency"]

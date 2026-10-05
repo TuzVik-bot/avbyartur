@@ -2,7 +2,7 @@ import type { ListingSearch, ListingSummary } from "./types";
 import { formatMileage, vehicleLabel } from "./format";
 export type CategoryCode = NonNullable<ListingSearch["category_code"]>;
 export const categories: { code: CategoryCode; label: string; href: string }[] = [
-  { code: "cars", label: "С пробегом", href: "/cars?condition=used" }, { code: "cars", label: "Новые", href: "/cars?condition=new" },
+  { code: "cars", label: "С пробегом", href: "/cars?condition=used" }, { code: "cars", label: "Новые", href: "/cars?condition=new" }, { code: "cars", label: "Электромобили", href: "/cars?fuel=electric" },
   ...([ ["trucks", "Грузовики"], ["buses", "Автобусы"], ["motorcycles", "Мототехника"], ["special_equipment", "Спецтехника"], ["agricultural_equipment", "Сельхозтехника"], ["trailers", "Прицепы"], ["watercraft", "Водный транспорт"], ["parts", "Запчасти"], ["wheels", "Диски"], ["tires", "Шины"] ] as [CategoryCode, string][]).map(([code, label]) => ({ code, label, href: `/${code.replaceAll("_", "-")}` }))
 ];
 export const categoryPath = (code: string) => `/${code.replaceAll("_", "-")}`;

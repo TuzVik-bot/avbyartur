@@ -4,6 +4,22 @@ import { contentServerApi } from "@/lib/content-server";
 
 vi.mock("@/lib/server-api", () => ({ serverApiRequest: vi.fn() }));
 
+it("loads every admin content page on the initial server render", async () => {
+  const listAll = (contentServerApi as unknown as { listAll?: () => Promise<unknown[]> }).listAll;
+  expect(listAll).toBeTypeOf("function");
+  if (!listAll) return;
+
+  const firstPage = { items: Array.from({ length: 100 }, (_, index) => ({ key: `article-${index}` })), total: 101, page: 1, page_size: 100 };
+  const secondPage = { items: [{ key: "article-100" }], total: 101, page: 2, page_size: 100 };
+  vi.mocked(serverApi.serverApiRequest).mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage);
+
+  const result = await listAll();
+
+  expect(result).toHaveLength(101);
+  expect(serverApi.serverApiRequest).toHaveBeenNthCalledWith(1, "admin/content?page=1&page_size=100");
+  expect(serverApi.serverApiRequest).toHaveBeenNthCalledWith(2, "admin/content?page=2&page_size=100");
+});
+
 it("loads published articles with the selected topic through the internal server API", async () => {
   const method = (contentServerApi as unknown as { articles?: (topic?: string) => Promise<unknown> }).articles;
   expect(method).toBeTypeOf("function");

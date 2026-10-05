@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Building2, Check, ChevronRight, CircleUserRound, MapPin, MessageCircle, Phone, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Building2, Check, ChevronRight, CircleUserRound, MapPin, MessageCircle, Phone, Printer, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { FavoriteButton, ListingCard } from "@/components/listing-card";
 import { api, ApiClientError } from "@/lib/api";
@@ -156,6 +156,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           {listing.status === "sold" && <p className="status-pill">Продано</p>}
           <p className="detail-price">{formatMoney(listing.price)}</p>
           {listing.price?.currency === "USD" && listing.price.display_byn && listing.price.rate_date && <p className="muted">В BYN по курсу на {formatDate(listing.price.rate_date)}</p>}
+          {listing.status === "active" && <button className="button button-secondary print-listing-button" type="button" aria-label="Печать объявления" onClick={() => window.print()}><Printer size={17} aria-hidden="true" /> Печать объявления</button>}
           {listing.status === "active" ? <>
             {!user && guestContactRevealEnabled && <p className="muted">Телефон можно посмотреть без входа в аккаунт.</p>}
             {phone ? <div className="phone-revealed"><strong>{phone}</strong><span className="muted">Контакт продавца</span></div> : <button className="button button-primary contact-reveal" type="button" aria-busy={phoneBusy} disabled={phoneBusy} onClick={revealPhone}><Phone size={17} /> {phoneBusy ? "Загружаем телефон…" : "Показать телефон"}</button>}

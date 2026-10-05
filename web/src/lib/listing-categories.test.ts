@@ -6,8 +6,9 @@ describe("category UI contracts", () => {
     expect(categorySearch("cars", { category_code: "trucks", condition: "used" })).toEqual({ category_code: "cars", condition: "used" });
   });
   it("has every supplied section with its stable route", () => {
-    expect(categories.map(c => c.label)).toEqual(["С пробегом", "Новые", "Грузовики", "Автобусы", "Мототехника", "Спецтехника", "Сельхозтехника", "Прицепы", "Водный транспорт", "Запчасти", "Диски", "Шины"]);
+    expect(categories.map(c => c.label)).toEqual(["С пробегом", "Новые", "Электромобили", "Грузовики", "Автобусы", "Мототехника", "Спецтехника", "Сельхозтехника", "Прицепы", "Водный транспорт", "Запчасти", "Диски", "Шины"]);
     expect(categories[0].href).toBe("/cars?condition=used");
+    expect(categories[2].href).toBe("/cars?fuel=electric");
   });
   it("converts numeric category details and omits empty inputs", () => {
     expect(detailPayload("tires", { width_mm: "205", profile_percent: "55", diameter_in: "16", season: "winter", quantity: "" })).toEqual({ width_mm: 205, profile_percent: 55, diameter_in: 16, season: "winter" });

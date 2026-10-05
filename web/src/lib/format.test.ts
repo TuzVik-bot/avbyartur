@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMileage, formatMoney } from "@/lib/format";
+import { convertCurrencyAmount, formatMileage, formatMoney } from "@/lib/format";
 import type { Money } from "@/lib/types";
 
 function formatted(amount: string, currency: Money["currency"]) {
@@ -62,5 +62,32 @@ describe("formatMoney", () => {
 describe("formatMileage", () => {
   it("renders an explicit fallback when a draft has no mileage", () => {
     expect(formatMileage(null)).toBe("Пробег не указан");
+  });
+});
+
+describe("convertCurrencyAmount", () => {
+  it("converts between currencies with exact official-rate rounding", () => {
+    expect(convertCurrencyAmount("100", "EUR", "USD", [
+      { currency: "EUR", byn_per_unit: "3.5" },
+      { currency: "USD", byn_per_unit: "3.21" },
+      { currency: "BYN", byn_per_unit: "1" }
+    ])).toBe("109.03");
+  });
+
+  it("rejects malformed amounts and currencies without a rate", () => {
+    const rates = [{ currency: "BYN", byn_per_unit: "1" }];
+
+    expect(convertCurrencyAmount("-4", "BYN", "BYN", rates)).toBeNull();
+    expect(convertCurrencyAmount("10", "USD", "BYN", rates)).toBeNull();
+  });
+
+  it("accepts a decimal comma and caps amounts at the documented maximum", () => {
+    const rates = [
+      { currency: "BYN", byn_per_unit: "1" },
+      { currency: "USD", byn_per_unit: "3.5" }
+    ];
+
+    expect(convertCurrencyAmount("3,50", "USD", "BYN", rates)).toBe("12.25");
+    expect(convertCurrencyAmount("1000000000000000001", "BYN", "USD", rates)).toBeNull();
   });
 });

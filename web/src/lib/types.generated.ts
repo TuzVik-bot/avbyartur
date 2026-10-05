@@ -2050,6 +2050,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customs-calculator/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Customs Exchange Rates */
+        get: operations["customs_exchange_rates_api_v1_customs_calculator_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customs-calculator/calculate": {
         parameters: {
             query?: never;
@@ -3355,6 +3372,16 @@ export interface components {
             scale: number;
             /** Byn Per Unit */
             byn_per_unit: string;
+        };
+        /** CustomsRatesResponse */
+        CustomsRatesResponse: {
+            /**
+             * Rate Date
+             * Format: date
+             */
+            rate_date: string;
+            /** Rates */
+            rates: components["schemas"]["CustomsRateUsed"][];
         };
         /** DealerAnalyticsItemOut */
         DealerAnalyticsItemOut: {
@@ -14547,6 +14574,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomsMetaResponse"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    customs_exchange_rates_api_v1_customs_calculator_rates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomsRatesResponse"];
+                };
+            };
+            /** @description Official exchange rates are unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
             /** @description API error */

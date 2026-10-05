@@ -60,6 +60,17 @@ const listing: Listing = {
 };
 
 describe("contact reveal", () => {
+  it("prints the listing from its detail page", async () => {
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+
+    const button = container.querySelector<HTMLButtonElement>(".print-listing-button");
+    expect(button?.getAttribute("aria-label")).toBe("Печать объявления");
+    await act(async () => button?.click());
+
+    expect(print).toHaveBeenCalledOnce();
+  });
+
   it("uses the non-car listing route and category breadcrumb", async () => {
     const truck: Listing = {
       ...listing,

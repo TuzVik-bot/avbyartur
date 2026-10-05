@@ -177,3 +177,23 @@ it("clears an unsaved new article when starting another new article", () => {
   act(() => Array.from(container.querySelectorAll("button")).find(item => item.textContent?.includes("Новая статья"))!.click());
   expect(container.querySelector('[name="title"]')).toHaveProperty("value", "");
 });
+
+it("preserves an unsaved article draft when its slug changes", () => {
+  act(() => root.render(createElement(ManagedContentEditor, { initialError: false, initialItems: [] })));
+  act(() => chooseContentKind("article"));
+  act(() => {
+    value("title", "Проверка транспорта перед покупкой");
+    value("summary", "Краткая памятка по осмотру и документам перед сделкой.");
+    value("sources", "Госорган | https://example.gov.by/guide");
+    value("body", "Сверьте документы, VIN и состояние транспорта до заключения сделки.");
+    value("content_key", "vehicle-check");
+  });
+
+  act(() => value("content_key", "vehicle-inspection"));
+
+  expect(container.querySelector('[name="title"]')).toHaveProperty("value", "Проверка транспорта перед покупкой");
+  expect(container.querySelector('[name="summary"]')).toHaveProperty("value", "Краткая памятка по осмотру и документам перед сделкой.");
+  expect(container.querySelector('[name="sources"]')).toHaveProperty("value", "Госорган | https://example.gov.by/guide");
+  expect(container.querySelector('[name="body"]')).toHaveProperty("value", "Сверьте документы, VIN и состояние транспорта до заключения сделки.");
+  expect(container.querySelector('[name="content_key"]')).toHaveProperty("value", "vehicle-inspection");
+});

@@ -175,6 +175,34 @@ def test_category_change_requires_confirmation_and_replaces_incompatible_details
         assert getattr(listing, field) is None
 
 
+def test_category_change_clears_shared_vehicle_fields_before_new_car_details_are_saved():
+    from app.api.listings import _apply_fields
+    from app.models import Listing, ListingCategoryDetails
+
+    class Db:
+        def delete(self, _row):
+            pass
+
+        def flush(self):
+            pass
+
+        def get(self, _model, _identity):
+            return None
+
+    listing = Listing(category_code="trucks", title="Volvo FH", year=2014, mileage_km=900_000)
+    listing.category_details = ListingCategoryDetails(category_code="trucks", details={"payload_kg": 18_000})
+
+    _apply_fields(Db(), listing, {"category_code": "cars", "confirm_category_change": True}, None, creating=False)
+
+    assert listing.title == ""
+    assert listing.year is None
+    assert listing.mileage_km is None
+
+    _apply_fields(Db(), listing, {"manual_make": "Honda", "manual_model": "Civic", "year": 2020}, None, creating=False)
+
+    assert listing.title == "Honda Civic 2020"
+
+
 def test_same_category_details_update_reuses_the_existing_one_to_one_row():
     from app.api.listings import _apply_fields
     from app.models import Listing, ListingCategoryDetails
