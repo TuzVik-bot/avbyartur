@@ -42,11 +42,14 @@ The user explicitly requested push and deployment on 5 October. Commit
 `0f0cd76b0c1c71207a46dc35dd739de04bfdca0a` is pushed to private origin on
 `codex/categories-information-vin-financing`; a read-only remote check confirmed
 that exact branch SHA and left `main` at `16802ace0d16b013a4398fbcf52b116bd65fd39a`.
-Deployment remains blocked: fresh normal and elevated SSH preflights returned
-`Permission denied (publickey,password)`, and no SSH-agent identities are
-available. No release, VPS migration, article publication, or production data
-change has occurred. Keep the current pilot access mode, account authentication
-and `noindex` boundary.
+Deployment remains blocked: public-key checks returned
+`Permission denied (publickey,password)`, no SSH-agent identities are available,
+and a later password-only interactive connection to port 23026 closed before
+any preflight command ran. DNS resolves `suite-s1.denjik.by` to the supplied
+server IP; HTTP/80 redirects to HTTPS and is not a deploy channel. No release,
+VPS migration, article publication, or production data change has occurred.
+Keep the current pilot access mode, account authentication and `noindex`
+boundary.
 
 After the push, a read-only HTTPS smoke returned 200 for `/` and `/cars`, 404
 for `/trucks`, `/buses`, `/motorcycles`, `/special-equipment`,
