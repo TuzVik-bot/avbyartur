@@ -2,10 +2,11 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import String, cast, select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.api.catalog_schemas import CatalogItemsOut, CatalogModificationsOut, CategorySubtypesOut
+from app.api.listings import _active_query
 from app.category_search import SUBTYPE_FIELD
 from app.db import get_db
 from app.listing_categories import CategoryCode
@@ -16,6 +17,7 @@ from app.models import (
     CatalogMake,
     CatalogModel,
     CatalogModification,
+    Listing,
     LocationCity,
     LocationRegion,
 )
@@ -38,7 +40,18 @@ def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: 
     if q:
         term = f"%{q[:80]}%"
         query = query.where(CatalogMake.name.ilike(term) | CatalogMake.slug.ilike(term) | cast(CatalogMake.aliases, String).ilike(term))
-    return items(db.scalars(query).all())
+    rows = db.scalars(query).all()
+    if not rows:
+        return {"items": []}
+    # Same visibility rules as the public /listings search, so a count matches what its link shows.
+    counts = dict(db.execute(
+        _active_query().where(Listing.category_code == category_code, Listing.make_id.is_not(None))
+        .with_only_columns(Listing.make_id, func.count(Listing.id)).group_by(Listing.make_id)
+    ).all())
+    payload = items(rows)
+    for item, row in zip(payload["items"], rows):
+        item["listing_count"] = int(counts.get(row.id, 0))
+    return payload
 
 
 @router.get("/catalog/models", response_model=CatalogItemsOut, response_model_exclude_unset=True)

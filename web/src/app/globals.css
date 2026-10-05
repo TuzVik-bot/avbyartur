@@ -91,6 +91,16 @@ h3 { font-size: 17px; margin-bottom: 8px; }
 .quick-links a:hover { background: #fff; border-color: #9aafd9; }
 .quick-links .text-link { border-color: transparent; background: transparent; }
 .home-image-note { margin-top: auto; align-self: flex-end; padding: 3px 6px; color: #3b4960; background: rgba(255,255,255,.75); font-size: 11px; }
+.makes-directory h2 { margin: 0 0 18px; color: #304d9e; font-size: 24px; }
+.makes-list { list-style: none; margin: 0; padding: 0; column-count: 5; column-gap: 24px; }
+.makes-list li { break-inside: avoid; display: flex; align-items: baseline; gap: 6px; min-height: 36px; font-size: 17px; }
+.makes-list a { color: var(--accent-dark); font-weight: 600; }
+.makes-list a:hover { text-decoration: underline; }
+.makes-count { color: #7a869b; font-size: 13px; }
+.makes-countries { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; padding-bottom: 4px; }
+.makes-countries button, .makes-toggle { min-height: 44px; padding: 8px 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.makes-countries button.is-active { border-color: var(--accent); color: var(--accent-dark); }
+.makes-toggle { margin-top: 18px; }
 .home-listings { padding-top: 27px; }
 .home-listings .section-heading h2 { color: #304d9e; font-size: 24px; }
 
@@ -714,6 +724,8 @@ h3 { font-size: 17px; margin-bottom: 8px; }
   .search-strip select { border-left: 0; border-top: 1px solid var(--line); }
   .home-search-button { min-width: 112px; }
   .quick-links { margin-top: 12px; }
+  .makes-list { column-count: 2; }
+  .makes-directory h2 { font-size: 20px; }
   .home-image-note { margin-top: 8px; font-size: 10px; }
   .home-listings .section-heading h2 { font-size: 20px; }
   .home-listings .section-heading .text-link { font-size: 12px; }
