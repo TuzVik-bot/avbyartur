@@ -10,7 +10,43 @@
 backup/media и лицензионные исходники каталога исключены. Записи ниже о
 непредоставленном Git remote относятся к состоянию на дату соответствующего релиза.
 
-## Текущий релиз 2 октября 2026, проверен 14:38 UTC
+## Актуальный выпуск 5 октября 2026
+
+Активный symlink `/home/suite/apps/avtorinok` указывает на
+`/home/suite/apps/releases/marketplace-20261005T0956Z-baa9102`.
+API/worker image: `avtorinok-api:marketplace-20261005T0956Z-baa9102`;
+web image: `avtorinok-web:marketplace-20261005T0956Z-baa9102`;
+PostgreSQL: `postgres:17.11-alpine`. Alembic head: `0023_managed_articles`.
+
+- Архив исходников `source.tar.gz`: SHA-256
+  `831bae0a99c41ff6237b8ac7e7c740c12440e6e77fc6b998bcb654aa51cbfaee`.
+  Ключевые файлы миграции 0023, страниц финансирования, VIN и полезной
+  информации, а также калькулятора совпали по SHA-256 с опубликованной
+  feature-веткой. В каталоге выпуска отсутствует deployment receipt; полный
+  manifest архива с веткой не сверялся.
+- Pre-deploy backup:
+  `/home/suite/backups/avtorinok/pre-deploy-marketplace-20261005T0956Z-baa9102/avtorinok-20261005T100351Z`.
+  Post-deploy backup:
+  `/home/suite/backups/avtorinok/post-deploy-marketplace-20261005T0956Z-baa9102/avtorinok-20261005T101700Z`.
+  Оба snapshot прошли 31 проверку SHA-256; PostgreSQL dumps читаются через
+  `pg_restore --list`.
+- Все четыре Compose-сервиса healthy, restart count 0. `.env` имеет mode 600;
+  именованные тома `avtorinok_postgres` и `avtorinok_private_media` сохранены.
+  API/DB не открыты наружу; `/api/v1/me` без сессии отвечает 401. Главная,
+  запрошенные категории и страницы сервисов отвечают HTTPS 200; `noindex,
+  nofollow, noarchive` сохранён.
+- В браузере проверены полезная информация, VIN-страница и калькулятор.
+  Пример расчёта для 35 000 BYN, аванса 5 000 BYN, срока 60 месяцев и ставки
+  12% дал 667,33 BYN за месяцы 1–59 и 667,54 BYN последний платёж. Значения
+  не отправляются и не сохраняются.
+- Раздел полезной информации пока не содержит опубликованных материалов.
+  VIN-поставщик не подключён; платный GlobalVIN требует отдельного согласования.
+  Калькулятор выдаёт ориентировочную оценку, без партнёрской заявки.
+
+Этот выпуск обновил закрытый пилот и не означает полного принятия MVP или
+публичного запуска. Сохраняются текущий режим доступа и `noindex`.
+
+## Исторический релиз 2 октября 2026, проверен 14:38 UTC
 
 Tag: `pilot-20261002T133421Z`. Активный symlink:
 `/home/suite/apps/avtorinok` → `/home/suite/apps/releases/pilot-20261002T133421Z`.

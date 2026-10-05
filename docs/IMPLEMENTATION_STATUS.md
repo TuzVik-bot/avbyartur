@@ -2,7 +2,7 @@
 
 Objective: deliver the complete closed marketplace pilot described in `docs/superpowers/plans/2026-09-26-avtorinok-pilot.md` and deploy the verified release to `suite-s1.denjik.by`.
 
-## Local categories and services continuation — 5 October 2026
+## Categories and services — deployed 5 October 2026
 
 The isolated branch `codex/categories-information-vin-financing` now contains
 local work for every requested catalog category, used/new filters, the managed
@@ -31,32 +31,47 @@ Belarus personal-data consent checklist are in
 manager, actual retention schedule and approved consent were not supplied, so
 real application collection and partner transfer remain disabled.
 
-Verification on this worktree: web tests **524 passed**; TypeScript typecheck,
+Verification on this worktree: web tests **545 passed** across 90 files; TypeScript typecheck,
 production build with `next build --webpack`, OpenAPI type generation and
 `make config-check` passed. The backend suite passed **639 tests** on a new
 disposable PostgreSQL database inside the isolated Colima network. The runner
 used the existing backend test image and the host venv's installed `urllib3`,
 which was missing from that image; two third-party deprecation warnings remain.
 
-The user explicitly requested push and deployment on 5 October. Commit
-`0f0cd76b0c1c71207a46dc35dd739de04bfdca0a` is pushed to private origin on
-`codex/categories-information-vin-financing`; a read-only remote check confirmed
-that exact branch SHA and left `main` at `16802ace0d16b013a4398fbcf52b116bd65fd39a`.
-Deployment remains blocked: public-key checks returned
-`Permission denied (publickey,password)`, no SSH-agent identities are available,
-and a later password-only interactive connection to port 23026 closed before
-any preflight command ran. DNS resolves `suite-s1.denjik.by` to the supplied
-server IP; HTTP/80 redirects to HTTPS and is not a deploy channel. No release,
-VPS migration, article publication, or production data change has occurred.
-Keep the current pilot access mode, account authentication and `noindex`
-boundary.
+The user explicitly requested push and deployment on 5 October. The feature
+branch `codex/categories-information-vin-financing` is pushed to private origin.
+The live site now points to
+`/home/suite/apps/releases/marketplace-20261005T0956Z-baa9102`; the database is
+at `0023_managed_articles`. The deployed source archive has SHA-256
+`831bae0a99c41ff6237b8ac7e7c740c12440e6e77fc6b998bcb654aa51cbfaee`. SHA-256
+checks for migration `0023_managed_articles.py`, the financing, VIN and useful
+information pages, and the financing calculator component matched the pushed
+feature branch byte-for-byte. The release directory has no deployment receipt,
+so those checks establish the feature files but not a complete source manifest.
 
-After the push, a read-only HTTPS smoke returned 200 for `/` and `/cars`, 404
-for `/trucks`, `/buses`, `/motorcycles`, `/special-equipment`,
-`/agricultural-equipment`, `/trailers`, `/watercraft`, `/parts`, `/wheels`,
-`/tires`, `/useful-information`, `/vin-check` and `/financing`, and 401 for
-unauthenticated `/api/v1/me`. All checked paths retained `noindex`; this
-confirms the new branch is not yet the active release.
+Pre-deploy backup:
+`/home/suite/backups/avtorinok/pre-deploy-marketplace-20261005T0956Z-baa9102/avtorinok-20261005T100351Z`.
+Post-deploy backup:
+`/home/suite/backups/avtorinok/post-deploy-marketplace-20261005T0956Z-baa9102/avtorinok-20261005T101700Z`.
+Both passed all 31 checksum entries and `pg_restore --list`. API, web, worker
+and database containers are healthy with restart count 0. `.env` remains mode
+600; `avtorinok_postgres` and `avtorinok_private_media` exist. API/DB access
+remains private, unauthenticated `/api/v1/me` returns 401, and the site retains
+`noindex, nofollow, noarchive`.
+
+Fresh HTTPS checks returned 200 for `/`, `/cars`, `/trucks`, `/buses`,
+`/motorcycles`, `/special-equipment`, `/agricultural-equipment`, `/trailers`,
+`/watercraft`, `/parts`, `/wheels`, `/tires`, `/useful-information`, `/vin-check`
+and `/financing`. The browser rendered the new useful-information and VIN pages;
+the financing calculator produced a local estimate for 35,000 BYN, a 5,000 BYN
+advance, 60 months and 12%: 667.33 BYN for months 1–59, 667.54 BYN final, and
+45,040.01 BYN total. The calculator did not submit or store those values.
+
+Remaining product limits are intentional: no useful-information articles are
+published yet; the VIN provider remains unconnected and does not accept or store
+VINs; paid GlobalVIN requests require separate approval; financing partner
+offers and real applications are not connected. Keep the existing pilot access,
+application authentication and `noindex` boundary.
 
 ## GitHub — 4 October 2026
 
