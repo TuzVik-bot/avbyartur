@@ -2,7 +2,10 @@
 
 Новый дизайн опубликован на https://suite-s1.denjik.by по явному запросу пользователя. GitHub-ветка: `codex/ux-redesign`. Коммит web: `94a0427357026d901fc91b1c4af106c5292ae95d`.
 
-## Активный выпуск
+## Выпуск на момент проверки (позже заменён)
+
+Этот UX-релиз позже сменил активный выпуск `marketplace-20261005T0956Z-baa9102`;
+актуальная проверка и детали новой версии находятся в [DEPLOYMENT.md](../../DEPLOYMENT.md).
 
 - Release: `/home/suite/apps/releases/ux-20261005T074032Z-94a0427`.
 - AMD64 web image: `avtorinok-web:ux-20261005T074032Z-94a0427`.

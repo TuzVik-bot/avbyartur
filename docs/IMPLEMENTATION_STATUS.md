@@ -80,7 +80,7 @@ Project source uploaded to private repository
 Runtime secrets/data, licensed catalog sources and local acceptance artifacts are
 excluded. Statements below about a missing remote describe earlier dated checks.
 
-## Verified deployment — 2 October 2026
+## Historical deployment — 2 October 2026
 
 The complete current source is deployed to the existing closed pilot as
 `pilot-20261002T133421Z`, schema `0021_dealer_feed_policy`. All4serviceshealthy,
