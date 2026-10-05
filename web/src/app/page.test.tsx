@@ -5,11 +5,12 @@ import type { ListingSummary } from "@/lib/types";
 const mocks = vi.hoisted(() => ({
   listings: vi.fn(),
   catalog: vi.fn(),
+  dealers: vi.fn(),
   getSavedListingIds: vi.fn(async () => [] as string[])
 }));
 
 vi.mock("@/lib/server-api", () => ({
-  serverApi: { listings: mocks.listings, catalog: mocks.catalog },
+  serverApi: { listings: mocks.listings, catalog: mocks.catalog, dealers: mocks.dealers },
   getSavedListingIds: mocks.getSavedListingIds
 }));
 vi.mock("next/link", () => ({
@@ -46,8 +47,9 @@ const listing: ListingSummary = {
 };
 
 beforeEach(() => {
-  mocks.listings.mockResolvedValue({ items: [listing] });
+  mocks.listings.mockResolvedValue({ items: [listing], fx: { rate_date: "2026-10-04", usd_rate: "3.0", scale: 1 } });
   mocks.catalog.mockResolvedValue({ items: [] });
+  mocks.dealers.mockResolvedValue({ items: [] });
   mocks.getSavedListingIds.mockResolvedValue([]);
 });
 
@@ -65,5 +67,53 @@ describe("home listing cards", () => {
     const html = renderToStaticMarkup(await HomePage());
 
     expect(html).toContain('data-favorite-saved="true"');
+  });
+
+  it("keeps the agreed home heading and offers a real sell path when the catalogue is empty", async () => {
+    mocks.listings.mockResolvedValueOnce({ items: [] });
+
+    const html = renderToStaticMarkup(await HomePage());
+
+    expect(html).toContain("Найдите свой автомобиль в Беларуси");
+    expect(html).toContain('href="/sell"');
+    expect(html).toContain("Подать объявление");
+  });
+
+  it("searches the real make and model catalog and uses query-backed home collections", async () => {
+    const html = renderToStaticMarkup(await HomePage());
+
+    expect(html).toContain('name="make_id"');
+    expect(html).toContain('name="model_id"');
+    expect(html).toContain('name="price_max"');
+    expect(html).toContain('href="/cars?condition=new"');
+    expect(html).toContain('href="/cars?condition=used"');
+    expect(html).toContain("Марки автомобилей");
+    expect(html).not.toContain("Часто ищут:");
+  });
+
+  it("disables the home price filter when the listings response has no confirmed exchange rate", async () => {
+    mocks.listings.mockResolvedValueOnce({ items: [listing], fx: null });
+
+    const html = renderToStaticMarkup(await HomePage());
+
+    expect(html).toMatch(/<input(?=[^>]*name="price_max")(?=[^>]*disabled=)[^>]*>/);
+    expect(html).toContain("нет подтверждённого курса НБРБ за последние 72 часа");
+  });
+
+  it("keeps the home price filter disabled when the initial listings request fails", async () => {
+    mocks.listings.mockRejectedValueOnce(new Error("temporary catalog failure"));
+
+    const html = renderToStaticMarkup(await HomePage());
+
+    expect(html).toMatch(/<input(?=[^>]*name="price_max")(?=[^>]*disabled=)[^>]*>/);
+    expect(html).toContain("нет подтверждённого курса НБРБ за последние 72 часа");
+    expect(html).toContain("Каталог временно недоступен");
+  });
+
+  it("describes seller contacts without promising public phone reveal", async () => {
+    const html = renderToStaticMarkup(await HomePage());
+
+    expect(html).toContain("Контакты не показываются в публичной выдаче");
+    expect(html).not.toContain("Телефон показывается посетителю по запросу");
   });
 });

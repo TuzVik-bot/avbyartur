@@ -24,7 +24,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="site-header">
+    <header className={`site-header${user && user.role !== "user" ? " staff-header" : ""}`}>
       <div className="header-inner page-width">
         <Link className="brand" href={localizedPath("/")} aria-label={message("header.brandHome")}>
           <span className="brand-mark"><CornflowerMark size={25} /></span>

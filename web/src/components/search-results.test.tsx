@@ -136,6 +136,22 @@ describe("search result controls", () => {
     expect(container.querySelector('[data-listing-id="listing-1"]')?.getAttribute("data-favorite-saved")).toBe("true");
   });
 
+  it("offers a seller path when the catalogue has no results and no filters are active", async () => {
+    await render({});
+
+    const sellCta = container.querySelector('.empty-state a[href="/sell"]');
+    expect(sellCta).not.toBeNull();
+    expect(sellCta?.textContent).toContain("Подать объявление");
+    expect(container.querySelector('.empty-state a[href="/cars"]')).toBeNull();
+  });
+
+  it("offers a filter reset for a query with no matches", async () => {
+    await render({ make_id: "make-1", price_max: "10000" });
+
+    expect(container.querySelector('.empty-state a[href="/cars"]')?.textContent).toContain("Сбросить фильтры");
+    expect(container.querySelector('a[href="/sell"]')).toBeNull();
+  });
+
   it("explains stale currency data and passes disabled price controls", async () => {
     await render({}, false, [], [], false);
 

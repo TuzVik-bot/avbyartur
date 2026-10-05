@@ -3,12 +3,7 @@ import { ApiClientError } from "@/lib/api";
 import { SearchResults } from "@/components/search-results";
 import { getSavedListingIds, serverApi } from "@/lib/server-api";
 import { searchUrl } from "@/lib/search-state";
-import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch, ListingSummary, ListResponse } from "@/lib/types";
-
-type SearchResponse = ListResponse<ListingSummary> & {
-  fx?: { rate_date: string; usd_rate: string; scale: number };
-};
-
+import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch, ListingSearchResponse } from "@/lib/types";
 export async function getCatalogCities(regionsPromise?: Promise<CatalogItem[]>): Promise<CatalogCity[]> {
   const regions = regionsPromise || serverApi.regions().then((result) => result.items);
   const cityGroups = await Promise.all((await regions).map(async (region) => {
@@ -45,7 +40,7 @@ export async function SearchRoute({ search, title, initialCities }: { search: Li
       : Promise.resolve({ items: [] as CatalogModification[] }),
     getSavedListingIds()
   ]);
-  const data: SearchResponse | null = listingsResult.status === "fulfilled" ? listingsResult.value : null;
+  const data: ListingSearchResponse | null = listingsResult.status === "fulfilled" ? listingsResult.value : null;
   const priceSortRequested = search.sort === "price_asc" || search.sort === "price_desc";
   const priceFilterRequested = Boolean(search.price_min || search.price_max);
   const failure = listingsResult.status === "rejected" ? listingsResult.reason : null;

@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { ApiClientError, internalApiBase, searchPath } from "@/lib/api";
 import type { components } from "@/lib/types.generated";
-import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, Report, UserNotificationList } from "@/lib/types";
+import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, Listing, ListingPhoto, ListingSearch, ListingSearchResponse, ListingSummary, ListResponse, Report, UserNotificationList } from "@/lib/types";
 import type { NotificationPreferences } from "@/lib/api";
 
 export async function serverApiRequest<T>(path: string): Promise<T> {
@@ -24,7 +24,7 @@ export async function getSessionServer(): Promise<AuthSession | null> {
 }
 
 export const serverApi = {
-  listings: (search: ListingSearch = {}) => serverApiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
+  listings: (search: ListingSearch = {}) => serverApiRequest<ListingSearchResponse>(searchPath(search).replace("/api/v1/", "")),
   listing: (id: string) => serverApiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   relatedListings: (id: string) => serverApiRequest<{ items: ListingSummary[] }>(`listings/${encodeURIComponent(id)}/related`),
   listingAnalytics: (id: string, options: { dateFrom?: string; dateTo?: string } = {}) => {

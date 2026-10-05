@@ -2,15 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart } from "lucide-react";
+import { Heart, ImageOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { api, ApiClientError } from "@/lib/api";
 import { formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import type { ListingSummary } from "@/lib/types";
-
-const fallbackPhoto = "/vehicles/silver-wagon.png";
 
 function listingImageSizes(variant: "grid" | "row") {
   if (variant === "row") return "(max-width: 520px) 118px, 220px";
@@ -19,16 +17,14 @@ function listingImageSizes(variant: "grid" | "row") {
 
 export function ListingCard({ listing, variant = "grid", saved = false }: { listing: ListingSummary; variant?: "grid" | "row"; saved?: boolean }) {
   const href = listingHref(listing);
-  const photo = listing.photo_urls?.find(Boolean) || listing.cover_url || fallbackPhoto;
-  const hasActualPhoto = Boolean(listing.photo_urls?.some(Boolean) || listing.cover_url);
+  const photo = listing.photo_urls?.find(Boolean) || listing.cover_url || null;
   const title = listing.title || [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ") || "Автомобиль без названия";
   return (
     <article className={`listing-card ${variant === "row" ? "listing-row" : ""}`}>
       <div className="listing-card-media">
-        <Link href={href} aria-label={`Открыть объявление ${title}`}>
-          <Image src={photo} alt={hasActualPhoto ? `Фотография: ${title}` : `Синтетическое изображение для объявления «${title}»`} width={900} height={563} sizes={listingImageSizes(variant)} unoptimized priority={false} />
+        <Link className="listing-card-photo-link" href={href} aria-label={`Открыть объявление ${title}`}>
+          {photo ? <Image src={photo} alt={`Фотография: ${title}`} width={900} height={563} sizes={listingImageSizes(variant)} unoptimized priority={false} /> : <span className="photo-placeholder" role="img" aria-label="Фото не добавлено"><ImageOff size={25} aria-hidden="true" /><span>Фото не добавлено</span></span>}
         </Link>
-        {!hasActualPhoto && <span className="synthetic-label">Синтетическое фото</span>}
         <FavoriteButton listingId={listing.id} href={href} initialSaved={saved} />
       </div>
       <div className="card-body">

@@ -64,6 +64,12 @@ async function clickContinue() {
   await act(async () => { button.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
 }
 
+async function clickStep(step: number) {
+  const button = container.querySelector<HTMLButtonElement>(`nav[aria-label="Этапы подачи объявления"] button[aria-label^="Шаг ${step}:"]`);
+  if (!button) throw new Error(`Missing form step: ${step}`);
+  await act(async () => { button.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+}
+
 async function clickButton(text: string) {
   const button = [...container.querySelectorAll<HTMLButtonElement>("button")]
     .find((item) => item.textContent?.includes(text));
@@ -537,7 +543,7 @@ describe("manual vehicle entry", () => {
     expect(modelSelect?.querySelector('option[value="model-a"]')).toBeNull();
   });
 
-  it("exposes the current form step as a progress bar", async () => {
+  it("exposes all six named form steps and marks the current step", async () => {
     const createDraft = vi.spyOn(api, "createDraft").mockResolvedValue({ listing: draft() });
     await act(async () => {
       root.render(createElement(SellForm, {
@@ -545,14 +551,42 @@ describe("manual vehicle entry", () => {
       }));
     });
 
-    const progress = container.querySelector<HTMLElement>('[role="progressbar"]');
-    expect(progress?.getAttribute("aria-valuenow")).toBe("1");
-    expect(progress?.getAttribute("aria-valuetext")).toBe("Шаг 1 из 6");
+    const navigation = container.querySelector<HTMLElement>('nav[aria-label="Этапы подачи объявления"]');
+    const buttons = [...(navigation?.querySelectorAll<HTMLButtonElement>("button") || [])];
+    expect(buttons).toHaveLength(6);
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Шаг 1: Продавец и предложение",
+      "Шаг 2: Автомобиль и характеристики",
+      "Шаг 3: Состояние и описание",
+      "Шаг 4: Цена, расположение и контакт",
+      "Шаг 5: Фотографии",
+      "Шаг 6: Проверьте объявление"
+    ]);
+    expect(buttons[0].getAttribute("aria-current")).toBe("step");
+    expect(buttons[1].disabled).toBe(true);
     await clickContinue();
-    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("2");
+    expect(container.querySelector('nav[aria-label="Этапы подачи объявления"] button[aria-current="step"]')?.getAttribute("aria-label")).toBe("Шаг 2: Автомобиль и характеристики");
     expect(document.activeElement).toBe(container.querySelector("h2"));
     expect(container.querySelector('[role="status"][aria-live="polite"]')?.textContent).toBe("Шаг 2 из 6");
     expect(createDraft).toHaveBeenCalledOnce();
+  });
+
+  it("allows revisiting reached steps and keeps future steps locked", async () => {
+    await renderWithValidationPolicy(draft({ contact_phone: "+375291234567" }));
+    await clickContinue();
+    await clickContinue();
+
+    const buttonFor = (step: number) => container.querySelector<HTMLButtonElement>(`nav[aria-label="Этапы подачи объявления"] button[aria-label^="Шаг ${step}:"]`);
+    expect(container.querySelector('nav[aria-label="Этапы подачи объявления"] button[aria-current="step"]')?.getAttribute("aria-label")).toBe("Шаг 3: Состояние и описание");
+    expect(buttonFor(3)?.disabled).toBe(false);
+    expect(buttonFor(4)?.disabled).toBe(true);
+
+    await clickStep(1);
+    expect(container.querySelector('nav[aria-label="Этапы подачи объявления"] button[aria-current="step"]')?.getAttribute("aria-label")).toBe("Шаг 1: Продавец и предложение");
+    expect(buttonFor(3)?.disabled).toBe(false);
+    await clickStep(3);
+    expect(container.querySelector("h2")?.textContent).toBe("Состояние и описание");
+    expect(buttonFor(4)?.disabled).toBe(true);
   });
 
   it("rejects non-integer and out-of-range mileage at the field before saving", async () => {
@@ -600,7 +634,7 @@ describe("manual vehicle entry", () => {
     await act(async () => { inputValue("Пробег, км", "0"); });
     await clickContinue();
     expect(updateDraft).toHaveBeenCalledOnce();
-    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("3");
+    expect(container.querySelector('nav[aria-label="Этапы подачи объявления"] button[aria-current="step"]')?.getAttribute("aria-label")).toBe("Шаг 3: Состояние и описание");
     expect(createDraft).toHaveBeenCalledOnce();
   });
 

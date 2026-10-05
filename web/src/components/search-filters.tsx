@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Filter, SlidersHorizontal } from "lucide-react";
+import { Filter, SlidersHorizontal, X } from "lucide-react";
 import { api } from "@/lib/api";
 import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch } from "@/lib/types";
 
@@ -25,6 +25,7 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
 }) {
   const initialRegionId = search.region_id || initialCities.find((city) => city.id === search.city_id)?.region_id || "";
   const [open, setOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [makeId, setMakeId] = useState(search.make_id || "");
   const [modelId, setModelId] = useState(search.model_id || "");
   const [generationId, setGenerationId] = useState(search.generation_id || "");
@@ -54,6 +55,68 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
   const firstGenerationModelId = useRef<string | undefined>(initialGenerations !== undefined && (!search.generation_id || initialGenerations.some((item) => item.id === search.generation_id)) ? search.model_id || "" : undefined);
   const firstRegionId = useRef<string | undefined>(initialRegionId && initialCities.some((city) => city.region_id === initialRegionId) ? initialRegionId : undefined);
   const firstGenerationId = useRef<string | undefined>(search.generation_id || "");
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+  const filterCloseRef = useRef<HTMLButtonElement>(null);
+  const mobileDialogWasOpen = useRef(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 800px)");
+    const updateViewport = () => {
+      setIsMobileViewport(media.matches);
+      if (!media.matches) setOpen(false);
+    };
+    updateViewport();
+    media.addEventListener?.("change", updateViewport);
+    return () => media.removeEventListener?.("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileViewport || !open) {
+      if (mobileDialogWasOpen.current) {
+        mobileDialogWasOpen.current = false;
+        filterTriggerRef.current?.focus();
+      }
+      return;
+    }
+
+    mobileDialogWasOpen.current = true;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    filterCloseRef.current?.focus();
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isMobileViewport, open]);
+
+  useEffect(() => {
+    if (!isMobileViewport || !open) return;
+    function onDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = filterPanelRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!filterPanelRef.current?.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onDialogKeyDown);
+    return () => document.removeEventListener("keydown", onDialogKeyDown);
+  }, [isMobileViewport, open]);
 
   useEffect(() => {
     firstMakeId.current = search.model_id && !initialModels.some((item) => item.id === search.model_id) ? undefined : search.make_id || "";
@@ -237,43 +300,96 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
     setModificationsLoading(Boolean(nextGenerationId));
   }
 
+  const primarySearchKeys = new Set(["make_id", "model_id", "price_min", "price_max", "year_min", "year_max", "region_id", "city_id", "currency", "q", "sort", "page", "page_size"]);
+  const advancedFiltersSelected = Object.entries(search).some(([key, value]) => !primarySearchKeys.has(key) && (Array.isArray(value) ? value.length > 0 : Boolean(value)));
+
   return (
-    <aside aria-label="Фильтры поиска">
-      <button className="button button-secondary filter-toggle" type="button" aria-expanded={open} aria-controls="search-filter-panel" onClick={() => setOpen(!open)}>
+    <aside className="search-filter-area" aria-label="Фильтры поиска">
+      <button ref={filterTriggerRef} className="button button-secondary filter-toggle" type="button" aria-expanded={open} aria-controls="search-filter-panel" onClick={() => setOpen(!open)}>
         <SlidersHorizontal size={17} /> Фильтры <Filter size={15} />
       </button>
-      <div id="search-filter-panel" className={`filter-panel ${open ? "is-open" : ""}`}>
-        <h2>Параметры поиска</h2>
+      {isMobileViewport && open && <button className="filter-backdrop" type="button" aria-label="Закрыть фильтры" tabIndex={-1} onClick={() => setOpen(false)} />}
+      <div
+        ref={filterPanelRef}
+        id="search-filter-panel"
+        className={`filter-panel ${open ? "is-open" : ""}`}
+        role={isMobileViewport ? "dialog" : "region"}
+        aria-label="Параметры поиска"
+        aria-modal={isMobileViewport && open ? "true" : undefined}
+        aria-hidden={isMobileViewport && !open ? "true" : undefined}
+        hidden={isMobileViewport && !open}
+      >
+        <header className="filter-panel-header">
+          <div><p className="eyebrow">Подберите автомобиль</p><h2>Параметры поиска</h2></div>
+          <button ref={filterCloseRef} className="icon-button filter-close" type="button" aria-label="Закрыть фильтры" onClick={() => setOpen(false)}><X size={20} /></button>
+        </header>
         <form key={JSON.stringify(search)} action="/cars" method="get" className="filter-grid">
-          <label className="field filter-wide">
-            <span>Марка</span>
-            <select name="make_id" value={makeId} onChange={(event) => {
-              setMakeId(event.target.value);
-              setModelId("");
-              changeGeneration("");
-              setModels([]);
-              setGenerations([]);
-            }}>
-              <option value="">Любая марка</option>
-              {makeId && !makes.some((item) => item.id === makeId) && <option value={makeId}>Марка выбрана</option>}
-              {makes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          </label>
-          <div className="filter-wide">
-            <label className="field">
-              <span>Модель</span>
-              <select name="model_id" value={modelId} onChange={(event) => {
-                setModelId(event.target.value);
+          <div className="filter-primary">
+            <label className="field filter-wide">
+              <span>Марка</span>
+              <select name="make_id" value={makeId} onChange={(event) => {
+                setMakeId(event.target.value);
+                setModelId("");
                 changeGeneration("");
+                setModels([]);
                 setGenerations([]);
-              }} disabled={(modelsLoading && !modelId) || (!models.length && !modelId)} aria-busy={modelsLoading} aria-describedby={modelsError ? "model-catalog-status" : undefined}>
-                <option value="">{!makeId ? "Любая модель" : modelsLoading ? "Загрузка моделей…" : modelsError ? "Модели временно недоступны" : models.length ? "Любая модель" : "Нет доступных моделей"}</option>
-                {modelId && !models.some((item) => item.id === modelId) && <option value={modelId}>Модель выбрана</option>}
-                {models.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              }}>
+                <option value="">Любая марка</option>
+                {makeId && !makes.some((item) => item.id === makeId) && <option value={makeId}>Марка выбрана</option>}
+                {makes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </label>
-            {modelsError && <p className="catalog-error muted" id="model-catalog-status" role="status">Не удалось загрузить модели. <button className="button button-secondary button-small" type="button" onClick={() => setModelsRetry((attempt) => attempt + 1)}>Повторить</button></p>}
+            <div className="filter-wide">
+              <label className="field">
+                <span>Модель</span>
+                <select name="model_id" value={modelId} onChange={(event) => {
+                  setModelId(event.target.value);
+                  changeGeneration("");
+                  setGenerations([]);
+                }} disabled={(modelsLoading && !modelId) || (!models.length && !modelId)} aria-busy={modelsLoading} aria-describedby={modelsError ? "model-catalog-status" : undefined}>
+                  <option value="">{!makeId ? "Любая модель" : modelsLoading ? "Загрузка моделей…" : modelsError ? "Модели временно недоступны" : models.length ? "Любая модель" : "Нет доступных моделей"}</option>
+                  {modelId && !models.some((item) => item.id === modelId) && <option value={modelId}>Модель выбрана</option>}
+                  {models.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </label>
+              {modelsLoading && <p className="catalog-error muted" id="model-catalog-status" role="status">Загружаем модели из каталога…</p>}
+              {modelsError && <p className="catalog-error muted" id="model-catalog-status" role="status">Не удалось загрузить модели. <button className="button button-secondary button-small" type="button" onClick={() => setModelsRetry((attempt) => attempt + 1)}>Повторить</button></p>}
+            </div>
+            <fieldset className="filter-wide" disabled={!priceOperationsAvailable}>
+              <legend className="field-label">Цена, BYN</legend>
+              <div className="range-fields">
+                <input name="price_min" inputMode="numeric" type="number" min="1" aria-label="Цена от, BYN" placeholder="От" defaultValue={search.price_min || ""} />
+                <input name="price_max" inputMode="numeric" type="number" min="1" aria-label="Цена до, BYN" placeholder="До" defaultValue={search.price_max || ""} />
+              </div>
+            </fieldset>
+            <fieldset className="filter-wide">
+              <legend className="field-label">Год выпуска</legend>
+              <div className="range-fields">
+                <input name="year_min" inputMode="numeric" type="number" min="1886" aria-label="Год от" placeholder="От" defaultValue={search.year_min || ""} />
+                <input name="year_max" inputMode="numeric" type="number" min="1886" aria-label="Год до" placeholder="До" defaultValue={search.year_max || ""} />
+              </div>
+            </fieldset>
+            <label className="field">
+              <span>Область</span>
+              <select name="region_id" value={regionId} onChange={(event) => {
+                setRegionId(event.target.value);
+                setCityId("");
+                setCities([]);
+              }}><option value="">Вся Беларусь</option>{regionId && !regions.some((item) => item.id === regionId) && <option value={regionId}>Область выбрана</option>}{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+            </label>
+            <div className="field">
+              <label htmlFor="search-city">Город</label>
+              <select id="search-city" name="city_id" value={cityId} onChange={(event) => setCityId(event.target.value)} disabled={!cities.length && !cityId} aria-busy={citiesLoading} aria-describedby={citiesError ? "city-catalog-status" : undefined}>
+                <option value="">{citiesLoading ? "Загрузка городов…" : cityId && citiesError ? "Города временно недоступны" : "Любой город"}</option>
+                {cityId && !cities.some((item) => item.id === cityId) && <option value={cityId}>Город выбран</option>}
+                {cities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              {citiesError && <p className="catalog-error muted" id="city-catalog-status" role="status">Не удалось загрузить города. <button className="button button-secondary button-small" type="button" onClick={() => setCitiesRetry((attempt) => attempt + 1)}>Повторить</button></p>}
+            </div>
           </div>
+          <details className="filter-advanced" open={advancedFiltersSelected}>
+            <summary>Дополнительные параметры</summary>
+            <div className="filter-advanced-grid">
           <div className="filter-wide">
             <label className="field">
               <span>Поколение</span>
@@ -311,23 +427,6 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <label className="field"><span>Таможенный статус</span><select name="customs_status" defaultValue={search.customs_status || ""}><option value="">Любой</option><option value="cleared_rb">Оформлен в РБ</option><option value="eaeu_import">Ввезён из ЕАЭС</option><option value="uncleared">Не растаможен</option><option value="unknown">Не указан</option></select></label>
           <label className="field"><span>Техническое состояние</span><select name="technical_condition" defaultValue={search.technical_condition || ""}><option value="">Любое</option><option value="good">Исправен</option><option value="needs_repair">Требует ремонта</option><option value="non_operational">Не на ходу</option></select></label>
           <label className="field"><span>Состояние кузова</span><select name="body_condition" defaultValue={search.body_condition || ""}><option value="">Любое</option><option value="good">Без заметных повреждений</option><option value="minor_damage">Есть небольшие повреждения</option><option value="significant_damage">Есть серьёзные повреждения</option><option value="repaired">Был в ремонте</option></select></label>
-          <fieldset className="filter-wide" disabled={!priceOperationsAvailable}>
-            <legend className="field-label">Цена, BYN</legend>
-            <div className="range-fields">
-              <input name="price_min" inputMode="numeric" type="number" min="1" aria-label="Цена от, BYN" placeholder="От" defaultValue={search.price_min || ""} />
-              <input name="price_max" inputMode="numeric" type="number" min="1" aria-label="Цена до, BYN" placeholder="До" defaultValue={search.price_max || ""} />
-            </div>
-          </fieldset>
-          <input type="hidden" name="currency" value={search.currency || "BYN"} />
-          {search.q && <input type="hidden" name="q" value={search.q} />}
-          {search.sort && <input type="hidden" name="sort" value={search.sort} />}
-          <fieldset className="filter-wide">
-            <legend className="field-label">Год выпуска</legend>
-            <div className="range-fields">
-              <input name="year_min" inputMode="numeric" type="number" min="1886" aria-label="Год от" placeholder="От" defaultValue={search.year_min || ""} />
-              <input name="year_max" inputMode="numeric" type="number" min="1886" aria-label="Год до" placeholder="До" defaultValue={search.year_max || ""} />
-            </div>
-          </fieldset>
           <fieldset className="filter-wide">
             <legend className="field-label">Пробег, км</legend>
             <div className="range-fields">
@@ -341,20 +440,6 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <label className="field"><span>Коробка</span><select name="transmission" defaultValue={search.transmission || ""}><option value="">Любая</option><option value="manual">Механика</option><option value="automatic">Автомат</option><option value="robot">Робот</option><option value="cvt">Вариатор</option><option value="other">Другое</option></select></label>
           <label className="field"><span>Привод</span><select name="drive" defaultValue={search.drive || ""}><option value="">Любой</option><option value="front">Передний</option><option value="rear">Задний</option><option value="all">Полный</option><option value="other">Другое</option></select></label>
           <label className="field"><span>Состояние</span><select name="condition" defaultValue={search.condition || ""}><option value="">Любое</option><option value="new">Новый</option><option value="used">С пробегом</option></select></label>
-          <label className="field"><span>Область</span><select name="region_id" value={regionId} onChange={(event) => {
-            setRegionId(event.target.value);
-            setCityId("");
-            setCities([]);
-          }}><option value="">Вся Беларусь</option>{regionId && !regions.some((item) => item.id === regionId) && <option value={regionId}>Область выбрана</option>}{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-          <div className="field">
-            <label htmlFor="search-city">Город</label>
-            <select id="search-city" name="city_id" value={cityId} onChange={(event) => setCityId(event.target.value)} disabled={!cities.length && !cityId} aria-busy={citiesLoading} aria-describedby={citiesError ? "city-catalog-status" : undefined}>
-              <option value="">{citiesLoading ? "Загрузка городов…" : cityId && citiesError ? "Города временно недоступны" : "Любой город"}</option>
-              {cityId && !cities.some((item) => item.id === cityId) && <option value={cityId}>Город выбран</option>}
-              {cities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-            {citiesError && <p className="catalog-error muted" id="city-catalog-status" role="status">Не удалось загрузить города. <button className="button button-secondary button-small" type="button" onClick={() => setCitiesRetry((attempt) => attempt + 1)}>Повторить</button></p>}
-          </div>
           <label className="field filter-wide"><span>Продавец</span><select name="seller_type" defaultValue={search.seller_type || ""}><option value="">Любой продавец</option><option value="private">Частное лицо</option><option value="company">Компания</option></select></label>
           <label className="check-field filter-wide"><input type="checkbox" name="damaged" value="true" defaultChecked={search.damaged === "true"} /> Есть повреждения</label>
           <label className="check-field filter-wide"><input type="checkbox" name="parts_only" value="true" defaultChecked={search.parts_only === "true"} /> На запчасти</label>
@@ -367,8 +452,16 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <label className="field filter-wide"><span>Комплектация</span><select name="equipment" multiple size={5} defaultValue={search.equipment || []}><option value="abs">ABS</option><option value="esp">ESP</option><option value="airbags">Подушки безопасности</option><option value="air_conditioning">Кондиционер</option><option value="climate_control">Климат-контроль</option><option value="heated_seats">Подогрев сидений</option><option value="cruise_control">Круиз-контроль</option><option value="parking_sensors">Парктроники</option><option value="rear_camera">Камера заднего вида</option><option value="leather_seats">Кожаный салон</option><option value="carplay">Apple CarPlay</option><option value="android_auto">Android Auto</option></select><small className="muted">Можно выбрать несколько значений.</small></label>
           <label className="field"><span>Район</span><input name="district" maxLength={120} defaultValue={search.district || ""} /></label>
           <label className="field"><span>Время звонков</span><input name="call_hours" maxLength={80} defaultValue={search.call_hours || ""} /></label>
+            </div>
+          </details>
+          <input type="hidden" name="currency" value={search.currency || "BYN"} />
+          {search.q && <input type="hidden" name="q" value={search.q} />}
+          {search.sort && <input type="hidden" name="sort" value={search.sort} />}
           <input type="hidden" name="page_size" value={search.page_size || "25"} />
-          <div className="filter-wide"><button className="button button-primary" type="submit">Показать автомобили</button></div>
+          <div className="filter-actions">
+            <a className="button button-secondary filter-reset" href="/cars">Сбросить</a>
+            <button className="button button-primary filter-apply" type="submit">Показать автомобили</button>
+          </div>
         </form>
       </div>
     </aside>

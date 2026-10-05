@@ -1,4 +1,5 @@
 import { act, createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LoginForm } from "@/components/login-form";
@@ -62,6 +63,13 @@ const session: AuthSession = {
 };
 
 describe("login form", () => {
+  it("uses POST and keeps password submission disabled until hydration", () => {
+    const html = renderToStaticMarkup(createElement(LoginForm, { nextPath: "/sell" }));
+
+    expect(html).toContain('<form method="post">');
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*disabled=""/);
+  });
+
   it("sets the session, safely returns to the requested path, and refreshes", async () => {
     const login = vi.spyOn(api, "login").mockResolvedValue(session);
     render("/account/listings?status=draft#latest");

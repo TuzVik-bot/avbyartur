@@ -178,6 +178,10 @@ export type ListResponse<T> = {
   pagination?: { page: number; page_size: number; total: number; pages: number };
 };
 
+export type ListingSearchResponse = ListResponse<ListingSummary> & {
+  fx?: components["schemas"]["ListingFxOut"] | null;
+};
+
 export type Company = Omit<components["schemas"]["PrivateCompanyOut"], "status"> & {
   status: "pending" | "approved" | "rejected" | "blocked";
 };

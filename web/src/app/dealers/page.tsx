@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowRight, Building2 } from "lucide-react";
@@ -39,7 +40,7 @@ export default async function DealersPage({ searchParams }: { searchParams: Prom
   const page = Math.min(data?.pagination?.page ?? requestedPage, pageCount);
   return (
     <div className="page-width">
-      <header className="page-head"><p className="eyebrow">Автокомпании</p><h1>Компании и дилеры</h1><p>Автомобили от продавцов, допущенных к пилоту.</p></header>
+      <header className="page-head page-head-with-visual"><div><p className="eyebrow">Автокомпании</p><h1>Компании и дилеры</h1><p>Автомобили от продавцов, допущенных к пилоту.</p></div><Image src="/design/dealers.webp" alt="Автомобили у светлого автосалона" width={1200} height={800} sizes="(max-width: 640px) 100vw, 42vw" /></header>
       {!data ? <div className="notice" role="alert"><p>Список компаний временно недоступен.</p><Link className="button button-secondary button-small" href="/dealers?retry=1">Повторить загрузку</Link></div> : data.items.length ? (
         <section className="dealer-directory" aria-labelledby="dealer-directory-title"><h2 id="dealer-directory-title" className="sr-only">Компании, допущенные к пилоту</h2><div className="dealer-grid">{data.items.map((company) => <article className="dealer-card" key={company.id}>
           <div className="dealer-topline"><h2><Link href={`/dealers/${encodeURIComponent(company.slug)}`}>{company.name}</Link></h2><Building2 size={19} aria-hidden="true" /></div>
