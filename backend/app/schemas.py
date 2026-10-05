@@ -43,6 +43,7 @@ class CatalogItemOut(BaseModel):
     model_id: UUID | None = None
     year_from: int | None = None
     year_to: int | None = None
+    listing_count: int | None = None
 
 
 class ListingForm(BaseModel):

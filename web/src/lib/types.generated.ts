@@ -2795,6 +2795,8 @@ export interface components {
             year_from?: number | null;
             /** Year To */
             year_to?: number | null;
+            /** Listing Count */
+            listing_count?: number | null;
         };
         /** CatalogItemsOut */
         CatalogItemsOut: {

@@ -10,6 +10,7 @@ export type CatalogItem = {
   generation_id?: string;
   year_from?: number | null;
   year_to?: number | null;
+  listing_count?: number | null;
 };
 
 export type CatalogModification = CatalogItem & {

@@ -59,6 +59,15 @@ describe("home listing cards", () => {
     });
   });
 
+  it("renders the makes directory with counters from the catalog", async () => {
+    mocks.catalog.mockResolvedValueOnce({ items: [{ id: "make-1", slug: "audi", name: "Audi", aliases: [], listing_count: 4 }] });
+
+    const html = renderToStaticMarkup(await HomePage());
+
+    expect(html).toContain("Авто с пробегом по маркам");
+    expect(html).toContain('<span class="makes-count">4</span>');
+  });
+
   it("marks saved listings as favorites", async () => {
     mocks.getSavedListingIds.mockResolvedValueOnce([listing.id]);
 

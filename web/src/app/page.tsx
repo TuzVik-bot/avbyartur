@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Search } from "lucide-react";
 import { ListingCard } from "@/components/listing-card";
+import { MakesDirectory } from "@/components/makes-directory";
 import { getSavedListingIds, serverApi } from "@/lib/server-api";
 import { DEFAULT_LOCALE, getMessage } from "@/lib/i18n";
 import { localeMetadata } from "@/lib/site-config";
@@ -42,6 +43,7 @@ export default async function HomePage() {
         </div>
       </section>
       <CategoryNavigation />
+      <MakesDirectory makes={makes} />
       <section className="page-width section home-listings">
         <div className="section-heading"><h2>Новые объявления</h2><Link className="text-link" href="/cars">Все предложения <ArrowRight size={16} /></Link></div>
         {failed && <p className="notice" role="status">Каталог временно недоступен. Обновите страницу чуть позже.</p>}
