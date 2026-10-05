@@ -48,6 +48,13 @@ available. No release, VPS migration, article publication, or production data
 change has occurred. Keep the current pilot access mode, account authentication
 and `noindex` boundary.
 
+After the push, a read-only HTTPS smoke returned 200 for `/` and `/cars`, 404
+for `/trucks`, `/buses`, `/motorcycles`, `/special-equipment`,
+`/agricultural-equipment`, `/trailers`, `/watercraft`, `/parts`, `/wheels`,
+`/tires`, `/useful-information`, `/vin-check` and `/financing`, and 401 for
+unauthenticated `/api/v1/me`. All checked paths retained `noindex`; this
+confirms the new branch is not yet the active release.
+
 ## GitHub — 4 October 2026
 
 Project source uploaded to private repository
