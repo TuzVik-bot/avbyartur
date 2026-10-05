@@ -37,9 +37,11 @@ disposable PostgreSQL database inside the isolated Colima network. The runner
 used the existing backend test image and the host venv's installed `urllib3`,
 which was missing from that image; two third-party deprecation warnings remain.
 
-The user explicitly requested push and deployment on 5 October. Neither has
-completed: the fresh HTTPS SSH check returned `Permission denied` and the GitHub
-remote lookup could not resolve `github.com`. No release, VPS migration, article
+The user explicitly requested push and deployment on 5 October. Commit
+`809cd10` and the feature branch are pushed to private origin; `origin/main` was
+verified at that commit before this status-only follow-up. Deployment remains
+blocked: the fresh SSH check returned `Permission denied (publickey,password)`
+and `ssh-add -l` found no identities. No release, VPS migration, article
 publication, or production data change has occurred. Keep the current pilot
 access mode, account authentication and `noindex` boundary.
 
