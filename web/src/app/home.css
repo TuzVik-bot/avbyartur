@@ -26,7 +26,7 @@
 .search-strip { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, 220px) auto; gap: 8px; padding: 8px; border: 1px solid #d8e1f0; border-radius: var(--radius); background: var(--surface); box-shadow: 0 12px 30px rgba(36, 58, 104, .1); }
 .home-search {
   width: 100%;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(130px, .85fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
   gap: 10px;
   padding: 13px;
@@ -38,7 +38,7 @@
 .home-search .field { gap: 6px; }
 .home-search .field > span { color: #485166; font-size: 12px; }
 .home-search .field input, .home-search .field select { min-height: 48px; border-color: #c8cfdb; border-radius: 8px; }
-.home-search .home-search-button { min-height: 48px; min-width: 116px; border-radius: 8px; }
+.home-search .home-search-button { grid-column: 1 / -1; min-height: 48px; min-width: 0; border-radius: 8px; }
 .home-search .home-model-error, .home-search .home-price-note { grid-column: 1 / -1; margin: 0; color: #8c2933; font-size: 13px; }
 .home-search-button { min-width: 140px; color: #fff; background: var(--accent); }
 .home-search-button:hover { color: #fff; background: var(--accent-dark); }
@@ -99,13 +99,12 @@
   .home-hero-inner { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "copy" "search" "visual"; gap: 20px; min-height: 0; padding-block: 30px; }
   .home-hero-copy { max-width: 760px; }
   .home-hero-visual { min-height: clamp(240px, 46vw, 390px); }
-  .home-search { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-search .home-search-button { width: 100%; }
   .home-seller-grid { grid-template-columns: minmax(0, 1fr); }
   .home-seller-visual { grid-row: 1; }
   .home-seller-visual img { max-height: 340px; }
 }
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .home-hero-inner { gap: 17px; padding-block: 25px; }
   .home-title { font-size: clamp(33px, 9vw, 42px); }
   .home-lead { margin-top: 10px; font-size: 16px; }

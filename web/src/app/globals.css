@@ -564,10 +564,16 @@ h3 { font-size: 17px; margin-bottom: 8px; }
   .home-search-button { grid-column: 1 / -1; }
 }
 
+@media (max-width: 720px) {
+  .home-search { grid-template-columns: minmax(0,1fr); }
+  .home-search .search-query, .home-search .search-range,
+  .home-search-count, .home-search-button { grid-column: 1 / -1; }
+}
+
 @media (max-width: 520px) {
-  .home-search { grid-template-columns: 1fr 1fr; gap: 7px; }
+  .home-search { grid-template-columns: minmax(0,1fr); gap: 9px; }
   .home-search .search-query, .home-search-count, .home-search-button { grid-column: 1 / -1; }
-  .home-search .search-range { grid-column: span 2; }
+  .home-search .search-range { grid-column: 1 / -1; }
   .home-search .field input, .home-search .field select { font-size: 14px; }
   .results-toolbar-actions { width: 100%; justify-content: stretch; flex-direction: column; align-items: stretch; }
   .results-toolbar-actions > form { width: 100%; }
