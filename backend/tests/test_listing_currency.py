@@ -234,6 +234,40 @@ def test_shared_public_search_matcher_uses_catalog_alias_and_converted_price(int
         ) is False
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("manual_make", "Rare Manual Make"),
+        ("manual_model", "Unlisted Model"),
+        ("generation_name_snapshot", "Generation Legacy X"),
+    ],
+)
+def test_public_search_and_saved_search_share_legacy_text_fields(integration, field, value):
+    from app.notification_service import saved_search_matches
+
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        owner = add_owner(db)
+        listing = add_listing(db, owner, "18000.00", "BYN")
+        setattr(listing, field, value)
+        db.commit()
+
+        response = integration["client"].get("/api/v1/listings", params={"q": value})
+        count = integration["client"].get("/api/v1/listings/count", params={"q": value})
+        saved_search = SavedSearch(
+            user_id=owner.id,
+            name="Legacy text search",
+            search_url=f"/cars?q={value.replace(' ', '+')}",
+            filters={"q": value},
+        )
+
+        assert response.status_code == 200, response.text
+        assert count.status_code == 200, count.text
+        assert response.json()["pagination"]["total"] == 1
+        assert count.json() == {"total": 1}
+        assert saved_search_matches(db, saved_search, listing) is True
+
+
 def test_year_and_mileage_sort_put_unknown_values_last(integration):
     factory = integration["SessionLocal"]
     with factory() as db:

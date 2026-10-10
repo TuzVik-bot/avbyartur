@@ -1,6 +1,7 @@
 """Category boundaries across public search, subscriptions and dealer feeds."""
 
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,13 +17,20 @@ from app.main import app
 from app.notification_service import saved_search_email_content, saved_search_matches
 
 
-def test_old_saved_search_matches_only_cars_even_without_filters():
+def test_old_saved_search_matches_only_cars_even_without_filters(monkeypatch):
+    catalog_matches = Mock(return_value=True)
+    monkeypatch.setattr("app.notification_service.listing_matches_public_search", catalog_matches)
     saved = SimpleNamespace(filters={})
-    assert saved_search_matches(None, saved, models.Listing(category_code="cars"))
-    assert not saved_search_matches(None, saved, models.Listing(category_code="tires"))
+    cars = models.Listing(category_code="cars")
+    tires = models.Listing(category_code="tires")
+    assert saved_search_matches(None, saved, cars)
+    assert not saved_search_matches(None, saved, tires)
+    catalog_matches.assert_called_once_with(None, {"category_code": "cars"}, cars)
 
 
-def test_non_car_saved_search_matches_only_its_category_and_details():
+def test_non_car_saved_search_matches_only_its_category_and_details(monkeypatch):
+    catalog_matches = Mock(return_value=True)
+    monkeypatch.setattr("app.notification_service.listing_matches_public_search", catalog_matches)
     saved = SimpleNamespace(filters={"category_code": "tires", "details": {"width_mm": 205, "season": "winter"}})
     matching = models.Listing(category_code="tires")
     matching.category_details = models.ListingCategoryDetails(category_code="tires", details={"width_mm": 205, "season": "winter"})
@@ -30,6 +38,7 @@ def test_non_car_saved_search_matches_only_its_category_and_details():
     assert not saved_search_matches(None, saved, models.Listing(category_code="cars"))
     matching.category_details.details = {"width_mm": 215, "season": "winter"}
     assert not saved_search_matches(None, saved, matching)
+    catalog_matches.assert_called_once_with(None, {"category_code": "tires"}, matching)
 
 
 def test_saved_search_category_url_and_filter_contract():

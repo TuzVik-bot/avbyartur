@@ -5,16 +5,16 @@ import { HomeSearch } from "@/components/home-search";
 import { api } from "@/lib/api";
 import type { CatalogItem } from "@/lib/types";
 
-const makeA: CatalogItem = { id: "make-a", slug: "make-a", name: "Марка A" };
-const makeB: CatalogItem = { id: "make-b", slug: "make-b", name: "Марка B" };
-const modelA: CatalogItem = { id: "model-a", slug: "model-a", name: "Модель A", make_id: makeA.id };
-const modelB: CatalogItem = { id: "model-b", slug: "model-b", name: "Модель B", make_id: makeB.id };
+const make: CatalogItem = { id: "make-1", slug: "make", name: "Марка" };
+const model: CatalogItem = { id: "model-1", slug: "model", name: "Модель", make_id: make.id };
+const region: CatalogItem = { id: "region-1", slug: "region", name: "Минская область" };
 
 let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.useFakeTimers();
   container = document.createElement("div");
   document.body.append(container);
   act(() => { root = createRoot(container); });
@@ -23,125 +23,124 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
-function chooseMake(id: string) {
-  const select = container.querySelector<HTMLSelectElement>('select[name="make_id"]')!;
-  select.value = id;
-  select.dispatchEvent(new Event("change", { bubbles: true }));
+function change(name: string, value: string) {
+  const field = container.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`);
+  if (!field) throw new Error(`Missing field ${name}`);
+  act(() => {
+    field.value = value;
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 }
 
 describe("home search", () => {
-  it("loads models for the selected make and submits make, model, and maximum price", async () => {
-    const catalog = vi.spyOn(api, "catalog").mockImplementation(async (kind, params = {}) =>
-      kind === "models" && params.make_id === makeA.id ? { items: [modelA] } : { items: [] }
-    );
+  it("submits the quick filters and counts matching listings after a 300ms debounce", async () => {
+    const count = vi.spyOn(api, "listingCount").mockResolvedValue({ total: 42 });
+    vi.spyOn(api, "catalog").mockResolvedValue({ items: [model] });
+    await act(async () => root.render(createElement(HomeSearch, { makes: [make], regions: [region], bodyTypes: [{ id: "sedan-id", slug: "sedan", name: "Седан" }] })));
 
-    await act(async () => root.render(createElement(HomeSearch, { makes: [makeA], priceOperationsAvailable: true })));
-    await act(async () => { chooseMake(makeA.id); await Promise.resolve(); });
+    change("q", "BMW");
+    change("make_id", make.id);
+    await act(async () => { await Promise.resolve(); });
+    change("model_id", model.id);
+    change("price_min", "10000");
+    change("price_max", "20000");
+    change("year_min", "2018");
+    change("year_max", "2022");
+    change("mileage_min", "10000");
+    change("mileage_max", "80000");
+    change("transmission", "automatic");
+    change("fuel", "petrol");
+    change("body_type", "sedan");
+    change("region_id", region.id);
 
-    expect(catalog).toHaveBeenCalledWith("models", { make_id: makeA.id });
-    const modelSelect = container.querySelector<HTMLSelectElement>('select[name="model_id"]')!;
-    expect(modelSelect.disabled).toBe(false);
-    expect(container.querySelector(`option[value="${modelA.id}"]`)?.textContent).toBe(modelA.name);
-    await act(async () => {
-      modelSelect.value = modelA.id;
-      modelSelect.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    const priceInput = container.querySelector<HTMLInputElement>('input[name="price_max"]')!;
-    priceInput.value = "25000";
+    await act(async () => { vi.advanceTimersByTime(299); });
+    expect(count).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(1); await Promise.resolve(); });
 
+    expect(count).toHaveBeenLastCalledWith(expect.objectContaining({
+      q: "BMW", make_id: make.id, model_id: model.id, price_min: "10000", price_max: "20000", currency: "BYN",
+      year_min: "2018", year_max: "2022", mileage_min: "10000", mileage_max: "80000",
+      transmission: "automatic", fuel: "petrol", body_type: "sedan", region_id: region.id
+    }));
+    expect(container.textContent).toContain("42");
+    expect(container.querySelector(".home-search-button")?.textContent).toContain("Показать 42 предложения");
     const form = container.querySelector<HTMLFormElement>("form")!;
-    const submitted = new FormData(form);
-    expect(form.method).toBe("get");
-    expect(form.getAttribute("action")).toBe("/cars");
-    expect(submitted.get("make_id")).toBe(makeA.id);
-    expect(submitted.get("model_id")).toBe(modelA.id);
-    expect(submitted.get("price_max")).toBe("25000");
-    expect(submitted.get("currency")).toBe("BYN");
+    expect(form.action).toContain("/cars");
+    expect(new FormData(form).get("model_id")).toBe(model.id);
+    expect(new FormData(form).get("region_id")).toBe(region.id);
+    expect(new FormData(form).get("currency")).toBe("BYN");
   });
 
-  it("does not submit the previous model when the make changes immediately before submit", async () => {
-    vi.spyOn(api, "catalog").mockImplementation((_kind, params = {}) =>
-      params.make_id === makeA.id ? Promise.resolve({ items: [modelA] }) : new Promise(() => {})
-    );
+  it("ignores older count responses and returns to generic text after an error", async () => {
+    let resolveFirst!: (value: { total: number }) => void;
+    let resolveSecond!: (value: { total: number }) => void;
+    const count = vi.spyOn(api, "listingCount")
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }))
+      .mockRejectedValueOnce(new Error("offline"));
+    await act(async () => root.render(createElement(HomeSearch, { makes: [], regions: [], bodyTypes: [] })));
 
-    await act(async () => root.render(createElement(HomeSearch, { makes: [makeA, makeB], priceOperationsAvailable: true })));
-    await act(async () => { chooseMake(makeA.id); await Promise.resolve(); });
+    change("q", "BMW");
+    await act(async () => { vi.advanceTimersByTime(300); });
+    change("q", "Audi");
+    await act(async () => { vi.advanceTimersByTime(300); });
+    await act(async () => { resolveSecond({ total: 8 }); });
+    await act(async () => { resolveFirst({ total: 99 }); });
+    expect(container.textContent).toContain("8");
+    expect(container.textContent).not.toContain("99");
 
-    const modelSelect = container.querySelector<HTMLSelectElement>('select[name="model_id"]')!;
-    await act(async () => {
-      modelSelect.value = modelA.id;
-      modelSelect.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    expect(modelSelect.value).toBe(modelA.id);
-
-    const form = container.querySelector<HTMLFormElement>("form")!;
-    let submitted: FormData | undefined;
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      submitted = new FormData(form);
-    }, { once: true });
-
-    await act(() => {
-      chooseMake(makeB.id);
-      form.requestSubmit();
-    });
-
-    expect(submitted?.get("make_id")).toBe(makeB.id);
-    expect(submitted?.get("model_id")).not.toBe(modelA.id);
+    change("q", "Volvo");
+    await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
+    expect(container.querySelector('[data-count-state="generic"]')).not.toBeNull();
+    expect(count).toHaveBeenCalledTimes(3);
   });
 
-  it("ignores an older model response after the make changes", async () => {
-    let resolveMakeA!: (value: { items: CatalogItem[] }) => void;
-    let resolveMakeB!: (value: { items: CatalogItem[] }) => void;
-    const makeAModels = new Promise<{ items: CatalogItem[] }>((resolve) => { resolveMakeA = resolve; });
-    const makeBModels = new Promise<{ items: CatalogItem[] }>((resolve) => { resolveMakeB = resolve; });
-    vi.spyOn(api, "catalog").mockImplementation((kind, params = {}) => {
-      if (kind === "models" && params.make_id === makeA.id) return makeAModels;
-      if (kind === "models" && params.make_id === makeB.id) return makeBModels;
-      return Promise.resolve({ items: [] });
-    });
+  it("loads models only for the selected make and clears the dependent model", async () => {
+    const catalog = vi.spyOn(api, "catalog").mockResolvedValue({ items: [model] });
+    await act(async () => root.render(createElement(HomeSearch, { makes: [make], regions: [], bodyTypes: [] })));
 
-    await act(async () => root.render(createElement(HomeSearch, { makes: [makeA, makeB], priceOperationsAvailable: true })));
-    await act(async () => { chooseMake(makeA.id); });
-    await act(async () => { chooseMake(makeB.id); });
-    await act(async () => { resolveMakeB({ items: [modelB] }); await Promise.resolve(); });
-    await act(async () => { resolveMakeA({ items: [modelA] }); await Promise.resolve(); });
-
-    expect(container.querySelector(`option[value="${modelB.id}"]`)?.textContent).toBe(modelB.name);
-    expect(container.querySelector(`option[value="${modelA.id}"]`)).toBeNull();
-  });
-
-  it("does not submit a price filter when the exchange rate is unavailable", async () => {
-    await act(async () => root.render(createElement(HomeSearch, { makes: [makeA], priceOperationsAvailable: false })));
-
-    const priceInput = container.querySelector<HTMLInputElement>('input[name="price_max"]')!;
-    expect(priceInput.disabled).toBe(true);
-    expect(priceInput.getAttribute("aria-describedby")).toBe("home-price-status");
-    expect(container.querySelector("#home-price-status")?.textContent).toContain("нет подтверждённого курса НБРБ за последние 72 часа");
-
-    priceInput.value = "25000";
-    expect(new FormData(container.querySelector("form")!).has("price_max")).toBe(false);
-  });
-
-  it("shows a model catalog error and retries the selected make", async () => {
-    const catalog = vi.spyOn(api, "catalog")
-      .mockRejectedValueOnce(new Error("catalog unavailable"))
-      .mockResolvedValueOnce({ items: [modelA] });
-
-    await act(async () => root.render(createElement(HomeSearch, { makes: [makeA], priceOperationsAvailable: true })));
-    await act(async () => { chooseMake(makeA.id); await Promise.resolve(); });
-
-    expect(container.querySelector('[role="status"]')?.textContent).toContain("Не удалось загрузить модели");
-    const retryButton = container.querySelector<HTMLButtonElement>(".home-model-error button")!;
-    await act(async () => { retryButton.click(); await Promise.resolve(); });
-
-    expect(catalog).toHaveBeenNthCalledWith(1, "models", { make_id: makeA.id });
-    expect(catalog).toHaveBeenNthCalledWith(2, "models", { make_id: makeA.id });
-    expect(container.querySelector('[role="status"]')).toBeNull();
-    expect(container.querySelector(`option[value="${modelA.id}"]`)?.textContent).toBe(modelA.name);
+    change("make_id", make.id);
+    await act(async () => { await Promise.resolve(); });
+    expect(catalog).toHaveBeenCalledWith("models", { make_id: make.id });
     expect(container.querySelector<HTMLSelectElement>('select[name="model_id"]')?.disabled).toBe(false);
+  });
+
+  it("ignores a model catalog response after the user selects another make", async () => {
+    const makeB: CatalogItem = { id: "make-2", slug: "make-2", name: "Другая марка" };
+    const modelB: CatalogItem = { id: "model-2", slug: "model-2", name: "Другая модель", make_id: makeB.id };
+    let resolveA!: (value: { items: CatalogItem[] }) => void;
+    let resolveB!: (value: { items: CatalogItem[] }) => void;
+    const catalog = vi.spyOn(api, "catalog").mockImplementation((_kind, params = {}) => new Promise((resolve) => {
+      if (params.make_id === make.id) resolveA = resolve;
+      else resolveB = resolve;
+    }));
+    await act(async () => root.render(createElement(HomeSearch, { makes: [make, makeB], regions: [], bodyTypes: [] })));
+    change("make_id", make.id);
+    await act(async () => { await Promise.resolve(); });
+    change("make_id", makeB.id);
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { resolveA({ items: [model] }); });
+    expect(container.querySelector<HTMLSelectElement>('select[name="model_id"]')?.disabled).toBe(true);
+    await act(async () => { resolveB({ items: [modelB] }); });
+    expect(catalog).toHaveBeenCalledTimes(2);
+    expect(container.querySelector(`option[value="${model.id}"]`)).toBeNull();
+    expect(container.querySelector(`option[value="${modelB.id}"]`)?.textContent).toBe(modelB.name);
+  });
+
+  it("uses Russian plural forms for zero and one result", async () => {
+    const count = vi.spyOn(api, "listingCount").mockResolvedValueOnce({ total: 1 }).mockResolvedValueOnce({ total: 0 });
+    await act(async () => root.render(createElement(HomeSearch, { makes: [], regions: [], bodyTypes: [] })));
+    change("q", "Volvo");
+    await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
+    expect(container.querySelector(".home-search-button")?.textContent).toContain("Показать 1 предложение");
+    change("q", "Fiat");
+    await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
+    expect(container.querySelector(".home-search-button")?.textContent).toContain("Показать 0 предложений");
+    expect(count).toHaveBeenCalledTimes(2);
   });
 });

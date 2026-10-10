@@ -19,6 +19,7 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import get_settings
+from app.category_search import CATEGORY_PATHS
 from app.db import SessionLocal, engine
 from app.email_delivery import EmailDeliveryUnavailable, get_email_sender
 from app.identity_models import (
@@ -440,6 +441,9 @@ def _first_publication_at(db, listing: Listing) -> datetime | None:
 
 def _listing_url(listing: Listing) -> str:
     segment = listing.slug or str(listing.id)
+    category = getattr(listing, "category_code", None) or "cars"
+    if category != "cars":
+        return f"{CATEGORY_PATHS[category]}/{segment}/{listing.id}"
     return f"/cars/{segment}/{segment}/{listing.id}"
 
 

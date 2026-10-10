@@ -5,7 +5,6 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     ("/api/v1/vin-check/status", "get"): set(),
     ("/api/v1/customs-calculator/meta", "get"): set(),
     ("/api/v1/customs-calculator/rates", "get"): {"503"},
-    ("/api/v1/customs-calculator/rates/history", "get"): {"503", "422"},
     ("/api/v1/customs-calculator/calculate", "post"): {"422", "503"},
     ("/api/v1/admin/users", "get"): {"401", "403", "422"},
     ("/api/v1/admin/users/{user_id}", "patch"): {"401", "403", "404", "409", "422", "429"},

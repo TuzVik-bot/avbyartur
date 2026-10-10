@@ -230,7 +230,7 @@ def _request_otp(
     registration = purpose == "registration"
     _otp_configuration_or_fail(registration=registration)
     if registration:
-        consent_error = registration_consent_error(
+        consent_error = email_registration_consent_error(
             db,
             get_settings(),
             terms_version,
@@ -595,7 +595,7 @@ def verify_phone_otp(
         fail(401, "invalid_otp", "The code is invalid or expired")
 
     if challenge.purpose == "registration":
-        consent_error = registration_consent_error(
+        consent_error = email_registration_consent_error(
             db,
             settings,
             challenge.registration_terms_version,

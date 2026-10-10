@@ -1,0 +1,84 @@
+.header { background: #fff; box-shadow: none; }
+.header .inner { min-height: 80px; gap: 24px; }
+.header .brand { flex: none; white-space: nowrap; }
+.catalog { flex: none; }
+.catalogButton, .servicesButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 0; font-weight: 650; cursor: pointer; transition: background-color .18s, color .18s; }
+.catalogButton { padding: 10px 16px; border-radius: 10px; color: var(--accent-dark); background: var(--soft-accent); }
+.catalogButton:hover, .catalogButton.selected { background: #dfe6fc; }
+.catalogButton[aria-expanded="true"] > svg:last-child, .servicesButton[aria-expanded="true"] > svg { transform: rotate(180deg); }
+.header .mainNav { gap: 20px; margin-left: auto; font-size: 14px; font-weight: 600; }
+.header .mainNav a { white-space: nowrap; }
+.header .mainNav > a { border-radius: 6px; }
+.header .mainNav > a:hover { color: var(--accent-dark); }
+.services { position: relative; }
+.servicesButton { padding: 0; color: var(--ink); background: transparent; }
+.servicesButton:hover { color: var(--accent-dark); }
+.servicesPanel { position: absolute; top: calc(100% + 12px); right: 0; min-width: 280px; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.header .servicesPanel a { display: flex; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+.header .servicesPanel a:hover { background: var(--soft-accent); }
+.catalogPanel { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid var(--line); box-shadow: 0 6px 8px #18212f12; max-height: calc(100dvh - 96px); overflow-y: auto; overscroll-behavior: contain; }
+.catalogPanel[hidden], .servicesPanel[hidden] { display: none; }
+.catalogContent { width: min(1240px, calc(100% - 64px)); margin-inline: auto; padding: 28px 0 32px; }
+.panelHeading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.panelHeading h2 { margin: 0; font-size: 21px; letter-spacing: -.02em; }
+.panelHeading > a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--accent-dark); font-size: 14px; font-weight: 600; }
+.groups { display: grid; grid-template-columns: 1fr 1.8fr 1fr; gap: 32px; }
+.group { min-width: 0; }
+.group + .group { border-left: 1px solid var(--line); padding-left: 32px; }
+.group h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 15px; font-weight: 650; }
+.groupIcon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: var(--page); color: var(--accent-dark); flex: none; }
+.group ul { display: grid; gap: 4px; list-style: none; padding: 0; margin: 0; }
+.group:nth-child(2) ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.group li a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; height: 100%; padding: 10px 12px; border-radius: 8px; font-size: 14px; color: var(--ink); transition: background-color .18s, color .18s; }
+.group li a svg { flex: none; color: #647084; opacity: 0; }
+.group li a:hover, .group li a:focus-visible { background: var(--soft-accent); color: var(--accent-dark); }
+.group li a:hover svg, .group li a:focus-visible svg { opacity: 1; }
+.header .actions { flex: none; }
+.header .actions a { white-space: nowrap; font-size: 14px; padding-inline: 16px; }
+@media (max-width: 1200px) {
+ .header .inner { gap: 16px; }
+ .header .mainNav { gap: 14px; }
+ .header .brand { font-size: 18px; gap: 6px; }
+}
+@media (max-width: 1100px) {
+ .header .inner { min-height: 72px; gap: 12px; }
+ .header .mobileToggle { display: inline-grid; margin-left: auto; order: 3; flex: none; }
+ .header .actions { order: 4; }
+ .header .mainNav { display: none; position: absolute; inset: 100% 0 auto; margin: 0; padding: 16px 24px; background: #fff; border-bottom: 1px solid var(--line); flex-direction: column; align-items: stretch; gap: 4px; max-height: calc(100dvh - 88px); overflow-y: auto; }
+ .header .mainNav:global(.is-open) { display: flex; }
+ .header .mainNav > a { min-height: 48px; padding: 10px 12px; border: 0; }
+ .header .servicesButton { width: 100%; min-height: 48px; padding: 10px 12px; justify-content: space-between; }
+ .servicesPanel { position: static; min-width: 0; margin: 0 12px 8px; border: 0; border-radius: 8px; background: var(--page); }
+ .header .mainNav :global(.mobile-signout) { display: inline-flex; min-height: 48px; padding: 10px 12px; border: 0; }
+ .header .actions :global(.signout-button) { display: none; }
+}
+@media (max-width: 760px) {
+ .catalogContent { width: calc(100% - 32px); padding: 20px 0 24px; }
+ .panelHeading { align-items: flex-start; margin-bottom: 16px; }
+ .panelHeading h2 { font-size: 18px; }
+ .panelHeading > a { min-height: 24px; font-size: 12px; }
+ .groups { grid-template-columns: 1fr; gap: 20px; }
+ .group + .group { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 20px; }
+ .group ul, .group:nth-child(2) ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .group li a { background: var(--page); padding: 10px; }
+ .group li a svg { opacity: 1; width: 13px; }
+}
+@media (max-width: 520px) {
+ .header .inner { min-height: 68px; gap: 8px; }
+ .header .brand { font-size: 17px; margin-right: auto; }
+ .catalogButton { width: 56px; padding: 4px; border-radius: 8px; flex-direction: column; gap: 2px; }
+ .catalogButton span { display: block; font-size: 10px; line-height: 12px; }
+ .catalogButton > svg:last-child { display: none; }
+ .header .mobileToggle { margin-left: 0; }
+ .header .actions a { font-size: 0; padding: 0; }
+ .header .brand :global(.brand-country) { display: none; }
+ .header .mainNav { padding: 12px; }
+}
+@media (max-width: 360px) {
+ .header .brand { font-size: 15px; gap: 4px; }
+ .header .brand :global(.brand-mark) { width: 24px; height: 24px; }
+ .header .inner { gap: 6px; }
+ .panelHeading { flex-direction: column; gap: 4px; }
+ .group li a { font-size: 13px; gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { .catalogButton, .servicesButton, .group li a { transition: none; } }

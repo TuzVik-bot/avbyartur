@@ -234,6 +234,8 @@ def test_email_subscription_and_resume_require_configured_verified_delivery(
 
     class Settings:
         public_app_url = "https://cars.example.test"
+        saved_search_limit = 20
+        saved_search_mutations_per_hour = 60
 
     sender = MemoryEmailSender()
     settings = Settings()
@@ -579,7 +581,7 @@ def test_saved_search_rejects_mismatched_url_and_filters_on_create_and_update(in
         headers={"X-CSRF-Token": csrf, "Idempotency-Key": "saved-mismatch-create"},
     )
     assert mismatch.status_code == 422, mismatch.text
-    assert mismatch.json()["code"] == "invalid_category_filter"
+    assert mismatch.json()["code"] == "validation_error"
 
 
 def test_saved_search_limit_is_enforced(integration, monkeypatch):

@@ -14,6 +14,7 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [hydrated, setHydrated] = useState(false);
   const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
   const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -23,6 +24,7 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
 
   useEffect(() => {
     let active = true;
+    setHydrated(true);
     api.authCapabilities().then((result) => { if (active) setCapabilities(result); })
       .catch(() => { if (active) setCapabilities(null); })
       .finally(() => { if (active) setCapabilitiesLoaded(true); });
@@ -63,7 +65,7 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
       <button className="button button-secondary button-small" type="button" disabled={busy} aria-pressed={!registering} onClick={() => { setRegistering(false); setError(""); }}>Войти</button>
       <button className="button button-secondary button-small" type="button" disabled={busy} aria-pressed={registering} onClick={() => { setRegistering(true); setError(""); }}>Создать аккаунт</button>
     </div>}
-    <form onSubmit={submit}>
+    <form method="post" onSubmit={submit}>
       {registering && <label className="field"><span>Имя</span><input name="display_name" autoComplete="name" required minLength={2} maxLength={120} /></label>}
       <label className="field"><span>Электронная почта</span><input name="email" type="email" autoComplete="username" required maxLength={254} /></label>
       <label className="field"><span>Пароль</span><input name="password" type="password" autoComplete={registering ? "new-password" : "current-password"} minLength={registering ? 10 : undefined} maxLength={256} required /></label>
@@ -75,7 +77,7 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
         <label className="checkbox-field"><input name="accept_privacy" type="checkbox" required /> Я согласен с <Link href={capabilities?.email_registration_pilot ? "/registration-privacy" : "/privacy-policy"} target="_blank">политикой обработки данных</Link></label>
       </>}
       {error && <p className="inline-error" role="alert">{error}</p>}
-      <button className="button button-primary" type="submit" disabled={busy}>{busy ? (registering ? "Создаём аккаунт…" : "Входим…") : <><LogIn size={17} /> {registering ? "Зарегистрироваться" : "Войти"}</>}</button>
+      <button className="button button-primary" type="submit" disabled={busy || !hydrated}>{busy ? (registering ? "Создаём аккаунт…" : "Входим…") : <><LogIn size={17} /> {registering ? "Зарегистрироваться" : "Войти"}</>}</button>
       {!canRegister && <p className="muted login-note">Самостоятельная регистрация пока недоступна.</p>}
     </form>
     {capabilities?.password_recovery && <p className="login-recovery-link"><Link className="text-link" href="/recover">Не помню пароль</Link></p>}

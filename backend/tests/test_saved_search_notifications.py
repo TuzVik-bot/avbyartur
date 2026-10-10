@@ -93,6 +93,50 @@ def test_saved_search_filters_ignore_pagination_for_legacy_urls():
     assert saved_search_filters(SimpleNamespace(search_url="/cars?q=audi&page=3&page_size=50")) == {"q": "audi"}
 
 
+def test_saved_search_filters_preserve_non_car_category_and_details():
+    from app.notification_service import saved_search_filters
+
+    saved_search = SimpleNamespace(
+        search_url="/wheels?category_code=wheels&details=%7B%22diameter_in%22%3A17%7D"
+    )
+
+    assert saved_search_filters(saved_search) == {
+        "category_code": "wheels",
+        "details": {"diameter_in": 17},
+    }
+
+
+def test_category_digest_email_uses_category_search_url():
+    from app.notification_service import saved_search_digest_email_content
+
+    subject, body = saved_search_digest_email_content(
+        {
+            "search_url": "/tires?category_code=tires&season=winter",
+            "listings": [{"id": str(uuid.uuid4()), "title": "Winter tires", "url": "/tires/winter-set/id-1"}],
+        },
+        "https://cars.example.test",
+        1,
+    )
+
+    assert subject == "Новое объявление по сохранённому поиску"
+    assert "https://cars.example.test/tires?category_code=tires&season=winter" in body
+
+
+def test_daily_delivery_uses_0900_minsk_and_category_listing_url():
+    from app.worker import _listing_url, _next_notification_at
+
+    instant = datetime(2026, 10, 10, 5, 30, tzinfo=timezone.utc)
+    before_nine = datetime(2026, 10, 10, 5, 59, tzinfo=timezone.utc)
+    at_nine = datetime(2026, 10, 10, 6, 0, tzinfo=timezone.utc)
+
+    assert _next_notification_at(instant, "instant") == instant
+    assert _next_notification_at(before_nine, "daily") == datetime(2026, 10, 10, 6, 0, tzinfo=timezone.utc)
+    assert _next_notification_at(at_nine, "daily") == datetime(2026, 10, 11, 6, 0, tzinfo=timezone.utc)
+    assert _next_notification_at(instant, "weekly").weekday() == 0
+    assert _next_notification_at(instant, "weekly").hour == 0
+    assert _listing_url(SimpleNamespace(category_code="trucks", slug="volvo-fh", id="listing-1")) == "/trucks/volvo-fh/listing-1"
+
+
 def test_saved_search_delivery_snapshot_ignores_name_only_revision_change():
     from app.worker import _saved_search_delivery_snapshot
 
@@ -506,6 +550,68 @@ def test_saved_search_does_not_notify_for_publication_before_subscription(integr
         assert db.scalar(
             select(models.UserNotification.id).where(
                 models.UserNotification.user_id == subscriber.id,
+            )
+        ) is None
+
+
+def test_saved_search_uses_original_publication_after_reapproval(integration):
+    factory = integration["SessionLocal"]
+    owner = add_user(factory, f"reapproval-owner-{uuid.uuid4().hex[:8]}@example.com")
+    subscriber = add_user(
+        factory, f"reapproval-subscriber-{uuid.uuid4().hex[:8]}@example.com"
+    )
+    first_publication = datetime.now(timezone.utc) - timedelta(days=3)
+    listing = add_listing(
+        factory, owner.id, title="BMW 320d", published_at=first_publication
+    )
+    saved_search = models.SavedSearch(
+        user_id=subscriber.id,
+        name="BMW after signup",
+        search_url="/cars?q=bmw",
+        filters={"q": "bmw"},
+        notifications_enabled=True,
+        notification_channel="web",
+        notification_frequency="instant",
+        subscription_started_at=first_publication + timedelta(days=1),
+    )
+    with factory() as db:
+        current_listing = db.get(models.Listing, listing.id)
+        db.add(saved_search)
+        db.add(
+            models.ListingStatusEvent(
+                listing_id=listing.id,
+                actor_id=owner.id,
+                from_status="draft",
+                to_status="active",
+                revision=current_listing.revision,
+                reason="notification_test_reapproval",
+                created_at=first_publication + timedelta(days=2),
+            )
+        )
+        db.flush()
+        enqueue_saved_search_match(db, current_listing)
+        job = db.scalar(
+            select(models.WorkerJob).where(
+                models.WorkerJob.kind == "saved-search.match",
+                models.WorkerJob.payload["listing_id"].as_string() == str(listing.id),
+            )
+        )
+        assert job is not None
+        job_id = job.id
+        db.commit()
+
+    run_job(factory, job_id)
+
+    with factory() as db:
+        assert db.scalar(
+            select(models.NotificationOutbox.id).where(
+                models.NotificationOutbox.saved_search_id == saved_search.id,
+            )
+        ) is None
+        assert db.scalar(
+            select(models.SavedSearchNotificationMatch.id).where(
+                models.SavedSearchNotificationMatch.saved_search_id == saved_search.id,
+                models.SavedSearchNotificationMatch.listing_id == listing.id,
             )
         ) is None
 

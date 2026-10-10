@@ -44,7 +44,7 @@ describe("URL-backed listing filters", () => {
   it("preserves category codes in canonical URLs without exposing them as filter chips", () => {
     const search = readSearchParams(new URLSearchParams("page=2&q=tires&category_code=parts"));
 
-    expect(searchUrl(search)).toBe("/cars?category_code=parts&q=tires&page=2");
+    expect(searchUrl(search)).toBe("/parts?category_code=parts&q=tires&page=2");
     expect(readSearchParams(new URLSearchParams(searchUrl(search).split("?")[1]))).toEqual(search);
     expect(activeSearchKeys).not.toContain("category_code");
   });

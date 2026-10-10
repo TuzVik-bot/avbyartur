@@ -2101,23 +2101,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/customs-calculator/rates/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Customs Rate History */
-        get: operations["customs_rate_history_api_v1_customs_calculator_rates_history_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/customs-calculator/calculate": {
         parameters: {
             query?: never;
@@ -2704,7 +2687,10 @@ export interface components {
             sms_login: boolean;
             /** Sms Registration */
             sms_registration: boolean;
-            /** Email Registration */
+            /**
+             * Email Registration
+             * @default false
+             */
             email_registration: boolean;
             /**
              * Email Registration Pilot
@@ -3455,52 +3441,6 @@ export interface components {
             sources: string[];
             /** Scope Notes */
             scope_notes: string[];
-        };
-        /** CustomsRateHistoryPoint */
-        CustomsRateHistoryPoint: {
-            /**
-             * Rate Date
-             * Format: date
-             */
-            rate_date: string;
-            /** Official Rate */
-            official_rate: string;
-            /** Scale */
-            scale: number;
-            /** Byn Per Unit */
-            byn_per_unit: string;
-        };
-        /** CustomsRateHistoryResponse */
-        CustomsRateHistoryResponse: {
-            /**
-             * Currency
-             * @enum {string}
-             */
-            currency: "EUR" | "USD" | "RUB";
-            /**
-             * Period
-             * @enum {string}
-             */
-            period: "30d" | "90d" | "180d" | "365d";
-            /**
-             * Rate Date
-             * Format: date
-             */
-            rate_date: string;
-            /**
-             * Start Date
-             * Format: date
-             */
-            start_date: string;
-            /**
-             * End Date
-             * Format: date
-             */
-            end_date: string;
-            /** Source Url */
-            source_url: string;
-            /** Points */
-            points: components["schemas"]["CustomsRateHistoryPoint"][];
         };
         /** CustomsRateUsed */
         CustomsRateUsed: {
@@ -6278,95 +6218,6 @@ export interface operations {
             };
         };
     };
-    register_with_email_api_v1_auth_register_post: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EmailRegistrationInput"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthSessionResponse"];
-                };
-            };
-            /** @description The authenticated user is not allowed to perform this action */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-            /** @description The requested resource is not available */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-            /** @description The request conflicts with the current resource state */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-            /** @description Request validation error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-            /** @description The request rate limit was exceeded */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-            /** @description An external service required for this action is unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-            /** @description API error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-        };
-    };
     otp_csrf_api_v1_auth_otp_csrf_get: {
         parameters: {
             query?: never;
@@ -7301,6 +7152,11 @@ export interface operations {
     search_listings_api_v1_listings_get: {
         parameters: {
             query?: {
+                subtype?: string | null;
+                details?: string | null;
+                diameter_in?: number | null;
+                width_mm?: number | null;
+                season?: string | null;
                 page?: number;
                 page_size?: number;
                 equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
@@ -7388,7 +7244,6 @@ export interface operations {
     count_public_listings_api_v1_listings_count_get: {
         parameters: {
             query?: {
-                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
                 subtype?: string | null;
                 details?: string | null;
                 diameter_in?: number | null;
@@ -7398,6 +7253,7 @@ export interface operations {
                 page_size?: number;
                 equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
                 sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
                 q?: string | null;
                 make_id?: string | null;
                 model_id?: string | null;
@@ -15094,56 +14950,6 @@ export interface operations {
                 };
             };
             /** @description Official exchange rates are unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-            /** @description API error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-        };
-    };
-    customs_rate_history_api_v1_customs_calculator_rates_history_get: {
-        parameters: {
-            query?: {
-                currency?: "EUR" | "USD" | "RUB";
-                period?: "30d" | "90d" | "180d" | "365d";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CustomsRateHistoryResponse"];
-                };
-            };
-            /** @description Request validation error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorOut"];
-                };
-            };
-            /** @description Official exchange-rate history is unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;

@@ -80,6 +80,33 @@ def public_listings_query():
     )
 
 
+def apply_public_listing_text_filter(query, search_text: str | None):
+    """Apply the same legacy-compatible text search to listings and saved searches."""
+    if not search_text:
+        return query
+    term = f"%{search_text.strip()[:100]}%"
+    return query.outerjoin(
+        CatalogMake, Listing.make_id == CatalogMake.id
+    ).outerjoin(
+        CatalogModel, Listing.model_id == CatalogModel.id
+    ).where(
+        or_(
+            Listing.title.ilike(term),
+            Listing.make_name_snapshot.ilike(term),
+            Listing.model_name_snapshot.ilike(term),
+            Listing.generation_name_snapshot.ilike(term),
+            Listing.manual_make.ilike(term),
+            Listing.manual_model.ilike(term),
+            CatalogMake.name.ilike(term),
+            cast(CatalogMake.aliases, String).ilike(term),
+            CatalogModel.name.ilike(term),
+            cast(CatalogModel.aliases, String).ilike(term),
+            Listing.manual_city.ilike(term),
+            Listing.district.ilike(term),
+        )
+    )
+
+
 def build_public_listing_query(
     db: Session,
     filters: ListingSearchFilters | dict[str, Any],
@@ -94,13 +121,7 @@ def build_public_listing_query(
 
     query = public_listings_query()
     query = query.where(Listing.category_code == filters.category_code)
-    if filters.q:
-        term = f"%{filters.q.strip()[:100]}%"
-        query = query.outerjoin(CatalogMake, Listing.make_id == CatalogMake.id).outerjoin(CatalogModel, Listing.model_id == CatalogModel.id).where(
-            or_(Listing.title.ilike(term), Listing.make_name_snapshot.ilike(term), Listing.model_name_snapshot.ilike(term),
-                CatalogMake.name.ilike(term), cast(CatalogMake.aliases, String).ilike(term), CatalogModel.name.ilike(term), cast(CatalogModel.aliases, String).ilike(term),
-                Listing.manual_city.ilike(term), Listing.district.ilike(term))
-        )
+    query = apply_public_listing_text_filter(query, filters.q)
     for field, value in (
         (Listing.make_id, filters.make_id), (Listing.model_id, filters.model_id),
         (Listing.generation_id, filters.generation_id), (Listing.body_variant_id, filters.body_variant_id),

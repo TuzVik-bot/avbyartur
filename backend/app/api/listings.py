@@ -428,31 +428,9 @@ def _public_listing_search_query(
     except ValueError as exc:
         fail(422, "invalid_category_filter", str(exc))
 
-    # Keep the API's broader legacy text search while sharing all structured
-    # filters with saved-search matching and the count endpoint.
-    query, display_price = build_public_listing_query(
-        db, filters.model_copy(update={"q": None}), rate_info
-    )
-    if filters.q:
-        term = f"%{filters.q.strip()[:100]}%"
-        query = query.outerjoin(
-            CatalogMake, Listing.make_id == CatalogMake.id
-        ).outerjoin(CatalogModel, Listing.model_id == CatalogModel.id).where(
-            or_(
-                Listing.title.ilike(term),
-                Listing.make_name_snapshot.ilike(term),
-                Listing.model_name_snapshot.ilike(term),
-                Listing.generation_name_snapshot.ilike(term),
-                Listing.manual_make.ilike(term),
-                Listing.manual_model.ilike(term),
-                CatalogMake.name.ilike(term),
-                cast(CatalogMake.aliases, String).ilike(term),
-                CatalogModel.name.ilike(term),
-                cast(CatalogModel.aliases, String).ilike(term),
-                Listing.manual_city.ilike(term),
-                Listing.district.ilike(term),
-            )
-        )
+    # Keep text and structured filters on the same query builder used by
+    # saved-search notifications and the result counter.
+    query, display_price = build_public_listing_query(db, filters, rate_info)
     if selected_details:
         query = query.join(Listing.category_details)
         for key, value in selected_details.items():
