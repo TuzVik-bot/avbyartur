@@ -9,20 +9,24 @@ import json
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_csrf
 from app.config import get_settings
+from app.category_search import CATEGORY_PATHS, PATH_CATEGORIES, category_filter_error, detail_filters
 from app.db import get_db
+from app.email_delivery import get_email_sender
+from app.listing_categories import CATEGORY_CODES
 from app.listing_options import LISTING_OPTIONS
-from app.models import IdempotencyRecord, SavedSearch, User, UserSession
+from app.models import IdempotencyRecord, NotificationOutbox, SavedSearch, User, UserSession, WorkerJob
+from app.profile_identity_service import verified_email
 from app.services import check_revision, consume_rate_limit, fail, lock_owner
 
 
@@ -35,7 +39,9 @@ _MAX_FILTER_DEPTH = 4
 _MAX_FILTER_LIST_ITEMS = 50
 _ALLOWED_FILTERS = frozenset(
     {
+        "category_code",
         "q",
+        "subtype", "details", "diameter_in", "width_mm", "season",
         "make_id",
         "model_id",
         "generation_id",
@@ -87,7 +93,7 @@ _FILTER_ENUMS = {
     "body_condition": "body_conditions",
 }
 _FILTER_BOOLEAN_KEYS = frozenset(
-    {"exchange", "bargaining", "credit", "leasing", "has_vin", "has_photos"}
+    {"exchange", "bargaining", "credit", "leasing", "has_vin", "has_photos", "damaged", "parts_only"}
 )
 _FILTER_NUMERIC_BOUNDS = {
     "engine_volume_min": (Decimal("0"), Decimal("30"), False),
@@ -95,6 +101,19 @@ _FILTER_NUMERIC_BOUNDS = {
     "power_min": (Decimal("1"), Decimal("3000"), True),
     "power_max": (Decimal("1"), Decimal("3000"), True),
 }
+_FILTER_NUMERIC_KEYS = frozenset(
+    {
+        "price_min", "price_max", "year_min", "year_max", "mileage_min", "mileage_max",
+        "engine_volume_min", "engine_volume_max", "power_min", "power_max", "page", "page_size",
+    }
+)
+_CATEGORY_DETAIL_FILTERS = frozenset({"details", "subtype", "diameter_in", "width_mm", "season"})
+_FILTER_QUERY_NUMERIC_FIELDS = frozenset(
+    {"price_min", "price_max", "year_min", "year_max", "mileage_min", "mileage_max"}
+)
+_FILTER_QUERY_INTEGER_FIELDS = frozenset(
+    {"year_min", "year_max", "mileage_min", "mileage_max"}
+)
 _FILTER_EQUIPMENT = {item["code"] for item in LISTING_OPTIONS["equipment"]}
 
 
@@ -106,7 +125,7 @@ def _normalise_name(value: str) -> str:
 
 
 def _normalise_url(value: str) -> str:
-    """Accept only a relative search URL from the local `/cars` surface.
+    """Accept only a relative URL from a known category search surface.
 
     Keeping this as a relative URL prevents a saved-search link from becoming
     an open redirect if it is later rendered as a button in the account area.
@@ -115,20 +134,68 @@ def _normalise_url(value: str) -> str:
     value = value.strip()
     if not value or len(value) > _MAX_URL_LENGTH:
         raise ValueError("URL must contain 1 to 2048 characters")
-    if any(ord(character) < 0x20 or ord(character) == 0x7F for character in value):
+    if "\\" in value or any(ord(character) < 0x20 or ord(character) == 0x7F for character in value):
         raise ValueError("URL contains a control character")
     parsed = urlsplit(value)
     if parsed.scheme or parsed.netloc or parsed.username or parsed.password:
-        raise ValueError("URL must be a relative /cars search URL")
+        raise ValueError("URL must be a relative category search URL")
     if parsed.fragment:
         raise ValueError("URL fragments are not supported")
-    if parsed.path not in {"/cars", "/cars/"}:
-        raise ValueError("URL must point to the /cars search")
+    if parsed.path.rstrip("/") not in PATH_CATEGORIES:
+        raise ValueError("URL must point to a category search")
     query_values = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=_MAX_FILTER_KEYS)
     unknown_query = sorted(set(query_values) - _ALLOWED_FILTERS)
     if unknown_query:
         raise ValueError(f"Unsupported URL filter: {unknown_query[0]}")
+    category = PATH_CATEGORIES[parsed.path.rstrip("/")]
+    query_category = query_values.get("category_code", [category])
+    if len(query_category) != 1 or query_category[0].strip().casefold() != category:
+        raise ValueError("URL category_code must match the search path")
+    if category != "cars" and "category_code" not in query_values:
+        raise ValueError("Non-car search URLs require category_code")
     return value
+
+
+def _filters_from_url(value: str) -> dict[str, Any]:
+    parsed = urlsplit(_normalise_url(value))
+    query_values = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=_MAX_FILTER_KEYS)
+    filters: dict[str, Any] = {}
+    for key, values in query_values.items():
+        if key in {"page", "page_size"}:
+            continue
+        nonblank = [entry for entry in values if entry != ""]
+        if not nonblank:
+            continue
+        if key == "equipment":
+            filters[key] = nonblank
+        elif len(set(nonblank)) > 1:
+            raise ValueError(f"Contradictory repeated URL filter: {key}")
+        else:
+            filters[key] = nonblank[0]
+    return _normalise_filters(filters)
+
+
+def _canonical_search_url(filters: dict[str, Any]) -> str:
+    pairs: list[tuple[str, str]] = []
+    for key in sorted(filters):
+        value = filters[key]
+        if isinstance(value, list):
+            pairs.extend((key, str(item)) for item in sorted(value, key=str))
+        elif isinstance(value, dict):
+            pairs.append((key, json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)))
+        elif isinstance(value, bool):
+            pairs.append((key, "true" if value else "false"))
+        else:
+            pairs.append((key, str(value)))
+    query = urlencode(pairs)
+    category = str(filters.get("category_code", "cars")).casefold()
+    path = CATEGORY_PATHS[category]
+    return f"{path}?{query}" if query else path
+
+
+def _canonical_search(value: str) -> tuple[str, dict[str, Any]]:
+    filters = _filters_from_url(value)
+    return _canonical_search_url(filters), filters
 
 
 def _validate_filter_value(value: Any, *, depth: int = 0) -> None:
@@ -170,6 +237,23 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Filters are too large")
 
     normalized = dict(value)
+    category_value = normalized.get("category_code", "cars")
+    if not isinstance(category_value, str):
+        raise ValueError("Unsupported category_code filter")
+    category = category_value.strip().casefold()
+    if category not in CATEGORY_CODES:
+        raise ValueError("Unsupported category_code filter")
+    if "category_code" in normalized:
+        normalized["category_code"] = category
+    error = category_filter_error(category, normalized)
+    if error:
+        raise ValueError(error)
+    try:
+        normalized_details = detail_filters(category, normalized)
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
+    if "details" in normalized:
+        normalized["details"] = normalized_details
     for field, option_group in _FILTER_ENUMS.items():
         if field not in normalized or normalized[field] is None:
             continue
@@ -178,6 +262,35 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(code, str) or code.strip().casefold() not in supported:
             raise ValueError(f"Unsupported {field} filter")
         normalized[field] = code.strip().casefold()
+
+    # URL query values are strings while equivalent JSON filters can be numbers.
+    # Canonicalize these catalog fields before comparing the two representations.
+    for field in _FILTER_QUERY_NUMERIC_FIELDS:
+        if field not in normalized or normalized[field] is None:
+            continue
+        raw = normalized[field]
+        if isinstance(raw, bool):
+            raise ValueError(f"{field} must be numeric")
+        try:
+            number = Decimal(str(raw))
+        except (InvalidOperation, TypeError, ValueError):
+            raise ValueError(f"{field} must be numeric") from None
+        if not number.is_finite():
+            raise ValueError(f"{field} must be numeric")
+        if field.startswith("price_") and number <= 0:
+            raise ValueError(f"{field} must be greater than zero")
+        if field.startswith("year_") and (number < 1886 or number > 2100):
+            raise ValueError(f"{field} is outside the supported range")
+        if field.startswith("mileage_") and number < 0:
+            raise ValueError(f"{field} must be non-negative")
+        is_integer_field = field in _FILTER_QUERY_INTEGER_FIELDS
+        if is_integer_field and number != number.to_integral_value():
+            raise ValueError(f"{field} must be an integer")
+        normalized[field] = (
+            int(number)
+            if is_integer_field or number == number.to_integral_value()
+            else float(number)
+        )
 
     for field in _FILTER_BOOLEAN_KEYS:
         if field not in normalized:
@@ -230,6 +343,58 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _validate_category_pair(url: str, filters: dict[str, Any]) -> None:
+    parsed_url = urlsplit(url)
+    category = PATH_CATEGORIES[parsed_url.path.rstrip("/")]
+    normalized_filters = _normalise_filters(filters)
+    if normalized_filters.get("category_code", "cars") != category:
+        raise ValueError("Saved-search category must match its URL")
+
+    query = parse_qs(parsed_url.query, keep_blank_values=False, max_num_fields=_MAX_FILTER_KEYS)
+    raw_url_filters = {
+        field: values[0] if len(values) == 1 else values
+        for field, values in query.items()
+    }
+    normalized_url_filters = _normalise_filters(raw_url_filters)
+    url_details = {field: normalized_url_filters[field] for field in _CATEGORY_DETAIL_FILTERS if field in normalized_url_filters}
+    saved_details = {field: normalized_filters[field] for field in _CATEGORY_DETAIL_FILTERS if field in normalized_filters}
+    if detail_filters(category, url_details) != detail_filters(category, saved_details):
+        raise ValueError("Saved-search details must match its URL")
+
+    regular_url_filters = {
+        field: value for field, value in normalized_url_filters.items()
+        if field not in _CATEGORY_DETAIL_FILTERS and field != "category_code" and value not in (None, "", [])
+    }
+    regular_saved_filters = {
+        field: value for field, value in normalized_filters.items()
+        if field not in _CATEGORY_DETAIL_FILTERS and field != "category_code" and value not in (None, "", [])
+    }
+    if _canonical_filter_map(regular_url_filters) != _canonical_filter_map(regular_saved_filters):
+        raise ValueError("Saved-search filters must match its URL")
+
+
+def _canonical_filter_map(filters: dict[str, Any]) -> dict[str, Any]:
+    return {field: _canonical_filter_value(field, value) for field, value in sorted(filters.items())}
+
+
+def _canonical_filter_value(field: str, value: Any) -> Any:
+    if isinstance(value, bool):
+        return ("boolean", value)
+    if isinstance(value, dict):
+        return tuple((key, _canonical_filter_value(key, child)) for key, child in sorted(value.items()))
+    if isinstance(value, list):
+        normalized = tuple(_canonical_filter_value(field, item) for item in value)
+        return tuple(sorted(normalized, key=repr)) if field == "equipment" else normalized
+    if field in _FILTER_NUMERIC_KEYS:
+        try:
+            number = Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError):
+            return ("value", str(value))
+        if number.is_finite():
+            return ("number", number.normalize())
+    return ("value", str(value))
+
+
 def _validate_notification(enabled: bool, channel: str | None) -> None:
     if enabled and channel is None:
         fail(
@@ -264,6 +429,17 @@ class SavedSearchCreate(BaseModel):
     @classmethod
     def validate_filters(cls, value: dict[str, Any]) -> dict[str, Any]:
         return _normalise_filters(value)
+
+    @model_validator(mode="after")
+    def canonicalize_search_and_require_separate_subscription(self):
+        canonical_url, derived_filters = _canonical_search(self.url)
+        if "filters" in self.model_fields_set and self.filters != derived_filters:
+            raise ValueError("Filters contradict the canonical search URL")
+        if self.notifications_enabled or self.notification_channel is not None:
+            raise ValueError("Save the search first, then explicitly subscribe to notifications")
+        self.url = canonical_url
+        self.filters = derived_filters
+        return self
 
 class SavedSearchPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -343,11 +519,18 @@ class SavedSearchDeleteOut(BaseModel):
 
 
 def _serialize(saved_search: SavedSearch) -> dict[str, Any]:
+    try:
+        search_url, search_filters = _canonical_search(saved_search.search_url)
+    except ValueError:
+        # Keep a legacy row visible if an old or manually repaired URL no
+        # longer passes current validation. Its URL remains the only source.
+        search_url = saved_search.search_url
+        search_filters = {}
     return {
         "id": saved_search.id,
         "name": saved_search.name,
-        "url": saved_search.search_url,
-        "filters": dict(saved_search.filters or {}),
+        "url": search_url,
+        "filters": search_filters,
         "status": saved_search.status,
         "revision": saved_search.revision,
         "notifications_enabled": saved_search.notifications_enabled,
@@ -388,6 +571,44 @@ def _mutation_limit(db: Session, user: User) -> None:
 def _check_revision(saved_search: SavedSearch, expected_revision: int | None) -> None:
     if expected_revision is not None:
         check_revision(saved_search, expected_revision, "Saved search")
+
+
+def _require_channel_available(db: Session, user: User, channel: str | None, *, enabled: bool) -> None:
+    if not enabled or channel != "email":
+        return
+    settings = get_settings()
+    if not get_email_sender(settings).is_configured or not settings.public_app_url:
+        fail(422, "email_delivery_unconfigured", "Email notifications are not configured")
+    if verified_email(db, user.id) is None:
+        fail(422, "email_unverified", "Verify your email before subscribing by email")
+
+
+def _cancel_queued_notifications(db: Session, saved_search: SavedSearch) -> None:
+    rows = db.scalars(
+        select(NotificationOutbox).where(
+            NotificationOutbox.saved_search_id == saved_search.id,
+            NotificationOutbox.status == "queued",
+        ).with_for_update()
+    ).all()
+    for row in rows:
+        is_batch = bool(dict(row.payload or {}).get("batch"))
+        error_code = "notification_batch_cancelled" if is_batch else "notification_preference_changed"
+        row.status = "cancelled"
+        row.last_error = error_code
+        row.locked_by = None
+        row.lease_until = None
+        jobs = db.scalars(
+            select(WorkerJob).where(
+                WorkerJob.kind == "notification.deliver",
+                WorkerJob.payload["outbox_id"].as_string() == str(row.id),
+                WorkerJob.status.in_(["queued", "running"]),
+            ).with_for_update()
+        ).all()
+        for job in jobs:
+            job.status = "failed"
+            job.last_error = error_code
+            job.locked_by = None
+            job.lease_until = None
 
 
 @router.get("/me/saved-searches", response_model=SavedSearchListOut)
@@ -460,6 +681,10 @@ def create_saved_search(
     if current_count >= runtime_limit(db, "saved_search_limit", fallback=get_settings().saved_search_limit):
         fail(409, "saved_search_limit", "Saved search limit reached")
 
+    try:
+        _validate_category_pair(payload.url, payload.filters)
+    except ValueError as exc:
+        fail(422, "invalid_category_filter", str(exc))
     _validate_notification(payload.notifications_enabled, payload.notification_channel)
     saved_search = SavedSearch(
         user_id=user.id,
@@ -523,12 +748,49 @@ def update_saved_search(
     saved_search = _owned_saved_search(db, saved_search_id, user, lock=True)
     _check_revision(saved_search, expected_revision)
 
+    search_changed = False
+    if "url" in values or "filters" in values:
+        requested_url = values.get("url", saved_search.search_url)
+        try:
+            current_url, current_filters = _canonical_search(saved_search.search_url)
+            canonical_url, derived_filters = _canonical_search(requested_url)
+            if "filters" in values:
+                _validate_category_pair(canonical_url, values["filters"] or {})
+        except ValueError as exc:
+            fail(422, "invalid_category_filter", str(exc))
+        search_changed = canonical_url != current_url or derived_filters != current_filters
+        values["url"] = canonical_url
+        values["filters"] = derived_filters
+
     merged_enabled = values.get("notifications_enabled", saved_search.notifications_enabled)
     merged_channel = values.get("notification_channel", saved_search.notification_channel)
     _validate_notification(merged_enabled, merged_channel)
+    _require_channel_available(db, user, merged_channel, enabled=merged_enabled)
+    old_enabled = saved_search.notifications_enabled
+    old_channel = saved_search.notification_channel
+    old_frequency = saved_search.notification_frequency
+    old_status = saved_search.status
     field_map = {"url": "search_url"}
     for field, value in values.items():
         setattr(saved_search, field_map.get(field, field), value)
+    subscription_settings_changed = (
+        old_channel != merged_channel
+        or old_frequency != saved_search.notification_frequency
+        or search_changed
+    )
+    if not merged_enabled or saved_search.status == "paused":
+        saved_search.subscription_started_at = None
+    elif not old_enabled or old_status != "active" or subscription_settings_changed:
+        saved_search.subscription_started_at = db.scalar(select(func.now()))
+    should_cancel_batches = (
+        (old_status == "active" and saved_search.status == "paused")
+        or (old_enabled and not merged_enabled)
+        or old_channel != merged_channel
+        or old_frequency != saved_search.notification_frequency
+        or search_changed
+    )
+    if should_cancel_batches:
+        _cancel_queued_notifications(db, saved_search)
     saved_search.revision += 1
     db.commit()
     db.refresh(saved_search)
@@ -578,7 +840,24 @@ def _set_status(
     saved_search = _owned_saved_search(db, saved_search_id, user, lock=True)
     _check_revision(saved_search, payload.expected_revision if payload else None)
     if saved_search.status != status:
+        previous_status = saved_search.status
+        if status == "active" and saved_search.notifications_enabled:
+            _validate_notification(
+                saved_search.notifications_enabled,
+                saved_search.notification_channel,
+            )
+            _require_channel_available(
+                db,
+                user,
+                saved_search.notification_channel,
+                enabled=True,
+            )
         saved_search.status = status
+        if previous_status == "active" and status == "paused":
+            saved_search.subscription_started_at = None
+            _cancel_queued_notifications(db, saved_search)
+        elif previous_status == "paused" and status == "active" and saved_search.notifications_enabled:
+            saved_search.subscription_started_at = db.scalar(select(func.now()))
         saved_search.revision += 1
         db.commit()
         db.refresh(saved_search)

@@ -49,12 +49,13 @@ def test_sms_auth_migration_is_safe_on_current_metadata_bootstrap(integration):
             upgrade()
 
 
-def add_listing(factory, owner_id: uuid.UUID, *, status: str = "active") -> models.Listing:
+def add_listing(factory, owner_id: uuid.UUID, *, status: str = "active", category_code: str = "cars") -> models.Listing:
     listing = models.Listing(
         owner_id=owner_id,
         slug=f"chat-{uuid.uuid4().hex}",
         status=status,
         revision=1,
+        category_code=category_code,
         title="BMW 320d",
         year=2020,
         mileage_km=50_000,
@@ -103,7 +104,7 @@ def test_conversation_start_is_csrf_protected_idempotent_and_unique(integration)
     factory = integration["SessionLocal"]
     seller = add_user(factory, f"chat-seller-{uuid.uuid4().hex[:8]}@example.com")
     buyer = add_user(factory, f"chat-buyer-{uuid.uuid4().hex[:8]}@example.com")
-    listing = add_listing(factory, seller.id)
+    listing = add_listing(factory, seller.id, category_code="trucks")
     client, csrf = login(buyer.email)
 
     missing_csrf = client.post(
@@ -118,7 +119,7 @@ def test_conversation_start_is_csrf_protected_idempotent_and_unique(integration)
     assert created.status_code == 200, created.text
     conversation = created.json()["conversation"]
     conversation_id = conversation["id"]
-    assert conversation["listing"] == {"id": str(listing.id), "title": "BMW 320d", "slug": listing.slug}
+    assert conversation["listing"] == {"id": str(listing.id), "title": "BMW 320d", "slug": listing.slug, "category_code": "trucks"}
     assert conversation["buyer_id"] == str(buyer.id)
     assert conversation["seller_id"] == str(seller.id)
     assert conversation["last_message"]["body"] == "Is the car available?"

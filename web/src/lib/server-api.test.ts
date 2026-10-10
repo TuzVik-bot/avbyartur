@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { requireSession } from "@/lib/server";
-import { getSavedListingIds, getSessionServer, serverApi } from "@/lib/server-api";
+import { getSavedListingIds, getSessionServer, serverApi, serverApiRequest } from "@/lib/server-api";
 
 const mocks = vi.hoisted(() => ({
   redirect: vi.fn((url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); })
@@ -104,5 +104,25 @@ describe("server session lookup", () => {
 
     await expect(requireSession("/account/notifications")).rejects.toThrow("NEXT_REDIRECT:/login?next=%2Faccount%2Fnotifications");
     expect(mocks.redirect).toHaveBeenCalledWith("/login?next=%2Faccount%2Fnotifications");
+  });
+});
+
+describe("server API request cookies", () => {
+  it("does not forward session cookies to the public VIN status endpoint", async () => {
+    const request = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ enabled: false }), { status: 200 }));
+    vi.stubGlobal("fetch", request);
+
+    await serverApi.vinCheckStatus();
+
+    expect(new Headers(request.mock.calls[0]?.[1]?.headers).has("cookie")).toBe(false);
+  });
+
+  it("keeps forwarding cookies for authenticated server API requests", async () => {
+    const request = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
+    vi.stubGlobal("fetch", request);
+
+    await serverApiRequest("me");
+
+    expect(new Headers(request.mock.calls[0]?.[1]?.headers).get("cookie")).toBe("pilot_session=test-session");
   });
 });

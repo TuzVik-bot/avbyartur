@@ -51,6 +51,54 @@ def test_category_details_must_match_its_listing_category():
         )
 
 
+@pytest.mark.parametrize("category", ["trucks", "buses", "motorcycles", "special_equipment", "agricultural_equipment", "trailers", "watercraft"])
+def test_frame_serial_number_is_optional_typed_and_separate_from_vin(category):
+    from app.listing_categories import ListingCategoryDetailsInput
+    from app.schemas import ListingForm
+
+    assert ListingCategoryDetailsInput(category_code=category).details == {}
+    form = ListingForm(
+        category_code=category,
+        vin="1HGCM82633A004352",
+        category_details={"category_code": category, "details": {"frame_serial_number": "FRAME-2026/42"}},
+    )
+    assert form.category_details.details == {"frame_serial_number": "FRAME-2026/42"}
+    assert form.vin == "1HGCM82633A004352"
+    for invalid in (42, "x" * 121):
+        with pytest.raises(ValidationError):
+            ListingCategoryDetailsInput(category_code=category, details={"frame_serial_number": invalid})
+
+
+@pytest.mark.parametrize("category", ["cars", "parts", "wheels", "tires"])
+def test_frame_serial_number_is_rejected_for_unrelated_categories(category):
+    from app.listing_categories import ListingCategoryDetailsInput
+
+    with pytest.raises(ValidationError):
+        ListingCategoryDetailsInput(category_code=category, details={"frame_serial_number": "FRAME-42"})
+
+
+def test_frame_serial_number_persists_in_category_json_without_changing_vin():
+    from app.api.listings import _apply_fields
+    from app.models import Listing, ListingCategoryDetails
+    from app.schemas import ListingForm
+
+    class Db:
+        def get(self, _model, _identity):
+            return None
+
+    listing = Listing(category_code="special_equipment", vin="1HGCM82633A004352")
+    existing = ListingCategoryDetails(category_code="special_equipment", details={"equipment_type": "Excavator"})
+    listing.category_details = existing
+    form = ListingForm(category_code="special_equipment", category_details={
+        "category_code": "special_equipment",
+        "details": {"equipment_type": "Excavator", "frame_serial_number": "FRAME-2026/42"},
+    })
+    _apply_fields(Db(), listing, form.model_dump(exclude_unset=True), None, creating=False)
+    assert listing.category_details is existing
+    assert existing.details["frame_serial_number"] == "FRAME-2026/42"
+    assert listing.vin == "1HGCM82633A004352"
+
+
 def test_legacy_listing_form_defaults_to_cars_and_preserves_explicit_category():
     from app.schemas import ListingForm
 
@@ -125,6 +173,34 @@ def test_category_change_requires_confirmation_and_replaces_incompatible_details
         "drive", "engine_volume_l", "power_hp", "vin", "equipment",
     ):
         assert getattr(listing, field) is None
+
+
+def test_category_change_clears_shared_vehicle_fields_before_new_car_details_are_saved():
+    from app.api.listings import _apply_fields
+    from app.models import Listing, ListingCategoryDetails
+
+    class Db:
+        def delete(self, _row):
+            pass
+
+        def flush(self):
+            pass
+
+        def get(self, _model, _identity):
+            return None
+
+    listing = Listing(category_code="trucks", title="Volvo FH", year=2014, mileage_km=900_000)
+    listing.category_details = ListingCategoryDetails(category_code="trucks", details={"payload_kg": 18_000})
+
+    _apply_fields(Db(), listing, {"category_code": "cars", "confirm_category_change": True}, None, creating=False)
+
+    assert listing.title == ""
+    assert listing.year is None
+    assert listing.mileage_km is None
+
+    _apply_fields(Db(), listing, {"manual_make": "Honda", "manual_model": "Civic", "year": 2020}, None, creating=False)
+
+    assert listing.title == "Honda Civic 2020"
 
 
 def test_same_category_details_update_reuses_the_existing_one_to_one_row():

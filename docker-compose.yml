@@ -55,6 +55,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-avtorinok}:${POSTGRES_PASSWORD:?Run scripts/init-secrets.sh first}@db:5432/${POSTGRES_DB:-avtorinok}
       SESSION_SECRET: ${SESSION_SECRET:?Run scripts/init-secrets.sh first}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      EMAIL_REGISTRATION_PILOT_ENABLED: ${EMAIL_REGISTRATION_PILOT_ENABLED:-false}
+      EMAIL_REGISTRATION_ENABLED: ${EMAIL_REGISTRATION_ENABLED:-false}
       SMS_LOGIN_ENABLED: ${SMS_LOGIN_ENABLED:-false}
       PUBLIC_REGISTRATION_ENABLED: ${PUBLIC_REGISTRATION_ENABLED:-false}
       EMAIL_REGISTRATION_ENABLED: ${EMAIL_REGISTRATION_ENABLED:-false}
@@ -72,6 +74,7 @@ services:
       SMSC_API_URL: ${SMSC_API_URL:-https://smsc.ru/sys/send.php}
       SMSC_SENDER: ${SMSC_SENDER:-}
       SMSC_TIMEOUT_SECONDS: ${SMSC_TIMEOUT_SECONDS:-5}
+      TEST_MAIL_ENABLED: ${TEST_MAIL_ENABLED:-false}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
@@ -130,6 +133,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?Run scripts/init-secrets.sh first}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      TEST_MAIL_ENABLED: ${TEST_MAIL_ENABLED:-false}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
@@ -202,6 +206,29 @@ services:
       - no-new-privileges:true
     networks:
       - app
+
+  test-mail:
+    image: axllent/mailpit:v1.31.4@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
+    profiles: ["test-mail"]
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_MAX_AGE: 7d
+      MP_MAX_MESSAGE_SIZE: 1
+      MP_DISABLE_VERSION_CHECK: "true"
+      MP_SMTP_DISABLE_RDNS: "true"
+      MP_BLOCK_REMOTE_CSS_AND_FONTS: "true"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    logging: *bounded-logging
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks: [app]
 
 volumes:
   postgres_data:

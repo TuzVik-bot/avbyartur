@@ -216,4 +216,26 @@ describe("moderation listing queues", () => {
 
     expect(container.querySelector(".moderation-risk-related-count")?.textContent).toBe("Связанных объявлений: 0");
   });
+
+  it("shows localized status badges for listing, company, and report queues", async () => {
+    mocks.moderationListings.mockResolvedValueOnce({
+      items: [{ id: "listing-status", title: "Skoda Octavia", seller: { name: "Продавец" }, revision: 1, status: "pending_review" }],
+      pagination: { page: 1, page_size: 50, total: 1, pages: 1 }
+    });
+    await render();
+    expect(container.querySelector(".moderation-item .status-pill")?.textContent).toBe("На проверке");
+    expect(container.querySelector(".moderation-item .status-pill")?.classList.contains("status-pending_review")).toBe(true);
+    expect(container.textContent).not.toContain("pending_review");
+
+    mocks.moderationCompanies.mockResolvedValueOnce({ items: [{ id: "company-status", name: "Компания", unp: "123456789", address: "Минск", phone: "+375 29 000 00 00", status: "rejected" }] });
+    await render({ queue: "companies" });
+    expect(container.querySelector(".moderation-item .status-pill")?.textContent).toBe("Нужно исправить");
+    expect(container.querySelector(".moderation-item .status-pill")?.classList.contains("status-rejected")).toBe(true);
+
+    mocks.moderationReports.mockResolvedValueOnce({ items: [{ id: "report-status", listing_id: "listing-status", category: "fraud", comment: "Проверить", status: "open" }] });
+    await render({ queue: "reports" });
+    expect(container.querySelector(".moderation-item .status-pill")?.textContent).toBe("Открыта");
+    expect(container.querySelector(".moderation-item .status-pill")?.classList.contains("status-open")).toBe(true);
+    expect(container.textContent).not.toContain("open");
+  });
 });

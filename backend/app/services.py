@@ -7,10 +7,11 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import case, func, inspect as sa_inspect, select
+from sqlalchemy import String, case, cast, func, inspect as sa_inspect, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+from pydantic import ValidationError
 
 from app.config import get_settings
 from app.listing_validation_policy import (
@@ -19,6 +20,7 @@ from app.listing_validation_policy import (
     minimum_required_photos,
 )
 from app.listing_categories import CATEGORY_CODES, category_submission_errors, validate_category_details
+from app.listing_schemas import ListingSearchFilters
 from app.models import (
     BillingOrder,
     CatalogBodyVariant,
@@ -29,9 +31,12 @@ from app.models import (
     CatalogModification,
     Company,
     DealerTeamMember,
+    ExchangeRate,
     Listing,
+    ListingCategoryDetails,
     ListingPhoto,
     ListingPromotion,
+    ListingStatusEvent,
     LocationCity,
     LocationRegion,
     RateLimitBucket,
@@ -40,6 +45,150 @@ from app.models import (
     WorkerJob,
 )
 from app.runtime_settings import runtime_limit
+
+
+def latest_listing_exchange_rate(db: Session) -> tuple[ExchangeRate | None, bool]:
+    now = datetime.now(timezone.utc)
+    rate = db.scalar(
+        select(ExchangeRate)
+        .where(ExchangeRate.currency == "USD", ExchangeRate.rate_date <= now.date().isoformat())
+        .order_by(ExchangeRate.rate_date.desc())
+        .limit(1)
+    )
+    if rate is None or rate.fetched_at is None:
+        return rate, False
+    fetched = rate.fetched_at if rate.fetched_at.tzinfo else rate.fetched_at.replace(tzinfo=timezone.utc)
+    return rate, fetched >= now - timedelta(hours=72)
+
+
+def listing_display_price_expression(currency: str, rate: ExchangeRate):
+    amount = Listing.price_amount
+    if currency == "BYN":
+        converted = amount * rate.official_rate / Decimal(rate.scale)
+        return case((Listing.currency == "BYN", amount), (Listing.currency == "USD", converted), else_=None)
+    converted = amount * Decimal(rate.scale) / rate.official_rate
+    return case((Listing.currency == "USD", amount), (Listing.currency == "BYN", converted), else_=None)
+
+
+def public_listings_query():
+    return (
+        select(Listing)
+        .join(User, Listing.owner_id == User.id)
+        .where(Listing.status == "active", User.status == "active")
+        .outerjoin(Company, Listing.company_id == Company.id)
+        .where(or_(Listing.company_id.is_(None), Company.status == "approved"))
+    )
+
+
+def build_public_listing_query(
+    db: Session,
+    filters: ListingSearchFilters | dict[str, Any],
+    rate_info: tuple[ExchangeRate | None, bool] | None = None,
+):
+    """Build the public listing visibility/filter query shared by API and worker."""
+    if not isinstance(filters, ListingSearchFilters):
+        filters = ListingSearchFilters.model_validate(filters)
+    if rate_info is None:
+        rate_info = latest_listing_exchange_rate(db)
+    latest_rate, rate_fresh = rate_info
+
+    query = public_listings_query()
+    query = query.where(Listing.category_code == filters.category_code)
+    if filters.q:
+        term = f"%{filters.q.strip()[:100]}%"
+        query = query.outerjoin(CatalogMake, Listing.make_id == CatalogMake.id).outerjoin(CatalogModel, Listing.model_id == CatalogModel.id).where(
+            or_(Listing.title.ilike(term), Listing.make_name_snapshot.ilike(term), Listing.model_name_snapshot.ilike(term),
+                CatalogMake.name.ilike(term), cast(CatalogMake.aliases, String).ilike(term), CatalogModel.name.ilike(term), cast(CatalogModel.aliases, String).ilike(term),
+                Listing.manual_city.ilike(term), Listing.district.ilike(term))
+        )
+    for field, value in (
+        (Listing.make_id, filters.make_id), (Listing.model_id, filters.model_id),
+        (Listing.generation_id, filters.generation_id), (Listing.body_variant_id, filters.body_variant_id),
+        (Listing.modification_id, filters.modification_id), (Listing.region_id, filters.region_id),
+        (Listing.city_id, filters.city_id), (Listing.fuel, filters.fuel),
+        (Listing.transmission, filters.transmission), (Listing.drive, filters.drive),
+        (Listing.condition, filters.condition), (Listing.color, filters.color),
+        (Listing.customs_status, filters.customs_status),
+        (Listing.technical_condition, filters.technical_condition),
+        (Listing.body_condition, filters.body_condition), (Listing.exchange, filters.exchange),
+        (Listing.bargaining, filters.bargaining), (Listing.credit, filters.credit),
+        (Listing.leasing, filters.leasing), (Listing.damaged, filters.damaged),
+        (Listing.parts_only, filters.parts_only),
+    ):
+        if value is not None:
+            query = query.where(field == value)
+    if filters.body_type:
+        query = query.join(CatalogBodyType, Listing.body_type_id == CatalogBodyType.id).where(
+            or_(cast(Listing.body_type_id, String) == filters.body_type, CatalogBodyType.slug == filters.body_type)
+        )
+    if filters.equipment:
+        query = query.where(Listing.equipment.contains(filters.equipment))
+    if filters.district:
+        query = query.where(Listing.district.ilike(f"%{filters.district.strip()[:120]}%"))
+    if filters.call_hours:
+        query = query.where(Listing.call_hours.ilike(f"%{filters.call_hours.strip()[:120]}%"))
+    if filters.has_vin is not None:
+        has_vin_expression = Listing.vin.is_not(None) & (func.length(func.trim(Listing.vin)) > 0)
+        query = query.where(has_vin_expression if filters.has_vin else ~has_vin_expression)
+    if filters.has_photos is not None:
+        ready_photo = select(ListingPhoto.id).where(
+            ListingPhoto.listing_id == Listing.id,
+            ListingPhoto.status == "ready",
+        ).exists()
+        query = query.where(ready_photo if filters.has_photos else ~ready_photo)
+    if filters.seller_type == "private":
+        query = query.where(Listing.company_id.is_(None))
+    if filters.seller_type == "company":
+        query = query.where(Listing.company_id.is_not(None))
+
+    display_price = (
+        listing_display_price_expression(filters.currency, latest_rate)
+        if filters.currency and rate_fresh and latest_rate
+        else Listing.price_amount
+    )
+    if filters.price_min is not None:
+        query = query.where(display_price >= filters.price_min)
+    if filters.price_max is not None:
+        query = query.where(display_price <= filters.price_max)
+    if filters.year_min is not None:
+        query = query.where(Listing.year >= filters.year_min)
+    if filters.year_max is not None:
+        query = query.where(Listing.year <= filters.year_max)
+    if filters.mileage_min is not None:
+        query = query.where(Listing.mileage_km >= filters.mileage_min)
+    if filters.mileage_max is not None:
+        query = query.where(Listing.mileage_km <= filters.mileage_max)
+    if filters.engine_volume_min is not None:
+        query = query.where(Listing.engine_volume_l >= filters.engine_volume_min)
+    if filters.engine_volume_max is not None:
+        query = query.where(Listing.engine_volume_l <= filters.engine_volume_max)
+    if filters.power_min is not None:
+        query = query.where(Listing.power_hp >= filters.power_min)
+    if filters.power_max is not None:
+        query = query.where(Listing.power_hp <= filters.power_max)
+    return query, display_price
+
+
+def listing_matches_public_search(
+    db: Session,
+    filters: dict[str, Any],
+    listing: Listing,
+) -> bool:
+    """Use the exact public query semantics to match one saved-search listing."""
+    try:
+        parsed_filters = ListingSearchFilters.model_validate(filters)
+    except ValidationError:
+        return False
+    has_price_bounds = parsed_filters.price_min is not None or parsed_filters.price_max is not None
+    if has_price_bounds and parsed_filters.currency is None:
+        return False
+    rate_info = latest_listing_exchange_rate(db) if has_price_bounds else (None, False)
+    _rate, fresh = rate_info
+    if has_price_bounds and not fresh:
+        return False
+    query, _ = build_public_listing_query(db, parsed_filters, rate_info)
+    statement = query.with_only_columns(Listing.id).where(Listing.id == listing.id).order_by(None).limit(1)
+    return db.scalar(statement) is not None
 
 
 def fail(status_code: int, code: str, message: str, field_errors: dict[str, str] | None = None) -> None:
@@ -427,6 +576,22 @@ def serialize_listing(
     )
 
 
+def listing_publication_dates(db: Session, listings: list[Listing]) -> dict[UUID, datetime]:
+    """Return first-ever transition to active for a listing page in one query."""
+    listing_ids = [listing.id for listing in listings]
+    if not listing_ids:
+        return {}
+    rows = db.execute(
+        select(ListingStatusEvent.listing_id, func.min(ListingStatusEvent.created_at))
+        .where(
+            ListingStatusEvent.listing_id.in_(listing_ids),
+            ListingStatusEvent.to_status == "active",
+        )
+        .group_by(ListingStatusEvent.listing_id)
+    ).all()
+    return {listing_id: published_at for listing_id, published_at in rows if published_at is not None}
+
+
 def serialize_listings(
     db: Session,
     listings: list[Listing],
@@ -435,6 +600,24 @@ def serialize_listings(
     include_contact: bool = False,
 ) -> list[dict]:
     badges_by_listing = _active_promotion_badges(db, [listing.id for listing in listings])
+    category_details_by_listing: dict[UUID, ListingCategoryDetails | None] = {}
+    unloaded_category_details_ids: set[UUID] = set()
+    for listing in listings:
+        if "category_details" in sa_inspect(listing).unloaded:
+            unloaded_category_details_ids.add(listing.id)
+        else:
+            category_details_by_listing[listing.id] = listing.__dict__.get("category_details")
+    if unloaded_category_details_ids:
+        category_details_by_listing.update(
+            {
+                row.listing_id: row
+                for row in db.scalars(
+                    select(ListingCategoryDetails).where(
+                        ListingCategoryDetails.listing_id.in_(unloaded_category_details_ids)
+                    )
+                ).all()
+            }
+        )
     if len(listings) < 2:
         return [
             _serialize_listing(
@@ -443,6 +626,7 @@ def serialize_listings(
                 public=public,
                 include_modification=False,
                 include_contact=include_contact,
+                category_details_by_listing=category_details_by_listing,
                 promotion_badges=badges_by_listing.get(listing.id, []),
             )
             for listing in listings
@@ -485,6 +669,7 @@ def serialize_listings(
             public=public,
             records=records,
             photos_by_listing=photos_by_listing,
+            category_details_by_listing=category_details_by_listing,
             include_modification=False,
             include_contact=include_contact,
             promotion_badges=badges_by_listing.get(listing.id, []),
@@ -543,6 +728,7 @@ def _serialize_listing(
     public: bool,
     records: dict[type, dict[UUID, Any]] | None = None,
     photos_by_listing: dict[UUID, list[ListingPhoto]] | None = None,
+    category_details_by_listing: dict[UUID, ListingCategoryDetails | None] | None = None,
     include_modification: bool = False,
     include_contact: bool = False,
     promotion_badges: list[str] | None = None,
@@ -568,6 +754,11 @@ def _serialize_listing(
         if photos_by_listing is None
         else photos_by_listing.get(listing.id, [])
     )
+    category_details = (
+        listing.category_details
+        if category_details_by_listing is None
+        else category_details_by_listing.get(listing.id)
+    )
     company = get_record(Company, listing.company_id)
     user = get_record(User, listing.owner_id)
     seller = {"type": "company", "id": str(company.id), "name": company.name, "slug": company.slug} if company else {
@@ -582,7 +773,7 @@ def _serialize_listing(
         "id": str(listing.id), "slug": listing.slug, "title": title,
         "status": listing.status, "revision": listing.revision,
         "category_code": getattr(listing, "category_code", "cars"),
-        "category_details": dict(getattr(getattr(listing, "category_details", None), "details", None) or {}),
+        "category_details": dict(getattr(category_details, "details", None) or {}),
         "make": catalog_item(make) or (CatalogItemFallback(listing.make_name_snapshot, listing.manual_make)),
         "model": catalog_item(model, make_id=listing.make_id) or CatalogItemFallback(listing.model_name_snapshot, listing.manual_model, listing.make_id),
         "generation": catalog_item(generation, make_id=listing.make_id, model_id=listing.model_id),
@@ -591,9 +782,13 @@ def _serialize_listing(
         "body_type": body_type.name if body_type else None,
         "body_variant_id": str(body_variant.id) if body_variant else None,
         "body_variant": catalog_item(body_variant, generation_id=listing.generation_id) if body_variant else None,
-        "price": None if listing.price_amount is None else {"amount": str(listing.price_amount), "currency": listing.currency, "display_byn": None, "rate_date": None},
+        "price": None if listing.price_amount is None else {
+            "amount": str(listing.price_amount), "currency": listing.currency,
+            "display_byn": None, "rate_date": None, "market_comparison": None,
+        },
         "region": catalog_item(region), "city": catalog_item(city), "manual_city": listing.manual_city, "seller": seller,
         "created_at": created_at.isoformat(), "updated_at": updated_at.isoformat(),
+        "published_at": None,
         "damaged": listing.damaged, "parts_only": listing.parts_only,
         "description": listing.description, "engine_volume_l": str(listing.engine_volume_l) if listing.engine_volume_l is not None else None,
         "power_hp": listing.power_hp, "condition": listing.condition,

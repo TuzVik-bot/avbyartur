@@ -1,3 +1,4 @@
+import { categories } from "@/lib/listing-categories";
 import Link from "next/link";
 
 type FooterLink = { href: string; label: string };
@@ -9,6 +10,16 @@ type FooterGroup = {
 };
 
 const footerGroups: FooterGroup[] = [
+  { id: "categories", title: "Каталог", links: categories },
+  {
+    id: "services",
+    title: "Сервисы",
+    links: [
+      { href: "/vin-check", label: "Проверка транспорта по VIN" },
+      { href: "/financing", label: "Подбор кредита или лизинга" },
+      { href: "/currency-converter", label: "Конвертер валют" }
+    ]
+  },
   {
     id: "information",
     title: "Информация",
@@ -17,6 +28,7 @@ const footerGroups: FooterGroup[] = [
       { href: "/faq", label: "Часто задаваемые вопросы" },
       { href: "/support", label: "Служба поддержки" },
       { href: "/partner", label: "Информация для рекламодателей" },
+      { href: "/useful-information", label: "Полезная информация" },
       { href: "/help", label: "Помощь и документы" }
     ]
   },

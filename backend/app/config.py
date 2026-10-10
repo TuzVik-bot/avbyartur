@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     sms_login_enabled: bool = False
     public_registration_enabled: bool = False
     email_registration_enabled: bool = False
+    email_registration_pilot_enabled: bool = False
     public_guest_contact_enabled: bool = False
     sms_otp_secret: SecretStr = SecretStr("")
     sms_otp_lifetime_seconds: int = 300
@@ -54,6 +55,7 @@ class Settings(BaseSettings):
     smsc_api_url: str = "https://smsc.ru/sys/send.php"
     smsc_sender: str = ""
     smsc_timeout_seconds: int = 5
+    test_mail_enabled: bool = False
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""

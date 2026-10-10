@@ -24,6 +24,16 @@ let root: Root;
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn()
+  })));
   container = document.createElement("div");
   document.body.append(container);
   act(() => { root = createRoot(container); });
@@ -32,6 +42,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -43,6 +55,189 @@ function choose(name: string, value: string) {
 }
 
 describe("search filter dependencies", () => {
+  it("opens a mobile filter dialog, traps Escape close, and restores focus to the trigger", async () => {
+    vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
+      matches: query.includes("max-width: 800px"),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    })));
+
+    await act(async () => {
+      root.render(createElement(SearchFilters, {
+        search: { make_id: makeA.id, q: "BMW", sort: "price_asc" },
+        makes: [makeA],
+        initialModels: [],
+        regions: [],
+        initialCities: [],
+        bodyTypes: []
+      }));
+    });
+
+    const trigger = container.querySelector<HTMLButtonElement>(".filter-toggle")!;
+    trigger.focus();
+    await act(async () => { trigger.click(); });
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"][aria-modal="true"]');
+    expect(dialog).not.toBeNull();
+    const closeButton = dialog?.querySelector<HTMLButtonElement>(".filter-close");
+    const applyButton = dialog?.querySelector<HTMLButtonElement>(".filter-apply");
+    expect(closeButton?.ownerDocument.activeElement).toBe(closeButton);
+    expect(container.querySelector<HTMLButtonElement>('button[type="submit"].filter-apply')).not.toBeNull();
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/cars"].filter-reset')).not.toBeNull();
+
+    await act(async () => {
+      closeButton?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }));
+    });
+    expect(document.activeElement).toBe(applyButton);
+    await act(async () => {
+      applyButton?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    });
+    expect(document.activeElement).toBe(closeButton);
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(container.querySelector('[role="dialog"][aria-modal="true"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    const submitted = new FormData(container.querySelector<HTMLFormElement>("form")!);
+    expect(submitted.get("make_id")).toBe(makeA.id);
+    expect(submitted.get("q")).toBe("BMW");
+    expect(submitted.get("sort")).toBe("price_asc");
+  });
+
+  it("keeps models from the latest make when an earlier catalog response arrives last", async () => {
+    let resolveMakeA!: (value: { items: CatalogItem[] }) => void;
+    let resolveMakeB!: (value: { items: CatalogItem[] }) => void;
+    const makeAModels = new Promise<{ items: CatalogItem[] }>((resolve) => { resolveMakeA = resolve; });
+    const makeBModels = new Promise<{ items: CatalogItem[] }>((resolve) => { resolveMakeB = resolve; });
+    const catalog = vi.spyOn(api, "catalog").mockImplementation((kind, params = {}) => {
+      if (kind === "models" && params.make_id === makeA.id) return makeAModels;
+      if (kind === "models" && params.make_id === makeB.id) return makeBModels;
+      return Promise.resolve({ items: [] });
+    });
+
+    await act(async () => {
+      root.render(createElement(SearchFilters, {
+        search: {}, makes: [makeA, makeB], initialModels: [], regions: [], initialCities: [], bodyTypes: []
+      }));
+    });
+    await act(async () => { choose("make_id", makeA.id); });
+    await act(async () => { choose("make_id", makeB.id); });
+    expect(catalog).toHaveBeenCalledWith("models", { make_id: makeA.id });
+    expect(catalog).toHaveBeenCalledWith("models", { make_id: makeB.id });
+
+    await act(async () => { resolveMakeB({ items: [modelB] }); await Promise.resolve(); });
+    await act(async () => { resolveMakeA({ items: [modelA] }); await Promise.resolve(); });
+
+    expect(container.querySelector(`option[value="${modelB.id}"]`)?.textContent).toBe(modelB.name);
+    expect(container.querySelector(`option[value="${modelA.id}"]`)).toBeNull();
+  });
+
+  it("debounces the matching result count while preserving BYN and repeated equipment", async () => {
+    vi.useFakeTimers();
+    const count = vi.spyOn(api, "listingCount").mockResolvedValue({ total: 2 });
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: { q: "BMW", equipment: ["abs", "rear_camera"], sort: "newest", page: "3" },
+      makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [], initialCount: 11
+    })));
+
+    const form = container.querySelector<HTMLFormElement>("form")!;
+    const price = form.querySelector<HTMLInputElement>('input[name="price_min"]')!;
+    price.value = "10000";
+    await act(async () => { price.dispatchEvent(new Event("input", { bubbles: true })); });
+    await act(async () => { vi.advanceTimersByTime(299); });
+    expect(count).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(1); await Promise.resolve(); });
+
+    expect(count).toHaveBeenCalledWith(expect.objectContaining({
+      q: "BMW", currency: "BYN", price_min: "10000", equipment: ["abs", "rear_camera"]
+    }));
+    expect(count.mock.calls[0][0]).not.toHaveProperty("sort");
+    expect(count.mock.calls[0][0]).not.toHaveProperty("page");
+    expect(count.mock.calls[0][0]).not.toHaveProperty("page_size");
+    expect(new FormData(form).getAll("equipment")).toEqual(["abs", "rear_camera"]);
+    expect(container.querySelector(".filter-apply")?.textContent).toContain("Показать 2 предложения");
+  });
+
+  it("returns to a generic apply label after count errors and displays zero results", async () => {
+    vi.useFakeTimers();
+    const count = vi.spyOn(api, "listingCount").mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({ total: 0 });
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: {}, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: []
+    })));
+    const price = container.querySelector<HTMLInputElement>('input[name="price_max"]')!;
+    price.value = "20000";
+    await act(async () => { price.dispatchEvent(new Event("input", { bubbles: true })); vi.advanceTimersByTime(300); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(container.querySelector(".filter-apply")?.textContent).toContain("Показать автомобили");
+    expect(container.querySelector('[data-count-state="generic"]')).not.toBeNull();
+
+    price.value = "15000";
+    await act(async () => { price.dispatchEvent(new Event("input", { bubbles: true })); vi.advanceTimersByTime(300); await Promise.resolve(); });
+    expect(count).toHaveBeenCalledTimes(2);
+    expect(container.querySelector(".filter-apply")?.textContent).toContain("Показать 0 предложений");
+  });
+
+  it("keeps a mobile filter draft, closes on Escape, and restores focus and scroll", async () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }));
+    document.body.style.overflow = "";
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: { transmission: "manual" },
+      makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: []
+    })));
+
+    const trigger = container.querySelector<HTMLButtonElement>(".filter-toggle")!;
+    trigger.focus();
+    await act(async () => { trigger.click(); });
+    expect(container.querySelector('[role="dialog"][aria-modal="true"]')).not.toBeNull();
+    expect(document.body.style.overflow).toBe("hidden");
+    expect(container.querySelector<HTMLButtonElement>(".filter-close") === document.activeElement).toBe(true);
+
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true })); });
+    expect(document.activeElement).toBe(container.querySelector(".filter-apply"));
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })); });
+    expect(document.activeElement).toBe(container.querySelector(".filter-close"));
+
+    const transmission = container.querySelector<HTMLSelectElement>('select[name="transmission"]')!;
+    transmission.value = "automatic";
+    transmission.dispatchEvent(new Event("change", { bubbles: true }));
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.style.overflow).toBe("");
+    expect(document.activeElement).toBe(trigger);
+
+    await act(async () => { trigger.click(); });
+    expect(container.querySelector<HTMLSelectElement>('select[name="transmission"]')?.value).toBe("automatic");
+    expect(container.querySelector(".filter-apply")).not.toBeNull();
+  });
+
+  it.each(["close", "backdrop"] as const)("restores focus and scrolling when the mobile drawer closes by %s", async (method) => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: {}, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: []
+    })));
+    const trigger = container.querySelector<HTMLButtonElement>(".filter-toggle")!;
+    trigger.focus();
+    await act(async () => { trigger.click(); });
+    if (method === "close") {
+      await act(async () => { container.querySelector<HTMLButtonElement>(".filter-close")!.click(); });
+    } else {
+      const backdrop = container.querySelector<HTMLDivElement>(".filter-overlay")!;
+      await act(async () => { backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    }
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(document.body.style.overflow).toBe("");
+  });
+
   it("preserves selected catalog IDs when option catalog requests fail temporarily", async () => {
     vi.spyOn(api, "catalog").mockRejectedValue(new Error("catalog temporarily unavailable"));
     vi.spyOn(api, "cities").mockRejectedValue(new Error("cities temporarily unavailable"));
@@ -428,4 +623,23 @@ describe("search filter dependencies", () => {
     expect(modificationSelect?.disabled).toBe(true);
     expect(modificationSelect?.options[0]?.textContent).toBe("Нет доступных модификаций");
   });
+});
+it("offers year and mileage ranges on transport categories without car catalogs", async () => {
+ await act(async () => root.render(createElement(SearchFilters, { search: { category_code: "trucks" }, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [] })));
+ expect(container.querySelector('form')?.getAttribute('action')).toBe('/trucks');
+ expect(container.querySelector('select[name="make_id"]')).toBeNull();
+ expect(container.querySelector('input[name="year_min"]')).not.toBeNull();
+ expect(container.querySelector('input[name="mileage_min"]')).not.toBeNull();
+});
+it("keeps tire query aliases in the editable characteristics and serialized search", async () => {
+ await act(async () => root.render(createElement(SearchFilters, { search: { category_code: "tires", width_mm: "205", diameter_in: "16", season: "winter" }, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [] })));
+ expect(container.querySelector<HTMLInputElement>('input[aria-label="Ширина, мм"]')?.value).toBe("205");
+ expect(container.querySelector<HTMLInputElement>('input[name="details"]')?.value).toBe('{"width_mm":205,"diameter_in":16,"season":"winter"}');
+ expect(container.querySelector('input[name="year_min"]')).toBeNull();
+});
+it("updates category characteristic controls after search navigation", async () => {
+ const props = { makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [] };
+ await act(async () => root.render(createElement(SearchFilters, { ...props, search: { category_code: "tires", season: "winter" } })));
+ await act(async () => root.render(createElement(SearchFilters, { ...props, search: { category_code: "tires", season: "summer" } })));
+ expect(container.querySelector<HTMLSelectElement>('select[aria-label="Сезон"]')?.value).toBe("summer");
 });

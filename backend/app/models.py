@@ -1,11 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    text,
     UniqueConstraint,
     Uuid,
     event,
@@ -588,6 +590,7 @@ class SavedSearch(Base):
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notification_channel: Mapped[str | None] = mapped_column(String(20), nullable=True)
     notification_frequency: Mapped[str] = mapped_column(String(20), default="daily", nullable=False)
+    subscription_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -605,12 +608,12 @@ class NotificationOutbox(Base):
         UniqueConstraint("dedupe_key", name="uq_notification_outbox_dedupe"),
         CheckConstraint("channel IN ('web', 'email')", name="ck_notification_outbox_channel"),
         CheckConstraint(
-            "status IN ('queued', 'running', 'delivered', 'failed', 'unsupported')",
+            "status IN ('queued', 'running', 'delivered', 'failed', 'unsupported', 'cancelled')",
             name="ck_notification_outbox_status",
         ),
         CheckConstraint(
             "(saved_search_id IS NOT NULL AND conversation_id IS NULL) OR "
-            "(saved_search_id IS NULL AND conversation_id IS NOT NULL)",
+            "(saved_search_id IS NULL AND conversation_id IS NOT NULL AND listing_id IS NOT NULL)",
             name="ck_notification_outbox_source",
         ),
         Index("ix_notification_outbox_claim", "status", "available_at", "created_at", "id"),
@@ -622,7 +625,7 @@ class NotificationOutbox(Base):
     saved_search_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("saved_searches.id", ondelete="CASCADE"), nullable=True, index=True)
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), nullable=True, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    listing_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), nullable=True, index=True)
     channel: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), default="queued", index=True)
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
@@ -636,6 +639,44 @@ class NotificationOutbox(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class SavedSearchNotificationBatch(Base):
+    """One digest slot per saved search, channel, and local delivery period."""
+
+    __tablename__ = "saved_search_notification_batches"
+    __table_args__ = (
+        UniqueConstraint("saved_search_id", "channel", "period", name="uq_saved_search_notification_batch_period"),
+        UniqueConstraint("outbox_id", name="uq_saved_search_notification_batch_outbox"),
+        CheckConstraint("channel IN ('web', 'email')", name="ck_saved_search_notification_batch_channel"),
+        Index("ix_saved_search_notification_batches_outbox", "outbox_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    saved_search_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("saved_searches.id", ondelete="CASCADE"), index=True)
+    channel: Mapped[str] = mapped_column(String(20))
+    period: Mapped[date] = mapped_column(Date, nullable=False)
+    outbox_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("notification_outbox.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SavedSearchNotificationMatch(Base):
+    """First successful subscription match for one listing."""
+
+    __tablename__ = "saved_search_notification_matches"
+    __table_args__ = (
+        UniqueConstraint("saved_search_id", "listing_id", name="uq_saved_search_notification_match"),
+        Index("ix_saved_search_notification_matches_outbox", "outbox_id", "created_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    saved_search_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("saved_searches.id", ondelete="CASCADE"), index=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    listing_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    outbox_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("notification_outbox.id", ondelete="SET NULL"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    url: Mapped[str] = mapped_column(String(2048))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class UserNotification(Base):
     """An in-app notification materialised from a delivered outbox row."""
 
@@ -644,9 +685,10 @@ class UserNotification(Base):
         UniqueConstraint("outbox_id", name="uq_user_notification_outbox"),
         CheckConstraint(
             "(saved_search_id IS NOT NULL AND conversation_id IS NULL) OR "
-            "(saved_search_id IS NULL AND conversation_id IS NOT NULL)",
+            "(saved_search_id IS NULL AND conversation_id IS NOT NULL AND listing_id IS NOT NULL)",
             name="ck_user_notification_source",
         ),
+        CheckConstraint("total_count >= 1", name="ck_user_notification_total_count"),
         Index("ix_user_notifications_user_created", "user_id", "created_at", "id"),
     )
 
@@ -655,10 +697,17 @@ class UserNotification(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     saved_search_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("saved_searches.id", ondelete="CASCADE"), nullable=True, index=True)
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), nullable=True, index=True)
-    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    listing_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(240))
     body: Mapped[str] = mapped_column(Text)
     url: Mapped[str] = mapped_column(String(2048))
+    listings: Mapped[list] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"),
+        default=list,
+        server_default=text("'[]'::jsonb"),
+        nullable=False,
+    )
+    total_count: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

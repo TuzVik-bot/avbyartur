@@ -1,17 +1,17 @@
 "use client";
 
+import { categories, categoryFacts, categoryPath } from "@/lib/listing-categories";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { AlertTriangle, Building2, Check, ChevronRight, CircleUserRound, MapPin, MessageCircle, Phone, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Building2, Check, ChevronRight, CircleUserRound, ImageOff, MapPin, MessageCircle, Phone, Printer, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { FavoriteButton, ListingCard } from "@/components/listing-card";
 import { api, ApiClientError } from "@/lib/api";
 import { formatDate, formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import type { Listing, ReportCategory } from "@/lib/types";
 
-const fallbackPhoto = "/vehicles/silver-wagon.png";
 const MAX_GALLERY_PHOTOS = 30;
 const reportCategories: { value: ReportCategory; label: string }[] = [
   { value: "incorrect_info", label: "Недостоверная информация" },
@@ -34,18 +34,23 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   const [phoneError, setPhoneError] = useState("");
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [guestContactRevealEnabled, setGuestContactRevealEnabled] = useState(false);
+  const detailPageRef = useRef<HTMLDivElement>(null);
+  const contactActionsRef = useRef<HTMLDivElement>(null);
   const actualPhotos = listing.photo_urls.filter(Boolean).slice(0, MAX_GALLERY_PHOTOS);
-  const photos = actualPhotos.length ? actualPhotos : [listing.cover_url || fallbackPhoto];
+  const photos = actualPhotos.length ? actualPhotos : listing.cover_url ? [listing.cover_url] : [];
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
-  const safeSelectedPhotoIndex = Math.min(selectedPhotoIndex, photos.length - 1);
+  const safeSelectedPhotoIndex = Math.min(selectedPhotoIndex, Math.max(0, photos.length - 1));
   const selectedPhoto = photos[safeSelectedPhotoIndex];
-  const hasSyntheticPhoto = !actualPhotos.length && !listing.cover_url;
   const href = listingHref(listing);
+  const categoryCode = listing.category_code || "cars";
+  const categoryHref = categoryPath(categoryCode);
+  const categoryName = categoryCode === "cars" ? "Автомобили" : categories.find((category) => category.code === categoryCode)?.label || "Транспорт";
   const conversationStartPath = `/account/messages/new?listing_id=${encodeURIComponent(listing.id)}`;
   const conversationStartHref = user ? conversationStartPath : `/login?next=${encodeURIComponent(conversationStartPath)}`;
+  const vinCheckApplicable = !["parts", "wheels", "tires"].includes(listing.category_code || "cars");
   const location = `${listing.manual_city || listing.city?.name || "Населённый пункт не указан"}, ${listing.region?.name || "Область не указана"}`;
   const powerHp = listing.power_hp ?? listing.modification?.specs?.power_hp;
-  const facts = [
+  const facts = listing.category_code && listing.category_code !== "cars" ? categoryFacts(listing) : [
     ["Год выпуска", listing.year ? `${listing.year} г.` : "Не указан"],
     ["Пробег", formatMileage(listing.mileage_km)],
     ["Топливо", vehicleLabel(listing.fuel)],
@@ -84,7 +89,28 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   }, []);
 
   useEffect(() => {
-    setSelectedPhotoIndex((current) => Math.min(current, photos.length - 1));
+    const page = detailPageRef.current;
+    const contactActions = contactActionsRef.current;
+    if (!page || !contactActions) return;
+
+    const updateHeight = () => {
+      const height = contactActions.getBoundingClientRect().height;
+      if (height > 0) page.style.setProperty("--contact-actions-height", `${Math.ceil(height)}px`);
+    };
+    updateHeight();
+
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateHeight);
+    observer?.observe(contactActions);
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateHeight);
+      page.style.removeProperty("--contact-actions-height");
+    };
+  }, [listing.id, listing.status]);
+
+  useEffect(() => {
+    setSelectedPhotoIndex((current) => Math.min(current, Math.max(0, photos.length - 1)));
   }, [photos.length]);
 
   function selectPhoto(index: number) {
@@ -119,20 +145,19 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   }
 
   return (
-    <div className="page-width detail-page">
+    <div ref={detailPageRef} className={`page-width detail-page${listing.status === "active" ? " has-contact-actions" : ""}`}>
       <nav className="breadcrumb" aria-label="Хлебные крошки">
-        <Link href="/">Главная</Link><ChevronRight size={14} /><Link href="/cars">Автомобили</Link><ChevronRight size={14} />
-        {listing.make && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}`}>{listing.make.name}</Link></>}
-        {listing.make && listing.model && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}/${encodeURIComponent(listing.model.slug)}`}>{listing.model.name}</Link></>}
+        <Link href="/">Главная</Link><ChevronRight size={14} /><Link href={categoryHref}>{categoryName}</Link>
+        {categoryCode === "cars" && listing.make && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}`}>{listing.make.name}</Link></>}
+        {categoryCode === "cars" && listing.make && listing.model && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}/${encodeURIComponent(listing.model.slug)}`}>{listing.model.name}</Link></>}
       </nav>
       <div className="detail-layout">
         <div className="detail-main-column">
-          <div className="detail-gallery" role="region" aria-label={`Фотографии автомобиля «${listing.title}»`} tabIndex={0} onKeyDown={handleGalleryKeyDown}>
+          <div className="detail-gallery" role="region" aria-label={`Фотографии объявления «${listing.title}»`} tabIndex={0} onKeyDown={handleGalleryKeyDown}>
             <div className="detail-photo-wrap">
-              <Image id="detail-main-image" className="detail-main-image" src={selectedPhoto} alt={hasSyntheticPhoto ? `Синтетическое изображение для объявления «${listing.title}»` : `Фотография ${safeSelectedPhotoIndex + 1} из ${photos.length}: ${listing.title}`} width={1448} height={1086} sizes="(max-width: 800px) calc(100vw - 28px), min(792px, 62vw)" unoptimized priority />
-              {hasSyntheticPhoto && <span className="synthetic-label detail-synthetic-label">Синтетическое фото</span>}
+              {selectedPhoto ? <Image id="detail-main-image" className="detail-main-image" src={selectedPhoto} alt={`Фотография ${safeSelectedPhotoIndex + 1} из ${photos.length}: ${listing.title}`} width={1448} height={1086} sizes="(max-width: 800px) calc(100vw - 28px), min(792px, 62vw)" unoptimized priority /> : <div className="photo-placeholder detail-photo-placeholder" role="img" aria-label="Фото не добавлено"><ImageOff size={36} aria-hidden="true" /><span>Фото не добавлено</span></div>}
             </div>
-            {photos.length > 1 && <div className="detail-thumbnails" role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt={`Фото ${index + 1} автомобиля: ${listing.title}`} width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" unoptimized /></button>)}</div>}
+            {photos.length > 1 && <div className="detail-thumbnails" role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt={`Фото ${index + 1} объявления: ${listing.title}`} width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" unoptimized /></button>)}</div>}
           </div>
           <section className="detail-summary section">
             <h1 className="detail-title">{listing.title}</h1>
@@ -151,13 +176,25 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           {listing.status === "sold" && <p className="status-pill">Продано</p>}
           <p className="detail-price">{formatMoney(listing.price)}</p>
           {listing.price?.currency === "USD" && listing.price.display_byn && listing.price.rate_date && <p className="muted">В BYN по курсу на {formatDate(listing.price.rate_date)}</p>}
+          {listing.status === "active" && <button className="button button-secondary print-listing-button" type="button" aria-label="Печать объявления" onClick={() => window.print()}><Printer size={17} aria-hidden="true" /> Печать объявления</button>}
           {listing.status === "active" ? <>
             {!user && guestContactRevealEnabled && <p className="muted">Телефон можно посмотреть без входа в аккаунт.</p>}
-            {phone ? <div className="phone-revealed"><strong>{phone}</strong><span className="muted">Контакт продавца</span></div> : <button className="button button-primary contact-reveal" type="button" aria-busy={phoneBusy} disabled={phoneBusy} onClick={revealPhone}><Phone size={17} /> {phoneBusy ? "Загружаем телефон…" : "Показать телефон"}</button>}
+            <div ref={contactActionsRef} className="contact-actions" role="group" aria-label="Связаться с продавцом">
+              {phone ? <div className="phone-revealed"><strong>{phone}</strong><span className="muted">Контакт продавца</span></div> : <button className="button button-primary contact-reveal" type="button" aria-busy={phoneBusy} disabled={phoneBusy} onClick={revealPhone}><Phone size={17} /> {phoneBusy ? "Загружаем телефон…" : "Показать телефон"}</button>}
+              {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
+            </div>
             {phoneError && <p className="inline-error" role="alert">{phoneError}</p>}
-            {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
           </> : <p className="muted">Контакт недоступен для проданного автомобиля.</p>}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
+          {vinCheckApplicable && <Link className="button button-secondary" href="/vin-check">Условия проверки по VIN</Link>}
+          {listing.status === "active" && listing.price && <>
+            {listing.credit && <Link className="button button-secondary" href={`/financing?${new URLSearchParams({ price: listing.price.amount, currency: listing.price.currency, mode: "credit" })}`}>
+              Рассчитать платёж по кредиту
+            </Link>}
+            {listing.leasing && <Link className="button button-secondary" href={`/financing?${new URLSearchParams({ price: listing.price.amount, currency: listing.price.currency, mode: "leasing" })}`}>
+              Рассчитать платёж в лизинг
+            </Link>}
+          </>}
           <div className="seller-box">
             <span className={`seller-tag ${listing.seller.type === "private" ? "private" : ""}`}>
               {listing.seller.type === "company" ? <Building2 size={16} /> : <CircleUserRound size={16} />}

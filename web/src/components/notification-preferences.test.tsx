@@ -23,11 +23,11 @@ afterEach(() => {
 describe("notification preferences", () => {
   it("saves global web and email choices with the expected revision", async () => {
     const save = vi.spyOn(api, "updateNotificationPreferences").mockResolvedValue({ preferences: {
-      web_enabled: false, email_enabled: true, revision: 5, email_verified: true
+      web_enabled: false, email_enabled: true, revision: 5, email_verified: true, email_delivery_configured: true
     } });
     await act(async () => {
       root.render(createElement(NotificationPreferences, { initialPreferences: {
-        web_enabled: true, email_enabled: false, revision: 4, email_verified: true
+        web_enabled: true, email_enabled: false, revision: 4, email_verified: true, email_delivery_configured: true
       } }));
     });
 
@@ -49,11 +49,31 @@ describe("notification preferences", () => {
   it("explains that email delivery requires a verified address", async () => {
     await act(async () => {
       root.render(createElement(NotificationPreferences, { initialPreferences: {
-        web_enabled: true, email_enabled: false, revision: 0, email_verified: false
+        web_enabled: true, email_enabled: false, revision: 0, email_verified: false, email_delivery_configured: true
       } }));
     });
 
-    expect(container.textContent).toContain("Сначала подтвердите адрес электронной почты");
+    expect(container.textContent).toContain("Подтвердите адрес электронной почты в настройках профиля");
     expect(container.querySelector<HTMLInputElement>('input[name="web_enabled"]')?.checked).toBe(true);
+  });
+
+  it("reports email as unavailable when delivery is not configured", async () => {
+    await act(async () => {
+      root.render(createElement(NotificationPreferences, { initialPreferences: {
+        web_enabled: true, email_enabled: false, revision: 0, email_verified: true, email_delivery_configured: false
+      } }));
+    });
+
+    expect(container.textContent).toContain("Email-уведомления пока недоступны: почтовая доставка не настроена.");
+  });
+
+  it("reports email as available only when the address and delivery are ready", async () => {
+    await act(async () => {
+      root.render(createElement(NotificationPreferences, { initialPreferences: {
+        web_enabled: true, email_enabled: false, revision: 0, email_verified: true, email_delivery_configured: true
+      } }));
+    });
+
+    expect(container.textContent).toContain("Email-уведомления доступны для подтверждённого адреса.");
   });
 });

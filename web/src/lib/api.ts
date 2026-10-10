@@ -12,6 +12,7 @@ import type {
   ListingPhoto,
   ListingSearch,
   ListingSummary,
+  ListingSearchResponse,
   ListResponse,
   Report,
   ReportCategory,
@@ -67,6 +68,8 @@ export type AuthCapabilities = {
   sms_login: boolean;
   sms_registration: boolean;
   email_registration: boolean;
+  email_registration_pilot?: boolean;
+  test_mail?: boolean;
   email_verification: boolean;
   password_recovery: boolean;
 };
@@ -206,6 +209,7 @@ export function searchPath(search: ListingSearch = {}) {
 }
 
 export const api = {
+  registerEmail: (data: { email: string; password: string; display_name: string; accept_terms: true; accept_privacy: true; terms_version: string; privacy_version: string }) => apiRequest<AuthSession>("auth/register", { method: "POST", body: JSON.stringify(data) }),
   login: (email: string, password: string) => apiRequest<AuthSession>("auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   register: (data: { email: string; password: string; display_name: string; accept_terms: true; accept_privacy: true; terms_version: string; privacy_version: string }) => apiRequest<AuthSession>("auth/register", { method: "POST", body: JSON.stringify(data) }),
   authCapabilities: () => apiRequest<AuthCapabilities>("auth/capabilities"),
@@ -226,6 +230,9 @@ export const api = {
   confirmPhoneChange: (challenge_id: string, old_code: string, new_code: string) => apiRequest<components["schemas"]["PhoneChangeConfirmedResponse"]>("me/profile/phone-change/confirm", { method: "POST", body: JSON.stringify({ challenge_id, old_code, new_code }) }),
   logout: () => apiRequest<{ ok: true }>("auth/logout", { method: "POST", body: JSON.stringify({}) }),
   me: () => apiRequest<AuthSession>("me"),
+  listingCount: (search: ListingSearch = {}) => apiRequest<{ total: number }>(
+    searchPath(search).replace(/^\/api\/v1\/listings(?=\?|$)/, "listings/count")
+  ),
   notifications: (options: { unreadOnly?: boolean; limit?: number } = {}) => {
     const params = new URLSearchParams();
     if (options.unreadOnly) params.set("unread_only", "true");
@@ -246,7 +253,7 @@ export const api = {
   markConversationRead: (id: string, idempotencyKey?: string) => apiRequest<{ ok: true }>(`conversations/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({}), headers: idempotencyHeaders(idempotencyKey) }),
   blockConversation: (id: string, idempotencyKey?: string) => apiRequest<{ ok: true }>(`conversations/${encodeURIComponent(id)}/block`, { method: "POST", body: JSON.stringify({}), headers: idempotencyHeaders(idempotencyKey) }),
   markNotificationRead: (id: string) => apiRequest<{ ok: true }>(`me/notifications/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({}) }),
-  listings: (search: ListingSearch = {}) => apiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
+  listings: (search: ListingSearch = {}) => apiRequest<ListingSearchResponse>(searchPath(search).replace("/api/v1/", "")),
   listing: (id: string) => apiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: Record<string, string> = {}) => {
     const query = new URLSearchParams(params).toString();

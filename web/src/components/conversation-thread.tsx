@@ -173,7 +173,7 @@ export function ConversationThreadView({ conversationId }: { conversationId: str
   const conversation = thread?.conversation;
   const blocked = Boolean(conversation && (conversation.blocked_by_me || conversation.is_blocked));
   const counterpart = conversation?.participants.find((participant) => participant.id !== user?.id) ?? conversation?.participants[0];
-  const listingLink = conversation ? listingHref({ id: conversation.listing.id, slug: conversation.listing.slug, make: null, model: null }) : "/cars";
+  const listingLink = conversation ? listingHref({ id: conversation.listing.id, slug: conversation.listing.slug, category_code: conversation.listing.category_code, make: null, model: null }) : "/cars";
 
   return <section className="conversation-thread" aria-labelledby="conversation-thread-title">
     <Link className="conversation-back-link" href="/account/messages"><ArrowLeft size={15} aria-hidden="true" /> Все переписки</Link>

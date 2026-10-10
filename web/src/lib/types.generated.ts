@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register Email */
+        post: operations["register_email_api_v1_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -32,23 +49,6 @@ export interface paths {
         put?: never;
         /** Login */
         post: operations["login_api_v1_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Register With Email */
-        post: operations["register_with_email_api_v1_auth_register_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -245,6 +245,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalog/category-subtypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Category Subtypes
+         * @description Internal subtype codes; open text categories use manual entry.
+         */
+        get: operations["category_subtypes_api_v1_catalog_category_subtypes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/catalog/generations": {
         parameters: {
             query?: never;
@@ -390,6 +410,23 @@ export interface paths {
         };
         /** Search Listings */
         get: operations["search_listings_api_v1_listings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Count Public Listings */
+        get: operations["count_public_listings_api_v1_listings_count_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1875,6 +1912,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Articles */
+        get: operations["public_articles_api_v1_content_articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/monitoring": {
         parameters: {
             query?: never;
@@ -2030,6 +2084,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customs-calculator/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Customs Exchange Rates */
+        get: operations["customs_exchange_rates_api_v1_customs_calculator_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customs-calculator/rates/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Customs Rate History */
+        get: operations["customs_rate_history_api_v1_customs_calculator_rates_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customs-calculator/calculate": {
         parameters: {
             query?: never;
@@ -2041,6 +2129,57 @@ export interface paths {
         put?: never;
         /** Calculate Customs Public */
         post: operations["calculate_customs_public_api_v1_customs_calculator_calculate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vin-check/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Vin Check Status */
+        get: operations["get_vin_check_status_api_v1_vin_check_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/test-mail/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Messages */
+        get: operations["messages_api_v1_admin_test_mail_messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/test-mail/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Message */
+        get: operations["message_api_v1_admin_test_mail_messages__message_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2567,6 +2706,16 @@ export interface components {
             sms_registration: boolean;
             /** Email Registration */
             email_registration: boolean;
+            /**
+             * Email Registration Pilot
+             * @default false
+             */
+            email_registration_pilot: boolean;
+            /**
+             * Test Mail
+             * @default false
+             */
+            test_mail: boolean;
             /** Email Notifications */
             email_notifications: boolean;
             /** Email Verification */
@@ -2955,6 +3104,28 @@ export interface components {
             /** Category Details */
             category_details: string[];
         };
+        /** CategorySubtypeItemOut */
+        CategorySubtypeItemOut: {
+            /** Code */
+            code: string;
+        };
+        /** CategorySubtypesOut */
+        CategorySubtypesOut: {
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+            /** Field */
+            field: string | null;
+            /**
+             * Entry Mode
+             * @enum {string}
+             */
+            entry_mode: "codes" | "manual" | "none";
+            /** Items */
+            items: components["schemas"]["CategorySubtypeItemOut"][];
+        };
         /** CompanyBusinessHours */
         CompanyBusinessHours: {
             /** Mon */
@@ -3105,6 +3276,12 @@ export interface components {
             title: string;
             /** Slug */
             slug: string;
+            /**
+             * Category Code
+             * @default cars
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
         };
         /** ConversationMessageInput */
         ConversationMessageInput: {
@@ -3279,6 +3456,52 @@ export interface components {
             /** Scope Notes */
             scope_notes: string[];
         };
+        /** CustomsRateHistoryPoint */
+        CustomsRateHistoryPoint: {
+            /**
+             * Rate Date
+             * Format: date
+             */
+            rate_date: string;
+            /** Official Rate */
+            official_rate: string;
+            /** Scale */
+            scale: number;
+            /** Byn Per Unit */
+            byn_per_unit: string;
+        };
+        /** CustomsRateHistoryResponse */
+        CustomsRateHistoryResponse: {
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "EUR" | "USD" | "RUB";
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "30d" | "90d" | "180d" | "365d";
+            /**
+             * Rate Date
+             * Format: date
+             */
+            rate_date: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Source Url */
+            source_url: string;
+            /** Points */
+            points: components["schemas"]["CustomsRateHistoryPoint"][];
+        };
         /** CustomsRateUsed */
         CustomsRateUsed: {
             /**
@@ -3293,6 +3516,16 @@ export interface components {
             /** Byn Per Unit */
             byn_per_unit: string;
         };
+        /** CustomsRatesResponse */
+        CustomsRatesResponse: {
+            /**
+             * Rate Date
+             * Format: date
+             */
+            rate_date: string;
+            /** Rates */
+            rates: components["schemas"]["CustomsRateUsed"][];
+        };
         /** DealerAnalyticsItemOut */
         DealerAnalyticsItemOut: {
             /**
@@ -3300,6 +3533,11 @@ export interface components {
              * Format: uuid
              */
             listing_id: string;
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             /** Title */
             title: string;
             /** Status */
@@ -3704,8 +3942,11 @@ export interface components {
             status: "active";
             /** Revision */
             revision: number;
-            /** Category Code */
-            category_code: string;
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             /** Category Details */
             category_details: {
                 [key: string]: unknown;
@@ -3744,6 +3985,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Published At */
+            published_at?: string | null;
             /** Damaged */
             damaged: boolean;
             /** Parts Only */
@@ -3889,9 +4132,9 @@ export interface components {
              */
             accept_privacy: true;
             /** Terms Version */
-            terms_version?: string | null;
+            terms_version: string;
             /** Privacy Version */
-            privacy_version?: string | null;
+            privacy_version: string;
         };
         /** EmailRequestInput */
         EmailRequestInput: {
@@ -3937,6 +4180,11 @@ export interface components {
              * Format: uuid
              */
             listing_id: string;
+            /**
+             * Category Code
+             * @enum {string}
+             */
+            category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             period: components["schemas"]["ListingAnalyticsPeriodOut"];
             /** Views */
             views: number;
@@ -4010,6 +4258,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ListingCountOut */
+        ListingCountOut: {
+            /** Total */
+            total: number;
         };
         /** ListingDetailOut */
         ListingDetailOut: {
@@ -4123,6 +4376,27 @@ export interface components {
             usd_rate: string;
             /** Scale */
             scale: number;
+        };
+        /** ListingMarketComparisonOut */
+        ListingMarketComparisonOut: {
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "below_market" | "above_market";
+            /** Median Byn */
+            median_byn: string;
+            /** Sample Size */
+            sample_size: number;
+            /** Seller Count */
+            seller_count: number;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Rate Date */
+            rate_date: string | null;
         };
         /** ListingModificationOut */
         ListingModificationOut: {
@@ -4252,6 +4526,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Published At */
+            published_at?: string | null;
             /** Damaged */
             damaged: boolean;
             /** Parts Only */
@@ -4462,6 +4738,7 @@ export interface components {
             display_amount?: string | null;
             /** Display Currency */
             display_currency?: ("BYN" | "USD") | null;
+            market_comparison?: components["schemas"]["ListingMarketComparisonOut"] | null;
         };
         /** ListingPublicCapabilitiesOut */
         ListingPublicCapabilitiesOut: {
@@ -4523,6 +4800,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Published At */
+            published_at?: string | null;
             /** Damaged */
             damaged: boolean;
             /** Parts Only */
@@ -4644,6 +4923,41 @@ export interface components {
              */
             ok: true;
         };
+        /** ManagedArticleListOut */
+        ManagedArticleListOut: {
+            /** Items */
+            items: components["schemas"]["ManagedArticleSummaryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /** ManagedArticleSummaryOut */
+        ManagedArticleSummaryOut: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /**
+             * Topic
+             * @enum {string}
+             */
+            topic: "vehicle_selection" | "inspection" | "vin" | "transaction" | "credit_leasing" | "tires_wheels";
+            /**
+             * Published At
+             * Format: date
+             */
+            published_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** ManagedContentChangeInput */
         ManagedContentChangeInput: {
             /** Payload */
@@ -4697,7 +5011,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "notification_template" | "seo_page" | "legal_document";
+            kind: "notification_template" | "seo_page" | "legal_document" | "article";
             /** Key */
             key: string;
             /** Payload */
@@ -4884,6 +5198,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Published At */
+            published_at?: string | null;
             /** Damaged */
             damaged: boolean;
             /** Parts Only */
@@ -5169,6 +5485,18 @@ export interface components {
         MyCompanyResponse: {
             company: components["schemas"]["PrivateCompanyOut"] | null;
         };
+        /** NotificationListingOut */
+        NotificationListingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /** NotificationPreferencesEnvelope */
         NotificationPreferencesEnvelope: {
             preferences: components["schemas"]["NotificationPreferencesOut"];
@@ -5192,6 +5520,8 @@ export interface components {
             revision: number;
             /** Email Verified */
             email_verified: boolean;
+            /** Email Delivery Configured */
+            email_delivery_configured: boolean;
         };
         /** OtpAcceptedResponse */
         OtpAcceptedResponse: {
@@ -5658,17 +5988,18 @@ export interface components {
             saved_search_id: string | null;
             /** Conversation Id */
             conversation_id: string | null;
-            /**
-             * Listing Id
-             * Format: uuid
-             */
-            listing_id: string;
+            /** Listing Id */
+            listing_id: string | null;
             /** Title */
             title: string;
             /** Body */
             body: string;
             /** Url */
             url: string;
+            /** Listings */
+            listings: components["schemas"]["NotificationListingOut"][];
+            /** Total Count */
+            total_count: number;
             /** Read At */
             read_at: string | null;
             /**
@@ -5749,6 +6080,17 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** VinCheckStatusOut */
+        VinCheckStatusOut: {
+            /** Available */
+            available: boolean;
+            /** Provider */
+            provider: string | null;
+            /** Supported Categories */
+            supported_categories: string[];
+            /** Message */
+            message: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -5774,6 +6116,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthCapabilitiesResponse"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    register_email_api_v1_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-csrf-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailRegistrationInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionResponse"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request rate limit was exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description An external service required for this action is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
             /** @description API error */
@@ -6467,6 +6898,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 limit?: number;
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             };
             header?: never;
             path?: never;
@@ -6509,6 +6941,7 @@ export interface operations {
                 make_id?: string | null;
                 q?: string | null;
                 limit?: number;
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             };
             header?: never;
             path?: never;
@@ -6523,6 +6956,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogItemsOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    category_subtypes_api_v1_catalog_category_subtypes_get: {
+        parameters: {
+            query: {
+                category_code: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategorySubtypesOut"];
                 };
             };
             /** @description Request validation error */
@@ -6828,6 +7301,11 @@ export interface operations {
     search_listings_api_v1_listings_get: {
         parameters: {
             query?: {
+                page?: number;
+                page_size?: number;
+                equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
                 q?: string | null;
                 make_id?: string | null;
                 model_id?: string | null;
@@ -6856,7 +7334,6 @@ export interface operations {
                 bargaining?: boolean | null;
                 credit?: boolean | null;
                 leasing?: boolean | null;
-                equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
                 district?: string | null;
                 call_hours?: string | null;
                 has_vin?: boolean | null;
@@ -6868,15 +7345,16 @@ export interface operations {
                 region_id?: string | null;
                 city_id?: string | null;
                 seller_type?: ("private" | "company") | null;
-                page?: number;
-                page_size?: number;
-                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
             };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6885,6 +7363,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListingSearchOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    count_public_listings_api_v1_listings_count_get: {
+        parameters: {
+            query?: {
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+                subtype?: string | null;
+                details?: string | null;
+                diameter_in?: number | null;
+                width_mm?: number | null;
+                season?: string | null;
+                page?: number;
+                page_size?: number;
+                equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
+                q?: string | null;
+                make_id?: string | null;
+                model_id?: string | null;
+                generation_id?: string | null;
+                body_variant_id?: string | null;
+                modification_id?: string | null;
+                price_min?: number | string | null;
+                price_max?: number | string | null;
+                currency?: ("BYN" | "USD") | null;
+                year_min?: number | null;
+                year_max?: number | null;
+                mileage_min?: number | null;
+                mileage_max?: number | null;
+                fuel?: string | null;
+                transmission?: string | null;
+                drive?: string | null;
+                body_type?: string | null;
+                damaged?: boolean | null;
+                parts_only?: boolean | null;
+                condition?: string | null;
+                color?: ("black" | "white" | "gray" | "silver" | "red" | "blue" | "green" | "yellow" | "brown" | "beige" | "orange" | "purple" | "other") | null;
+                customs_status?: ("cleared_rb" | "eaeu_import" | "uncleared" | "unknown") | null;
+                technical_condition?: ("good" | "needs_repair" | "non_operational") | null;
+                body_condition?: ("good" | "minor_damage" | "significant_damage" | "repaired") | null;
+                exchange?: boolean | null;
+                bargaining?: boolean | null;
+                credit?: boolean | null;
+                leasing?: boolean | null;
+                district?: string | null;
+                call_hours?: string | null;
+                has_vin?: boolean | null;
+                has_photos?: boolean | null;
+                engine_volume_min?: number | string | null;
+                engine_volume_max?: number | string | null;
+                power_min?: number | null;
+                power_max?: number | null;
+                region_id?: string | null;
+                city_id?: string | null;
+                seller_type?: ("private" | "company") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingCountOut"];
                 };
             };
             /** @description Request validation error */
@@ -13464,7 +14034,7 @@ export interface operations {
             query?: {
                 page?: number;
                 page_size?: number;
-                kind?: ("notification_template" | "seo_page" | "legal_document") | null;
+                kind?: ("notification_template" | "seo_page" | "legal_document" | "article") | null;
             };
             header?: never;
             path?: never;
@@ -13524,7 +14094,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "notification_template" | "seo_page" | "legal_document";
+                kind: "notification_template" | "seo_page" | "legal_document" | "article";
                 key: string;
             };
             cookie?: never;
@@ -13605,7 +14175,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "notification_template" | "seo_page" | "legal_document";
+                kind: "notification_template" | "seo_page" | "legal_document" | "article";
                 key: string;
             };
             cookie?: never;
@@ -13673,7 +14243,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "notification_template" | "seo_page" | "legal_document";
+                kind: "notification_template" | "seo_page" | "legal_document" | "article";
                 key: string;
             };
             cookie?: never;
@@ -13696,6 +14266,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    public_articles_api_v1_content_articles_get: {
+        parameters: {
+            query?: {
+                topic?: ("vehicle_selection" | "inspection" | "vin" | "transaction" | "credit_leasing" | "tires_wheels") | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedArticleListOut"];
                 };
             };
             /** @description Request validation error */
@@ -14463,6 +15075,94 @@ export interface operations {
             };
         };
     };
+    customs_exchange_rates_api_v1_customs_calculator_rates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomsRatesResponse"];
+                };
+            };
+            /** @description Official exchange rates are unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    customs_rate_history_api_v1_customs_calculator_rates_history_get: {
+        parameters: {
+            query?: {
+                currency?: "EUR" | "USD" | "RUB";
+                period?: "30d" | "90d" | "180d" | "365d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomsRateHistoryResponse"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Official exchange-rate history is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
     calculate_customs_public_api_v1_customs_calculator_calculate_post: {
         parameters: {
             query?: never;
@@ -14495,6 +15195,180 @@ export interface operations {
                 };
             };
             /** @description Customs rules or official rates are unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    get_vin_check_status_api_v1_vin_check_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VinCheckStatusOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    messages_api_v1_admin_test_mail_messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description An external service required for this action is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    message_api_v1_admin_test_mail_messages__message_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description An external service required for this action is unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;

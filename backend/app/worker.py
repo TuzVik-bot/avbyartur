@@ -11,6 +11,7 @@ import warnings
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
@@ -35,11 +36,18 @@ from app.models import (
     NotificationOutbox,
     RateLimitBucket,
     SavedSearch,
+    SavedSearchNotificationBatch,
+    SavedSearchNotificationMatch,
     User,
     UserNotification,
     WorkerJob,
 )
-from app.notification_service import saved_search_email_content, saved_search_matches
+from app.notification_service import (
+    saved_search_digest_email_content,
+    saved_search_email_content,
+    saved_search_filters,
+    saved_search_matches,
+)
 from app.profile_identity_service import notification_delivery_allowed
 from app.services import enqueue_job
 
@@ -49,6 +57,7 @@ warnings.simplefilter("error", Image.DecompressionBombWarning)
 logger = configure_json_logger("avtorinok.worker")
 LEASE = timedelta(minutes=3)
 ADVISORY_LOCK_KEY = 617245319
+MINSK = ZoneInfo("Europe/Minsk")
 HEIF_ORIENTATION_TRANSPOSE = {
     2: Image.Transpose.FLIP_LEFT_RIGHT,
     3: Image.Transpose.ROTATE_180,
@@ -405,13 +414,202 @@ def _next_notification_at(now: datetime, frequency: str) -> datetime:
     """Return a deterministic delivery bucket for a saved-search preference."""
 
     if frequency == "daily":
-        next_day = now + timedelta(days=1)
-        return next_day.replace(hour=0, minute=0, second=0, microsecond=0)
+        local_now = now.astimezone(MINSK)
+        target = local_now.replace(hour=9, minute=0, second=0, microsecond=0)
+        if local_now >= target:
+            target += timedelta(days=1)
+        return target.astimezone(timezone.utc)
     if frequency == "weekly":
         days_until_next_monday = 7 - now.weekday()
         next_week = now + timedelta(days=days_until_next_monday)
         return next_week.replace(hour=0, minute=0, second=0, microsecond=0)
     return now
+
+
+def _first_publication_at(db, listing: Listing) -> datetime | None:
+    first = db.scalar(
+        select(ListingStatusEvent.created_at)
+        .where(ListingStatusEvent.listing_id == listing.id, ListingStatusEvent.to_status == "active")
+        .order_by(ListingStatusEvent.created_at, ListingStatusEvent.id)
+        .limit(1)
+    )
+    if first is not None and first.tzinfo is None:
+        first = first.replace(tzinfo=timezone.utc)
+    return first
+
+
+def _listing_url(listing: Listing) -> str:
+    segment = listing.slug or str(listing.id)
+    return f"/cars/{segment}/{segment}/{listing.id}"
+
+
+def _enqueue_daily_notification_batch(db, saved_search: SavedSearch, listing: Listing, channel: str, available_at: datetime) -> None:
+    period_date = available_at.astimezone(MINSK).date()
+    period = period_date.isoformat()
+    started_at = saved_search.subscription_started_at
+    if started_at is None:
+        return
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+    subscription_started_at = started_at.astimezone(timezone.utc).isoformat(timespec="microseconds")
+    subscription_key = started_at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    dedupe_key = f"saved-search:{saved_search.id}:channel:{channel}:daily:{period}:subscription:{subscription_key}"
+
+    already_matched = db.scalar(
+        select(SavedSearchNotificationMatch.id)
+        .where(
+            SavedSearchNotificationMatch.saved_search_id == saved_search.id,
+            SavedSearchNotificationMatch.listing_id == listing.id,
+        )
+        .with_for_update()
+    )
+    if already_matched is not None:
+        return
+
+    db.execute(
+        pg_insert(SavedSearchNotificationBatch).values(
+            id=uuid.uuid4(),
+            saved_search_id=saved_search.id,
+            channel=channel,
+            period=period_date,
+            outbox_id=None,
+        ).on_conflict_do_nothing(constraint="uq_saved_search_notification_batch_period")
+    )
+    batch = db.scalar(
+        select(SavedSearchNotificationBatch)
+        .where(
+            SavedSearchNotificationBatch.saved_search_id == saved_search.id,
+            SavedSearchNotificationBatch.channel == channel,
+            SavedSearchNotificationBatch.period == period_date,
+        )
+        .with_for_update()
+    )
+    if batch is None:
+        return
+
+    outbox = None
+    if batch.outbox_id is not None:
+        outbox = db.scalar(
+            select(NotificationOutbox)
+            .where(NotificationOutbox.id == batch.outbox_id)
+            .with_for_update()
+        )
+    if outbox is not None:
+        current_filters = saved_search_filters(saved_search)
+        prior_payload = dict(outbox.payload or {})
+        same_snapshot = (
+            prior_payload.get("notification_frequency") == saved_search.notification_frequency
+            and prior_payload.get("search_url") == saved_search.search_url
+            and prior_payload.get("filters") == current_filters
+            and prior_payload.get("subscription_started_at") == subscription_started_at
+        )
+        if outbox.status in {"delivered", "running"}:
+            return
+        if outbox.status == "queued" and same_snapshot:
+            pass
+        else:
+            if outbox.status == "queued":
+                outbox.status = "cancelled"
+                outbox.last_error = "notification_preference_changed"
+                outbox.locked_by = None
+                outbox.lease_until = None
+                stale_jobs = db.scalars(
+                    select(WorkerJob)
+                    .where(
+                        WorkerJob.kind == "notification.deliver",
+                        WorkerJob.payload["outbox_id"].as_string() == str(outbox.id),
+                        WorkerJob.status.in_(["queued", "running"]),
+                    )
+                    .with_for_update()
+                ).all()
+                for job in stale_jobs:
+                    job.status = "failed"
+                    job.last_error = "notification_preference_changed"
+                    job.locked_by = None
+                    job.lease_until = None
+            outbox = None
+
+    base_payload = {
+        "batch": True,
+        "title": f"Новые объявления по поиску «{saved_search.name}»",
+        "body": "Новые объявления по сохранённому поиску.",
+        "url": saved_search.search_url,
+        "search_url": saved_search.search_url,
+        "filters": saved_search_filters(saved_search),
+        "notification_frequency": saved_search.notification_frequency,
+        "subscription_started_at": subscription_started_at,
+        "period": period,
+        "total_count": 0,
+        "listings": [],
+    }
+    if outbox is None:
+        insert = pg_insert(NotificationOutbox).values(
+            id=uuid.uuid4(),
+            dedupe_key=dedupe_key,
+            saved_search_id=saved_search.id,
+            conversation_id=None,
+            user_id=saved_search.user_id,
+            listing_id=None,
+            channel=channel,
+            status="queued",
+            payload=base_payload,
+            attempts=0,
+            available_at=available_at,
+        ).on_conflict_do_nothing(constraint="uq_notification_outbox_dedupe")
+        db.execute(insert)
+        outbox = db.scalar(
+            select(NotificationOutbox)
+            .where(NotificationOutbox.dedupe_key == dedupe_key)
+            .with_for_update()
+        )
+    if outbox is None or outbox.status != "queued":
+        return
+    batch.outbox_id = outbox.id
+
+    listing_title = (listing.title or "Новое объявление").strip() or "Новое объявление"
+    match_insert = pg_insert(SavedSearchNotificationMatch).values(
+        id=uuid.uuid4(),
+        saved_search_id=saved_search.id,
+        listing_id=listing.id,
+        listing_revision=listing.revision,
+        outbox_id=outbox.id,
+        title=listing_title[:240],
+        url=_listing_url(listing),
+    ).on_conflict_do_nothing(constraint="uq_saved_search_notification_match").returning(
+        SavedSearchNotificationMatch.id
+    )
+    match_id = db.scalar(match_insert)
+    if match_id is None:
+        return
+
+    matches = db.execute(
+        select(SavedSearchNotificationMatch.listing_id, SavedSearchNotificationMatch.title, SavedSearchNotificationMatch.url)
+        .where(SavedSearchNotificationMatch.outbox_id == outbox.id)
+        .order_by(SavedSearchNotificationMatch.created_at, SavedSearchNotificationMatch.id)
+        .limit(20)
+    ).all()
+    total_count = int(
+        db.scalar(
+            select(func.count(SavedSearchNotificationMatch.id)).where(
+                SavedSearchNotificationMatch.outbox_id == outbox.id
+            )
+        )
+        or 0
+    )
+    payload = dict(outbox.payload or {})
+    payload["total_count"] = total_count
+    payload["listings"] = [
+        {"id": str(listing_id), "title": title, "url": url}
+        for listing_id, title, url in matches
+    ]
+    outbox.payload = payload
+    enqueue_job(
+        db,
+        "notification.deliver",
+        f"notification.deliver:{outbox.id}",
+        {"outbox_id": str(outbox.id)},
+        run_after=available_at,
+    )
 
 
 def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
@@ -428,6 +626,7 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
             now = datetime.now(timezone.utc)
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
+        first_publication_at = _first_publication_at(db, listing)
         searches = db.scalars(
             select(SavedSearch)
             .join(User, User.id == SavedSearch.user_id)
@@ -444,19 +643,35 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
         public_app_url = str(getattr(email_settings, "public_app_url", "") or "").strip()
         title = (listing.title or "Новое объявление").strip() or "Новое объявление"
         for saved_search in searches:
+            # Older rows predate subscription_started_at. Preserve their
+            # existing notification behavior; the publication boundary only
+            # applies once the subscription has an explicit start timestamp.
+            if first_publication_at is None:
+                continue
+            if saved_search.subscription_started_at is not None and (
+                first_publication_at < saved_search.subscription_started_at
+            ):
+                continue
             if not saved_search_matches(db, saved_search, listing):
                 continue
             channel = saved_search.notification_channel
             if channel not in {"web", "email"}:
                 continue
             available_at = _next_notification_at(now, saved_search.notification_frequency)
-            dedupe_key = f"saved-search:{saved_search.id}:listing:{listing.id}:revision:{listing.revision}:channel:{channel}"
+            if saved_search.notification_frequency == "daily" and saved_search.subscription_started_at is not None:
+                _enqueue_daily_notification_batch(db, saved_search, listing, channel, available_at)
+                continue
+
+            dedupe_key = f"saved-search:{saved_search.id}:listing:{listing.id}:channel:{channel}"
             payload = {
                 "title": f"Новое объявление по поиску «{saved_search.name}»",
                 "body": title,
                 "url": saved_search.search_url,
                 "listing_id": str(listing.id),
                 "listing_revision": listing.revision,
+                "notification_frequency": saved_search.notification_frequency,
+                "search_url": saved_search.search_url,
+                "filters": saved_search_filters(saved_search),
             }
             email_ready = False
             email_error = "email_provider_unconfigured"
@@ -497,6 +712,17 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
             ).on_conflict_do_nothing(constraint="uq_notification_outbox_dedupe").returning(NotificationOutbox.id)
             outbox_id = db.scalar(insert)
             if outbox_id is not None and (channel == "web" or email_ready):
+                db.execute(
+                    pg_insert(SavedSearchNotificationMatch).values(
+                        id=uuid.uuid4(),
+                        saved_search_id=saved_search.id,
+                        listing_id=listing.id,
+                        listing_revision=listing.revision,
+                        outbox_id=outbox_id,
+                        title=title[:240],
+                        url=_listing_url(listing),
+                    ).on_conflict_do_nothing(constraint="uq_saved_search_notification_match")
+                )
                 enqueue_job(
                     db,
                     "notification.deliver",
@@ -518,6 +744,68 @@ def _safe_email_error_code(error: Exception) -> str:
     }:
         return error.code
     return "email_delivery_failed"
+
+
+def _subscription_started_at_snapshot(saved_search: SavedSearch) -> str | None:
+    started_at = saved_search.subscription_started_at
+    if started_at is None:
+        return None
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+    return started_at.astimezone(timezone.utc).isoformat(timespec="microseconds")
+
+
+def _saved_search_delivery_snapshot(
+    saved_search: SavedSearch, filters: dict[str, object]
+) -> dict[str, object]:
+    return {
+        "id": saved_search.id,
+        "status": saved_search.status,
+        "notifications_enabled": saved_search.notifications_enabled,
+        "notification_channel": saved_search.notification_channel,
+        "notification_frequency": saved_search.notification_frequency,
+        "search_url": saved_search.search_url,
+        "filters": filters,
+        "subscription_started_at": _subscription_started_at_snapshot(saved_search),
+    }
+
+
+def _cancel_running_notification(db, outbox: NotificationOutbox, error_code: str) -> None:
+    outbox.status = "cancelled"
+    outbox.last_error = error_code
+    outbox.locked_by = None
+    outbox.lease_until = None
+    db.commit()
+
+
+def _batch_listing_snapshot(db, outbox: NotificationOutbox, saved_search: SavedSearch) -> tuple[list[dict[str, str]], int]:
+    matches = db.scalars(
+        select(SavedSearchNotificationMatch)
+        .where(SavedSearchNotificationMatch.outbox_id == outbox.id)
+        .order_by(SavedSearchNotificationMatch.created_at, SavedSearchNotificationMatch.id)
+        .with_for_update()
+    ).all()
+    valid: list[SavedSearchNotificationMatch] = []
+    for match in matches:
+        listing = db.scalar(select(Listing).where(Listing.id == match.listing_id).with_for_update())
+        if (
+            listing is None
+            or listing.status != "active"
+            or listing.revision != match.listing_revision
+            or not saved_search_matches(db, saved_search, listing)
+        ):
+            # Keep the permanent match row, but remove this now-invalid item
+            # from the pending batch so a later reapproval cannot alert again.
+            match.outbox_id = None
+            continue
+        valid.append(match)
+    total_count = len(valid)
+    payload_listings = [{"id": str(item.listing_id), "title": item.title, "url": item.url} for item in valid[:20]]
+    payload = dict(outbox.payload or {})
+    payload["total_count"] = total_count
+    payload["listings"] = payload_listings
+    outbox.payload = payload
+    return payload_listings, total_count
 
 
 def _deliver_identity_email(outbox_id: uuid.UUID) -> None:
@@ -643,13 +931,24 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
     """Deliver an email or materialise a web notification exactly once."""
 
     with SessionLocal() as db:
+        probe = db.get(NotificationOutbox, outbox_id)
+        if probe is None or probe.status in {"delivered", "failed", "unsupported", "cancelled"}:
+            return
+        saved_search = None
+        if probe.saved_search_id is not None:
+            saved_search = db.scalar(
+                select(SavedSearch)
+                .where(SavedSearch.id == probe.saved_search_id)
+                .with_for_update()
+            )
         outbox = db.scalar(
             select(NotificationOutbox)
             .where(NotificationOutbox.id == outbox_id)
             .with_for_update()
         )
-        if outbox is None or outbox.status in {"delivered", "failed", "unsupported"}:
+        if outbox is None or outbox.status in {"delivered", "failed", "unsupported", "cancelled"}:
             return
+        saved_search_id = outbox.saved_search_id
         if outbox.status == "running" and outbox.lease_until is not None:
             lease_until = outbox.lease_until
             if lease_until.tzinfo is None:
@@ -666,6 +965,71 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
             db.commit()
             return
 
+        payload = dict(outbox.payload or {})
+        is_batch = bool(payload.get("batch"))
+        digest_listings: list[dict[str, str]] = []
+        single_listing_snapshot: list[dict[str, str]] = []
+        single_listing_revision: int | None = None
+        saved_search_snapshot: dict[str, object] | None = None
+        digest_total = 0
+        if outbox.saved_search_id is not None:
+            try:
+                current_filters = saved_search_filters(saved_search) if saved_search is not None else None
+            except ValueError:
+                current_filters = None
+            current_subscription_started_at = (
+                _subscription_started_at_snapshot(saved_search) if saved_search is not None else None
+            )
+            if (
+                saved_search is None
+                or current_filters is None
+                or saved_search.user_id != user.id
+                or saved_search.status != "active"
+                or not saved_search.notifications_enabled
+                or saved_search.notification_channel != outbox.channel
+                or (payload.get("notification_frequency") is not None and saved_search.notification_frequency != payload["notification_frequency"])
+                or (payload.get("search_url") is not None and saved_search.search_url != payload["search_url"])
+                or (payload.get("filters") is not None and current_filters != payload["filters"])
+                or ("subscription_started_at" in payload and current_subscription_started_at != payload["subscription_started_at"])
+            ):
+                outbox.status = "cancelled" if is_batch else "unsupported"
+                outbox.last_error = "notification_preference_changed"
+                outbox.locked_by = None
+                outbox.lease_until = None
+                db.commit()
+                return
+            saved_search_snapshot = _saved_search_delivery_snapshot(saved_search, current_filters)
+            if is_batch:
+                digest_listings, digest_total = _batch_listing_snapshot(db, outbox, saved_search)
+                if digest_total < 1:
+                    outbox.status = "unsupported"
+                    outbox.last_error = "notification_batch_empty"
+                    outbox.locked_by = None
+                    outbox.lease_until = None
+                    db.commit()
+                    return
+            elif outbox.listing_id is not None:
+                listing = db.scalar(select(Listing).where(Listing.id == outbox.listing_id).with_for_update())
+                expected_revision = payload.get("listing_revision")
+                if (
+                    listing is None
+                    or listing.status != "active"
+                    or (expected_revision is not None and listing.revision != int(expected_revision))
+                    or not saved_search_matches(db, saved_search, listing)
+                ):
+                    outbox.status = "unsupported"
+                    outbox.last_error = "listing_no_longer_matches"
+                    outbox.locked_by = None
+                    outbox.lease_until = None
+                    db.commit()
+                    return
+                single_listing_revision = listing.revision
+                single_listing_snapshot = [{
+                    "id": str(listing.id),
+                    "title": " ".join(str(listing.title or payload.get("body") or "Новое объявление").split())[:240],
+                    "url": _listing_url(listing),
+                }]
+
         if outbox.channel == "email":
             if not notification_delivery_allowed(db, outbox.user_id, "email"):
                 outbox.status = "unsupported"
@@ -674,7 +1038,6 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 outbox.lease_until = None
                 db.commit()
                 return
-            saved_search = db.get(SavedSearch, outbox.saved_search_id) if outbox.saved_search_id else None
             if (
                 saved_search is None
                 or saved_search.user_id != user.id
@@ -723,9 +1086,12 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 db.commit()
                 return
 
-            payload = dict(outbox.payload or {})
             try:
-                subject, body = saved_search_email_content(payload, public_app_url)
+                if is_batch:
+                    payload["listings"] = digest_listings
+                    subject, body = saved_search_digest_email_content(payload, public_app_url, digest_total)
+                else:
+                    subject, body = saved_search_email_content(payload, public_app_url)
             except ValueError:
                 outbox.status = "unsupported"
                 outbox.last_error = "invalid_notification_url"
@@ -734,52 +1100,155 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 db.commit()
                 return
 
-            from app.managed_content import render_notification_template
-            subject, body = render_notification_template(db, "saved_search_email", {
-                "listing_title": " ".join(str(payload.get("body") or "Новое объявление").split())[:2000],
-                "listing_url": public_app_url.rstrip("/") + str(payload.get("url") or "/cars"),
-                "search_name": saved_search.name,
-            }, default_subject=subject, default_body=body)
+            if not is_batch:
+                from app.managed_content import render_notification_template
+                subject, body = render_notification_template(db, "saved_search_email", {
+                    "listing_title": " ".join(str(payload.get("body") or "Новое объявление").split())[:2000],
+                    "listing_url": public_app_url.rstrip("/") + str(payload.get("url") or "/cars"),
+                    "search_name": saved_search.name,
+                }, default_subject=subject, default_body=body)
 
             outbox.status = "running"
             outbox.attempts += 1
-            outbox.locked_by = f"worker:{os.getpid()}"
+            delivery_worker_id = f"worker:{os.getpid()}"
+            outbox.locked_by = delivery_worker_id
             outbox.lease_until = datetime.now(timezone.utc) + LEASE
             recipient = contact.email
             dedupe_key = outbox.dedupe_key
             db.commit()
 
-            try:
-                sender.send_email(recipient, subject, body, idempotency_key=dedupe_key)
-            except Exception as exc:
-                error_code = _safe_email_error_code(exc)
-                with SessionLocal() as retry_db:
-                    retry_outbox = retry_db.scalar(
-                        select(NotificationOutbox)
-                        .where(NotificationOutbox.id == outbox_id)
-                        .with_for_update()
-                    )
-                    if retry_outbox is not None and retry_outbox.status == "running":
-                        retry_outbox.status = "queued"
-                        retry_outbox.last_error = error_code
-                        retry_outbox.locked_by = None
-                        retry_outbox.lease_until = None
-                        retry_db.commit()
-                raise EmailDeliveryUnavailable(error_code) from None
-
-            with SessionLocal() as delivered_db:
-                delivered = delivered_db.scalar(
+            with SessionLocal() as guard_db:
+                guarded_search = guard_db.scalar(
+                    select(SavedSearch)
+                    .where(SavedSearch.id == saved_search_id)
+                    .with_for_update()
+                )
+                guarded_outbox = guard_db.scalar(
                     select(NotificationOutbox)
                     .where(NotificationOutbox.id == outbox_id)
                     .with_for_update()
                 )
-                if delivered is not None and delivered.status == "running":
-                    delivered.status = "delivered"
-                    delivered.last_error = None
-                    delivered.delivered_at = datetime.now(timezone.utc)
-                    delivered.locked_by = None
-                    delivered.lease_until = None
-                    delivered_db.commit()
+                if (
+                    guarded_outbox is None
+                    or guarded_outbox.status != "running"
+                    or guarded_outbox.locked_by != delivery_worker_id
+                ):
+                    return
+
+                try:
+                    guarded_filters = (
+                        saved_search_filters(guarded_search)
+                        if guarded_search is not None
+                        else None
+                    )
+                except ValueError:
+                    guarded_filters = None
+                guarded_snapshot = (
+                    _saved_search_delivery_snapshot(guarded_search, guarded_filters)
+                    if guarded_search is not None and guarded_filters is not None
+                    else None
+                )
+                if (
+                    saved_search_snapshot is None
+                    or guarded_snapshot != saved_search_snapshot
+                ):
+                    _cancel_running_notification(
+                        guard_db, guarded_outbox, "notification_preference_changed"
+                    )
+                    return
+
+                guarded_user = guard_db.scalar(
+                    select(User)
+                    .where(User.id == guarded_outbox.user_id)
+                    .with_for_update()
+                )
+                if (
+                    guarded_user is None
+                    or guarded_user.status != "active"
+                    or guarded_user.email != recipient
+                    or not notification_delivery_allowed(
+                        guard_db, guarded_outbox.user_id, "email"
+                    )
+                ):
+                    _cancel_running_notification(
+                        guard_db, guarded_outbox, "email_preference_disabled"
+                    )
+                    return
+                guarded_contact = guard_db.scalar(
+                    select(VerifiedEmailContact)
+                    .where(
+                        VerifiedEmailContact.user_id == guarded_user.id,
+                        VerifiedEmailContact.email == guarded_user.email,
+                    )
+                    .with_for_update()
+                )
+                if guarded_contact is None or guarded_contact.email != recipient:
+                    _cancel_running_notification(
+                        guard_db, guarded_outbox, "email_recipient_unverified"
+                    )
+                    return
+
+                if is_batch:
+                    guarded_listings, guarded_total = _batch_listing_snapshot(
+                        guard_db, guarded_outbox, guarded_search
+                    )
+                    if (
+                        guarded_listings != digest_listings
+                        or guarded_total != digest_total
+                    ):
+                        _cancel_running_notification(
+                            guard_db, guarded_outbox, "notification_batch_changed"
+                        )
+                        return
+                elif guarded_outbox.listing_id is not None:
+                    guarded_listing = guard_db.scalar(
+                        select(Listing)
+                        .where(Listing.id == guarded_outbox.listing_id)
+                        .with_for_update()
+                    )
+                    if (
+                        guarded_listing is None
+                        or guarded_listing.status != "active"
+                        or guarded_listing.revision != single_listing_revision
+                        or not saved_search_matches(
+                            guard_db, guarded_search, guarded_listing
+                        )
+                    ):
+                        _cancel_running_notification(
+                            guard_db, guarded_outbox, "listing_no_longer_matches"
+                        )
+                        return
+
+                try:
+                    sender.send_email(
+                        recipient, subject, body, idempotency_key=dedupe_key
+                    )
+                except Exception as exc:
+                    error_code = _safe_email_error_code(exc)
+                    guard_db.rollback()
+                    with SessionLocal() as retry_db:
+                        retry_outbox = retry_db.scalar(
+                            select(NotificationOutbox)
+                            .where(NotificationOutbox.id == outbox_id)
+                            .with_for_update()
+                        )
+                        if (
+                            retry_outbox is not None
+                            and retry_outbox.status == "running"
+                        ):
+                            retry_outbox.status = "queued"
+                            retry_outbox.last_error = error_code
+                            retry_outbox.locked_by = None
+                            retry_outbox.lease_until = None
+                            retry_db.commit()
+                    raise EmailDeliveryUnavailable(error_code) from None
+
+                guarded_outbox.status = "delivered"
+                guarded_outbox.last_error = None
+                guarded_outbox.delivered_at = datetime.now(timezone.utc)
+                guarded_outbox.locked_by = None
+                guarded_outbox.lease_until = None
+                guard_db.commit()
             return
 
         if outbox.channel != "web":
@@ -800,7 +1269,6 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
         outbox.attempts += 1
         outbox.locked_by = f"worker:{os.getpid()}"
         outbox.lease_until = datetime.now(timezone.utc) + LEASE
-        payload = dict(outbox.payload or {})
         db.execute(
             pg_insert(UserNotification).values(
                 id=uuid.uuid4(),
@@ -812,6 +1280,8 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 title=str(payload.get("title") or "Новое объявление")[:240],
                 body=str(payload.get("body") or "Новое объявление"),
                 url=str(payload.get("url") or "/cars")[:2048],
+                listings=digest_listings if is_batch else single_listing_snapshot,
+                total_count=digest_total if is_batch else 1,
             ).on_conflict_do_nothing(constraint="uq_user_notification_outbox")
         )
         outbox.status = "delivered"

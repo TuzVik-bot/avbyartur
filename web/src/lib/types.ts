@@ -32,13 +32,22 @@ export type CatalogCity = CatalogItem & { region_id: string };
 export type User = components["schemas"]["UserOut"];
 export type AuthSession = components["schemas"]["AuthSessionResponse"];
 
+export type UserNotificationListing = {
+  id: string;
+  title: string;
+  url: string;
+};
+
 export type UserNotification = {
   id: string;
-  saved_search_id: string;
-  listing_id: string;
+  saved_search_id: string | null;
+  conversation_id: string | null;
+  listing_id: string | null;
   title: string;
   body: string;
   url: string;
+  listings: UserNotificationListing[];
+  total_count: number;
   read_at: string | null;
   created_at: string;
 };
@@ -57,6 +66,7 @@ export type ConversationListing = {
   id: string;
   title: string;
   slug: string;
+  category_code?: NonNullable<ListingSearch["category_code"]>;
 };
 
 export type ConversationLastMessage = {
@@ -109,6 +119,9 @@ export type Money = {
 };
 
 export type ListingSummary = {
+  category_code?: NonNullable<ListingSearch["category_code"]>;
+  category_details?: Record<string, unknown>;
+  condition?: string | null;
   id: string;
   slug: string;
   title: string;
@@ -178,6 +191,10 @@ export type ListResponse<T> = {
   pagination?: { page: number; page_size: number; total: number; pages: number };
 };
 
+export type ListingSearchResponse = ListResponse<ListingSummary> & {
+  fx?: components["schemas"]["ListingFxOut"] | null;
+};
+
 export type Company = Omit<components["schemas"]["PrivateCompanyOut"], "status"> & {
   status: "pending" | "approved" | "rejected" | "blocked";
 };
@@ -201,6 +218,12 @@ export type ReportCategory = components["schemas"]["ReportInput"]["category"];
 export type ApiErrorShape = components["schemas"]["ApiErrorOut"];
 
 export type ListingSearch = {
+  category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+  subtype?: string;
+  details?: string;
+  diameter_in?: string;
+  width_mm?: string;
+  season?: string;
   q?: string;
   make_id?: string;
   model_id?: string;

@@ -4,10 +4,22 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.schemas import CatalogItemOut
+from app.listing_categories import CategoryCode
 
 
 class CatalogItemsOut(BaseModel):
     items: list[CatalogItemOut]
+
+
+class CategorySubtypeItemOut(BaseModel):
+    code: str
+
+
+class CategorySubtypesOut(BaseModel):
+    category_code: CategoryCode
+    field: str | None
+    entry_mode: Literal["codes", "manual", "none"]
+    items: list[CategorySubtypeItemOut]
 
 
 class CatalogModificationSourceOut(BaseModel):

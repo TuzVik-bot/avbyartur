@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, Check, ExternalLink, Pause, Play, Plus, Save, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiRequest, ApiClientError } from "@/lib/api";
 
 export type SavedSearchStatus = "active" | "paused";
@@ -29,8 +29,7 @@ export type SavedSearch = {
 
 type SavedSearchDraft = Pick<SavedSearch, "notifications_enabled" | "notification_channel" | "notification_frequency">;
 
-const channelLabels: Record<SavedSearchChannel, string> = { email: "Email — пока не отправляется", web: "В кабинете" };
-const frequencyLabels: Record<SavedSearchFrequency, string> = { instant: "Сразу", daily: "Раз в день", weekly: "Раз в неделю" };
+const frequencyLabels: Record<Exclude<SavedSearchFrequency, "weekly">, string> = { instant: "Сразу", daily: "Раз в день" };
 const filterLabels: Record<string, string> = {
   q: "Поиск",
   make_id: "Марка",
@@ -87,11 +86,12 @@ function normalizeUrl(value: string) {
 function filtersFromUrl(value: string) {
   const parsed = new URL(value, "http://localhost");
   const filters: Record<string, string | string[]> = {};
-  parsed.searchParams.forEach((entry, key) => {
-    if (!entry) return;
-    const current = filters[key];
-    filters[key] = current === undefined ? entry : Array.isArray(current) ? [...current, entry] : [current, entry];
-  });
+  for (const key of [...new Set([...parsed.searchParams.keys()])].sort()) {
+    if (key === "page" || key === "page_size") continue;
+    const values = parsed.searchParams.getAll(key).filter(Boolean);
+    if (!values.length) continue;
+    filters[key] = key === "equipment" ? [...new Set(values)].sort() : values[0];
+  }
   return filters;
 }
 
@@ -140,6 +140,17 @@ export function SavedSearches({ initialItems, initialUrl = "/cars" }: { initialI
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [emailAvailable, setEmailAvailable] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void apiRequest<{ preferences: { email_verified: boolean; email_delivery_configured: boolean } }>("me/notification-preferences")
+      .then(({ preferences }) => {
+        if (active) setEmailAvailable(preferences.email_verified && preferences.email_delivery_configured);
+      })
+      .catch(() => { if (active) setEmailAvailable(false); });
+    return () => { active = false; };
+  }, []);
 
   const sortedItems = useMemo(() => items, [items]);
 
@@ -214,7 +225,7 @@ export function SavedSearches({ initialItems, initialUrl = "/cars" }: { initialI
   return <div className="saved-searches">
     <section className="form-section" aria-labelledby="new-saved-search-title">
       <div className="section-heading"><div><p className="eyebrow">Уведомления о новых авто</p><h2 id="new-saved-search-title">Сохранить поиск</h2></div><Bell size={21} aria-hidden="true" /></div>
-      <p className="muted">Скопируйте ссылку из поиска автомобилей или начните с раздела <a className="text-link" href="/cars">все автомобили</a>. Web-инбокс работает. Email-настройка сохраняется, но письма не отправляются; SMS и Telegram пока не поддерживаются.</p>
+      <p className="muted">Скопируйте ссылку из поиска автомобилей или начните с раздела <a className="text-link" href="/cars">все автомобили</a>. Web-инбокс работает. {emailAvailable ? "Email доступен при подтверждённом адресе и настроенной доставке." : "Email пока недоступен: нужен подтверждённый адрес и настроенная доставка."} SMS и Telegram пока не поддерживаются.</p>
       <form className="form-grid" onSubmit={submitCreate}>
         <label className="field"><span>Название поиска</span><input name="name" value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder="Например, семейный кроссовер" required /></label>
         <label className="field"><span>Ссылка на результаты</span><input name="url" value={url} onChange={(event) => setUrl(event.target.value)} maxLength={2048} inputMode="url" required /></label>
@@ -235,9 +246,9 @@ export function SavedSearches({ initialItems, initialUrl = "/cars" }: { initialI
           <p className="muted"><a href={item.url}>{item.url}</a> <ExternalLink size={13} aria-hidden="true" /></p>
           {filters.length > 0 && <div className="active-filters" aria-label="Фильтры поиска">{filters.map((filter) => <span className="filter-chip" key={filter}>{filter}</span>)}</div>}
           <form className="form-grid saved-search-preferences" onSubmit={(event) => { event.preventDefault(); void submitPreferences(item); }}>
-            <label className="check-field"><input type="checkbox" checked={draft.notifications_enabled} onChange={(event) => updateDraft(item.id, { notifications_enabled: event.target.checked })} /> Получать уведомления</label>
-            <label className="field"><span>Канал</span><select value={draft.notification_channel || ""} onChange={(event) => updateDraft(item.id, { notification_channel: (event.target.value || null) as SavedSearchChannel | null })} disabled={!draft.notifications_enabled}><option value="">Не выбран</option>{Object.entries(channelLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label className="field"><span>Частота</span><select value={draft.notification_frequency} onChange={(event) => updateDraft(item.id, { notification_frequency: event.target.value as SavedSearchFrequency })} disabled={!draft.notifications_enabled}>{Object.entries(frequencyLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="check-field"><input type="checkbox" checked={draft.notifications_enabled} onChange={(event) => updateDraft(item.id, event.target.checked ? { notifications_enabled: true, notification_channel: draft.notification_channel || "web", notification_frequency: draft.notification_frequency || "daily" } : { notifications_enabled: false })} /> Получать уведомления</label>
+            <label className="field"><span>Канал</span><select value={draft.notification_channel || ""} onChange={(event) => updateDraft(item.id, { notification_channel: (event.target.value || null) as SavedSearchChannel | null })} disabled={!draft.notifications_enabled}><option value="">Не выбран</option><option value="web">В кабинете</option>{(emailAvailable || draft.notification_channel === "email") && <option value="email" disabled={!emailAvailable}>{emailAvailable ? "Email" : "Email — временно недоступен"}</option>}</select></label>
+            <label className="field"><span>Частота</span><select value={draft.notification_frequency} onChange={(event) => updateDraft(item.id, { notification_frequency: event.target.value as SavedSearchFrequency })} disabled={!draft.notifications_enabled}>{draft.notification_frequency === "weekly" && <option value="weekly" disabled>Раз в неделю — сохранённая настройка</option>}{Object.entries(frequencyLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <div className="wide account-item-actions"><button className="button button-secondary button-small" type="submit" disabled={Boolean(itemBusy)}><Save size={14} /> {busy === `save:${item.id}` ? "Сохраняем…" : "Сохранить уведомления"}</button><button className="button button-secondary button-small" type="button" disabled={Boolean(itemBusy)} onClick={() => void toggleStatus(item)}>{item.status === "active" ? <><Pause size={14} /> Пауза</> : <><Play size={14} /> Возобновить</>}</button><button className="button button-danger button-small" type="button" disabled={Boolean(itemBusy)} onClick={() => void remove(item)}><Trash2 size={14} /> Удалить</button></div>
           </form>
         </div>

@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from app.db import Base, get_db
 from app.main import app
 from app.models import (
+    CatalogBodyType,
     CatalogGeneration,
     CatalogMake,
     CatalogModel,
@@ -20,6 +21,8 @@ from app.models import (
     Listing,
     ListingCategoryDetails,
     ListingPhoto,
+    ListingStatusEvent,
+    SavedSearch,
     User,
 )
 
@@ -33,7 +36,15 @@ def currency_api():
     )
     Base.metadata.create_all(
         engine,
-        tables=[User.__table__, Company.__table__, Listing.__table__, ListingCategoryDetails.__table__, ListingPhoto.__table__, ExchangeRate.__table__],
+        tables=[
+            User.__table__,
+            Company.__table__,
+            Listing.__table__,
+            ListingCategoryDetails.__table__,
+            ListingPhoto.__table__,
+            ExchangeRate.__table__,
+            ListingStatusEvent.__table__,
+        ],
     )
     with engine.begin() as connection:
         connection.exec_driver_sql(
@@ -154,6 +165,408 @@ def test_search_converts_mixed_currency_for_filter_sort_and_display(currency_api
         "4666.67", "5000.00", "6000.00", "7000.00",
     ]
     assert [item["price"]["display_currency"] for item in usd_items] == ["USD"] * 4
+
+
+def test_count_endpoint_uses_search_filters_and_ignores_page_and_sort(integration):
+    factory = integration["SessionLocal"]
+    today = datetime.now(timezone.utc).date().isoformat()
+    with factory() as db:
+        owner = add_owner(db)
+        add_listing(db, owner, "18000.00", "BYN", year=2020)
+        add_listing(db, owner, "5000.00", "USD", year=2021)
+        add_listing(db, owner, "14000.00", "BYN", year=2020)
+        add_rate(db, rate_date=today, fetched_at=datetime.now(timezone.utc))
+        db.commit()
+
+    params = {
+        "currency": "BYN", "price_min": "15000", "price_max": "20000",
+        "year_min": "2020", "page": 99, "page_size": 1, "sort": "price_desc",
+    }
+    listing_response = integration["client"].get("/api/v1/listings", params=params)
+    count_response = integration["client"].get("/api/v1/listings/count", params=params)
+
+    assert listing_response.status_code == 200, listing_response.text
+    assert count_response.status_code == 200, count_response.text
+    assert count_response.json() == {"total": listing_response.json()["pagination"]["total"]}
+    assert count_response.json() == {"total": 2}
+    assert listing_response.json()["items"] == []
+
+
+def test_shared_public_search_matcher_uses_catalog_alias_and_converted_price(integration):
+    from app.notification_service import saved_search_matches
+    from app.services import listing_matches_public_search
+
+    factory = integration["SessionLocal"]
+    today = datetime.now(timezone.utc).date().isoformat()
+    alias = f"matcher-alias-{uuid4().hex}"
+    with factory() as db:
+        owner = add_owner(db)
+        make = CatalogMake(
+            slug=f"matcher-make-{uuid4().hex}", name="Matcher Make", aliases=[alias],
+        )
+        db.add(make)
+        db.flush()
+        listing = add_listing(db, owner, "5000.00", "USD")
+        listing.make_id = make.id
+        listing.make_name_snapshot = "Matcher Make"
+        add_rate(db, rate_date=today, fetched_at=datetime.now(timezone.utc))
+        db.commit()
+
+        converted_byn_filters = {
+            "q": alias,
+            "currency": "BYN",
+            "price_min": "14999.99",
+            "price_max": "15000.01",
+        }
+        assert listing_matches_public_search(db, {"q": alias}, listing) is True
+        assert listing_matches_public_search(db, converted_byn_filters, listing) is True
+        saved_search = SavedSearch(
+            user_id=owner.id,
+            name="Alias at BYN price",
+            search_url=(
+                f"/cars?q={alias}&currency=BYN&price_min=14999.99&price_max=15000.01"
+            ),
+            filters={},
+        )
+        assert saved_search_matches(db, saved_search, listing) is True
+        assert listing_matches_public_search(
+            db, {**converted_byn_filters, "price_min": "15000.01"}, listing,
+        ) is False
+
+
+def test_year_and_mileage_sort_put_unknown_values_last(integration):
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        owner = add_owner(db)
+        newer = add_listing(db, owner, "18000", "BYN", year=2022)
+        older = add_listing(db, owner, "17000", "BYN", year=2018)
+        unknown = add_listing(db, owner, "16000", "BYN", year=2020)
+        newer.mileage_km = 120000
+        older.mileage_km = 40000
+        unknown.year = None
+        unknown.mileage_km = None
+        db.commit()
+
+    year_response = integration["client"].get("/api/v1/listings", params={"sort": "year_desc"})
+    mileage_response = integration["client"].get("/api/v1/listings", params={"sort": "mileage_asc"})
+
+    assert year_response.status_code == 200, year_response.text
+    assert mileage_response.status_code == 200, mileage_response.text
+    year_ids = [item["id"] for item in year_response.json()["items"]]
+    mileage_ids = [item["id"] for item in mileage_response.json()["items"]]
+    assert year_ids == [str(newer.id), str(older.id), str(unknown.id)]
+    assert mileage_ids == [str(older.id), str(newer.id), str(unknown.id)]
+
+
+def test_newest_sort_uses_first_publication_and_creation_fallback(currency_api):
+    factory = currency_api["SessionLocal"]
+    with factory() as db:
+        owner = add_owner(db)
+        long_draft = add_listing(db, owner, "18000", "BYN")
+        published_newest = add_listing(db, owner, "17000", "BYN")
+        recently_created = add_listing(db, owner, "16000", "BYN")
+        legacy = add_listing(db, owner, "15000", "BYN")
+
+        long_draft.created_at = datetime(2026, 8, 1, tzinfo=timezone.utc)
+        published_newest.created_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
+        recently_created.created_at = datetime(2026, 10, 2, tzinfo=timezone.utc)
+        legacy.created_at = datetime(2026, 9, 30, tzinfo=timezone.utc)
+        db.add_all([
+            ListingStatusEvent(
+                listing_id=published_newest.id, from_status="pending_review", to_status="active",
+                revision=1, created_at=datetime(2026, 10, 4, tzinfo=timezone.utc),
+            ),
+            ListingStatusEvent(
+                listing_id=long_draft.id, from_status="draft", to_status="active",
+                revision=1, created_at=datetime(2026, 10, 3, tzinfo=timezone.utc),
+            ),
+            ListingStatusEvent(
+                listing_id=long_draft.id, from_status="active", to_status="archived",
+                revision=2, created_at=datetime(2026, 10, 5, tzinfo=timezone.utc),
+            ),
+            ListingStatusEvent(
+                listing_id=long_draft.id, from_status="archived", to_status="active",
+                revision=3, created_at=datetime(2026, 10, 9, tzinfo=timezone.utc),
+            ),
+            ListingStatusEvent(
+                listing_id=recently_created.id, from_status="pending_review", to_status="active",
+                revision=1, created_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+            ),
+        ])
+        expected_ids = [
+            str(published_newest.id), str(long_draft.id), str(recently_created.id), str(legacy.id),
+        ]
+        db.commit()
+
+    response = currency_api["client"].get("/api/v1/listings", params={"sort": "newest"})
+
+    assert response.status_code == 200, response.text
+    assert [item["id"] for item in response.json()["items"]] == expected_ids
+
+
+def test_listing_exposes_first_publication_event_date(integration):
+    factory = integration["SessionLocal"]
+    published_at = datetime(2026, 9, 20, 9, 0, tzinfo=timezone.utc)
+    with factory() as db:
+        owner = add_owner(db)
+        listing = add_listing(db, owner, "18000", "BYN")
+        legacy_listing = add_listing(db, owner, "17000", "BYN")
+        db.add_all([
+            ListingStatusEvent(
+                listing_id=listing.id, from_status="pending_review", to_status="active",
+                revision=1, created_at=published_at,
+            ),
+            ListingStatusEvent(
+                listing_id=listing.id, from_status="draft", to_status="active",
+                revision=2, created_at=published_at + timedelta(days=2),
+            ),
+        ])
+        listing_id = str(listing.id)
+        db.commit()
+
+    search = integration["client"].get("/api/v1/listings", params={"q": "BYN"})
+    detail = integration["client"].get(f"/api/v1/listings/{listing_id}")
+
+    assert search.status_code == 200, search.text
+    assert detail.status_code == 200, detail.text
+    result = next(item for item in search.json()["items"] if item["id"] == listing_id)
+    legacy = next(item for item in search.json()["items"] if item["id"] == str(legacy_listing.id))
+    assert datetime.fromisoformat(result["published_at"]) == published_at
+    assert detail.json()["listing"]["published_at"] == result["published_at"]
+    assert legacy["published_at"] is None
+    assert search.json()["items"][0]["price"]["market_comparison"] is None
+
+
+def _market_catalog(db):
+    suffix = uuid4().hex
+    make = CatalogMake(id=uuid4(), slug=f"market-make-{suffix}", name="Market Make", aliases=[])
+    db.add(make)
+    db.flush()
+    model = CatalogModel(
+        id=uuid4(), make_id=make.id, slug=f"market-model-{suffix}",
+        name="Market Model", aliases=[],
+    )
+    db.add(model)
+    db.flush()
+    generation = CatalogGeneration(
+        id=uuid4(), model_id=model.id, slug=f"market-generation-{suffix}",
+        name="Market Generation", year_from=2018, year_to=2022,
+    )
+    body_type = CatalogBodyType(id=uuid4(), slug=f"market-body-{suffix}", name="Sedan")
+    db.add_all([generation, body_type])
+    db.flush()
+    return make, model, generation, body_type
+
+
+def _market_listing(db, owner, catalog, amount: str, *, year: int = 2020, mileage: int = 80000):
+    make, model, generation, body_type = catalog
+    listing = add_listing(db, owner, amount, "BYN", year=year)
+    listing.category_code = "cars"
+    listing.make_id = make.id
+    listing.model_id = model.id
+    listing.generation_id = generation.id
+    listing.body_type_id = body_type.id
+    listing.condition = "used"
+    listing.fuel = "petrol"
+    listing.transmission = "automatic"
+    listing.mileage_km = mileage
+    return listing
+
+
+@pytest.mark.parametrize(
+    ("target_price", "expected_label"),
+    [("18000.00", "below_market"), ("22000.00", "above_market")],
+)
+def test_market_comparison_thresholds_match_between_list_and_detail(
+    integration, target_price, expected_label,
+):
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        catalog = _market_catalog(db)
+        target_owner = add_owner(db)
+        target = _market_listing(db, target_owner, catalog, target_price)
+        target_id = str(target.id)
+        for price in ("19900", "20000", "20100", "19800", "20200", "19700", "20300", "19600", "20400", "20000"):
+            peer_owner = add_owner(db)
+            _market_listing(db, peer_owner, catalog, price)
+        db.commit()
+
+    listing_response = integration["client"].get("/api/v1/listings", params={"q": "BYN"})
+    assert listing_response.status_code == 200, listing_response.text
+    summary = next(item for item in listing_response.json()["items"] if item["id"] == target_id)
+    detail_response = integration["client"].get(f"/api/v1/listings/{target_id}")
+    assert detail_response.status_code == 200, detail_response.text
+    detail = detail_response.json()["listing"]
+
+    assert summary["price"]["market_comparison"] == detail["price"]["market_comparison"]
+    assert summary["price"]["market_comparison"]["label"] == expected_label
+    assert summary["price"]["market_comparison"]["median_byn"] == "20000.00"
+    assert summary["price"]["market_comparison"]["sample_size"] == 10
+    assert summary["price"]["market_comparison"]["seller_count"] == 10
+
+
+def test_market_comparison_requires_ten_comparable_listings(integration):
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        catalog = _market_catalog(db)
+        target = _market_listing(db, add_owner(db), catalog, "18000")
+        for price in ("19900", "20000", "20100", "19800", "20200", "19700", "20300", "19600", "20400"):
+            _market_listing(db, add_owner(db), catalog, price)
+        target_id = str(target.id)
+        db.commit()
+
+    response = integration["client"].get(f"/api/v1/listings/{target_id}")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["listing"]["price"]["market_comparison"] is None
+
+
+def test_market_comparison_excludes_same_seller_damage_parts_and_out_of_range_mileage(integration):
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        catalog = _market_catalog(db)
+        target_owner = add_owner(db)
+        target = _market_listing(db, target_owner, catalog, "18000")
+        for _ in range(10):
+            _market_listing(db, add_owner(db), catalog, "20000")
+        _market_listing(db, target_owner, catalog, "19000")
+        far_mileage = _market_listing(db, add_owner(db), catalog, "19000", mileage=90000)
+        far_mileage.mileage_km = 90000
+        damaged = _market_listing(db, add_owner(db), catalog, "19000")
+        damaged.damaged = True
+        parts = _market_listing(db, add_owner(db), catalog, "19000")
+        parts.parts_only = True
+        outside_year = _market_listing(db, add_owner(db), catalog, "19000", year=2022)
+        target_id = str(target.id)
+        db.commit()
+
+    response = integration["client"].get(f"/api/v1/listings/{target_id}")
+
+    assert response.status_code == 200, response.text
+    comparison = response.json()["listing"]["price"]["market_comparison"]
+    assert comparison["sample_size"] == 10
+    assert comparison["seller_count"] == 10
+
+
+def test_market_comparison_converts_usd_analogs_with_fresh_rate(integration):
+    factory = integration["SessionLocal"]
+    today = datetime.now(timezone.utc).date().isoformat()
+    with factory() as db:
+        catalog = _market_catalog(db)
+        target = _market_listing(db, add_owner(db), catalog, "18000")
+        for _ in range(9):
+            _market_listing(db, add_owner(db), catalog, "20000")
+        usd_peer = _market_listing(db, add_owner(db), catalog, "6666.67")
+        usd_peer.currency = "USD"
+        add_rate(db, rate_date=today, fetched_at=datetime.now(timezone.utc))
+        target_id = str(target.id)
+        db.commit()
+
+    response = integration["client"].get(f"/api/v1/listings/{target_id}")
+
+    assert response.status_code == 200, response.text
+    comparison = response.json()["listing"]["price"]["market_comparison"]
+    assert comparison["median_byn"] == "20000.00"
+    assert comparison["rate_date"] == today
+
+
+def test_market_comparison_suppresses_mixed_currency_when_rate_is_stale(integration):
+    factory = integration["SessionLocal"]
+    today = datetime.now(timezone.utc).date().isoformat()
+    with factory() as db:
+        catalog = _market_catalog(db)
+        target = _market_listing(db, add_owner(db), catalog, "18000")
+        for _ in range(9):
+            _market_listing(db, add_owner(db), catalog, "20000")
+        usd_peer = _market_listing(db, add_owner(db), catalog, "6666.67")
+        usd_peer.currency = "USD"
+        add_rate(
+            db, rate_date=today,
+            fetched_at=datetime.now(timezone.utc) - timedelta(days=4),
+        )
+        target_id = str(target.id)
+        db.commit()
+
+    response = integration["client"].get(f"/api/v1/listings/{target_id}")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["listing"]["price"]["market_comparison"] is None
+
+
+def test_market_comparison_uses_one_analog_query_for_a_listing_page(integration):
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        catalog = _market_catalog(db)
+        for _ in range(10):
+            _market_listing(db, add_owner(db), catalog, "20000")
+        db.commit()
+
+    listing_queries = []
+
+    def record_listing_query(_conn, _cursor, statement, _parameters, _context, _executemany):
+        normalized = statement.casefold()
+        if normalized.lstrip().startswith("select") and "from listings" in normalized:
+            listing_queries.append(statement)
+
+    event.listen(integration["engine"], "before_cursor_execute", record_listing_query)
+    try:
+        response = integration["client"].get("/api/v1/listings")
+    finally:
+        event.remove(integration["engine"], "before_cursor_execute", record_listing_query)
+
+    assert response.status_code == 200, response.text
+    analog_queries = [
+        statement for statement in listing_queries
+        if "listings.price_amount is not null" in statement.casefold()
+        and "listings.currency in" in statement.casefold()
+    ]
+    assert len(analog_queries) == 1  # Analog matching stays batched for the page.
+
+
+def test_market_comparison_uses_analogs_outside_the_current_page(integration):
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        catalog = _market_catalog(db)
+        targets = []
+        for index in range(10):
+            target = _market_listing(db, add_owner(db), catalog, "18000")
+            target.title = f"Batch match target {index}"
+            targets.append(target)
+        for _ in range(10):
+            _market_listing(db, add_owner(db), catalog, "20000")
+        target_id = str(targets[0].id)
+        db.commit()
+
+    response = integration["client"].get(
+        "/api/v1/listings",
+        params={"q": "Batch match target", "page_size": 10},
+    )
+
+    assert response.status_code == 200, response.text
+    result = next(item for item in response.json()["items"] if item["id"] == target_id)
+    comparison = result["price"]["market_comparison"]
+    assert comparison["label"] == "below_market"
+    assert comparison["sample_size"] == 19
+    assert comparison["seller_count"] == 19
+
+
+def test_private_listing_serialization_skips_market_comparison(integration, monkeypatch):
+    from app.api import listings as listings_api
+
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        catalog = _market_catalog(db)
+        target = _market_listing(db, add_owner(db), catalog, "18000")
+        db.commit()
+        db.refresh(target)
+
+        def unexpected_market_calculation(*_args, **_kwargs):
+            raise AssertionError("private listing must not calculate market comparison")
+
+        monkeypatch.setattr(listings_api, "build_market_comparisons", unexpected_market_calculation)
+        result = listings_api._listed(db, [target], public=False)
+
+    assert result[0]["price"]["market_comparison"] is None
 
 
 def test_postgres_search_converts_mixed_currency(integration):
@@ -401,6 +814,7 @@ def test_postgres_detail_displays_fresh_byn_equivalent(integration):
         "rate_date": today,
         "display_amount": "15000.00",
         "display_currency": "BYN",
+        "market_comparison": None,
     }
 
 

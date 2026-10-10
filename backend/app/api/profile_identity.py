@@ -18,6 +18,7 @@ from app.api.auth import _prevent_session_caching
 from app.api.dependencies import get_current_user, get_session_record, require_csrf
 from app.config import get_settings
 from app.db import get_db
+from app.email_delivery import get_email_sender
 from app.models import AuditEvent, User, UserSession
 from app.profile_identity_models import ProfilePhoneChangeChallenge, UserNotificationPreferences
 from app.profile_identity_schemas import (
@@ -68,12 +69,17 @@ def _normalize_phone(value: str) -> str:
 
 def _preference_response(db: Session, user_id: uuid.UUID) -> dict:
     row = db.get(UserNotificationPreferences, user_id)
+    settings = get_settings()
+    email_delivery_configured = bool(
+        get_email_sender(settings).is_configured and str(settings.public_app_url or "").strip()
+    )
     return {
         "preferences": {
             "web_enabled": row.web_enabled if row is not None else True,
             "email_enabled": row.email_enabled if row is not None else True,
             "revision": row.revision if row is not None else 0,
             "email_verified": verified_email(db, user_id) is not None,
+            "email_delivery_configured": email_delivery_configured,
         }
     }
 
@@ -101,6 +107,7 @@ def update_notification_preferences(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     _prevent_session_caching(response)
+    db.scalar(select(User).where(User.id == user.id).with_for_update())
     row = db.scalar(
         select(UserNotificationPreferences)
         .where(UserNotificationPreferences.user_id == user.id)

@@ -142,7 +142,7 @@ def dealer_analytics(
     end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=timezone.utc)
 
     listing_rows = db.execute(
-        select(Listing.id, Listing.title, Listing.status)
+        select(Listing.id, Listing.category_code, Listing.title, Listing.status)
         .where(Listing.company_id == company.id)
         .order_by(Listing.updated_at.desc(), Listing.id.desc())
     ).all()
@@ -191,6 +191,7 @@ def dealer_analytics(
         "items": [
             {
                 "listing_id": row.id,
+                "category_code": row.category_code or "cars",
                 "title": row.title,
                 "status": row.status,
                 "contact_reveals": reveal_counts.get(row.id, 0),

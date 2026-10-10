@@ -39,7 +39,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function listing(overrides: Partial<ListingSummary> = {}): ListingSummary {
+function listing(overrides: Partial<ListingSummary & { published_at?: string | null; engine_volume_l?: string | null; power_hp?: number | null }> = {}): ListingSummary {
   return {
     id: "listing-1",
     slug: "listing-1",
@@ -93,11 +93,11 @@ describe("listing card city navigation", () => {
 
 describe("listing card photos", () => {
   it("uses responsive source sizes for grid and row layouts", () => {
-    act(() => root.render(createElement(ListingCard, { listing: listing() })));
+    act(() => root.render(createElement(ListingCard, { listing: listing({ photo_urls: ["/real-photo.webp"] }) })));
     expect(container.querySelector("img")?.getAttribute("sizes")).toContain("(max-width: 520px)");
     expect(container.querySelector("img")?.getAttribute("sizes")).toContain("(max-width: 1020px)");
 
-    act(() => root.render(createElement(ListingCard, { listing: listing(), variant: "row" })));
+    act(() => root.render(createElement(ListingCard, { listing: listing({ photo_urls: ["/real-photo.webp"] }), variant: "row" })));
     expect(container.querySelector("img")?.getAttribute("sizes")).toBe("(max-width: 520px) 118px, 220px");
   });
 
@@ -122,13 +122,55 @@ describe("listing card photos", () => {
     expect(container.querySelector(".synthetic-label")).toBeNull();
   });
 
-  it("shows the synthetic fallback when neither photo source exists", () => {
+  it("shows a neutral accessible placeholder when neither photo source exists", () => {
     act(() => root.render(createElement(ListingCard, { listing: listing({ photo_urls: [], cover_url: null }) })));
 
-    const image = container.querySelector("img");
-    expect(image?.getAttribute("src")).toBe("/vehicles/silver-wagon.png");
-    expect(image?.getAttribute("alt")).toBe("Синтетическое изображение для объявления «Марка Модель»");
-    expect(container.querySelector(".synthetic-label")?.textContent).toBe("Синтетическое фото");
+    expect(container.querySelector(".listing-card-media img")).toBeNull();
+    expect(container.querySelector('[role="img"][aria-label="Фото не добавлено"]')).not.toBeNull();
+    expect(container.querySelector(".photo-placeholder > span:last-child")?.textContent).toBe("Фото не добавлено");
+    expect(container.querySelector(".synthetic-label")).toBeNull();
+  });
+});
+
+describe("listing card facts", () => {
+  it("shows only supplied specs and reports Minsk publication age and market comparison source", () => {
+    vi.setSystemTime(new Date("2026-10-09T21:30:00.000Z"));
+    const detailed = {
+      ...listing({ published_at: "2026-10-09T21:30:00.000Z", engine_volume_l: "1.6", power_hp: 120 }),
+      price: {
+        amount: "10000",
+        currency: "BYN" as const,
+        market_comparison: {
+          label: "below_market" as const,
+          median_byn: "12000",
+          sample_size: 14,
+          seller_count: 9,
+          as_of: "2026-10-08",
+          rate_date: null
+        }
+      }
+    };
+    act(() => root.render(createElement(ListingCard, { listing: detailed })));
+
+    expect(container.textContent).toContain("1,6 л");
+    expect(container.textContent).toContain("120 л.с.");
+    expect(container.textContent).toContain("Бензин");
+    expect(container.textContent).toContain("Механика");
+    expect(container.textContent).toContain("Опубликовано сегодня");
+    const marketBadge = container.querySelector<HTMLElement>("[data-market-comparison]");
+    expect(marketBadge?.textContent).toContain("Цена ниже рынка");
+    expect(marketBadge?.title).toContain("По предложениям Авторынка");
+    expect(marketBadge?.title).toContain("14 объявлениям");
+    expect(marketBadge?.title).toContain("08.10.2026");
+
+    const withoutAge = listing({ created_at: "2026-10-09T21:30:00.000Z" });
+    act(() => root.render(createElement(ListingCard, { listing: withoutAge })));
+    expect(container.textContent).not.toContain("Опубликовано");
+    expect(container.textContent).not.toContain("л.с.");
+
+    act(() => root.render(createElement(ListingCard, { listing: listing({ published_at: "2026-10-07T21:30:00.000Z" }) })));
+    expect(container.textContent).toContain("Опубликовано 2 дня назад");
+    vi.useRealTimers();
   });
 });
 

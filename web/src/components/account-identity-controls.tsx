@@ -144,6 +144,7 @@ export function AccountIdentityControls({ initialProfile, initialConsents }: {
           <div><dt>Электронная почта</dt><dd>{profile.contacts.email.masked || "Не указана"} · {profile.contacts.email.verified ? "подтверждена" : "не подтверждена"}</dd></div>
           <div><dt>Телефон</dt><dd>{profile.contacts.phone.masked || "Не указан"} · {profile.contacts.phone.verified ? "подтверждён" : "не подтверждён"}</dd></div>
         </dl>
+        {capabilities?.test_mail && <p className="notice">Письма поступают в тестовый ящик администратора. На внешнюю почту они не отправляются.</p>}
         {capabilities?.email_verification && !profile.contacts.email.verified && user?.email && <button className="button button-secondary button-small" type="button" disabled={busy} onClick={requestVerification}>Отправить письмо для подтверждения почты</button>}
         <div className="identity-phone-change">
           <h3>Смена телефона</h3>

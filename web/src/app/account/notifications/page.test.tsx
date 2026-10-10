@@ -16,16 +16,19 @@ import NotificationsPage from "./page";
 describe("notifications page", () => {
   it("loads the real notification inbox endpoint and renders unread state", async () => {
     mocks.requireSession.mockResolvedValue({ user: { display_name: "Тест", email: "pilot@example.test" } });
-    mocks.notificationPreferences.mockResolvedValueOnce({ preferences: { web_enabled: true, email_enabled: false, revision: 2, email_verified: false } });
+    mocks.notificationPreferences.mockResolvedValueOnce({ preferences: { web_enabled: true, email_enabled: false, revision: 2, email_verified: false, email_delivery_configured: false } });
     mocks.notifications.mockResolvedValueOnce({
       unread_count: 1,
       items: [{
         id: "notification-1",
         saved_search_id: "search-1",
+        conversation_id: null,
         listing_id: "listing-1",
         title: "Новое объявление",
         body: "BMW 320d подходит под ваш поиск.",
         url: "/cars?q=bmw",
+        listings: [{ id: "listing-1", title: "BMW 320d", url: "/cars/bmw-320d" }],
+        total_count: 1,
         read_at: null,
         created_at: "2026-09-30T10:00:00Z"
       }]
@@ -37,7 +40,7 @@ describe("notifications page", () => {
     expect(html).toContain("Новое объявление");
     expect(mocks.notificationPreferences).toHaveBeenCalledOnce();
     expect(html).toContain("Настройки уведомлений");
-    expect(html).toContain("Email-настройка сохраняется, но письма не отправляются");
+    expect(html).toContain("Email доступен при подтверждённом адресе и настроенной доставке");
     expect(html).toContain('href="/account/notifications"');
   });
 

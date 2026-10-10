@@ -1,7 +1,8 @@
 # Merge into the authorized pilot server {} block after reviewing its existing
 # TLS and trusted X-Forwarded-Proto configuration. Replace any existing
 # location / handler; do not include duplicate locations.
-# General password disabled by user request on 2026-10-04.
+# General HTTP Basic Auth was disabled by the user for portal testing on 2026-10-04.
+# Preserve application-account authentication, noindex, and private API/database ports.
 auth_basic off;
 
 location / {

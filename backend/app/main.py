@@ -11,8 +11,8 @@ from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import account, admin, admin_catalog, admin_settings, auth, billing, catalog, companies, conversations, dealer, feeds, listings, managed_content, media, moderation, monitoring, notifications, profile_identity, saved_searches
-from app.api import admin_tariffs, catalog_requests
-from app.api import customs_calculator
+from app.api import admin_tariffs, catalog_requests, customs_calculator, vin_checks
+from app.api import test_mail
 from app.config import get_settings
 from app.db import SessionLocal
 from app.health_schemas import HealthResponse
@@ -66,6 +66,9 @@ CSRF_REQUIRED_OPERATIONS = {
     ("/api/v1/me/profile/phone-change/confirm", "post"),
 }
 ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
+    ("/api/v1/vin-check/status", "get"): (),
+    ("/api/v1/admin/test-mail/messages", "get"): (401, 403, 404, 503),
+    ("/api/v1/admin/test-mail/messages/{message_id}", "get"): (401, 403, 404, 503),
     ("/api/v1/customs-calculator/meta", "get"): (),
     ("/api/v1/customs-calculator/calculate", "post"): (422, 503),
     ("/api/v1/admin/users", "get"): (401, 403, 422),
@@ -130,7 +133,7 @@ ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
     ("/api/v1/moderation/listings/{listing_id}/history", "get"): (401, 403, 404, 422),
     ("/api/v1/listings/{listing_id}/analytics", "get"): (401, 403, 404, 422),
     ("/api/v1/auth/logout", "post"): (401, 403),
-    ("/api/v1/auth/register", "post"): (403, 404, 409, 429, 503),
+    ("/api/v1/auth/register", "post"): (403, 404, 409, 422, 429, 503),
     ("/api/v1/auth/otp/request", "post"): (403, 404, 429, 503),
     ("/api/v1/auth/register/otp/request", "post"): (403, 404, 429, 503),
     ("/api/v1/auth/otp/verify", "post"): (401, 403, 404, 429),
@@ -235,7 +238,7 @@ def document_api_error_response(
     json_content = response.setdefault("content", {}).setdefault("application/json", {})
     json_content["schema"] = {"$ref": "#/components/schemas/ApiErrorOut"}
 
-for route_module in (auth, catalog, listings, media, companies, moderation, saved_searches, notifications, conversations, admin, admin_tariffs, admin_catalog, admin_settings, dealer, feeds, account, billing, managed_content, monitoring, profile_identity, catalog_requests, customs_calculator):
+for route_module in (auth, catalog, listings, media, companies, moderation, saved_searches, notifications, conversations, admin, admin_tariffs, admin_catalog, admin_settings, dealer, feeds, account, billing, managed_content, monitoring, profile_identity, catalog_requests, customs_calculator, vin_checks, test_mail):
     app.include_router(route_module.router)
 
 

@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { activeSearchKeys, readSearchParams, searchUrl } from "@/lib/search-state";
 
 describe("URL-backed listing filters", () => {
+  it("keeps category route and details through sorting and pagination", () => {
+    const search = readSearchParams(new URLSearchParams("category_code=special_equipment&subtype=excavator&details=%7B%22operating_hours%22%3A1200%7D&sort=year_desc&page=2"));
+    expect(searchUrl(search, { page: "3" })).toBe("/special-equipment?category_code=special_equipment&subtype=excavator&details=%7B%22operating_hours%22%3A1200%7D&page=3&sort=year_desc");
+    expect(readSearchParams(new URLSearchParams(searchUrl(search).split("?")[1]))).toEqual(search);
+  });
+
+  it("clears incompatible details and car catalog ids when switching category", () => {
+    expect(searchUrl({ category_code: "cars", make_id: "car-make", model_id: "car-model", details: "{}", page: "2" }, { category_code: "tires" }))
+      .toBe("/tires?category_code=tires");
+  });
+
   it("reads only supported filters and takes the first repeated value", () => {
     const search = readSearchParams({ q: ["BMW 3", "ignored"], year_min: "2018", page: "2", modification_id: "mod-1", body_variant_id: "variant-1", unknown: "drop" });
     expect(search).toEqual({ q: "BMW 3", year_min: "2018", page: "2", modification_id: "mod-1", body_variant_id: "variant-1" });
@@ -23,6 +34,19 @@ describe("URL-backed listing filters", () => {
       body_variant_id: "variant-1",
       page: "2"
     });
+  });
+
+  it("reads valid category codes and drops unsupported values", () => {
+    expect(readSearchParams(new URLSearchParams("category_code=parts"))).toEqual({ category_code: "parts" });
+    expect(readSearchParams({ category_code: "aircraft" })).toEqual({});
+  });
+
+  it("preserves category codes in canonical URLs without exposing them as filter chips", () => {
+    const search = readSearchParams(new URLSearchParams("page=2&q=tires&category_code=parts"));
+
+    expect(searchUrl(search)).toBe("/cars?category_code=parts&q=tires&page=2");
+    expect(readSearchParams(new URLSearchParams(searchUrl(search).split("?")[1]))).toEqual(search);
+    expect(activeSearchKeys).not.toContain("category_code");
   });
 
   it("drops empty values instead of leaving stale query parameters", () => {
