@@ -41,6 +41,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const initialSession = await getSessionServer().catch(() => null);
   return (
     <html lang={DEFAULT_LOCALE} suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
       <body className={inter.variable}>
         <AuthProvider initialSession={initialSession}>
           <a className="skip-link" href="#main-content">{getMessage("layout.skipToMainContent", DEFAULT_LOCALE)}</a>
