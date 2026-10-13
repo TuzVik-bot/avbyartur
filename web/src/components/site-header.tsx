@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, LayoutGrid, LogOut, Menu, Plus, ShieldCheck, UserRound, X } from "lucide-react";
+import { ThemeSwitcher } from "./theme-switcher";
 import { CatalogNavigation } from "./catalog-navigation";
 import styles from "./site-navigation.module.css";
 import { useAuth } from "@/components/auth-provider";
@@ -80,6 +81,7 @@ export function SiteHeader() {
           {user && <button className="mobile-signout" type="button" onClick={onSignOut}><LogOut size={17} /> {message("header.signOut")}</button>}
         </nav>
         <div className={`header-actions ${styles.actions}`}>
+          <ThemeSwitcher />
           {user && <button className="icon-button signout-button" type="button" title={message("header.signOut")} aria-label={message("header.signOut")} onClick={onSignOut}><LogOut size={18} /></button>}
           <Link className="button button-primary header-sell" href={localizedPath("/sell")} aria-label={message("header.sellListing")} onClick={closeNavigation}><Plus size={17} /> {message("header.sellListing")}</Link>
         </div>

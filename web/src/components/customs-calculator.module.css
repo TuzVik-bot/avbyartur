@@ -66,7 +66,7 @@
 .engine legend,
 .confirmations legend {
   margin-bottom: 7px;
-  color: #485350;
+  color: var(--theme-text-485350);
   font-size: 12px;
   font-weight: 750;
 }
@@ -130,7 +130,7 @@
 
 .status {
   padding: 10px 12px;
-  border: 1px solid #d5dcf5;
+  border: 1px solid var(--theme-line-d5dcf5);
   border-radius: 10px;
   background: var(--soft-accent);
   color: var(--accent-dark);
@@ -152,7 +152,7 @@
   justify-items: start;
   gap: 9px;
   margin-bottom: 15px;
-  border-color: #efc1c4;
+  border-color: var(--theme-line-efc1c4);
   background: var(--soft-danger);
   color: var(--danger);
 }
@@ -163,9 +163,9 @@
 }
 
 .unavailable {
-  border-color: #e8d59e;
+  border-color: var(--theme-line-e8d59e);
   background: var(--soft-amber);
-  color: #5c481b;
+  color: var(--theme-text-5c481b);
 }
 
 .sources {
@@ -223,7 +223,7 @@
 
 .result {
   margin-top: 16px;
-  border-color: #d5dcf5;
+  border-color: var(--theme-line-d5dcf5);
   box-shadow: 0 8px 24px rgba(24, 33, 47, .07);
 }
 
@@ -291,11 +291,11 @@
   padding: 13px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #F6F7F9;
+  background: var(--theme-bg-f6f7f9);
 }
 
 .warnings {
-  border-color: #e8d59e;
+  border-color: var(--theme-line-e8d59e);
   background: var(--soft-amber);
 }
 

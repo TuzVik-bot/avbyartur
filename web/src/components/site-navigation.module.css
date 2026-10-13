@@ -1,10 +1,10 @@
-.header { background: #fff; box-shadow: none; }
+.header { background: var(--theme-bg-ffffff); box-shadow: none; }
 .header .inner { min-height: 80px; gap: 24px; }
 .header .brand { flex: none; white-space: nowrap; }
 .catalog { flex: none; }
 .catalogButton, .servicesButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 0; font-weight: 650; cursor: pointer; transition: background-color .18s, color .18s; }
 .catalogButton { padding: 10px 16px; border-radius: 10px; color: var(--accent-dark); background: var(--soft-accent); }
-.catalogButton:hover, .catalogButton.selected { background: #dfe6fc; }
+.catalogButton:hover, .catalogButton.selected { background: var(--theme-bg-dfe6fc); }
 .catalogButton[aria-expanded="true"] > svg:last-child, .servicesButton[aria-expanded="true"] > svg { transform: rotate(180deg); }
 .header .mainNav { gap: 20px; margin-left: auto; font-size: 14px; font-weight: 600; }
 .header .mainNav a { white-space: nowrap; }
@@ -13,10 +13,10 @@
 .services { position: relative; }
 .servicesButton { padding: 0; color: var(--ink); background: transparent; }
 .servicesButton:hover { color: var(--accent-dark); }
-.servicesPanel { position: absolute; top: calc(100% + 12px); right: 0; min-width: 280px; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.servicesPanel { position: absolute; top: calc(100% + 12px); right: 0; min-width: 280px; padding: 8px; background: var(--theme-bg-ffffff); border: 1px solid var(--line); border-radius: 12px; }
 .header .servicesPanel a { display: flex; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
 .header .servicesPanel a:hover { background: var(--soft-accent); }
-.catalogPanel { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid var(--line); box-shadow: 0 6px 8px #18212f12; max-height: calc(100dvh - 96px); overflow-y: auto; overscroll-behavior: contain; }
+.catalogPanel { position: absolute; top: 100%; left: 0; right: 0; background: var(--theme-bg-ffffff); border-bottom: 1px solid var(--line); box-shadow: 0 6px 8px #18212f12; max-height: calc(100dvh - 96px); overflow-y: auto; overscroll-behavior: contain; }
 .catalogPanel[hidden], .servicesPanel[hidden] { display: none; }
 .catalogContent { width: min(1240px, calc(100% - 64px)); margin-inline: auto; padding: 28px 0 32px; }
 .panelHeading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
@@ -30,7 +30,7 @@
 .group ul { display: grid; gap: 4px; list-style: none; padding: 0; margin: 0; }
 .group:nth-child(2) ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .group li a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; height: 100%; padding: 10px 12px; border-radius: 8px; font-size: 14px; color: var(--ink); transition: background-color .18s, color .18s; }
-.group li a svg { flex: none; color: #647084; opacity: 0; }
+.group li a svg { flex: none; color: var(--theme-text-647084); opacity: 0; }
 .group li a:hover, .group li a:focus-visible { background: var(--soft-accent); color: var(--accent-dark); }
 .group li a:hover svg, .group li a:focus-visible svg { opacity: 1; }
 .header .actions { flex: none; }
@@ -44,7 +44,7 @@
  .header .inner { min-height: 72px; gap: 12px; }
  .header .mobileToggle { display: inline-grid; margin-left: auto; order: 3; flex: none; }
  .header .actions { order: 4; }
- .header .mainNav { display: none; position: absolute; inset: 100% 0 auto; margin: 0; padding: 16px 24px; background: #fff; border-bottom: 1px solid var(--line); flex-direction: column; align-items: stretch; gap: 4px; max-height: calc(100dvh - 88px); overflow-y: auto; }
+ .header .mainNav { display: none; position: absolute; inset: 100% 0 auto; margin: 0; padding: 16px 24px; background: var(--theme-bg-ffffff); border-bottom: 1px solid var(--line); flex-direction: column; align-items: stretch; gap: 4px; max-height: calc(100dvh - 88px); overflow-y: auto; }
  .header .mainNav:global(.is-open) { display: flex; }
  .header .mainNav > a { min-height: 48px; padding: 10px 12px; border: 0; }
  .header .servicesButton { width: 100%; min-height: 48px; padding: 10px 12px; justify-content: space-between; }
@@ -86,3 +86,7 @@
  .group li a { font-size: 13px; gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .catalogButton, .servicesButton, .group li a { transition: none; } }
+
+@media (max-width: 360px) {
+ .header .brand > span:nth-child(2) { display: none; }
+}

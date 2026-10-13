@@ -12,7 +12,7 @@
   padding: 16px 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: linear-gradient(120deg, #fff 0%, #F6F7F9 100%);
+  background: linear-gradient(120deg, var(--theme-bg-ffffff) 0%, var(--theme-bg-f6f7f9) 100%);
 }
 
 .toolbar h2,
@@ -39,7 +39,7 @@
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: white;
+  background: var(--surface);
   box-shadow: 0 3px 12px rgba(24, 33, 47, .035);
 }
 
@@ -63,7 +63,7 @@
 
 .identity code,
 .identityBlock code {
-  color: #40504a;
+  color: var(--theme-text-40504a);
 }
 
 .price {
@@ -92,8 +92,8 @@
   gap: 8px 26px;
   margin: 14px 0 0;
   padding: 12px 0;
-  border-top: 1px solid #edf0ef;
-  border-bottom: 1px solid #edf0ef;
+  border-top: 1px solid var(--theme-line-edf0ef);
+  border-bottom: 1px solid var(--theme-line-edf0ef);
 }
 
 .details div {
@@ -124,13 +124,13 @@
 }
 
 .active {
-  color: #215d39;
-  background: #e7f4e9;
+  color: var(--theme-text-215d39);
+  background: var(--theme-bg-e7f4e9);
 }
 
 .disabled {
-  color: #58625e;
-  background: #edf0ef;
+  color: var(--theme-text-58625e);
+  background: var(--theme-bg-edf0ef);
 }
 
 .actions {
@@ -146,7 +146,7 @@
   gap: 12px;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid #edf0ef;
+  border-top: 1px solid var(--theme-line-edf0ef);
 }
 
 .wide {
@@ -163,9 +163,9 @@
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid #E2E6ED;
+  border: 1px solid var(--theme-line-e2e6ed);
   border-radius: 8px;
-  background: #F6F7F9;
+  background: var(--theme-bg-f6f7f9);
 }
 
 .identityBlock > span,
@@ -182,10 +182,10 @@
   grid-column: 1 / -1;
   margin: 0;
   padding: 11px 12px;
-  border: 1px solid #efd8c2;
+  border: 1px solid var(--theme-line-efd8c2);
   border-radius: 5px;
-  background: #fff8f0;
-  color: #65451f;
+  background: var(--theme-bg-fff8f0);
+  color: var(--theme-text-65451f);
   font-size: 13px;
   line-height: 1.5;
 }
