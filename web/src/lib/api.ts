@@ -224,6 +224,9 @@ export const api = {
   confirmPhoneChange: (challenge_id: string, old_code: string, new_code: string) => apiRequest<components["schemas"]["PhoneChangeConfirmedResponse"]>("me/profile/phone-change/confirm", { method: "POST", body: JSON.stringify({ challenge_id, old_code, new_code }) }),
   logout: () => apiRequest<{ ok: true }>("auth/logout", { method: "POST", body: JSON.stringify({}) }),
   me: () => apiRequest<AuthSession>("me"),
+  listingCount: (search: ListingSearch = {}) => apiRequest<{ total: number }>(
+    searchPath(search).replace(/^\/api\/v1\/listings(?=\?|$)/, "listings/count")
+  ),
   notifications: (options: { unreadOnly?: boolean; limit?: number } = {}) => {
     const params = new URLSearchParams();
     if (options.unreadOnly) params.set("unread_only", "true");

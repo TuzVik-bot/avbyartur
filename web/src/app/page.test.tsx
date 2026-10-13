@@ -5,11 +5,12 @@ import type { ListingSummary } from "@/lib/types";
 const mocks = vi.hoisted(() => ({
   listings: vi.fn(),
   catalog: vi.fn(),
+  regions: vi.fn(),
   getSavedListingIds: vi.fn(async () => [] as string[])
 }));
 
 vi.mock("@/lib/server-api", () => ({
-  serverApi: { listings: mocks.listings, catalog: mocks.catalog },
+  serverApi: { listings: mocks.listings, catalog: mocks.catalog, regions: mocks.regions },
   getSavedListingIds: mocks.getSavedListingIds
 }));
 vi.mock("next/link", () => ({
@@ -48,6 +49,7 @@ const listing: ListingSummary = {
 beforeEach(() => {
   mocks.listings.mockResolvedValue({ items: [listing] });
   mocks.catalog.mockResolvedValue({ items: [] });
+  mocks.regions.mockResolvedValue({ items: [] });
   mocks.getSavedListingIds.mockResolvedValue([]);
 });
 
