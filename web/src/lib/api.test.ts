@@ -252,6 +252,15 @@ describe("same-origin API client", () => {
     expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe("/api/v1/conversations/thread%2F1?limit=20&before_sequence=40");
   });
 
+  it("requests listing counts with the same repeated filters as search", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ total: 1234 }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.listingCount({ make_id: "make-1", equipment: ["abs", "esp"], page: "3", sort: "newest" });
+
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe("/api/v1/listings/count?make_id=make-1&equipment=abs&equipment=esp&page=3&sort=newest");
+  });
+
   it("mints idempotency keys when conversation actions do not provide one", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);

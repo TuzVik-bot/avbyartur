@@ -15,19 +15,25 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const [listingResult, makeResult, savedListingIdsResult, dealerResult] = await Promise.allSettled([
+  const [listingResult, makeResult, savedListingIdsResult, dealerResult, regionResult, bodyTypeResult] = await Promise.allSettled([
     serverApi.listings({ page_size: "9", sort: "newest" }),
     serverApi.catalog("makes"),
     getSavedListingIds(),
-    serverApi.dealers(1)
+    serverApi.dealers(1),
+    serverApi.regions(),
+    serverApi.catalog("body-types")
   ]);
   const listings: ListingSearchResponse | null = listingResult.status === "fulfilled" ? listingResult.value : null;
   const makes: CatalogItem[] = makeResult.status === "fulfilled" ? makeResult.value.items : [];
   const dealers: ListResponse<CompanySummary> | null = dealerResult.status === "fulfilled" ? dealerResult.value : null;
+  const regions: CatalogItem[] = regionResult.status === "fulfilled" ? regionResult.value.items : [];
+  const bodyTypes: CatalogItem[] = bodyTypeResult.status === "fulfilled" ? bodyTypeResult.value.items : [];
   const savedIds = new Set(savedListingIdsResult.status === "fulfilled" ? savedListingIdsResult.value : []);
   const failed = listingResult.status === "rejected";
   const makesFailed = makeResult.status === "rejected";
   const dealersFailed = dealerResult.status === "rejected";
+  const regionsFailed = regionResult.status === "rejected";
+  const bodyTypesFailed = bodyTypeResult.status === "rejected";
   return (
     <>
       <section className="home-hero" aria-labelledby="home-heading">
@@ -38,8 +44,16 @@ export default async function HomePage() {
             <p className="home-lead">Выберите марку, модель и цену, чтобы найти опубликованные объявления.</p>
           </div>
           <div className="home-hero-search">
-            <HomeSearch makes={makes} priceOperationsAvailable={listings ? Boolean(listings.fx) : false} />
+            <HomeSearch makes={makes} regions={regions} bodyTypes={bodyTypes} priceOperationsAvailable={listings ? Boolean(listings.fx) : false} />
             {makesFailed && <p className="home-search-note" role="status">Справочник марок временно недоступен. Каталог объявлений остаётся доступен.</p>}
+            {(regionsFailed || bodyTypesFailed) && <p className="home-search-note" role="status">Часть справочников поиска временно недоступна.</p>}
+            <nav className="home-quick-filters" aria-label="Быстрые фильтры">
+              <span>Быстрый поиск:</span>
+              <Link href="/cars?condition=new">Новые</Link>
+              <Link href="/cars?fuel=electric">Электромобили</Link>
+              <Link href="/cars?condition=used">С пробегом</Link>
+              <Link href="/cars?mileage_max=100000">До 100 000 км</Link>
+            </nav>
           </div>
           <div className="home-hero-visual">
             <picture className="home-hero-media" aria-hidden="true">

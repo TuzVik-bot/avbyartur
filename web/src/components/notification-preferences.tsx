@@ -18,6 +18,12 @@ export function NotificationPreferences({ initialPreferences }: { initialPrefere
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const emailAvailable = Boolean(preferences?.email_verified && preferences.email_delivery_configured);
+  const emailAvailabilityMessage = !preferences?.email_verified
+    ? "Подтвердите адрес электронной почты в настройках профиля, чтобы получать email-уведомления."
+    : !preferences.email_delivery_configured
+      ? "Email-уведомления пока недоступны: почтовая доставка не настроена."
+      : "Email-уведомления доступны для подтверждённого адреса.";
 
   async function reload() {
     if (busy) return;
@@ -52,8 +58,8 @@ export function NotificationPreferences({ initialPreferences }: { initialPrefere
     </div> : <form className="notification-preferences-form" onSubmit={submit} aria-busy={busy}>
       <label className="check-field"><input type="checkbox" name="web_enabled" checked={draft.web_enabled} onChange={(event) => { const checked = event.currentTarget.checked; setDraft((current) => current ? { ...current, web_enabled: checked } : current); }} /> Уведомления в кабинете</label>
       <label className="check-field"><input type="checkbox" name="email_enabled" checked={draft.email_enabled} onChange={(event) => { const checked = event.currentTarget.checked; setDraft((current) => current ? { ...current, email_enabled: checked } : current); }} /> Email-уведомления</label>
-      {!preferences.email_verified && <p className="notice" role="status">Сначала подтвердите адрес электронной почты в настройках профиля. Выбор сохраняется; отправка также зависит от доступности почтового сервиса.</p>}
-      {preferences.email_verified && <p className="muted">Отправка email зависит от доступности почтового сервиса.</p>}
+      {!emailAvailable && <p className="notice" role="status">{emailAvailabilityMessage} Выбор сохраняется.</p>}
+      {emailAvailable && <p className="muted">{emailAvailabilityMessage}</p>}
       {error && <p className="inline-error" role="alert">{error}</p>}
       {notice && <p className="notice" role="status">{notice}</p>}
       <button className="button button-primary button-small" type="submit" disabled={busy}>{busy ? "Сохраняем…" : "Сохранить настройки"}</button>

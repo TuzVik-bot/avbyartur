@@ -32,13 +32,22 @@ export type CatalogCity = CatalogItem & { region_id: string };
 export type User = components["schemas"]["UserOut"];
 export type AuthSession = components["schemas"]["AuthSessionResponse"];
 
+export type UserNotificationListing = {
+  id: string;
+  title: string;
+  url: string;
+};
+
 export type UserNotification = {
   id: string;
-  saved_search_id: string;
-  listing_id: string;
+  saved_search_id: string | null;
+  conversation_id: string | null;
+  listing_id: string | null;
   title: string;
   body: string;
   url: string;
+  listings: UserNotificationListing[];
+  total_count: number;
   read_at: string | null;
   created_at: string;
 };

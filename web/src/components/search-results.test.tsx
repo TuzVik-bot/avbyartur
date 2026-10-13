@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SearchResults } from "@/components/search-results";
 import type { CatalogItem, CatalogModification, ListingSearch, ListingSummary } from "@/lib/types";
 
+const mocks = vi.hoisted(() => ({
+  savedSearchAction: vi.fn()
+}));
+
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>
 }));
@@ -12,6 +16,15 @@ vi.mock("@/components/listing-card", () => ({
 }));
 vi.mock("@/components/search-filters", () => ({
   SearchFilters: ({ priceOperationsAvailable }: { priceOperationsAvailable: boolean }) => <div data-price-operations-available={String(priceOperationsAvailable)} />
+}));
+vi.mock("@/components/saved-search-action", () => ({
+  SavedSearchAction: ({ search, title }: { search: ListingSearch; title: string }) => {
+    mocks.savedSearchAction(search, title);
+    return <div data-saved-search-title={title}>
+      <button type="button">Сохранить поиск</button>
+      <button type="button">Подписаться на новые объявления</button>
+    </div>;
+  }
 }));
 
 let container: HTMLDivElement;
@@ -90,6 +103,16 @@ describe("search result controls", () => {
       .find((link) => link.textContent?.includes("Модификация"));
     expect(fallbackChip?.textContent).toContain("Модификация: Комплектация выбрана");
     expect(fallbackChip?.textContent).not.toContain("unresolved-catalog-id");
+  });
+
+  it("offers to save the active search with its title", async () => {
+    await render({ q: "BMW", equipment: ["abs", "rear_camera"] });
+
+    expect(mocks.savedSearchAction).toHaveBeenCalledWith({ q: "BMW", equipment: ["abs", "rear_camera"] }, "Объявления");
+    const toolbar = container.querySelector(".results-toolbar-actions [data-saved-search-title]");
+    expect(toolbar?.textContent).toContain("Сохранить поиск");
+    expect(toolbar?.textContent).toContain("Подписаться на новые объявления");
+    expect(container.querySelector(".empty-state")).not.toBeNull();
   });
 
   it("shows a readable fallback chip for a selected body variant", async () => {

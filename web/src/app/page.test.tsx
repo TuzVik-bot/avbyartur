@@ -6,11 +6,12 @@ const mocks = vi.hoisted(() => ({
   listings: vi.fn(),
   catalog: vi.fn(),
   dealers: vi.fn(),
+  regions: vi.fn(),
   getSavedListingIds: vi.fn(async () => [] as string[])
 }));
 
 vi.mock("@/lib/server-api", () => ({
-  serverApi: { listings: mocks.listings, catalog: mocks.catalog, dealers: mocks.dealers },
+  serverApi: { listings: mocks.listings, catalog: mocks.catalog, dealers: mocks.dealers, regions: mocks.regions },
   getSavedListingIds: mocks.getSavedListingIds
 }));
 vi.mock("next/link", () => ({
@@ -50,6 +51,7 @@ beforeEach(() => {
   mocks.listings.mockResolvedValue({ items: [listing], fx: { rate_date: "2026-10-04", usd_rate: "3.0", scale: 1 } });
   mocks.catalog.mockResolvedValue({ items: [] });
   mocks.dealers.mockResolvedValue({ items: [] });
+  mocks.regions.mockResolvedValue({ items: [] });
   mocks.getSavedListingIds.mockResolvedValue([]);
 });
 
@@ -79,16 +81,19 @@ describe("home listing cards", () => {
     expect(html).toContain("Подать объявление");
   });
 
-  it("searches the real make and model catalog and uses query-backed home collections", async () => {
+  it("keeps the hero, category navigation, quick filters, and query-backed home collections", async () => {
     const html = renderToStaticMarkup(await HomePage());
 
+    expect(html).toContain('class="home-hero"');
+    expect(html).toContain("Найдите свой автомобиль в Беларуси");
+    expect(html).toContain('aria-label="Разделы объявлений"');
     expect(html).toContain('name="make_id"');
     expect(html).toContain('name="model_id"');
     expect(html).toContain('name="price_max"');
+    expect(html).toContain('href="/cars?mileage_max=100000"');
     expect(html).toContain('href="/cars?condition=new"');
     expect(html).toContain('href="/cars?condition=used"');
     expect(html).toContain("Марки автомобилей");
-    expect(html).not.toContain("Часто ищут:");
   });
 
   it("disables the home price filter when the listings response has no confirmed exchange rate", async () => {

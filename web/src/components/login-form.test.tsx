@@ -23,7 +23,7 @@ beforeEach(() => {
   container = document.createElement("div");
   document.body.append(container);
   act(() => { root = createRoot(container); });
-  vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_verification: false, password_recovery: false });
+  vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: false, email_verification: false, password_recovery: false });
 });
 
 afterEach(() => {
@@ -103,4 +103,38 @@ describe("login form", () => {
     expect(mocks.replace).toHaveBeenCalledWith("/account");
     expect(mocks.refresh).toHaveBeenCalledOnce();
   });
+});
+
+it("offers email registration when enabled with published consent versions", async () => {
+  vi.mocked(api.authCapabilities).mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: true, email_verification: false, password_recovery: false });
+  await act(async () => { root.render(createElement(LoginForm, { nextPath: "/account", consentVersions: { terms: "v1", privacy: "v1" } })); });
+  const button = [...container.querySelectorAll("button")].find(b => b.textContent === "Создать аккаунт");
+  expect(button).toBeDefined();
+  await act(async () => button!.click());
+  expect(container.querySelector('input[name="display_name"]')).not.toBeNull();
+  expect(container.querySelector('input[name="password"]')?.getAttribute("minlength")).toBe("10");
+  expect(container.querySelector('input[name="accept_privacy"]')).not.toBeNull();
+});
+
+it("registers, starts a session and returns to listing creation", async () => {
+  vi.mocked(api.authCapabilities).mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: true, email_verification: false, password_recovery: false });
+  vi.spyOn(api, "registerEmail").mockResolvedValue(session);
+  await act(async () => { root.render(createElement(LoginForm, { nextPath: "/sell", consentVersions: { terms: "v1", privacy: "v1" } })); });
+  await act(async () => { [...container.querySelectorAll("button")].find(b => b.textContent === "Создать аккаунт")!.click(); });
+  container.querySelector<HTMLInputElement>('input[name="display_name"]')!.value = "Пользователь";
+  container.querySelector<HTMLInputElement>('input[name="password_confirm"]')!.value = "Strong-password-123";
+  container.querySelector<HTMLInputElement>('input[name="accept_terms"]')!.checked = true;
+  container.querySelector<HTMLInputElement>('input[name="accept_privacy"]')!.checked = true;
+  await submit("person@example.com", "Strong-password-123");
+  expect(mocks.setSession).toHaveBeenCalledWith(session);
+  expect(mocks.replace).toHaveBeenCalledWith("/sell");
+  expect(mocks.refresh).toHaveBeenCalledOnce();
+});
+
+it("offers explicitly enabled temporary registration with its notice", async () => {
+  vi.mocked(api.authCapabilities).mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: true, email_registration_pilot: true, email_verification: false, password_recovery: false });
+  await act(async () => { root.render(createElement(LoginForm, { nextPath: "/account", consentVersions: null })); });
+  await act(async () => { [...container.querySelectorAll("button")].find(b => b.textContent === "Создать аккаунт")!.click(); });
+  expect(container.textContent).toContain("Реквизиты оператора ещё не опубликованы");
+  expect(container.querySelector('a[href="/registration-privacy"]')).not.toBeNull();
 });

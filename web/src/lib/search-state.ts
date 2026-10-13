@@ -1,5 +1,14 @@
 import type { ListingSearch } from "@/lib/types";
 
+const categoryCodes: readonly NonNullable<ListingSearch["category_code"]>[] = [
+  "cars", "trucks", "buses", "motorcycles", "special_equipment", "agricultural_equipment", "trailers", "watercraft", "parts", "wheels", "tires"
+];
+const categoryCodeSet: ReadonlySet<string> = new Set(categoryCodes);
+
+function isCategoryCode(value: unknown): value is NonNullable<ListingSearch["category_code"]> {
+  return typeof value === "string" && categoryCodeSet.has(value);
+}
+
 const allowedSearchKeys: (keyof ListingSearch)[] = [
   "category_code", "subtype", "details", "diameter_in", "width_mm", "season",
   "q", "make_id", "model_id", "generation_id", "body_variant_id", "modification_id", "price_min", "price_max", "currency", "year_min", "year_max",
@@ -19,7 +28,9 @@ export function readSearchParams(input: URLSearchParams | Record<string, string 
     }
     const normalized = Array.isArray(value) ? value[0] : value;
     if (typeof normalized === "string" && normalized.trim() !== "") {
-      result[key] = normalized.trim() as never;
+      const trimmed = normalized.trim();
+      if (key === "category_code" && !isCategoryCode(trimmed)) continue;
+      result[key] = trimmed as never;
     }
   }
   return result;
@@ -55,6 +66,7 @@ export function searchUrl(search: ListingSearch, patch: Partial<ListingSearch> =
   const params = new URLSearchParams();
   for (const key of allowedSearchKeys) {
     const value = next[key];
+    if (key === "category_code" && !isCategoryCode(value)) continue;
     if (Array.isArray(value)) {
       for (const entry of value) if (entry) params.append(key, entry);
     } else if (value !== undefined && value !== "") params.set(key, String(value));
@@ -64,4 +76,4 @@ export function searchUrl(search: ListingSearch, patch: Partial<ListingSearch> =
   return query ? `${path}?${query}` : path;
 }
 
-export const activeSearchKeys = allowedSearchKeys.filter((key) => !["page", "page_size", "sort", "currency"].includes(key));
+export const activeSearchKeys = allowedSearchKeys.filter((key) => !["category_code", "page", "page_size", "sort", "currency"].includes(key));

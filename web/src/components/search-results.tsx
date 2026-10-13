@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { ListingCard } from "@/components/listing-card";
 import { SearchFilters } from "@/components/search-filters";
 import { SearchSort } from "@/components/search-sort";
+import { SavedSearchAction } from "@/components/saved-search-action";
 import { activeSearchKeys, searchUrl } from "@/lib/search-state";
 import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch, ListingSummary, ListResponse } from "@/lib/types";
 
@@ -90,7 +91,7 @@ export function SearchResults({ search, data, title, makes, models, generations,
       {catalogsFailed && <p className="notice" role="status">Часть справочников фильтров временно недоступна. Объявления остаются доступны — <Link href="/cars">открыть каталог</Link>.</p>}
       {!priceOperationsAvailable && <p className="notice" role="status">Фильтрация и сортировка по цене временно недоступны: нет подтверждённого курса НБРБ за последние 72 часа. Цены показаны в исходной валюте.</p>}
       <div className="results-layout">
-        <SearchFilters search={search} makes={makes} initialModels={models} initialGenerations={generations} initialModifications={modifications} regions={regions} initialCities={cities} bodyTypes={bodyTypes} priceOperationsAvailable={priceOperationsAvailable} />
+        <SearchFilters search={search} makes={makes} initialModels={models} initialGenerations={generations} initialModifications={modifications} regions={regions} initialCities={cities} bodyTypes={bodyTypes} priceOperationsAvailable={priceOperationsAvailable} initialCount={data?.pagination?.total ?? null} />
         <section aria-label="Результаты поиска">
           {selectedFilterKeys.length > 0 && (
             <div className="active-filters" aria-label="Выбранные фильтры">
@@ -104,7 +105,10 @@ export function SearchResults({ search, data, title, makes, models, generations,
           )}
           <div className="results-toolbar">
             <strong>{total ? `${total.toLocaleString("ru-BY")} предложений` : "Подходящие предложения"}</strong>
-            <SearchSort search={search} priceOperationsAvailable={priceOperationsAvailable} />
+            <div className="results-toolbar-actions">
+              <SavedSearchAction search={search} title={title} />
+              <SearchSort search={search} priceOperationsAvailable={priceOperationsAvailable} />
+            </div>
           </div>
           {entries.length ? <div className="listing-stack">{entries.map((listing) => <ListingCard key={listing.id} listing={listing} variant="row" saved={savedIds.has(listing.id)} />)}</div> : (
             <div className="empty-state search-empty">
