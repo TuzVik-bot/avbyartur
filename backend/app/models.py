@@ -395,6 +395,7 @@ class Listing(Base):
     generation_name_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_make: Mapped[str | None] = mapped_column(String(180), nullable=True)
     manual_model: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    photo_badges: Mapped[list[str]] = mapped_column(JSONB().with_variant(JSON(), "sqlite"), default=list, server_default="[]", nullable=False)
     title: Mapped[str] = mapped_column(String(240), default="")
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     mileage_km: Mapped[int | None] = mapped_column(Integer, nullable=True)

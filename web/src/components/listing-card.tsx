@@ -1,6 +1,7 @@
 "use client";
 
 import { categoryFacts, categoryPath } from "@/lib/listing-categories";
+import { ListingPhotoBadges } from "@/components/listing-photo-badges";
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, ImageOff } from "lucide-react";
@@ -83,6 +84,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
         <Link className="listing-card-photo-link" href={href} aria-label={`Открыть объявление ${title}`}>
           {photo ? <Image src={photo} alt={`Фотография: ${title}`} width={900} height={563} sizes={listingImageSizes(variant)} unoptimized priority={false} /> : <span className="photo-placeholder" role="img" aria-label="Фото не добавлено"><ImageOff size={25} aria-hidden="true" /><span>Фото не добавлено</span></span>}
         </Link>
+        {photo && <ListingPhotoBadges badges={listing.photo_badges} />}
         <FavoriteButton listingId={listing.id} href={href} initialSaved={saved} />
       </div>
       <div className="card-body">

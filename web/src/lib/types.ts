@@ -118,7 +118,10 @@ export type Money = {
   rate_date?: string | null;
 };
 
+export type PhotoBadge = "verified" | "free_history" | "best_price";
+
 export type ListingSummary = {
+  photo_badges?: PhotoBadge[];
   category_code?: NonNullable<ListingSearch["category_code"]>;
   category_details?: Record<string, unknown>;
   condition?: string | null;

@@ -36,6 +36,7 @@ from app.listing_schemas import (
     ListingPublicCapabilitiesOut,
 )
 from app.models import (
+    AuditEvent,
     CatalogBodyType,
     CatalogBodyVariant,
     CatalogGeneration,
@@ -1020,6 +1021,9 @@ def update_listing(
         listing.company_id = None
     _apply_fields(db, listing, values, user, creating=False)
     previous_status = listing.status
+    if listing.photo_badges:
+        db.add(AuditEvent(actor_id=user.id, entity_type="listing", entity_id=listing.id, action="photo_badges_cleared", details={"before": list(listing.photo_badges), "after": [], "reason": "seller_edit", "revision": listing.revision + 1}))
+        listing.photo_badges = []
     if previous_status != "draft":
         listing.status = "draft"
         listing.submitted_revision = None

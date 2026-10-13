@@ -188,3 +188,25 @@ describe("favorite removal", () => {
     expect(mocks.refresh).toHaveBeenCalledOnce();
   });
 });
+
+describe("photo labels", () => {
+  it("shows all assigned labels over a real photo in both layouts", () => {
+    const labelled = { ...listing({ photo_urls: ["/car.jpg"] }), photo_badges: ["verified", "free_history", "best_price"] as const };
+    for (const variant of ["grid", "row"] as const) {
+      act(() => root.render(createElement(ListingCard, { listing: { ...labelled, photo_badges: [...labelled.photo_badges] }, variant })));
+      const overlay = container.querySelector(".listing-card-media .listing-photo-badges");
+      expect(overlay?.textContent).toContain("Проверено Авторынок");
+      expect(overlay?.textContent).toContain("История бесплатно");
+      expect(overlay?.textContent).toContain("Лучшая цена");
+      expect(overlay?.querySelectorAll(".listing-photo-badge")).toHaveLength(3);
+      expect(container.querySelector(".favorite-button")).not.toBeNull();
+    }
+  });
+
+  it("omits labels without confirmation or without a real photo", () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing({ photo_urls: ["/car.jpg"] }) })));
+    expect(container.querySelector(".listing-photo-badges")).toBeNull();
+    act(() => root.render(createElement(ListingCard, { listing: { ...listing(), photo_badges: ["verified"] } })));
+    expect(container.querySelector(".listing-photo-badges")).toBeNull();
+  });
+});

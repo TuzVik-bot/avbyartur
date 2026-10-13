@@ -863,6 +863,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/moderation/listings/{listing_id}/photo-badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Photo Badges */
+        put: operations["update_photo_badges_api_v1_moderation_listings__listing_id__photo_badges_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moderation/listings": {
         parameters: {
             query?: never;
@@ -4502,6 +4519,8 @@ export interface components {
             district?: string | null;
             /** Call Hours */
             call_hours?: string | null;
+            /** Photo Badges */
+            photo_badges?: ("verified" | "free_history" | "best_price")[];
             /** Promotion Badges */
             promotion_badges?: ("bump" | "highlight" | "top")[];
             /** Photo Urls */
@@ -4620,6 +4639,13 @@ export interface components {
              * @default false
              */
             confirm_category_change: boolean;
+        };
+        /** ListingPhotoBadgesInput */
+        ListingPhotoBadgesInput: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Photo Badges */
+            photo_badges: ("verified" | "free_history" | "best_price")[];
         };
         /** ListingPhotoOut */
         ListingPhotoOut: {
@@ -4776,6 +4802,8 @@ export interface components {
             district?: string | null;
             /** Call Hours */
             call_hours?: string | null;
+            /** Photo Badges */
+            photo_badges?: ("verified" | "free_history" | "best_price")[];
             /** Promotion Badges */
             promotion_badges?: ("bump" | "highlight" | "top")[];
             /** Photo Urls */
@@ -5174,6 +5202,8 @@ export interface components {
             district?: string | null;
             /** Call Hours */
             call_hours?: string | null;
+            /** Photo Badges */
+            photo_badges?: ("verified" | "free_history" | "best_price")[];
             /** Promotion Badges */
             promotion_badges?: ("bump" | "highlight" | "top")[];
             /** Photo Urls */
@@ -9194,6 +9224,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    update_photo_badges_api_v1_moderation_listings__listing_id__photo_badges_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listing_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListingPhotoBadgesInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModerationListingResponse"];
                 };
             };
             /** @description Request validation error */

@@ -1,6 +1,7 @@
 "use client";
 
 import { categories, categoryFacts, categoryPath } from "@/lib/listing-categories";
+import { ListingPhotoBadges } from "@/components/listing-photo-badges";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -156,6 +157,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           <div className="detail-gallery" role="region" aria-label={`Фотографии объявления «${listing.title}»`} tabIndex={0} onKeyDown={handleGalleryKeyDown}>
             <div className="detail-photo-wrap">
               {selectedPhoto ? <Image id="detail-main-image" className="detail-main-image" src={selectedPhoto} alt={`Фотография ${safeSelectedPhotoIndex + 1} из ${photos.length}: ${listing.title}`} width={1448} height={1086} sizes="(max-width: 800px) calc(100vw - 28px), min(792px, 62vw)" unoptimized priority /> : <div className="photo-placeholder detail-photo-placeholder" role="img" aria-label="Фото не добавлено"><ImageOff size={36} aria-hidden="true" /><span>Фото не добавлено</span></div>}
+              {selectedPhoto && <ListingPhotoBadges badges={listing.photo_badges} />}
             </div>
             {photos.length > 1 && <div className="detail-thumbnails" role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt={`Фото ${index + 1} объявления: ${listing.title}`} width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" unoptimized /></button>)}</div>}
           </div>

@@ -290,6 +290,7 @@ export const api = {
   dealers: () => apiRequest<ListResponse<CompanySummary>>("dealers"),
   dealer: (slug: string) => apiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary> }>(`dealers/${encodeURIComponent(slug)}`),
   moderationListings: () => apiRequest<{ items: Listing[] }>("moderation/listings"),
+  setListingPhotoBadges: (id: string, expected_revision: number, photo_badges: import("@/lib/types").PhotoBadge[]) => apiRequest<{ listing: Listing }>(`moderation/listings/${encodeURIComponent(id)}/photo-badges`, { method: "PUT", body: JSON.stringify({ expected_revision, photo_badges }) }),
   moderateListing: (id: string, action: "approve" | "reject" | "block", revision: number, reason?: string) => apiRequest<{ listing: Listing }>(`moderation/listings/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify({ expected_revision: revision, ...(reason ? { reason } : {}) }) }),
   moderationCompanies: () => apiRequest<{ items: Company[] }>("moderation/companies"),
   moderateCompany: (id: string, action: "approve" | "reject" | "block", revision: number, reason?: string) => apiRequest<{ company: Company }>(`moderation/companies/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify({ expected_revision: revision, ...(reason ? { reason } : {}) }) }),
