@@ -9,8 +9,8 @@ export default function TiresAndWheelsPage() {
     <p>Выберите, какие объявления показать.</p>
     <nav aria-label="Шины и диски">
       <ul>
-        <li><Link href="/cars?category_code=tires">Шины</Link></li>
-        <li><Link href="/cars?category_code=wheels">Диски</Link></li>
+        <li><Link href="/tires">Шины</Link></li>
+        <li><Link href="/wheels">Диски</Link></li>
       </ul>
     </nav>
   </div>;
