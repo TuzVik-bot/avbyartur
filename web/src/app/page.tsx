@@ -44,7 +44,7 @@ export default async function HomePage() {
           </div>
           <HomeSearch makes={makes} regions={regions} bodyTypes={bodyTypes} className={styles.search} priceOperationsAvailable={Boolean(listings?.fx)} />
           {makesFailed && <p className="notice" role="status">Справочник марок временно недоступен. Поиск по названию автомобиля остаётся доступен.</p>}
-          {!!makes.length && <nav className={styles.makes} aria-label="Быстрый поиск по марке"><span>По маркам</span><div>{makes.slice(0, 12).map((make) => <Link key={make.id} href={`/cars/${encodeURIComponent(make.slug)}`}>{make.name}</Link>)}<Link className={styles.allMakes} href="/cars">Все марки <ArrowRight size={14} aria-hidden="true" /></Link></div></nav>}
+          {!!makes.length && <nav className={styles.makes} aria-label="Быстрый поиск по марке"><span>По маркам</span><div>{makes.slice(0, 12).map((make) => <Link key={make.id} href={`/cars/${encodeURIComponent(make.slug)}`}>{make.name}</Link>)}<Link className={styles.allMakes} href="/makes">Все марки <ArrowRight size={14} aria-hidden="true" /></Link></div></nav>}
         </div>
         <aside className={styles.adSide} aria-label="Место под рекламу">
           <span className={styles.adLabel}>Рекламное место</span>
@@ -72,7 +72,7 @@ export default async function HomePage() {
           <Link className="home-collection-card home-collection-used" href="/cars?condition=used"><span className="collection-kicker">Каталог</span><strong>Автомобили с пробегом</strong><span>Объявления с состоянием «С пробегом»</span><ArrowRight size={19} aria-hidden="true" /></Link>
         </div>
         <div className="home-makes">
-          <div className="section-heading"><h3>Марки автомобилей</h3><Link className="text-link" href="/cars">Все марки <ArrowRight size={15} /></Link></div>
+          <div className="section-heading"><h3>Марки автомобилей</h3><Link className="text-link" href="/makes">Все марки <ArrowRight size={15} /></Link></div>
           {makes.length ? <ul>{makes.slice(0, 12).map((make) => <li key={make.id}><Link href={`/cars?${new URLSearchParams({ make_id: make.id })}`}>{make.name}</Link></li>)}</ul> : <p className="muted">Справочник марок временно недоступен.</p>}
         </div>
       </section>

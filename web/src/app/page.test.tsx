@@ -56,6 +56,16 @@ beforeEach(() => {
 });
 
 describe("home listing cards", () => {
+  it("opens the make directory from both all-makes links", async () => {
+    mocks.catalog.mockResolvedValue({ items: [{ id: "make-1", slug: "bmw", name: "BMW" }] });
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(await HomePage());
+    const links = Array.from(container.querySelectorAll("a")).filter((link) => link.textContent?.includes("Все марки"));
+    expect(links).toHaveLength(2);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/makes", "/makes"]);
+  });
+
+
   it("keeps the Russian canonical URL and declares its locale alternate", () => {
     expect(metadata.alternates).toEqual({
       canonical: "https://suite-s1.denjik.by/",
