@@ -78,6 +78,8 @@ describe("moderation navigation", () => {
     expect(container.querySelector('nav a[href="/dealers"]')?.textContent).toBe("Компании");
     expect(container.querySelector('nav a[href="/useful-information"]')?.textContent).toBe("Полезная информация");
     expect(container.querySelector('nav a[href="/customs-calculator"]')?.textContent).toBe("Таможенный калькулятор");
+    expect(container.querySelector('nav a[href="/vin-check"]')?.textContent).toBe("Проверка авто по VIN");
+    expect(container.querySelector('nav a[href="/sale-contract"]')?.textContent).toBe("Договор купли-продажи");
     expect(container.querySelector('nav a[href="/login"]')?.textContent).toBe("Войти");
     expect(container.querySelector('a[href="/sell"]')?.textContent).toContain("Подать объявление");
   });

@@ -15,6 +15,8 @@ const russianMessages = {
   "header.companies": "Компании",
   "header.usefulInformation": "Полезная информация",
   "header.customsCalculator": "Таможенный калькулятор",
+  "header.vinCheck": "Проверка авто по VIN",
+  "header.saleContract": "Договор купли-продажи",
   "header.moderation": "Модерация",
   "header.administration": "Администрирование",
   "header.favorites": "Избранное",

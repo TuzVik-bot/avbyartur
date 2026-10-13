@@ -7,7 +7,8 @@ const requiredContentLinks = {
   "/about": { group: "Информация", label: "О нас" },
   "/faq": { group: "Информация", label: "Часто задаваемые вопросы" },
   "/support": { group: "Информация", label: "Служба поддержки" },
-  "/vin-check": { group: "Сервисы", label: "Проверка транспорта по VIN" },
+  "/vin-check": { group: "Сервисы", label: "Проверка авто по VIN" },
+  "/sale-contract": { group: "Сервисы", label: "Договор купли-продажи" },
   "/financing": { group: "Сервисы", label: "Подбор кредита или лизинга" },
   "/currency-converter": { group: "Сервисы", label: "Конвертер валют" },
   "/partner": { group: "Информация", label: "Информация для рекламодателей" },
@@ -52,7 +53,7 @@ describe("SiteFooter", () => {
       expect(link?.textContent).toBe(expected.label);
       expect(link?.closest(".footer-group")?.querySelector(".footer-group-title")?.textContent).toBe(expected.group);
     }
-    expect(Object.keys(requiredContentLinks)).toHaveLength(19);
+    expect(Object.keys(requiredContentLinks)).toHaveLength(20);
   });
 
   it("keeps the pilot navigation and closed-pilot notice", () => {

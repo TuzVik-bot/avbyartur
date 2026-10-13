@@ -16,7 +16,8 @@ const footerGroups: FooterGroup[] = [
     id: "services",
     title: "Сервисы",
     links: [
-      { href: "/vin-check", label: "Проверка транспорта по VIN" },
+      { href: "/vin-check", label: "Проверка авто по VIN" },
+      { href: "/sale-contract", label: "Договор купли-продажи" },
       { href: "/financing", label: "Подбор кредита или лизинга" },
       { href: "/currency-converter", label: "Конвертер валют" }
     ]
