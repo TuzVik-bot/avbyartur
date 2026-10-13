@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { categories } from "@/lib/listing-categories";
+import { advertisementSections } from "@/lib/advertisement-sections";
+import styles from "./advertisement-navigation.module.css";
+
 export function CategoryNavigation() {
- return <nav className="page-width section" aria-label="Разделы объявлений"><div className="quick-links">{categories.map(category => <Link className="button button-secondary button-small" key={category.href} href={category.href}>{category.label}</Link>)}</div></nav>;
+  return <nav aria-label="Категории объявлений" className={`page-width section ${styles.categoryNavigation}`}>
+    <h2>Объявления</h2>
+    <ul className={styles.advertisementList}>
+      {advertisementSections.map(({ label, href }) => <li key={href}><Link href={href}>{label}</Link></li>)}
+    </ul>
+  </nav>;
 }

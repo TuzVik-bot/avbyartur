@@ -1,4 +1,5 @@
-import { categories } from "@/lib/listing-categories";
+import { advertisementSections } from "@/lib/advertisement-sections";
+import styles from "./advertisement-navigation.module.css";
 import Link from "next/link";
 import { FooterChannels } from "./footer-channels";
 
@@ -11,7 +12,7 @@ type FooterGroup = {
 };
 
 const footerGroups: FooterGroup[] = [
-  { id: "categories", title: "Каталог", links: categories },
+  { id: "advertisements", title: "Объявления", links: [...advertisementSections] },
   {
     id: "services",
     title: "Сервисы",
@@ -74,7 +75,7 @@ export function SiteFooter() {
         <Link className="footer-brand" href="/">Авторынок <span>BY</span></Link>
         <nav className="footer-links" aria-label="Дополнительная навигация">
           {footerGroups.map((group) => (
-            <section className="footer-group" key={group.id} aria-labelledby={`footer-${group.id}`}>
+            <section className={`footer-group ${group.id === "advertisements" ? styles.footerAdvertisements : ""}`} key={group.id} aria-labelledby={`footer-${group.id}`}>
               <h2 className="footer-group-title" id={`footer-${group.id}`}>{group.title}</h2>
               <ul>
                 {group.links.map((link) => (

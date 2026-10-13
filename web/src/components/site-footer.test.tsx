@@ -56,6 +56,17 @@ describe("SiteFooter", () => {
     expect(Object.keys(requiredContentLinks)).toHaveLength(20);
   });
 
+  it("shows the requested advertisement sections in order", () => {
+    act(() => { root.render(createElement(SiteFooter)); });
+    const group = container.querySelector('[aria-labelledby="footer-advertisements"]');
+    expect(Array.from(group!.querySelectorAll("a"), link => link.textContent)).toEqual([
+      "Авто с пробегом", "Электромобили", "Новые авто", "Мототехника", "Сельхозтехника",
+      "Грузовики", "Прицепы", "Водный транспорт", "Спецтехника", "Автобусы",
+      "Запчасти и автотовары", "Шины и диски", "Услуги"
+    ]);
+    expect(group!.querySelector('a[href="/services"]')).not.toBeNull();
+  });
+
   it("keeps the pilot navigation and closed-pilot notice", () => {
     act(() => { root.render(createElement(SiteFooter)); });
 
@@ -63,7 +74,7 @@ describe("SiteFooter", () => {
     expect(container.querySelector('a[href="/help"]')).not.toBeNull();
     expect(container.querySelector('a[href="/dealers"]')).not.toBeNull();
     expect(container.querySelector('a[href="/sell"]')).not.toBeNull();
-    expect(container.querySelector<HTMLAnchorElement>('a[href="/cars?fuel=electric"]')?.textContent).toBe("Электромобили");
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/cars?category_code=cars&fuel=electric"]')?.textContent).toBe("Электромобили");
     expect(container.querySelector(".footer-note")?.textContent).toContain("Закрытый пилот");
   });
 });
