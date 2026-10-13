@@ -1,5 +1,6 @@
 import { categories } from "@/lib/listing-categories";
 import Link from "next/link";
+import { FooterChannels } from "./footer-channels";
 
 type FooterLink = { href: string; label: string };
 
@@ -82,6 +83,7 @@ export function SiteFooter() {
             </section>
           ))}
         </nav>
+        <FooterChannels />
         <p className="footer-note">Закрытый пилот. Данные и контакты предназначены для тестирования.</p>
       </div>
     </footer>
