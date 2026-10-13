@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.listing_categories import CategoryCode
 from app.schemas import CompanyBusinessHours
 
 
@@ -92,7 +93,7 @@ class DealerListingSummaryOut(BaseModel):
     title: str
     status: Literal["active"]
     revision: int
-    category_code: str
+    category_code: CategoryCode
     category_details: dict[str, object]
     make: DealerCatalogItemOut | None
     model: DealerCatalogItemOut | None
@@ -112,6 +113,7 @@ class DealerListingSummaryOut(BaseModel):
     seller: DealerListingSellerOut
     created_at: datetime
     updated_at: datetime
+    published_at: datetime | None = None
     damaged: bool
     parts_only: bool
     description: str

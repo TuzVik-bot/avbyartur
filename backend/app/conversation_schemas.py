@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.listing_categories import CategoryCode
+
 
 def _normalise_message(value: str) -> str:
     value = value.replace("\r\n", "\n").replace("\r", "\n").strip()
@@ -62,6 +64,7 @@ class ConversationListingOut(BaseModel):
     id: UUID
     title: str
     slug: str
+    category_code: CategoryCode = "cars"
 
 
 class ConversationMessageOut(BaseModel):

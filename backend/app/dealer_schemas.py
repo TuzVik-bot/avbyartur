@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.listing_categories import CategoryCode
+
 
 TeamRole = Literal["owner", "admin", "seller", "viewer"]
 MemberRole = Literal["admin", "seller", "viewer"]
@@ -61,6 +63,7 @@ class DealerAnalyticsTotalsOut(BaseModel):
 
 class DealerAnalyticsItemOut(BaseModel):
     listing_id: UUID
+    category_code: CategoryCode
     title: str
     status: str
     contact_reveals: int

@@ -12,7 +12,7 @@
   padding: 16px 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: linear-gradient(120deg, #fff 0%, #f6f9f7 100%);
+  background: linear-gradient(120deg, #fff 0%, #F6F7F9 100%);
 }
 
 .toolbar h2,
@@ -40,7 +40,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: white;
-  box-shadow: 0 3px 12px rgba(27, 45, 39, .035);
+  box-shadow: 0 3px 12px rgba(24, 33, 47, .035);
 }
 
 .cardHeading {
@@ -163,9 +163,9 @@
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid #e4eae7;
-  border-radius: 5px;
-  background: #f7f9f8;
+  border: 1px solid #E2E6ED;
+  border-radius: 8px;
+  background: #F6F7F9;
 }
 
 .identityBlock > span,

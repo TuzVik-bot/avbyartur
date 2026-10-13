@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     trusted_proxy_cidrs: str = ""
     sms_login_enabled: bool = False
     public_registration_enabled: bool = False
+    email_registration_enabled: bool = False
+    email_registration_pilot_enabled: bool = False
     public_guest_contact_enabled: bool = False
     sms_otp_secret: SecretStr = SecretStr("")
     sms_otp_lifetime_seconds: int = 300
@@ -53,6 +55,7 @@ class Settings(BaseSettings):
     smsc_api_url: str = "https://smsc.ru/sys/send.php"
     smsc_sender: str = ""
     smsc_timeout_seconds: int = 5
+    test_mail_enabled: bool = False
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
@@ -125,6 +128,10 @@ class Settings(BaseSettings):
                 raise ValueError("PUBLIC_REGISTRATION_ENABLED requires SMS_LOGIN_ENABLED")
             if not self.registration_terms_version.strip() or not self.registration_privacy_version.strip():
                 raise ValueError("Registration consent document versions must be configured before public registration")
+        if self.email_registration_enabled and (
+            not self.registration_terms_version.strip() or not self.registration_privacy_version.strip()
+        ):
+            raise ValueError("Registration consent document versions must be configured before email registration")
         if self.sms_provider not in {"disabled", "smsc"}:
             raise ValueError("SMS_PROVIDER must be disabled or smsc")
         if not self.smsc_api_url.startswith("https://"):

@@ -60,12 +60,63 @@ const listing: Listing = {
 };
 
 describe("contact reveal", () => {
+  it("prints the listing from its detail page", async () => {
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+
+    const button = container.querySelector<HTMLButtonElement>(".print-listing-button");
+    expect(button?.getAttribute("aria-label")).toBe("Печать объявления");
+    await act(async () => button?.click());
+
+    expect(print).toHaveBeenCalledOnce();
+  });
+
+  it("uses the non-car listing route and category breadcrumb", async () => {
+    const truck: Listing = {
+      ...listing,
+      id: "truck-1",
+      slug: "volvo-fh",
+      title: "Volvo FH",
+      category_code: "trucks",
+      make: null,
+      model: null
+    };
+    await act(async () => root.render(createElement(ListingDetail, { listing: truck })));
+
+    const hrefs = [...container.querySelectorAll<HTMLAnchorElement>("a")].map((link) => link.getAttribute("href"));
+    expect(hrefs).toContain("/trucks");
+    expect(hrefs).not.toContain("/cars");
+    expect(container.querySelector('.breadcrumb a[href="/trucks"]')?.textContent).toBe("Грузовики");
+    await act(async () => container.querySelector<HTMLButtonElement>(".favorite-button")!.click());
+    expect(routerMocks.push).toHaveBeenCalledWith(`/login?next=${encodeURIComponent("/trucks/volvo-fh/truck-1")}`);
+  });
+
   it("takes a guest to login with the new chat route as the next path", async () => {
     await act(async () => root.render(createElement(ListingDetail, { listing })));
 
     const link = container.querySelector<HTMLAnchorElement>(".contact-chat");
     expect(link?.textContent).toContain("Написать продавцу");
     expect(link?.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(`/account/messages/new?listing_id=${listing.id}`)}`);
+  });
+
+  it("exposes seller contact actions in an accessible group and reveals the phone on request", async () => {
+    vi.spyOn(api, "guestContactEnabled").mockResolvedValue({ guest_contact_reveal_enabled: true });
+    const revealPhone = vi.spyOn(api, "revealPhone").mockResolvedValue({ phone: "+375 29 000 00 00" });
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing }));
+      await Promise.resolve();
+    });
+
+    const actions = container.querySelector('[role="group"][aria-label="Связаться с продавцом"]')!;
+    const button = actions.querySelector<HTMLButtonElement>("button.contact-reveal")!;
+    const chatLink = actions.querySelector<HTMLAnchorElement>("a.contact-chat")!;
+    expect(button.textContent).toContain("Показать телефон");
+    expect(chatLink.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(`/account/messages/new?listing_id=${listing.id}`)}`);
+
+    await act(async () => { button.click(); await Promise.resolve(); });
+
+    expect(revealPhone).toHaveBeenCalledWith(listing.id, true);
+    expect(actions.textContent).toContain("+375 29 000 00 00");
   });
 
   it("lets a guest explicitly reveal a phone only when the public capability is enabled", async () => {
@@ -89,6 +140,31 @@ describe("contact reveal", () => {
 
     expect(revealPhone).toHaveBeenCalledOnce();
     expect(container.textContent).toContain("+375 29 000 00 00");
+  });
+
+  it("links to the local calculator with only the seller's financing flag and listed price", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, credit: true } })));
+
+    const link = container.querySelector<HTMLAnchorElement>('a[href^="/financing?"]');
+    expect(link?.textContent).toContain("Рассчитать платёж по кредиту");
+    expect(new URLSearchParams(link?.getAttribute("href")?.split("?")[1]).get("price")).toBe("10000");
+    expect(new URLSearchParams(link?.getAttribute("href")?.split("?")[1]).get("currency")).toBe("BYN");
+    expect(link?.getAttribute("href")).not.toContain(listing.id);
+  });
+
+  it("offers both financing modes when the seller marked credit and leasing", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, credit: true, leasing: true } })));
+
+    const links = [...container.querySelectorAll<HTMLAnchorElement>('a[href^="/financing?"]')];
+    expect(links).toHaveLength(2);
+    expect(links.map((link) => new URLSearchParams(link.href.split("?")[1]).get("mode"))).toEqual(["credit", "leasing"]);
+    expect(links.map((link) => link.textContent?.trim())).toEqual(["Рассчитать платёж по кредиту", "Рассчитать платёж в лизинг"]);
+  });
+
+  it("does not imply seller financing when the listing has no financing flag", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+
+    expect(container.querySelector('a[href^="/financing?"]')).toBeNull();
   });
 
   it("keeps the disabled pilot login redirect after an unauthenticated reveal is rejected", async () => {
@@ -186,6 +262,15 @@ describe("catalog specifications", () => {
 });
 
 describe("photo gallery", () => {
+  it("shows a neutral accessible placeholder when the listing has no photos", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, photo_urls: [], cover_url: null } })));
+
+    expect(container.querySelector("#detail-main-image")).toBeNull();
+    expect(container.querySelector('.detail-photo-wrap [role="img"][aria-label="Фото не добавлено"]')).not.toBeNull();
+    expect(container.querySelector(".detail-photo-placeholder > span:last-child")?.textContent).toBe("Фото не добавлено");
+    expect(container.querySelector(".synthetic-label")).toBeNull();
+  });
+
   it("shows every public photo and lets keyboard users change the active image", async () => {
     const galleryListing: Listing = {
       ...listing,

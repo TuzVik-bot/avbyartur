@@ -1,6 +1,25 @@
 import pytest
 
 
+def test_csv_feed_keeps_frame_serial_number_in_category_details_and_never_promotes_it_to_vin():
+    import csv
+    import io
+    import json
+    from app.feed_services import parse_feed_bytes, _normalized_record
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["dealer_external_id", "category_code", "category_details"])
+    writer.writerow(["SERIAL-42", "special_equipment", json.dumps({
+        "category_code": "special_equipment",
+        "details": {"equipment_type": "Excavator", "frame_serial_number": "FRAME-2026/42"},
+    })])
+    rows = parse_feed_bytes(output.getvalue().encode(), feed_format="csv", field_mapping={})
+    _, form, _, _ = _normalized_record(rows[0]["values"])
+    assert form.category_details.details["frame_serial_number"] == "FRAME-2026/42"
+    assert form.vin is None
+
+
 def test_csv_parser_maps_external_columns_to_stable_fields():
     from app.feed_services import parse_feed_bytes
 

@@ -12,6 +12,7 @@ import type {
   ListingPhoto,
   ListingSearch,
   ListingSummary,
+  ListingSearchResponse,
   ListResponse,
   Report,
   ReportCategory,
@@ -66,6 +67,9 @@ export function resetCsrfToken() {
 export type AuthCapabilities = {
   sms_login: boolean;
   sms_registration: boolean;
+  email_registration: boolean;
+  email_registration_pilot?: boolean;
+  test_mail?: boolean;
   email_verification: boolean;
   password_recovery: boolean;
 };
@@ -102,7 +106,7 @@ async function responseData<T>(response: Response): Promise<T> {
 }
 
 async function ensureCsrfToken(path: string) {
-  const preAuthOtp = ["auth/otp/request", "auth/register/otp/request", "auth/otp/verify"].includes(path.replace(/^\//, ""));
+  const preAuthOtp = ["auth/register", "auth/otp/request", "auth/register/otp/request", "auth/otp/verify"].includes(path.replace(/^\//, ""));
   if (preAuthOtp && otpCsrfToken && Date.now() < otpCsrfTokenExpiresAt) return otpCsrfToken;
   if (!preAuthOtp && currentCsrfToken) return currentCsrfToken;
   if (typeof window === "undefined") return undefined;
@@ -205,7 +209,9 @@ export function searchPath(search: ListingSearch = {}) {
 }
 
 export const api = {
+  registerEmail: (data: { email: string; password: string; display_name: string; accept_terms: true; accept_privacy: true; terms_version: string; privacy_version: string }) => apiRequest<AuthSession>("auth/register", { method: "POST", body: JSON.stringify(data) }),
   login: (email: string, password: string) => apiRequest<AuthSession>("auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  register: (data: { email: string; password: string; display_name: string; accept_terms: true; accept_privacy: true; terms_version: string; privacy_version: string }) => apiRequest<AuthSession>("auth/register", { method: "POST", body: JSON.stringify(data) }),
   authCapabilities: () => apiRequest<AuthCapabilities>("auth/capabilities"),
   requestLoginOtp: (phone: string) => apiRequest<components["schemas"]["OtpAcceptedResponse"]>("auth/otp/request", { method: "POST", body: JSON.stringify({ phone }), headers: idempotencyHeaders() }),
   requestRegistrationOtp: (data: { phone: string; display_name: string; accept_terms: true; accept_privacy: true; terms_version: string; privacy_version: string }) => apiRequest<components["schemas"]["OtpAcceptedResponse"]>("auth/register/otp/request", { method: "POST", body: JSON.stringify(data), headers: idempotencyHeaders() }),
@@ -247,7 +253,7 @@ export const api = {
   markConversationRead: (id: string, idempotencyKey?: string) => apiRequest<{ ok: true }>(`conversations/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({}), headers: idempotencyHeaders(idempotencyKey) }),
   blockConversation: (id: string, idempotencyKey?: string) => apiRequest<{ ok: true }>(`conversations/${encodeURIComponent(id)}/block`, { method: "POST", body: JSON.stringify({}), headers: idempotencyHeaders(idempotencyKey) }),
   markNotificationRead: (id: string) => apiRequest<{ ok: true }>(`me/notifications/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({}) }),
-  listings: (search: ListingSearch = {}) => apiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
+  listings: (search: ListingSearch = {}) => apiRequest<ListingSearchResponse>(searchPath(search).replace("/api/v1/", "")),
   listing: (id: string) => apiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: Record<string, string> = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -284,6 +290,7 @@ export const api = {
   dealers: () => apiRequest<ListResponse<CompanySummary>>("dealers"),
   dealer: (slug: string) => apiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary> }>(`dealers/${encodeURIComponent(slug)}`),
   moderationListings: () => apiRequest<{ items: Listing[] }>("moderation/listings"),
+  setListingPhotoBadges: (id: string, expected_revision: number, photo_badges: import("@/lib/types").PhotoBadge[]) => apiRequest<{ listing: Listing }>(`moderation/listings/${encodeURIComponent(id)}/photo-badges`, { method: "PUT", body: JSON.stringify({ expected_revision, photo_badges }) }),
   moderateListing: (id: string, action: "approve" | "reject" | "block", revision: number, reason?: string) => apiRequest<{ listing: Listing }>(`moderation/listings/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify({ expected_revision: revision, ...(reason ? { reason } : {}) }) }),
   moderationCompanies: () => apiRequest<{ items: Company[] }>("moderation/companies"),
   moderateCompany: (id: string, action: "approve" | "reject" | "block", revision: number, reason?: string) => apiRequest<{ company: Company }>(`moderation/companies/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify({ expected_revision: revision, ...(reason ? { reason } : {}) }) }),

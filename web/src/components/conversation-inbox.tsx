@@ -73,7 +73,7 @@ export function ConversationInbox() {
         <button className="button button-secondary" type="button" onClick={() => void load()} disabled={loading}>{loading ? "Обновляем…" : "Повторить"}</button>
       </div>
         : items.length === 0 ? <div className="empty-state">
-          <MessageCircle size={24} aria-hidden="true" />
+          <div className="empty-illustration empty-messages-illustration" aria-hidden="true" />
           <h2>Пока нет переписок</h2>
           <p className="muted">Откройте объявление и напишите продавцу, чтобы начать разговор.</p>
           <Link className="button button-secondary" href="/cars">Найти автомобиль</Link>

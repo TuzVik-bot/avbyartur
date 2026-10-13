@@ -269,6 +269,7 @@ def _summary(
             "id": listing.id,
             "title": listing.title,
             "slug": listing.slug,
+            "category_code": listing.category_code or "cars",
         },
         "buyer_id": conversation.buyer_id,
         "seller_id": conversation.seller_id,

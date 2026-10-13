@@ -64,6 +64,12 @@ async function clickContinue() {
   await act(async () => { button.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
 }
 
+async function clickStep(step: number) {
+  const button = container.querySelector<HTMLButtonElement>(`nav[aria-label="Этапы подачи объявления"] button[aria-label^="Шаг ${step}:"]`);
+  if (!button) throw new Error(`Missing form step: ${step}`);
+  await act(async () => { button.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+}
+
 async function clickButton(text: string) {
   const button = [...container.querySelectorAll<HTMLButtonElement>("button")]
     .find((item) => item.textContent?.includes(text));
@@ -537,7 +543,7 @@ describe("manual vehicle entry", () => {
     expect(modelSelect?.querySelector('option[value="model-a"]')).toBeNull();
   });
 
-  it("exposes the current form step as a progress bar", async () => {
+  it("exposes all six named form steps and marks the current step", async () => {
     const createDraft = vi.spyOn(api, "createDraft").mockResolvedValue({ listing: draft() });
     await act(async () => {
       root.render(createElement(SellForm, {
@@ -545,14 +551,42 @@ describe("manual vehicle entry", () => {
       }));
     });
 
-    const progress = container.querySelector<HTMLElement>('[role="progressbar"]');
-    expect(progress?.getAttribute("aria-valuenow")).toBe("1");
-    expect(progress?.getAttribute("aria-valuetext")).toBe("Шаг 1 из 6");
+    const navigation = container.querySelector<HTMLElement>('nav[aria-label="Этапы подачи объявления"]');
+    const buttons = [...(navigation?.querySelectorAll<HTMLButtonElement>("button") || [])];
+    expect(buttons).toHaveLength(6);
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Шаг 1: Продавец и предложение",
+      "Шаг 2: Автомобиль и характеристики",
+      "Шаг 3: Состояние и описание",
+      "Шаг 4: Цена, расположение и контакт",
+      "Шаг 5: Фотографии",
+      "Шаг 6: Проверьте объявление"
+    ]);
+    expect(buttons[0].getAttribute("aria-current")).toBe("step");
+    expect(buttons[1].disabled).toBe(true);
     await clickContinue();
-    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("2");
+    expect(container.querySelector('nav[aria-label="Этапы подачи объявления"] button[aria-current="step"]')?.getAttribute("aria-label")).toBe("Шаг 2: Автомобиль и характеристики");
     expect(document.activeElement).toBe(container.querySelector("h2"));
     expect(container.querySelector('[role="status"][aria-live="polite"]')?.textContent).toBe("Шаг 2 из 6");
     expect(createDraft).toHaveBeenCalledOnce();
+  });
+
+  it("allows revisiting reached steps and keeps future steps locked", async () => {
+    await renderWithValidationPolicy(draft({ contact_phone: "+375291234567" }));
+    await clickContinue();
+    await clickContinue();
+
+    const buttonFor = (step: number) => container.querySelector<HTMLButtonElement>(`nav[aria-label="Этапы подачи объявления"] button[aria-label^="Шаг ${step}:"]`);
+    expect(container.querySelector('nav[aria-label="Этапы подачи объявления"] button[aria-current="step"]')?.getAttribute("aria-label")).toBe("Шаг 3: Состояние и описание");
+    expect(buttonFor(3)?.disabled).toBe(false);
+    expect(buttonFor(4)?.disabled).toBe(true);
+
+    await clickStep(1);
+    expect(container.querySelector('nav[aria-label="Этапы подачи объявления"] button[aria-current="step"]')?.getAttribute("aria-label")).toBe("Шаг 1: Продавец и предложение");
+    expect(buttonFor(3)?.disabled).toBe(false);
+    await clickStep(3);
+    expect(container.querySelector("h2")?.textContent).toBe("Состояние и описание");
+    expect(buttonFor(4)?.disabled).toBe(true);
   });
 
   it("rejects non-integer and out-of-range mileage at the field before saving", async () => {
@@ -600,7 +634,7 @@ describe("manual vehicle entry", () => {
     await act(async () => { inputValue("Пробег, км", "0"); });
     await clickContinue();
     expect(updateDraft).toHaveBeenCalledOnce();
-    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("3");
+    expect(container.querySelector('nav[aria-label="Этапы подачи объявления"] button[aria-current="step"]')?.getAttribute("aria-label")).toBe("Шаг 3: Состояние и описание");
     expect(createDraft).toHaveBeenCalledOnce();
   });
 
@@ -1137,4 +1171,105 @@ describe("manual city entry", () => {
     const payload = updateDraft.mock.calls.at(-1)?.[2];
     expect(payload).toMatchObject({ region_id: "region-1", city_id: null, manual_city: "Новый Заславль" });
   });
+});
+
+it("uses category characteristics and manual identity for a truck draft", async () => {
+  await renderWithValidationPolicy(draft({ category_code: "trucks", category_details: { vehicle_type: "truck" } } as Partial<Listing>));
+  expect(selectedValue("Категория")).toBe("trucks");
+  await clickContinue();
+  expect(container.querySelector('input[aria-label="Марка вручную"]')).not.toBeNull();
+  expect(selectedValue("Тип грузовика")).toBe("truck");
+  expect(container.querySelector('select[aria-label="Источник марки"]')).toBeNull();
+});
+it("uses goods characteristics without required vehicle fields for tires", async () => {
+ await renderWithValidationPolicy(draft({ title: "Комплект шин", category_code: "tires", category_details: { width_mm: 205, profile_percent: 55, diameter_in: 16, season: "winter" } } as Partial<Listing>));
+ expect(container.textContent).toContain("Б/у");
+ await clickContinue();
+ expect(inputText("Ширина, мм")).toBe("205");
+ expect(inputText("Год выпуска")).toBeUndefined();
+ expect(inputText("Пробег, км")).toBeUndefined();
+ await clickContinue();
+ expect(container.textContent).toContain("Состояние и описание");
+});
+it.each([
+ ["trucks", "Тип грузовика", "truck"], ["buses", "Тип автобуса", "bus"], ["motorcycles", "Тип мототехники", "motorcycle"],
+ ["special_equipment", "Тип спецтехники", "Экскаватор"], ["agricultural_equipment", "Тип сельхозтехники", "Трактор"],
+ ["trailers", "Тип прицепа", "Бортовой"], ["watercraft", "Тип водного транспорта", "Катер"], ["parts", "Группа запчастей", "Двигатель"]
+])("saves %s details through the draft contract", async (category, label, value) => {
+ await renderWithValidationPolicy(draft({ title: "Товар", category_code: category as NonNullable<Listing["category_code"]>, category_details: {} }));
+ await clickContinue();
+ expect(container.textContent).toContain(label);
+ await act(async () => {
+  if (["trucks", "buses", "motorcycles"].includes(category)) selectValue(label, value);
+  else inputValue(label, value);
+ });
+ await clickContinue();
+ expect(api.updateDraft).toHaveBeenLastCalledWith("draft-1", expect.any(Number), expect.objectContaining({ category_code: category, category_details: { category_code: category, details: expect.any(Object) } }));
+ const payload = vi.mocked(api.updateDraft).mock.calls.at(-1)?.[2];
+ expect(Object.values(payload?.category_details?.details || {})).toContain(value);
+});
+it("validates non-car year bounds before leaving characteristics", async () => {
+ await renderWithValidationPolicy(draft({ category_code: "trucks", category_details: { vehicle_type: "truck" } }));
+ await clickContinue();
+ await act(async () => inputValue("Год выпуска", "1800"));
+ await clickContinue();
+ expect(container.querySelector('h2')?.textContent).toBe("Характеристики объявления");
+ expect(container.textContent).toContain("Год выпуска должен быть");
+});
+it("confirms category replacement in a separate revision before saving new fields", async () => {
+ const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+ const original = draft({ category_code: "cars" });
+ await renderWithValidationPolicy(original);
+ let current = original;
+ vi.mocked(api.updateDraft).mockImplementation(async (_id, _revision, payload) => {
+   current = { ...current, category_code: payload.category_code || current.category_code, revision: current.revision + 1 };
+   return { listing: current };
+ });
+ await act(async () => selectValue("Категория", "trucks"));
+ expect(confirm).toHaveBeenCalledWith(expect.stringContaining("очищены"));
+ await clickContinue();
+ expect(vi.mocked(api.updateDraft).mock.calls[0]?.[2]).toEqual({ category_code: "trucks", confirm_category_change: true });
+ expect(vi.mocked(api.updateDraft).mock.calls[1]?.[1]).toBe(original.revision + 1);
+ expect(vi.mocked(api.updateDraft).mock.calls[1]?.[2]).toMatchObject({ category_code: "trucks", category_details: { category_code: "trucks", details: {} }, make_id: null, model_id: null, year: null, mileage_km: null });
+});
+it("cancels category replacement without clearing entered fields or sending a PATCH", async () => {
+ await renderWithValidationPolicy(draft({ category_code: "special_equipment", category_details: { equipment_type: "Экскаватор", frame_serial_number: "FRAME-42" }, vin: "1HGCM82633A004352" }));
+ const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+ vi.useFakeTimers();
+ try {
+  await act(async () => selectValue("Категория", "trucks"));
+  expect(confirm).toHaveBeenCalledOnce();
+  expect(selectedValue("Категория")).toBe("special_equipment");
+  await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+  expect(api.updateDraft).not.toHaveBeenCalled();
+  await clickContinue();
+  expect(inputText("Тип спецтехники")).toBe("Экскаватор");
+  expect(inputText("Номер рамы / серийный номер")).toBe("FRAME-42");
+  expect(inputText("Год выпуска")).toBe("2020");
+  expect(api.updateDraft).not.toHaveBeenCalled();
+  await clickContinue();
+  expect(inputText("VIN")).toBe("1HGCM82633A004352");
+ } finally { vi.useRealTimers(); }
+});
+it("saves the equipment serial separately from VIN", async () => {
+ await renderWithValidationPolicy(draft({ category_code: "special_equipment", category_details: { equipment_type: "Экскаватор", frame_serial_number: "OLD-42" }, vin: "1HGCM82633A004352" }));
+ await clickContinue();
+ expect(inputText("Номер рамы / серийный номер")).toBe("OLD-42");
+ await act(async () => inputValue("Номер рамы / серийный номер", "FRAME-2026/42"));
+ await clickContinue();
+ expect(vi.mocked(api.updateDraft).mock.calls.at(-1)?.[2]).toMatchObject({
+  vin: "1HGCM82633A004352",
+  category_details: { category_code: "special_equipment", details: { equipment_type: "Экскаватор", frame_serial_number: "FRAME-2026/42" } }
+ });
+ expect(inputText("VIN")).toBe("1HGCM82633A004352");
+});
+it("requires a goods title and saves it with the characteristics", async () => {
+ await renderWithValidationPolicy(draft({ title: "", category_code: "tires", category_details: { width_mm: 205, profile_percent: 55, diameter_in: 16, season: "winter" } }));
+ await clickContinue();
+ expect(inputText("Название объявления")).toBe("");
+ await clickContinue();
+ expect(container.querySelector('h2')?.textContent).toBe("Характеристики объявления");
+ await act(async () => inputValue("Название объявления", "Комплект зимних шин"));
+ await clickContinue();
+ expect(vi.mocked(api.updateDraft).mock.calls.at(-1)?.[2]).toMatchObject({ title: "Комплект зимних шин" });
 });

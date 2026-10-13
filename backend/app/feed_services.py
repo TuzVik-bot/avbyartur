@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.feed_schemas import DealerFeedRecord, FEED_FIELDS, FEED_SCHEMA_FIELDS
+from app.listing_categories import category_submission_errors
 from app.models import (
     Company,
     DealerExternalListingKey,
@@ -63,6 +64,15 @@ def _equipment_values(value: object) -> object:
     return [item.strip() for item in cleaned.split("|") if item.strip()]
 
 
+def _category_details_value(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
+
+
 def _record_values(raw: Mapping[str, object], mapping: Mapping[str, str]) -> dict[str, Any | None]:
     normalized_keys = {str(key).strip().casefold(): value for key, value in raw.items()}
     values: dict[str, Any | None] = {}
@@ -73,7 +83,11 @@ def _record_values(raw: Mapping[str, object], mapping: Mapping[str, str]) -> dic
         if value is None:
             continue
         cleaned = str(value).strip()
-        values[target] = _equipment_values(cleaned) if target == "equipment" else (cleaned or None)
+        values[target] = (
+            _equipment_values(cleaned) if target == "equipment"
+            else _category_details_value(cleaned) if target == "category_details"
+            else (cleaned or None)
+        )
     return values
 
 
@@ -652,6 +666,11 @@ def _valid_draft_fields(db: Session, company: Company, raw: Mapping[str, Any]) -
     from app.api.listings import _apply_fields
 
     external_id, form, payload_hash, source_fields = _normalized_record(raw)
+    if form.category_code != "cars":
+        details = form.category_details.details if form.category_details is not None else {}
+        missing = category_submission_errors(form.category_code, details)
+        if missing:
+            fail(422, "invalid_category_details", "Non-car feed row lacks required category details", missing)
     owner = db.get(User, company.owner_id)
     if owner is None or owner.status != "active":
         fail(403, "seller_unavailable", "Company owner account is not active")
@@ -675,8 +694,11 @@ def _valid_draft_fields(db: Session, company: Company, raw: Mapping[str, Any]) -
 def listing_state_digest(db: Session, listing: Listing) -> str:
     fields = {
         field: getattr(listing, field)
-        for field in sorted(FEED_FIELDS - {"dealer_external_id"})
+        for field in sorted(FEED_FIELDS - {"dealer_external_id", "category_code", "category_details"})
     }
+    if listing.category_code != "cars":
+        fields["category_code"] = listing.category_code
+        fields["category_details"] = listing.category_details.details if listing.category_details else None
     photos = db.scalars(
         select(ListingPhoto)
         .where(ListingPhoto.listing_id == listing.id)
@@ -886,6 +908,14 @@ def create_feed_import(
             )
             continue
         if listing is None:
+            continue
+        incoming_category = item["form"].category_code or "cars"
+        if listing.category_code != incoming_category:
+            item["error"] = (
+                "category_change_forbidden",
+                "A feed cannot change the category of an existing linked listing",
+                {"category_code": "Use a new dealer_external_id for another category"},
+            )
             continue
         changed = link.last_applied_hash != item["content_hash"]
         if changed and listing.status in {"paused", "sold", "blocked", "archived"}:

@@ -51,6 +51,7 @@ class NotificationPreferencesOut(BaseModel):
     email_enabled: bool
     revision: int = Field(ge=0)
     email_verified: bool
+    email_delivery_configured: bool
 
 
 class NotificationPreferencesEnvelope(BaseModel):

@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "project": "avtorinok",
+  "verified_date": "2026-10-05",
+  "release_tag": "marketplace-20261005T0956Z-baa9102",
+  "source": {
+    "repository": "TuzVik-bot/avbyartur",
+    "branch": "main",
+    "commit": "baa9102af3bca289c08a0cfd6aa50ed2fe15039e"
+  },
+  "active_release": "/home/suite/apps/releases/marketplace-20261005T0956Z-baa9102",
+  "active_symlink": "/home/suite/apps/avtorinok",
+  "rollback_release": "/home/suite/apps/releases/ux-20261005T074032Z-94a0427",
+  "migration": {
+    "from": "0022_listing_categories",
+    "to": "0023_managed_articles"
+  },
+  "images": {
+    "platform": "linux/amd64",
+    "api_worker": {
+      "reference": "avtorinok-api:marketplace-20261005T0956Z-baa9102",
+      "image_id": "sha256:25aabe86aa9314794c90f0ea497a9127f36311ce31b619f60e0ce785f5eb503f"
+    },
+    "web": {
+      "reference": "avtorinok-web:marketplace-20261005T0956Z-baa9102",
+      "image_id": "sha256:72c0c64d2b560f5b8d6dc17e90d5fa63ef14c26753248d342dfb1abe4f467026"
+    }
+  },
+  "backups": {
+    "pre_deploy": {
+      "path": "/home/suite/backups/avtorinok/pre-deploy-marketplace-20261005T0956Z-baa9102/avtorinok-20261005T100351Z",
+      "format_version": 5,
+      "checksum_entries": 31,
+      "pg_restore_toc_entries": 454,
+      "verified": true
+    },
+    "post_deploy": {
+      "path": "/home/suite/backups/avtorinok/post-deploy-marketplace-20261005T0956Z-baa9102/avtorinok-20261005T101700Z",
+      "format_version": 5,
+      "checksum_entries": 31,
+      "pg_restore_toc_entries": 454,
+      "directory_mode": "0700",
+      "file_mode": "0600",
+      "verified": true
+    }
+  },
+  "runtime": {
+    "services": {
+      "api": "healthy",
+      "db": "healthy",
+      "web": "healthy",
+      "worker": "healthy"
+    },
+    "restart_count_each": 0,
+    "runtime_env_mode": "0600",
+    "preserved_volumes": [
+      "avtorinok_postgres",
+      "avtorinok_private_media"
+    ],
+    "schema": "0023_managed_articles"
+  },
+  "access": {
+    "http_basic_auth": "disabled",
+    "noindex": true,
+    "application_authentication_preserved": true,
+    "api_and_database_public_ports": false
+  },
+  "data_snapshot": {
+    "users": 25,
+    "listings": 202,
+    "photos": 102,
+    "companies": 0,
+    "tariffs": 0,
+    "listing_statuses": {
+      "active": 100,
+      "draft": 100,
+      "paused": 2
+    },
+    "production_listings_changed_by_release": false
+  },
+  "release_preflight": "passed",
+  "browser_review": {
+    "routes": [
+      "/",
+      "/cars?condition=used",
+      "/currency-converter",
+      "/financing",
+      "/useful-information",
+      "/vin-check",
+      "/customs-calculator"
+    ],
+    "notes": [
+      "VIN provider is not connected; the page does not accept or save VINs.",
+      "Financing is a local estimate; partner rates and application submission are not connected.",
+      "Useful information has no published articles yet.",
+      "Existing [ТЕСТ] AI-DEMO listings predate this release."
+    ]
+  },
+  "local_verification": {
+    "backend_tests_passed": 639,
+    "web_tests_passed": 545,
+    "typescript_typecheck": "passed",
+    "production_build": "passed",
+    "make_config_check": "passed"
+  },
+  "release_load_test": "not run; full pilot performance acceptance remains open"
+}

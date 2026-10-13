@@ -16,6 +16,7 @@ from app.api.dependencies import (
     user_out,
 )
 from app.auth_schemas import (
+    EmailRegistrationInput,
     UserSessionListOut,
     UserSessionRevokedOut,
     UserSessionsRevokedOut,
@@ -24,10 +25,11 @@ from app.config import get_settings
 from app.db import get_db
 from app.email_delivery import get_email_sender
 from app.models import SmsOtpChallenge, User, UserConsent, UserSession
-from app.profile_identity_service import registration_consent_error
+from app.email_registration_policy import email_registration_consent_error
 from app.schemas import LoginInput
 from app.security import (
     client_ip,
+    hash_password,
     new_secret,
     normalize_email,
     secret_hash,
@@ -85,14 +87,24 @@ def get_sms_provider() -> SmsCodeProvider:
 
 
 @router.get("/auth/capabilities", response_model=AuthCapabilitiesResponse)
-def auth_capabilities() -> dict[str, bool]:
+def auth_capabilities(db: Annotated[Session, Depends(get_db)]) -> dict[str, bool]:
     settings = get_settings()
     sms_ready = settings.sms_login_enabled and get_sms_provider().is_configured
     email_ready = get_email_sender(settings).is_configured
     return {
+        "email_registration_pilot": getattr(settings, "email_registration_enabled", False) and getattr(settings, "email_registration_pilot_enabled", False),
+        "email_registration": settings.email_registration_enabled
+        and email_registration_consent_error(
+            db,
+            settings,
+            settings.registration_terms_version,
+            settings.registration_privacy_version,
+        )
+        is None,
         "sms_login": sms_ready,
         "sms_registration": sms_ready and settings.public_registration_enabled,
         "email_notifications": email_ready and bool(settings.public_app_url),
+        "test_mail": bool(getattr(settings, "test_mail_enabled", False)) and email_ready,
         "email_verification": email_ready,
         "password_recovery": email_ready,
     }
@@ -218,7 +230,7 @@ def _request_otp(
     registration = purpose == "registration"
     _otp_configuration_or_fail(registration=registration)
     if registration:
-        consent_error = registration_consent_error(
+        consent_error = email_registration_consent_error(
             db,
             get_settings(),
             terms_version,
@@ -390,6 +402,50 @@ def _request_otp(
     return {"accepted": True}
 
 
+def _require_email_registration_enabled() -> None:
+    if not get_settings().email_registration_enabled:
+        fail(404, "not_found", "Registration is not available")
+
+
+@router.post("/auth/register", response_model=AuthSessionResponse, status_code=201,
+             dependencies=[Depends(_require_email_registration_enabled)])
+def register_email(
+    payload: EmailRegistrationInput,
+    request: Request,
+    response: Response,
+    db: Annotated[Session, Depends(get_db)],
+    x_csrf_token: Annotated[str | None, Header()] = None,
+) -> dict:
+    settings = get_settings()
+    _prevent_session_caching(response)
+    _require_pre_auth_csrf(request, x_csrf_token)
+    consume_rate_limit(db, "email_registration_ip_v2", client_ip(request), 100, timedelta(hours=1))
+    consume_rate_limit(db, "email_registration_address", normalize_email(str(payload.email)), 5, timedelta(hours=1))
+    consent_error = email_registration_consent_error(db, settings, payload.terms_version, payload.privacy_version)
+    if consent_error == "unavailable":
+        fail(503, "registration_unavailable", "Registration documents are not available")
+    if consent_error:
+        fail(409, "consent_version_mismatch", "Refresh the page to accept the current documents")
+    email = normalize_email(str(payload.email))
+    if db.scalar(select(User.id).where(User.email == email)) is not None:
+        fail(409, "email_unavailable", "This email cannot be used; try signing in")
+    user = User(email=email, display_name=payload.display_name,
+                password_hash=hash_password(payload.password), role="user", status="active")
+    try:
+        db.add(user)
+        db.flush()
+        db.add_all([
+            UserConsent(user_id=user.id, document_type="terms", version=payload.terms_version, source="email_registration"),
+            UserConsent(user_id=user.id, document_type="privacy", version=payload.privacy_version, source="email_registration"),
+        ])
+        # Session creation commits the account, consents and session together.
+        raw_csrf = _create_session(db, user, response)
+    except IntegrityError:
+        db.rollback()
+        fail(409, "email_unavailable", "This email cannot be used; try signing in")
+    return {"user": user_out(db, user), "csrf_token": raw_csrf}
+
+
 @router.post("/auth/login", response_model=AuthSessionResponse)
 def login(payload: LoginInput, request: Request, response: Response, db: Annotated[Session, Depends(get_db)]) -> dict:
     email = normalize_email(str(payload.email))
@@ -539,7 +595,7 @@ def verify_phone_otp(
         fail(401, "invalid_otp", "The code is invalid or expired")
 
     if challenge.purpose == "registration":
-        consent_error = registration_consent_error(
+        consent_error = email_registration_consent_error(
             db,
             settings,
             challenge.registration_terms_version,

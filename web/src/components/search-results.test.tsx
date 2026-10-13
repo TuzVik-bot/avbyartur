@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SearchResults } from "@/components/search-results";
 import type { CatalogItem, CatalogModification, ListingSearch, ListingSummary } from "@/lib/types";
 
+const mocks = vi.hoisted(() => ({
+  savedSearchAction: vi.fn()
+}));
+
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>
 }));
@@ -12,6 +16,15 @@ vi.mock("@/components/listing-card", () => ({
 }));
 vi.mock("@/components/search-filters", () => ({
   SearchFilters: ({ priceOperationsAvailable }: { priceOperationsAvailable: boolean }) => <div data-price-operations-available={String(priceOperationsAvailable)} />
+}));
+vi.mock("@/components/saved-search-action", () => ({
+  SavedSearchAction: ({ search, title }: { search: ListingSearch; title: string }) => {
+    mocks.savedSearchAction(search, title);
+    return <div data-saved-search-title={title}>
+      <button type="button">Сохранить поиск</button>
+      <button type="button">Подписаться на новые объявления</button>
+    </div>;
+  }
 }));
 
 let container: HTMLDivElement;
@@ -92,6 +105,16 @@ describe("search result controls", () => {
     expect(fallbackChip?.textContent).not.toContain("unresolved-catalog-id");
   });
 
+  it("offers to save the active search with its title", async () => {
+    await render({ q: "BMW", equipment: ["abs", "rear_camera"] });
+
+    expect(mocks.savedSearchAction).toHaveBeenCalledWith({ q: "BMW", equipment: ["abs", "rear_camera"] }, "Объявления");
+    const toolbar = container.querySelector(".results-toolbar-actions [data-saved-search-title]");
+    expect(toolbar?.textContent).toContain("Сохранить поиск");
+    expect(toolbar?.textContent).toContain("Подписаться на новые объявления");
+    expect(container.querySelector(".empty-state")).not.toBeNull();
+  });
+
   it("shows a readable fallback chip for a selected body variant", async () => {
     const variant: CatalogItem = { id: "variant-1", slug: "sedan", name: "Седан", generation_id: "generation-1" };
     await render({ generation_id: "generation-1", body_variant_id: variant.id }, false, [], [], true, [], [], [variant]);
@@ -136,6 +159,22 @@ describe("search result controls", () => {
     expect(container.querySelector('[data-listing-id="listing-1"]')?.getAttribute("data-favorite-saved")).toBe("true");
   });
 
+  it("offers a seller path when the catalogue has no results and no filters are active", async () => {
+    await render({});
+
+    const sellCta = container.querySelector('.empty-state a[href="/sell"]');
+    expect(sellCta).not.toBeNull();
+    expect(sellCta?.textContent).toContain("Подать объявление");
+    expect(container.querySelector('.empty-state a[href="/cars"]')).toBeNull();
+  });
+
+  it("offers a filter reset for a query with no matches", async () => {
+    await render({ make_id: "make-1", price_max: "10000" });
+
+    expect(container.querySelector('.empty-state a[href="/cars"]')?.textContent).toContain("Сбросить фильтры");
+    expect(container.querySelector('a[href="/sell"]')).toBeNull();
+  });
+
   it("explains stale currency data and passes disabled price controls", async () => {
     await render({}, false, [], [], false);
 
@@ -143,4 +182,17 @@ describe("search result controls", () => {
     expect(container.querySelector("[data-price-operations-available]")?.getAttribute("data-price-operations-available")).toBe("false");
     expect(container.querySelector<HTMLOptionElement>('option[value="price_asc"]')?.disabled).toBe(true);
   });
+});
+it("keeps resets and submission in the empty category", async () => {
+ await render({ category_code: "trucks", q: "MAN" });
+ expect(container.querySelector('a[href="/trucks"]')).not.toBeNull();
+ expect(container.querySelector('a[href="/sell?category=trucks"]')).not.toBeNull();
+ expect(container.querySelector('.filter-chip[href="/cars"]')).toBeNull();
+});
+it("labels goods search characteristics for people rather than JSON", async () => {
+ await render({ category_code: "tires", details: '{"diameter_in":16,"season":"winter"}' });
+ const chips = container.querySelector('.active-filters')?.textContent;
+ expect(chips).toContain('Диаметр, дюймы: 16');
+ expect(chips).toContain('Сезон: Зимние');
+ expect(chips).not.toContain('"season"');
 });

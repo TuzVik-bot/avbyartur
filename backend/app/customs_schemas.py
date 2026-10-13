@@ -68,6 +68,11 @@ class CustomsMetaResponse(_CustomsModel):
     scope_notes: list[str]
 
 
+class CustomsRatesResponse(_CustomsModel):
+    rate_date: date
+    rates: list[CustomsRateUsed]
+
+
 class CustomsCalculationResponse(_CustomsModel):
     calculation_date: date
     rules_version: str

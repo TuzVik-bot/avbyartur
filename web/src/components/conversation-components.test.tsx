@@ -37,7 +37,7 @@ afterEach(() => {
 
 const summary: ConversationSummary = {
   id: "conversation-1",
-  listing: { id: "listing-1", title: "BMW 320d", slug: "bmw-320d" },
+  listing: { id: "listing-1", title: "Volvo FH", slug: "volvo-fh", category_code: "trucks" },
   buyer_id: "buyer-1",
   seller_id: "seller-1",
   participants: [{ id: "buyer-1", display_name: "Покупатель" }, { id: "seller-1", display_name: "Продавец" }],
@@ -66,7 +66,7 @@ describe("ConversationInbox", () => {
 
     expect(load).toHaveBeenCalledOnce();
     expect(container.textContent).toContain("Продавец");
-    expect(container.textContent).toContain("BMW 320d");
+    expect(container.textContent).toContain("Volvo FH");
     expect(container.textContent).toContain("https://example.test");
     expect(container.querySelector(".conversation-preview a")).toBeNull();
     expect(container.querySelector('[aria-label="Непрочитанных сообщений: 2"]')).not.toBeNull();
@@ -124,6 +124,15 @@ describe("ConversationThreadView", () => {
     ]);
     expect(container.querySelector(".conversation-thread-history-error")).toBeNull();
     expect([...container.querySelectorAll("button")].some((button) => button.textContent?.includes("Загрузить более ранние сообщения"))).toBe(false);
+  });
+
+  it("opens a non-car listing from its category-specific conversation URL", async () => {
+    vi.spyOn(api, "conversation").mockResolvedValue(thread);
+    vi.spyOn(api, "markConversationRead").mockResolvedValue({ ok: true });
+
+    await act(async () => { root.render(createElement(ConversationThreadView, { conversationId: summary.id })); });
+
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/trucks/volvo-fh/listing-1"]')?.textContent).toContain("Открыть объявление");
   });
 
   it("marks loaded messages read, displays plain text, and sends the typed message", async () => {
@@ -245,7 +254,7 @@ describe("ConversationThreadView", () => {
     expect(container.textContent).not.toContain("В этой переписке пока нет сообщений");
     const retry = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Повторить"));
     await act(async () => { retry?.click(); });
-    expect(container.textContent).toContain("BMW 320d");
+    expect(container.textContent).toContain("Volvo FH");
   });
 });
 

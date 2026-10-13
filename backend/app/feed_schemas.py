@@ -4,6 +4,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from app.listing_categories import CategoryCode, ListingCategoryDetailsInput
 
 
 FeedFormat = Literal["csv", "xml", "api"]
@@ -14,6 +15,7 @@ ImportRowStatus = Literal["preview", "draft", "submitted", "unchanged", "rejecte
 
 FEED_FIELDS = frozenset({
     "dealer_external_id",
+    "category_code", "category_details",
     "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id", "modification_id",
     "manual_make", "manual_model", "title", "year", "mileage_km", "fuel", "transmission", "drive",
     "condition", "color", "customs_status", "technical_condition", "body_condition",
@@ -24,6 +26,8 @@ FEED_FIELDS = frozenset({
 
 FEED_SCHEMA_FIELDS = [
     {"name": "dealer_external_id", "type": "string", "required": True, "unit": None, "allowed_values": [], "description": "Stable source key, unique within this feed; keep it unchanged across updates."},
+    {"name": "category_code", "type": "string", "required": False, "unit": None, "allowed_values": ["cars", "trucks", "buses", "motorcycles", "special_equipment", "agricultural_equipment", "trailers", "watercraft", "parts", "wheels", "tires"], "description": "Omitted legacy rows are cars. Non-car rows require an explicit category and matching category_details."},
+    {"name": "category_details", "type": "object", "required": False, "unit": None, "allowed_values": [], "description": "Validated category-specific object. CSV/XML use a JSON object string with category_code and details."},
     {"name": "make_id", "type": "uuid", "required": False, "unit": None, "allowed_values": [], "description": "Optional catalog make ID; use manual_make when you do not have a catalog mapping."},
     {"name": "model_id", "type": "uuid", "required": False, "unit": None, "allowed_values": [], "description": "Optional catalog model ID; use manual_model when you do not have a catalog mapping."},
     {"name": "generation_id", "type": "uuid", "required": False, "unit": None, "allowed_values": [], "description": "Optional catalog generation ID."},
@@ -129,6 +133,8 @@ class DealerFeedRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dealer_external_id: str = Field(min_length=1, max_length=120)
+    category_code: CategoryCode | None = None
+    category_details: ListingCategoryDetailsInput | None = None
     make_id: UUID | None = None
     model_id: UUID | None = None
     generation_id: UUID | None = None
@@ -172,6 +178,19 @@ class DealerFeedRecord(BaseModel):
     city_id: UUID | None = None
     manual_city: str | None = Field(default=None, max_length=160)
     contact_phone: str | None = Field(default=None, max_length=40)
+
+    @model_validator(mode="after")
+    def require_explicit_non_car_details(self) -> "DealerFeedRecord":
+        if self.category_code is None:
+            if self.category_details is not None:
+                raise ValueError("category_code is required with category_details")
+            return self
+        if self.category_code != "cars":
+            if self.category_details is None or self.category_details.category_code != self.category_code:
+                raise ValueError("Non-car feed rows require matching category_details")
+        elif self.category_details is not None and self.category_details.category_code != "cars":
+            raise ValueError("category_details must match category_code")
+        return self
 
 
 class DealerFeedImportRunOut(BaseModel):

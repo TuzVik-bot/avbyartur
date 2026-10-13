@@ -49,6 +49,17 @@ describe("public listing SEO data", () => {
     expect(metadata.description).not.toContain("Не включать пользовательский текст");
   });
 
+  it("uses category-specific canonical and copy for non-car listings", () => {
+    const listing = activeListing({ category_code: "trucks", make: null, model: null });
+
+    const metadata = buildListingMetadata(listing);
+
+    expect(metadata.alternates?.canonical).toBe(`${SITE_ORIGIN}/trucks/bmw-320/listing-1`);
+    expect(metadata.description).toContain("разделе «Грузовики»");
+    expect(metadata.description).not.toContain("автомобиле");
+    expect(buildVehicleJsonLd(listing)).toBeNull();
+  });
+
   it("emits only public vehicle facts for active listings and excludes private contact data", () => {
     const jsonLd = buildVehicleJsonLd(activeListing());
     expect(jsonLd).toMatchObject({

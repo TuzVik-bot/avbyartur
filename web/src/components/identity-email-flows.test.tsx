@@ -36,7 +36,7 @@ function setValue(element: HTMLInputElement, value: string) {
 
 describe("identity email flows", () => {
   it("keeps password recovery responses generic", async () => {
-    vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_verification: false, password_recovery: true });
+    vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: false, email_verification: false, password_recovery: true });
     const request = vi.spyOn(api, "requestPasswordRecovery").mockResolvedValue({ accepted: true });
     await render(createElement(PasswordRecoveryForm, {}));
     const email = container.querySelector<HTMLInputElement>('input[name="email"]')!;
@@ -52,7 +52,7 @@ describe("identity email flows", () => {
   });
 
   it("requires matching passwords before confirming a recovery token", async () => {
-    vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_verification: false, password_recovery: true });
+    vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: false, email_verification: false, password_recovery: true });
     const confirm = vi.spyOn(api, "confirmPasswordRecovery").mockResolvedValue({ ok: true });
     await render(createElement(PasswordRecoveryForm, { token: "opaque-token" }));
     const form = container.querySelector("form")!;
@@ -101,7 +101,7 @@ describe("identity email flows", () => {
   });
 
   it("reads and removes a recovery token from the URL fragment", async () => {
-    vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_verification: false, password_recovery: true });
+    vi.spyOn(api, "authCapabilities").mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: false, email_verification: false, password_recovery: true });
     const confirm = vi.spyOn(api, "confirmPasswordRecovery").mockResolvedValue({ ok: true });
     window.history.replaceState({}, "", "/recover#token=fragment-recovery-token");
     await render(createElement(PasswordRecoveryForm, {}));

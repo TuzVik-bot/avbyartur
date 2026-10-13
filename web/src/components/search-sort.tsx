@@ -5,7 +5,11 @@ import type { ListingSearch } from "@/lib/types";
 export function SearchSort({ search, priceOperationsAvailable = true }: { search: ListingSearch; priceOperationsAvailable?: boolean }) {
   return (
     <form action="/cars" method="get">
-      {Object.entries(search).filter(([key, value]) => key !== "sort" && key !== "page" && key !== "currency" && value).map(([key, value]) => <input key={key} type="hidden" name={key} value={String(value)} />)}
+      {Object.entries(search).filter(([key, value]) => key !== "sort" && key !== "page" && key !== "currency" && value).flatMap(([key, value]) =>
+        Array.isArray(value)
+          ? value.map((entry, index) => <input key={`${key}-${entry}-${index}`} type="hidden" name={key} value={entry} />)
+          : <input key={key} type="hidden" name={key} value={String(value)} />
+      )}
       <input type="hidden" name="currency" value={search.currency || "BYN"} />
       <select name="sort" aria-label="Сортировка" defaultValue={search.sort || "newest"} onChange={(event) => event.currentTarget.form?.requestSubmit()}>
         <option value="newest">Сначала новые</option>

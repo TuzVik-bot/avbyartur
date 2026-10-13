@@ -19,7 +19,13 @@ from app.dealer_services import MANAGER_ROLES, require_company_role
 from app.db import get_db
 from app.models import AuditEvent, Company, DealerTeamMember, Listing, User, UserSession
 from app.schemas import CompanyInput, CompanyPatchInput
-from app.services import check_revision, fail, lock_owner, serialize_listings
+from app.services import (
+    check_revision,
+    fail,
+    listing_publication_dates,
+    lock_owner,
+    serialize_listings,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["companies"])
 
@@ -188,10 +194,14 @@ def dealer_detail(
         .where(*conditions)
     ) or 0)
     rows = db.scalars(query.offset((page - 1) * page_size).limit(page_size)).all()
+    serialized_listings = serialize_listings(db, rows)
+    publication_dates = listing_publication_dates(db, rows)
+    for listing, item in zip(rows, serialized_listings, strict=True):
+        item["published_at"] = publication_dates.get(listing.id)
     return {
         "company": _company_out(company, private=False),
         "listings": {
-            "items": serialize_listings(db, rows),
+            "items": serialized_listings,
             "pagination": {
                 "page": page,
                 "page_size": page_size,

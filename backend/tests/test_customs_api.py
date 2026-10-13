@@ -9,6 +9,7 @@ from app.main import app
 client = TestClient(app)
 META_PATH = "/api/v1/customs-calculator/meta"
 CALCULATE_PATH = "/api/v1/customs-calculator/calculate"
+RATES_PATH = "/api/v1/customs-calculator/rates"
 
 
 def _request_body(**overrides):
@@ -147,6 +148,39 @@ def test_public_post_returns_specified_fields_and_decimal_strings(monkeypatch) -
     assert result["rates_used"][0]["scale"] == 1
 
 
+def test_rates_endpoint_returns_all_official_currencies_for_one_date(monkeypatch) -> None:
+    from decimal import Decimal
+    from types import SimpleNamespace
+
+    snapshot_date = date(2026, 10, 4)
+    snapshot = SimpleNamespace(
+        rate_date=snapshot_date,
+        rates={
+            "EUR": SimpleNamespace(official_rate=Decimal("3.50"), scale=1, byn_per_unit=Decimal("3.50")),
+            "USD": SimpleNamespace(official_rate=Decimal("3.21"), scale=1, byn_per_unit=Decimal("3.21")),
+            "BYN": SimpleNamespace(official_rate=Decimal("1"), scale=1, byn_per_unit=Decimal("1")),
+            "RUB": SimpleNamespace(official_rate=Decimal("3.50"), scale=100, byn_per_unit=Decimal("0.035")),
+            "CNY": SimpleNamespace(official_rate=Decimal("4.50"), scale=10, byn_per_unit=Decimal("0.45")),
+        },
+    )
+    monkeypatch.setattr(customs_api, "get_nbrb_rates", lambda _: snapshot)
+    monkeypatch.setattr(customs_api, "minsk_today", lambda: snapshot_date)
+
+    response = client.get(RATES_PATH)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "rate_date": "2026-10-04",
+        "rates": [
+            {"currency": "EUR", "official_rate": "3.50", "scale": 1, "byn_per_unit": "3.50"},
+            {"currency": "USD", "official_rate": "3.21", "scale": 1, "byn_per_unit": "3.21"},
+            {"currency": "BYN", "official_rate": "1", "scale": 1, "byn_per_unit": "1"},
+            {"currency": "RUB", "official_rate": "3.50", "scale": 100, "byn_per_unit": "0.035"},
+            {"currency": "CNY", "official_rate": "4.50", "scale": 10, "byn_per_unit": "0.45"},
+        ],
+    }
+
+
 def test_invalid_request_is_returned_in_api_error_contract() -> None:
     response = client.post(CALCULATE_PATH, json=_request_body(personal_use=False))
 
@@ -161,6 +195,7 @@ def test_openapi_documents_decimal_string_input_and_customs_endpoints() -> None:
 
     assert META_PATH in paths
     assert CALCULATE_PATH in paths
+    assert RATES_PATH in paths
     request_schema = paths[CALCULATE_PATH]["post"]["requestBody"]["content"]["application/json"]["schema"]
     assert request_schema["$ref"].endswith("CustomsCalculationRequest")
     properties = schema["components"]["schemas"]["CustomsCalculationRequest"]["properties"]

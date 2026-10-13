@@ -1,4 +1,5 @@
 "use client";
+import { ListingPhotoBadgeEditor } from "@/components/listing-photo-badge-editor";
 import { ListingEditHistory } from "@/components/listing-edit-history";
 
 import { useRouter } from "next/navigation";
@@ -8,7 +9,7 @@ import { useAuth } from "@/components/auth-provider";
 import { api } from "@/lib/api";
 import type { Company, Listing, Report } from "@/lib/types";
 
-export function ListingModerationActions({ listing }: { listing: Listing }) {
+export function ListingModerationActions({ listing, canManageBadges = false }: { listing: Listing; canManageBadges?: boolean }) {
   const router = useRouter();
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -27,6 +28,7 @@ export function ListingModerationActions({ listing }: { listing: Listing }) {
     {!activeListing && <button className="button button-primary button-small" type="button" disabled={busy} onClick={() => run("approve")}><Check size={15} /> Одобрить</button>}
     {!activeListing && <details className="moderation-reason"><summary className="button button-secondary button-small"><CircleX size={15} /> Отклонить</summary><label className="field"><span>Причина</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={1000} required /></label><button className="button button-danger button-small" type="button" disabled={busy} onClick={() => run("reject")}>Отклонить</button></details>}
     <details className="moderation-reason"><summary className="button button-danger button-small"><Ban size={15} /> Заблокировать</summary><label className="field"><span>Причина</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={1000} required /></label><button className="button button-danger button-small" type="button" disabled={busy} onClick={() => run("block")}>Подтвердить блокировку</button></details>
+    {canManageBadges && <ListingPhotoBadgeEditor listing={listing} disabled={busy} />}
     <ListingEditHistory listingId={listing.id} />
     {error && <span className="inline-error" role="alert">{error}</span>}
   </div>;

@@ -15,7 +15,7 @@ export default async function FavoritesPage() {
     <div className="page-width">
       <header className="page-head"><p className="eyebrow">Личный кабинет</p><h1>Избранное</h1></header>
       <AccountNav current="/account/favorites" />
-      {items === null ? <p className="notice" role="status">Не удалось загрузить избранное. Обновите страницу чуть позже.</p> : items.length ? <div className="listing-grid">{items.map((item) => <ListingCard key={item.id} listing={item} saved />)}</div> : <div className="empty-state"><h2>Здесь пока пусто</h2><p className="muted">Сохраняйте объявления, чтобы быстро вернуться к ним.</p><Link className="button button-secondary" href="/cars">Найти автомобиль</Link></div>}
+      {items === null ? <p className="notice" role="status">Не удалось загрузить избранное. Обновите страницу чуть позже.</p> : items.length ? <div className="listing-grid">{items.map((item) => <ListingCard key={item.id} listing={item} saved />)}</div> : <div className="empty-state account-empty-state"><div className="empty-illustration empty-favorites-illustration" aria-hidden="true" /><div><h2>Здесь пока пусто</h2><p className="muted">Сохраняйте объявления, чтобы быстро вернуться к ним.</p><Link className="button button-secondary" href="/cars">Найти автомобиль</Link></div></div>}
     </div>
   );
 }

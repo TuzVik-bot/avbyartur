@@ -7,10 +7,9 @@ import { serverApi } from "@/lib/server-api";
 import { formatMoney } from "@/lib/format";
 import { requireSession } from "@/lib/server";
 import type { ListResponse, Listing } from "@/lib/types";
+import { listingStatusBadge } from "@/lib/status-presentation";
 
 export const metadata: Metadata = { title: "Мои объявления" };
-
-const statusLabels: Record<string, string> = { draft: "Черновик", pending_review: "На проверке", rejected: "Нужно исправить", active: "Опубликовано", paused: "Снято с публикации", sold: "Продано", archived: "В архиве", blocked: "Заблокировано" };
 
 type SearchParams = { page?: string | string[]; retry?: string | string[] };
 
@@ -52,8 +51,9 @@ export default async function AccountListingsPage({ searchParams }: { searchPara
         {listings.map((listing) => {
           const catalogTitle = [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ");
           const title = listing.title?.trim() || catalogTitle || "Черновик без выбранного автомобиля";
+          const status = listingStatusBadge(listing.status);
           return <article className="account-list-item" key={listing.id}>
-          <div><h2><Link href={`/sell?listing=${encodeURIComponent(listing.id)}`}>{title}</Link></h2><p className="muted">{formatMoney(listing.price)} · ревизия {listing.revision}</p><span className={`status-pill status-${listing.status}`}>{statusLabels[listing.status] || listing.status}</span>{listing.status === "rejected" && <><p className="inline-error">Исправьте замечания и отправьте объявление повторно.</p>{listing.moderation_reason?.trim() && <p className="inline-error" role="alert">Причина отклонения: {listing.moderation_reason}</p>}</>}<div className="form-actions listing-owner-links"><Link className="button button-secondary button-small" href={`/account/listings/analytics?listing_id=${encodeURIComponent(listing.id)}`}>Статистика</Link>{listing.status === "active" && <Link className="button button-secondary button-small" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}</div></div>
+          <div><h2><Link href={`/sell?listing=${encodeURIComponent(listing.id)}`}>{title}</Link></h2><p className="muted">{formatMoney(listing.price)} · ревизия {listing.revision}</p><span className={status.className}>{status.label}</span>{listing.status === "rejected" && <><p className="inline-error">Исправьте замечания и отправьте объявление повторно.</p>{listing.moderation_reason?.trim() && <p className="inline-error" role="alert">Причина отклонения: {listing.moderation_reason}</p>}</>}<div className="form-actions listing-owner-links"><Link className="button button-secondary button-small" href={`/account/listings/analytics?listing_id=${encodeURIComponent(listing.id)}`}>Статистика</Link>{listing.status === "active" && <Link className="button button-secondary button-small" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}</div></div>
           <ListingStatusActions listing={listing} />
         </article>;
         })}

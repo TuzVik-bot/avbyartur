@@ -7,7 +7,11 @@ const requiredContentLinks = {
   "/about": { group: "Информация", label: "О нас" },
   "/faq": { group: "Информация", label: "Часто задаваемые вопросы" },
   "/support": { group: "Информация", label: "Служба поддержки" },
+  "/vin-check": { group: "Сервисы", label: "Проверка транспорта по VIN" },
+  "/financing": { group: "Сервисы", label: "Подбор кредита или лизинга" },
+  "/currency-converter": { group: "Сервисы", label: "Конвертер валют" },
   "/partner": { group: "Информация", label: "Информация для рекламодателей" },
+  "/useful-information": { group: "Информация", label: "Полезная информация" },
   "/suggest-topic": { group: "Редакция", label: "Предложить тему редакции" },
   "/commenting-rules": { group: "Редакция", label: "Правила комментирования" },
   "/material-using": { group: "Редакция", label: "Правила использования материалов" },
@@ -48,7 +52,7 @@ describe("SiteFooter", () => {
       expect(link?.textContent).toBe(expected.label);
       expect(link?.closest(".footer-group")?.querySelector(".footer-group-title")?.textContent).toBe(expected.group);
     }
-    expect(Object.keys(requiredContentLinks)).toHaveLength(15);
+    expect(Object.keys(requiredContentLinks)).toHaveLength(19);
   });
 
   it("keeps the pilot navigation and closed-pilot notice", () => {
@@ -58,6 +62,7 @@ describe("SiteFooter", () => {
     expect(container.querySelector('a[href="/help"]')).not.toBeNull();
     expect(container.querySelector('a[href="/dealers"]')).not.toBeNull();
     expect(container.querySelector('a[href="/sell"]')).not.toBeNull();
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/cars?fuel=electric"]')?.textContent).toBe("Электромобили");
     expect(container.querySelector(".footer-note")?.textContent).toContain("Закрытый пилот");
   });
 });

@@ -10,9 +10,10 @@ const tabs = [
   { href: "/admin/settings", label: "Лимиты", icon: Settings2 },
   { href: "/admin/tariffs", label: "Тарифы", icon: FileText },
   { href: "/admin/content", label: "Материалы", icon: FileText },
+  { href: "/admin/test-mail", label: "Тестовая почта", icon: FileText },
   { href: "/admin/monitoring", label: "Мониторинг", icon: Activity }
 ];
 
 export function AdminNav({ current }: { current: string }) {
-  return <nav className="account-nav" aria-label="Администрирование">{tabs.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={current === href ? "page" : undefined}><Icon size={16} /> {label}</Link>)}</nav>;
+  return <nav className="account-nav admin-sidebar" aria-label="Администрирование">{tabs.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={current === href ? "page" : undefined}><Icon size={16} /> {label}</Link>)}</nav>;
 }

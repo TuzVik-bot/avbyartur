@@ -1,8 +1,13 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
+from app.photo_badge_schemas import PhotoBadge
+
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.listing_categories import CategoryCode
 
 
 class ListingPublicCapabilitiesOut(BaseModel):
@@ -34,6 +39,66 @@ class ListingSellerOut(BaseModel):
     slug: str | None = None
 
 
+class ListingMarketComparisonOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: Literal["below_market", "above_market"]
+    median_byn: str
+    sample_size: int
+    seller_count: int
+    as_of: datetime
+    rate_date: str | None
+
+
+class ListingSearchFilters(BaseModel):
+    category_code: CategoryCode = "cars"
+    q: str | None = None
+    make_id: UUID | None = None
+    model_id: UUID | None = None
+    generation_id: UUID | None = None
+    body_variant_id: UUID | None = None
+    modification_id: UUID | None = None
+    price_min: Decimal | None = Field(default=None, gt=0)
+    price_max: Decimal | None = Field(default=None, gt=0)
+    currency: Literal["BYN", "USD"] | None = None
+    year_min: int | None = Field(default=None, ge=1886, le=2100)
+    year_max: int | None = Field(default=None, ge=1886, le=2100)
+    mileage_min: int | None = Field(default=None, ge=0)
+    mileage_max: int | None = Field(default=None, ge=0)
+    fuel: str | None = None
+    transmission: str | None = None
+    drive: str | None = None
+    body_type: str | None = None
+    damaged: bool | None = None
+    parts_only: bool | None = None
+    condition: str | None = None
+    color: Literal[
+        "black", "white", "gray", "silver", "red", "blue", "green", "yellow", "brown", "beige", "orange", "purple", "other",
+    ] | None = None
+    customs_status: Literal["cleared_rb", "eaeu_import", "uncleared", "unknown"] | None = None
+    technical_condition: Literal["good", "needs_repair", "non_operational"] | None = None
+    body_condition: Literal["good", "minor_damage", "significant_damage", "repaired"] | None = None
+    exchange: bool | None = None
+    bargaining: bool | None = None
+    credit: bool | None = None
+    leasing: bool | None = None
+    equipment: list[Literal[
+        "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
+        "cruise_control", "parking_sensors", "rear_camera", "leather_seats", "carplay", "android_auto",
+    ]] | None = None
+    district: str | None = None
+    call_hours: str | None = None
+    has_vin: bool | None = None
+    has_photos: bool | None = None
+    engine_volume_min: Decimal | None = Field(default=None, ge=0, le=30)
+    engine_volume_max: Decimal | None = Field(default=None, ge=0, le=30)
+    power_min: int | None = Field(default=None, ge=1, le=3000)
+    power_max: int | None = Field(default=None, ge=1, le=3000)
+    region_id: UUID | None = None
+    city_id: UUID | None = None
+    seller_type: Literal["private", "company"] | None = None
+
+
 class ListingPriceOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -43,6 +108,7 @@ class ListingPriceOut(BaseModel):
     rate_date: str | None
     display_amount: str | None = None
     display_currency: Literal["BYN", "USD"] | None = None
+    market_comparison: ListingMarketComparisonOut | None = None
 
 
 class ListingPhotoOut(BaseModel):
@@ -116,6 +182,7 @@ class ListingPublicOut(BaseModel):
     seller: ListingSellerOut
     created_at: datetime
     updated_at: datetime
+    published_at: datetime | None = None
     damaged: bool
     parts_only: bool
     description: str
@@ -135,6 +202,7 @@ class ListingPublicOut(BaseModel):
     equipment: list[str] = Field(default_factory=list)
     district: str | None = None
     call_hours: str | None = None
+    photo_badges: list[PhotoBadge] = Field(default_factory=list)
     promotion_badges: list[Literal["bump", "highlight", "top"]] = Field(default_factory=list)
     photo_urls: list[str]
     photos: list[ListingPhotoOut]
@@ -154,6 +222,12 @@ class ListingPaginationOut(BaseModel):
     page_size: int
     total: int
     pages: int
+
+
+class ListingCountOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
 
 
 class ListingFxOut(BaseModel):
@@ -222,6 +296,7 @@ class ListingAnalyticsOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     listing_id: UUID
+    category_code: CategoryCode
     period: ListingAnalyticsPeriodOut
     views: int
     contact_reveals: int

@@ -8,6 +8,7 @@ vi.mock("@/components/auth-provider", () => ({ AuthProvider: ({ children }: { ch
 vi.mock("@/components/site-header", () => ({ SiteHeader: () => null }));
 vi.mock("@/components/site-footer", () => ({ SiteFooter: () => null }));
 vi.mock("@/lib/server-api", () => ({ getSessionServer: mocks.getSessionServer }));
+vi.mock("next/font/local", () => ({ default: () => ({ className: "mock-font", variable: "--font-inter" }) }));
 
 import RootLayout, { metadata } from "./layout";
 import { SITE_NAME, SITE_ORIGIN } from "@/lib/site-config";

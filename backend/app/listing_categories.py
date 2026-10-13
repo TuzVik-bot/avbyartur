@@ -34,47 +34,52 @@ class _CarsDetails(_Details):
     pass
 
 
-class _TrucksDetails(_Details):
+class _TransportDetails(_Details):
+    # Equipment identifiers are not VINs and must never enter VIN validation.
+    frame_serial_number: str | None = Field(default=None, max_length=120)
+
+
+class _TrucksDetails(_TransportDetails):
     vehicle_type: Literal["truck", "tractor_unit", "van", "other"] | None = None
     payload_kg: int | None = Field(default=None, ge=0)
     gross_weight_kg: int | None = Field(default=None, ge=0)
     axle_configuration: str | None = Field(default=None, max_length=32)
 
 
-class _BusesDetails(_Details):
+class _BusesDetails(_TransportDetails):
     vehicle_type: Literal["bus", "minibus", "coach", "other"] | None = None
     seats: int | None = Field(default=None, ge=0, le=500)
     engine_type: str | None = Field(default=None, max_length=40)
 
 
-class _MotorcyclesDetails(_Details):
+class _MotorcyclesDetails(_TransportDetails):
     vehicle_type: Literal["motorcycle", "scooter", "atv", "snowmobile", "other"] | None = None
     engine_volume_cc: int | None = Field(default=None, ge=0, le=10000)
     power_hp: int | None = Field(default=None, ge=0, le=3000)
 
 
-class _SpecialEquipmentDetails(_Details):
+class _SpecialEquipmentDetails(_TransportDetails):
     equipment_type: str | None = Field(default=None, max_length=80)
     operating_hours: int | None = Field(default=None, ge=0)
     weight_kg: int | None = Field(default=None, ge=0)
     payload_kg: int | None = Field(default=None, ge=0)
 
 
-class _AgriculturalEquipmentDetails(_Details):
+class _AgriculturalEquipmentDetails(_TransportDetails):
     equipment_type: str | None = Field(default=None, max_length=80)
     operating_hours: int | None = Field(default=None, ge=0)
     power_hp: int | None = Field(default=None, ge=0, le=3000)
     working_width_m: float | None = Field(default=None, ge=0, le=100)
 
 
-class _TrailersDetails(_Details):
+class _TrailersDetails(_TransportDetails):
     trailer_type: str | None = Field(default=None, max_length=80)
     axles: int | None = Field(default=None, ge=0, le=20)
     payload_kg: int | None = Field(default=None, ge=0)
     gross_weight_kg: int | None = Field(default=None, ge=0)
 
 
-class _WatercraftDetails(_Details):
+class _WatercraftDetails(_TransportDetails):
     watercraft_type: str | None = Field(default=None, max_length=80)
     length_m: float | None = Field(default=None, ge=0, le=200)
     hull_material: str | None = Field(default=None, max_length=80)

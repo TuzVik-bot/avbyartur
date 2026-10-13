@@ -32,6 +32,8 @@ def _serialise(row: UserNotification) -> dict:
         "title": row.title,
         "body": row.body,
         "url": row.url,
+        "listings": list(row.listings or []),
+        "total_count": row.total_count,
         "read_at": row.read_at,
         "created_at": row.created_at,
     }

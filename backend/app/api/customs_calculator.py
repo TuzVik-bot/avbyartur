@@ -10,7 +10,12 @@ from app.customs_calculator import (
     is_publicly_available,
 )
 from app.customs_rates import NBRB_API_URL, RatesUnavailable, get_nbrb_rates
-from app.customs_schemas import CustomsCalculationRequest, CustomsCalculationResponse, CustomsMetaResponse
+from app.customs_schemas import (
+    CustomsCalculationRequest,
+    CustomsCalculationResponse,
+    CustomsMetaResponse,
+    CustomsRatesResponse,
+)
 from app.schemas import ApiErrorOut
 from app.services import fail
 
@@ -64,6 +69,31 @@ def customs_calculator_meta() -> CustomsMetaResponse:
     except CustomsRulesUnavailable:
         return _meta_for_rules(None, unavailable_reason="customs_rules_unavailable")
     return _meta_for_rules(rules)
+
+
+@router.get(
+    "/rates",
+    response_model=CustomsRatesResponse,
+    responses={503: {"model": ApiErrorOut, "description": "Official exchange rates are unavailable"}},
+)
+def customs_exchange_rates() -> CustomsRatesResponse:
+    rate_date = minsk_today()
+    try:
+        snapshot = get_nbrb_rates(rate_date)
+    except RatesUnavailable:
+        fail(503, "customs_rates_unavailable", "Official exchange rates are unavailable for today")
+    return CustomsRatesResponse(
+        rate_date=snapshot.rate_date,
+        rates=[
+            {
+                "currency": currency,
+                "official_rate": format(snapshot.rates[currency].official_rate, "f"),
+                "scale": snapshot.rates[currency].scale,
+                "byn_per_unit": format(snapshot.rates[currency].byn_per_unit, "f"),
+            }
+            for currency in SUPPORTED_CURRENCIES
+        ],
+    )
 
 
 @router.post(

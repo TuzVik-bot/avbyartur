@@ -2,6 +2,94 @@
 
 Objective: deliver the complete closed marketplace pilot described in `docs/superpowers/plans/2026-09-26-avtorinok-pilot.md` and deploy the verified release to `suite-s1.denjik.by`.
 
+## Verified deployed release — 5 October 2026
+
+The merged source commit `baa9102af3bca289c08a0cfd6aa50ed2fe15039e` is on
+private GitHub `main`, and release `marketplace-20261005T0956Z-baa9102` is
+active on `suite-s1.denjik.by`. The database migrated from
+`0022_listing_categories` to `0023_managed_articles`. All four services are
+healthy with restart count 0; `.env` mode is 600, and PostgreSQL/media named
+volumes are preserved. The prior UX release remains available for application
+rollback. The [release report](runtime/RELEASE_2026-10-05-MARKETPLACE.md)
+records image IDs, backups, live browser routes and feature limitations.
+
+Pre-deploy and post-deploy format-5 backups each passed 31 checksum entries;
+`pg_restore --list` read 454 TOC entries from each. The post-deploy snapshot is
+`/home/suite/backups/avtorinok/post-deploy-marketplace-20261005T0956Z-baa9102/avtorinok-20261005T101700Z`.
+The release preflight passed for the active release, runtime env permissions,
+image tags, Compose config and rollback directory.
+
+The live browser opened `/`, `/cars?condition=used`, `/currency-converter`,
+`/financing`, `/useful-information`, `/vin-check` and `/customs-calculator`.
+Noindex and the application account-authentication boundary remain in place.
+Existing `[ТЕСТ] AI-DEMO` listings predate this release; the deployment did not
+create or change listings. VIN lookup has no provider, financing is an estimate
+only, and there are no published articles yet.
+
+Local verification before deployment: backend suite **639 passed**, web suite
+**545 passed**, TypeScript typecheck, production build and `make config-check`
+passed. The exact deployed release has not had a full load run; the known
+full-pilot performance gate remains open. This confirms deployment for closed
+pilot review, not full public-launch acceptance.
+
+## Earlier local-only status snapshot — 5 October 2026 (superseded by current release above)
+
+### Local categories and services continuation — before deployment
+
+The isolated branch `codex/categories-information-vin-financing` now contains
+local work for every requested catalog category, used/new filters, the managed
+article section, an input-driven credit/leasing calculator, and an explicitly
+unavailable VIN status. The article editor lists all pages and supports
+selecting an existing article or starting a new one; editing a new slug does
+not reset its fields or select a same-named existing article. Category changes
+clear incompatible listing fields. Electric vehicles link to the supported electric-fuel
+filter. Listing details now have a print layout. The currency converter uses
+the official NBRB rate snapshot and performs conversion in the browser without
+sending the entered amount back to the server.
+
+GlobalVIN was assessed from its public Belarus API, pricing, privacy and terms
+pages. The Belarus Quick Report is advertised at USD 8 with a typical 5–15
+minute turnaround; the generic developer plan advertises a sandbox, but the
+specific Belarus service key, test VINs, sandbox billing behavior, processor
+locations, report retention and display rights remain unconfirmed. Per the
+user's instruction, paid lookups require separate approval. The integration
+remains disabled. Findings and vendor questions are in
+`docs/research/globalvin-assessment-2026-10-05.md`.
+
+Financing currently performs a local estimate only; it does not send form
+values or create a lead. A synthetic test-only example and an unapproved
+Belarus personal-data consent checklist are in
+`docs/compliance/financing-demo-fixture-2026-10-05.md`. The operator identity,
+manager, actual retention schedule and approved consent were not supplied, so
+real application collection and partner transfer remain disabled.
+
+Verification on this worktree: web tests **524 passed**; TypeScript typecheck,
+production build with `next build --webpack`, OpenAPI type generation and
+`make config-check` passed. The backend suite passed **639 tests** on a new
+disposable PostgreSQL database inside the isolated Colima network. The runner
+used the existing backend test image and the host venv's installed `urllib3`,
+which was missing from that image; two third-party deprecation warnings remain.
+
+The user explicitly requested push and deployment on 5 October. Commit
+`0f0cd76b0c1c71207a46dc35dd739de04bfdca0a` is pushed to private origin on
+`codex/categories-information-vin-financing`; a read-only remote check confirmed
+that exact branch SHA and left `main` at `16802ace0d16b013a4398fbcf52b116bd65fd39a`.
+Deployment remains blocked: public-key checks returned
+`Permission denied (publickey,password)`, no SSH-agent identities are available,
+and a later password-only interactive connection to port 23026 closed before
+any preflight command ran. DNS resolves `suite-s1.denjik.by` to the supplied
+server IP; HTTP/80 redirects to HTTPS and is not a deploy channel. No release,
+VPS migration, article publication, or production data change has occurred.
+Keep the current pilot access mode, account authentication and `noindex`
+boundary.
+
+After the push, a read-only HTTPS smoke returned 200 for `/` and `/cars`, 404
+for `/trucks`, `/buses`, `/motorcycles`, `/special-equipment`,
+`/agricultural-equipment`, `/trailers`, `/watercraft`, `/parts`, `/wheels`,
+`/tires`, `/useful-information`, `/vin-check` and `/financing`, and 401 for
+unauthenticated `/api/v1/me`. All checked paths retained `noindex`; this
+confirms the new branch is not yet the active release.
+
 ## GitHub — 4 October 2026
 
 Project source uploaded to private repository
