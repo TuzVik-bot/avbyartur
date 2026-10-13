@@ -1,13 +1,14 @@
 import { CategoryNavigation } from "@/components/category-navigation";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { HomeSearch } from "@/components/home-search";
 import { ListingCard } from "@/components/listing-card";
+import { HomeSearch } from "@/components/home-search";
 import { getSavedListingIds, serverApi } from "@/lib/server-api";
 import { DEFAULT_LOCALE, getMessage } from "@/lib/i18n";
 import { localeMetadata } from "@/lib/site-config";
-import type { CatalogItem, CompanySummary, ListingSearchResponse, ListResponse } from "@/lib/types";
+import type { CatalogItem, CompanySummary, ListingSummary, ListResponse } from "@/lib/types";
+import styles from "./home.module.css";
 
 export const metadata = {
   title: getMessage("home.metadataTitle", DEFAULT_LOCALE),
@@ -15,55 +16,55 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const [listingResult, makeResult, savedListingIdsResult, dealerResult] = await Promise.allSettled([
+  const [listingResult, makeResult, regionResult, bodyTypeResult, savedListingIdsResult, dealerResult] = await Promise.allSettled([
     serverApi.listings({ page_size: "9", sort: "newest" }),
     serverApi.catalog("makes"),
+    serverApi.regions(),
+    serverApi.catalog("body-types"),
     getSavedListingIds(),
     serverApi.dealers(1)
   ]);
-  const listings: ListingSearchResponse | null = listingResult.status === "fulfilled" ? listingResult.value : null;
+  const listings: (ListResponse<ListingSummary> & { fx?: unknown }) | null = listingResult.status === "fulfilled" ? listingResult.value : null;
   const makes: CatalogItem[] = makeResult.status === "fulfilled" ? makeResult.value.items : [];
-  const dealers: ListResponse<CompanySummary> | null = dealerResult.status === "fulfilled" ? dealerResult.value : null;
+  const regions: CatalogItem[] = regionResult.status === "fulfilled" ? regionResult.value.items : [];
+  const bodyTypes: CatalogItem[] = bodyTypeResult.status === "fulfilled" ? bodyTypeResult.value.items : [];
   const savedIds = new Set(savedListingIdsResult.status === "fulfilled" ? savedListingIdsResult.value : []);
   const failed = listingResult.status === "rejected";
-  const makesFailed = makeResult.status === "rejected";
+  const dealers: ListResponse<CompanySummary> | null = dealerResult.status === "fulfilled" ? dealerResult.value : null;
   const dealersFailed = dealerResult.status === "rejected";
+  const makesFailed = makeResult.status === "rejected";
   return (
-    <>
-      <section className="home-hero" aria-labelledby="home-heading">
-        <div className="page-width home-hero-inner">
-          <div className="home-hero-copy">
-            <p className="eyebrow">Авторынок Беларуси</p>
-            <h1 id="home-heading" className="home-title">Найдите свой автомобиль в Беларуси</h1>
-            <p className="home-lead">Выберите марку, модель и цену, чтобы найти опубликованные объявления.</p>
+    <div className={styles.home}>
+      <section className={`page-width ${styles.intro}`} aria-labelledby="home-heading">
+        <div className={styles.searchColumn}>
+          <p className={styles.eyebrow}>Автомобили · Беларусь</p>
+          <div className={styles.heading}>
+            <div><h1 id="home-heading">Купить автомобиль</h1><p>Найдите тот самый. Начните с того, что важно вам.</p></div>
+            <Link className={styles.catalogLink} href="/cars">Весь каталог <ArrowRight size={16} aria-hidden="true" /></Link>
           </div>
-          <div className="home-hero-search">
-            <HomeSearch makes={makes} priceOperationsAvailable={listings ? Boolean(listings.fx) : false} />
-            {makesFailed && <p className="home-search-note" role="status">Справочник марок временно недоступен. Каталог объявлений остаётся доступен.</p>}
-          </div>
-          <div className="home-hero-visual">
-            <picture className="home-hero-media" aria-hidden="true">
-              <source media="(max-width: 640px)" srcSet="/design/hero-mobile.webp" />
-              <Image src="/design/hero-desktop.webp" alt="" fill sizes="(max-width: 900px) 100vw, 50vw" priority />
-            </picture>
-          </div>
+          <HomeSearch makes={makes} regions={regions} bodyTypes={bodyTypes} className={styles.search} priceOperationsAvailable={Boolean(listings?.fx)} />
+          {makesFailed && <p className="notice" role="status">Справочник марок временно недоступен. Поиск по названию автомобиля остаётся доступен.</p>}
+          {!!makes.length && <nav className={styles.makes} aria-label="Быстрый поиск по марке"><span>По маркам</span><div>{makes.slice(0, 12).map((make) => <Link key={make.id} href={`/cars/${encodeURIComponent(make.slug)}`}>{make.name}</Link>)}<Link className={styles.allMakes} href="/cars">Все марки <ArrowRight size={14} aria-hidden="true" /></Link></div></nav>}
         </div>
+        <aside className={styles.adSide} aria-label="Место под рекламу">
+          <span className={styles.adLabel}>Рекламное место</span>
+          <div className={styles.adContent}><span className={styles.adSymbol} aria-hidden="true">↗</span><h2>Здесь может быть<br /> ваша реклама</h2><p>Место для вашего бренда<br />на главной странице</p><Link href="/partner">О сотрудничестве <ArrowRight size={16} aria-hidden="true" /></Link></div>
+          <span className={styles.adFootnote}>Баннер партнёра</span>
+        </aside>
       </section>
-      <CategoryNavigation />
-      <section className="page-width section home-listings" aria-labelledby="home-listings-heading">
-        <div className="section-heading"><h2 id="home-listings-heading">Новые объявления</h2><Link className="text-link" href="/cars">Все предложения <ArrowRight size={16} /></Link></div>
+      <div className="page-width"><aside className={styles.adWide} aria-label="Горизонтальное место под рекламу"><div><span className={styles.adLabel}>Рекламное место</span><p>Ваш бренд на пути к новому автомобилю</p></div><Link href="/partner">О сотрудничестве <ArrowRight size={16} aria-hidden="true" /></Link></aside></div>
+      <section className={`page-width section ${styles.listings}`}>
+        <div className="section-heading"><h2>Новые объявления</h2><Link className="text-link" href="/cars">Все предложения <ArrowRight size={16} /></Link></div>
         {failed && <p className="notice" role="status">Каталог временно недоступен. Обновите страницу чуть позже.</p>}
         {listings?.items.length ? <div className="listing-grid">{listings.items.map((listing) => <ListingCard key={listing.id} listing={listing} saved={savedIds.has(listing.id)} />)}</div> : (
-          <div className="empty-state home-listings-empty">
-            <div>
-              <h2>{failed ? "Не удалось загрузить предложения" : "Пока нет опубликованных автомобилей"}</h2>
-              <p className="muted">{failed ? "Попробуйте открыть каталог позже." : "Когда появятся опубликованные объявления, они будут показаны здесь."}</p>
-              {failed ? <Link className="button button-secondary" href="/cars">Открыть каталог</Link> : <Link className="button button-primary" href="/sell">Подать объявление</Link>}
-            </div>
+          <div className="empty-state">
+            <h2>{failed ? "Не удалось загрузить предложения" : "Пока нет опубликованных автомобилей"}</h2>
+            <p className="muted">Когда продавцы добавят объявления, они появятся здесь.</p>
+            <Link className="button button-secondary" href="/cars">Перейти к поиску</Link>
           </div>
         )}
       </section>
-
+      <CategoryNavigation />
       <section className="page-width section home-discovery" aria-labelledby="home-discovery-heading">
         <div className="section-heading"><div><p className="eyebrow">Подборки</p><h2 id="home-discovery-heading">Выберите подходящий автомобиль</h2></div><Link className="text-link" href="/cars">Открыть каталог <ArrowRight size={16} /></Link></div>
         <div className="home-collection-grid">
@@ -113,6 +114,6 @@ export default async function HomePage() {
           <Image src="/design/customs.webp" alt="Модель автомобиля, маршрут и документы" width={1200} height={800} sizes="(max-width: 800px) 100vw, 45vw" />
         </div>
       </section>
-    </>
+    </div>
   );
 }

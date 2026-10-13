@@ -5,12 +5,13 @@ import type { ListingSummary } from "@/lib/types";
 const mocks = vi.hoisted(() => ({
   listings: vi.fn(),
   catalog: vi.fn(),
+  regions: vi.fn(),
   dealers: vi.fn(),
   getSavedListingIds: vi.fn(async () => [] as string[])
 }));
 
 vi.mock("@/lib/server-api", () => ({
-  serverApi: { listings: mocks.listings, catalog: mocks.catalog, dealers: mocks.dealers },
+  serverApi: { listings: mocks.listings, catalog: mocks.catalog, regions: mocks.regions, dealers: mocks.dealers },
   getSavedListingIds: mocks.getSavedListingIds
 }));
 vi.mock("next/link", () => ({
@@ -49,6 +50,7 @@ const listing: ListingSummary = {
 beforeEach(() => {
   mocks.listings.mockResolvedValue({ items: [listing], fx: { rate_date: "2026-10-04", usd_rate: "3.0", scale: 1 } });
   mocks.catalog.mockResolvedValue({ items: [] });
+  mocks.regions.mockResolvedValue({ items: [] });
   mocks.dealers.mockResolvedValue({ items: [] });
   mocks.getSavedListingIds.mockResolvedValue([]);
 });
@@ -74,7 +76,7 @@ describe("home listing cards", () => {
 
     const html = renderToStaticMarkup(await HomePage());
 
-    expect(html).toContain("Найдите свой автомобиль в Беларуси");
+    expect(html).toContain("Купить автомобиль");
     expect(html).toContain('href="/sell"');
     expect(html).toContain("Подать объявление");
   });
