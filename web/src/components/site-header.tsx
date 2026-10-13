@@ -2,6 +2,7 @@
 
 import { CategoryNavigation } from "@/components/category-navigation";
 import Link from "next/link";
+import { ThemeSwitcher } from "./theme-switcher";
 import { useState } from "react";
 import { Heart, LogOut, Menu, Plus, ShieldCheck, UserRound, X } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
@@ -49,6 +50,7 @@ export function SiteHeader() {
           {user && <button className="mobile-signout" type="button" onClick={onSignOut}><LogOut size={17} /> {message("header.signOut")}</button>}
         </nav>
         <div className="header-actions">
+          <ThemeSwitcher />
           {user && <button className="icon-button signout-button" type="button" title={message("header.signOut")} aria-label={message("header.signOut")} onClick={onSignOut}><LogOut size={18} /></button>}
           <Link className="button button-primary header-sell" href={localizedPath("/sell")} onClick={() => setOpen(false)}><Plus size={17} /> {message("header.sellListing")}</Link>
         </div>

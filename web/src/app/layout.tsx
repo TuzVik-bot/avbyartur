@@ -7,7 +7,9 @@ import { DEFAULT_LOCALE, getMessage } from "@/lib/i18n";
 import { getSessionServer } from "@/lib/server-api";
 import { SITE_NAME, SITE_ORIGIN } from "@/lib/site-config";
 // Shared foundations load before the focused screen layers that refine them.
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
+import "./site-theme.css";
 import "./home.css";
 import "./catalog.css";
 import "./auth.css";
@@ -38,7 +40,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // route guards call the same lookup without swallowing service failures.
   const initialSession = await getSessionServer().catch(() => null);
   return (
-    <html lang={DEFAULT_LOCALE}>
+    <html lang={DEFAULT_LOCALE} suppressHydrationWarning>
       <body className={inter.variable}>
         <AuthProvider initialSession={initialSession}>
           <a className="skip-link" href="#main-content">{getMessage("layout.skipToMainContent", DEFAULT_LOCALE)}</a>

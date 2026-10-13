@@ -1,0 +1,29 @@
+:root[data-theme="dark"] {
+  --page: #10141d;
+  --surface: #1a2130;
+  --surface-muted: #222c3d;
+  --ink: #edf2fc;
+  --muted: #adb9cd;
+  --line: #344159;
+  --line-strong: #657792;
+  --accent: #4668ce;
+  --accent-dark: #a8bdff;
+  --soft-accent: #253454;
+  --danger: #ffacb1;
+  --soft-danger: #40252e;
+  --danger-line: #81515d;
+  --green: #8ed8b3;
+  --soft-green: #1d3a32;
+  --green-line: #426a58;
+  --amber: #f2d18b;
+  --soft-amber: #3c3220;
+  --amber-line: #76623b;
+  --hero: #1c2943;
+  --footer: #151d2b;
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] .button-primary:hover:not(:disabled) { background: #3453b0; }
+
+:root[data-theme="dark"] .site-header, :root[data-theme="dark"] .site-footer { background: var(--surface); }
+:root[data-theme="dark"] .field input, :root[data-theme="dark"] .field select { background: var(--surface); color: var(--ink); }
