@@ -79,9 +79,12 @@ type FormFields = {
   city_id: string;
   manual_city: string;
   contact_phone: string;
+  telegram_contact_url: string;
+  viber_contact_url: string;
 };
 
 function initialFields(listing: Listing | null): FormFields {
+  const ownerContacts = listing as (Listing & { telegram_contact_url?: string | null; viber_contact_url?: string | null }) | null;
   const manualMake = listing?.make?.slug.startsWith("manual-") || false;
   const manualModel = manualMake || listing?.model?.slug.startsWith("manual-") || false;
   return {
@@ -125,7 +128,9 @@ function initialFields(listing: Listing | null): FormFields {
     city_mode: listing?.manual_city?.trim() ? "manual" : "catalog",
     city_id: listing?.city?.id || "",
     manual_city: listing?.manual_city || "",
-    contact_phone: listing?.contact_phone || ""
+    contact_phone: listing?.contact_phone || "",
+    telegram_contact_url: ownerContacts?.telegram_contact_url || "",
+    viber_contact_url: ownerContacts?.viber_contact_url || ""
   };
 }
 
@@ -178,6 +183,8 @@ export function payloadFor(fields: FormFields): SellDraftPayload {
   if (fields.price_amount) payload.price = { amount: fields.price_amount, currency: fields.currency };
   if (fields.region_id) payload.region_id = fields.region_id;
   if (fields.contact_phone) payload.contact_phone = fields.contact_phone;
+  payload.telegram_contact_url = fields.telegram_contact_url.trim() || null;
+  payload.viber_contact_url = fields.viber_contact_url.trim() || null;
   return payload;
 }
 
@@ -1161,12 +1168,15 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
       </div></section>}
 
       {step === 4 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Цена, расположение и контакт</h2><div className="form-grid">
-        <label className="field"><span>Цена</span><input {...fieldProps("price_amount")} type="number" inputMode="decimal" min="0.01" step="0.01" value={fields.price_amount} onChange={(event) => update("price_amount", event.target.value)} required />{fieldError("price_amount")}</label>
+        <label className="field"><span>Цена</span><input {...fieldProps("price_amount")} type="number" inputMode="decimal" min="0.01" step="0.01" value={fields.price_amount} onChange={(event) => update("price_amount", event.target.value)} required />{fieldError("price_amount")}<small className="muted">Оценка рынка для черновика сейчас недоступна. Сравнение появится в карточке, только если будет достаточно сопоставимых объявлений.</small></label>
         <label className="field"><span>Валюта</span><select value={fields.currency} onChange={(event) => update("currency", event.target.value as FormFields["currency"])}><option value="BYN">BYN</option><option value="USD">USD</option></select></label>
         <label className="field"><span>Область</span><select {...fieldProps("region_id")} value={fields.region_id} onChange={(event) => changeRegion(event.target.value)} required><option value="">Выберите область</option>{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("region_id")}</label>
         <label className="field"><span>Способ выбора населённого пункта</span><select aria-label="Источник населённого пункта" value={fields.city_mode} onChange={(event) => changeCityMode(event.target.value as FormFields["city_mode"])} disabled={!fields.region_id}><option value="catalog">Из справочника</option><option value="manual">Нет в справочнике</option></select></label>
         {fields.city_mode === "manual" ? <label className="field"><span>Населённый пункт</span><input {...fieldProps("manual_city")} aria-label="Населённый пункт вручную" value={fields.manual_city} onChange={(event) => update("manual_city", event.target.value)} maxLength={160} required disabled={!fields.region_id} />{fieldError("manual_city")}</label> : <label className="field"><span>Населённый пункт</span><select {...fieldProps("city_id")} value={fields.city_id} onChange={(event) => update("city_id", event.target.value)} disabled={!fields.region_id || !cities.length} required><option value="">Выберите населённый пункт</option>{cities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("city_id")}</label>}
         <label className="field wide"><span>Телефон для связи</span><input {...fieldProps("contact_phone")} type="tel" autoComplete="tel" value={fields.contact_phone} onChange={(event) => update("contact_phone", event.target.value)} required maxLength={32} /><small className="muted">Номер не появится в выдаче. Покупатель откроет его отдельной кнопкой.</small>{fieldError("contact_phone")}</label>
+        <label className="field"><span>Telegram для связи <small className="muted">необязательно</small></span><input id="telegram_contact_url" type="url" inputMode="url" autoComplete="url" placeholder="https://t.me/имя" maxLength={240} value={fields.telegram_contact_url} onChange={(event) => update("telegram_contact_url", event.target.value)} /></label>
+        <label className="field"><span>Viber для связи <small className="muted">необязательно</small></span><input id="viber_contact_url" type="url" inputMode="url" autoComplete="url" placeholder="https://viber.me/имя" maxLength={240} value={fields.viber_contact_url} onChange={(event) => update("viber_contact_url", event.target.value)} /></label>
+        <p className="muted wide">Ссылки на мессенджеры будут доступны покупателю вместе с телефоном только после его явного запроса контактов.</p>
       </div></section>}
 
       {step === 5 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Фотографии</h2><p className="muted">{validationPolicy ? `Добавьте от ${minimumPhotoCount(validationPolicy, fields)} до ${validationPolicy.maximum_photos} фотографий JPEG, PNG, WebP или HEIC. До 20 MiB на файл.` : "Правила подачи загружаются; повторите загрузку, чтобы добавить фотографии."}</p>
@@ -1213,6 +1223,8 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
           <div><dt>Расположение</dt><dd>{[cityName, regions.find((region) => region.id === fields.region_id)?.name].filter(Boolean).join(", ") || "—"}</dd></div>
           <div><dt>Тип продавца</dt><dd>{fields.seller_type === "company" ? "Компания" : "Частное лицо"}</dd></div>
           <div><dt>Телефон для связи</dt><dd>{fields.contact_phone || "—"}</dd></div>
+          {fields.telegram_contact_url && <div><dt>Telegram</dt><dd>{fields.telegram_contact_url}</dd></div>}
+          {fields.viber_contact_url && <div><dt>Viber</dt><dd>{fields.viber_contact_url}</dd></div>}
           <div><dt>Фотографии</dt><dd>{photos.filter((photo) => photo.status === "ready").length} обработано</dd></div>
         </dl>
         {reviewPhotos.length > 0 && <div className="photo-list review-photo-list" role="group" aria-label="Обработанные фотографии">

@@ -170,6 +170,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
           </> : <ListingContactActions active={false} guestContactRevealEnabled={false} phone="" busy={false} error="" onReveal={() => undefined} />}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
+          {listing.status === "active" && user?.id === listing.seller.id && <Link className="button button-secondary contact-chat" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}
           <div className="detail-actions">
             <CompareButton listingId={listing.id} />
             <ShareButton href={href} title={listing.title} />

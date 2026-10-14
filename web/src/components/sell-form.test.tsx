@@ -141,7 +141,9 @@ const blankOptionalFields = {
   city_id: "city-1",
   city_mode: "catalog",
   manual_city: "",
-  contact_phone: "+375000000000"
+  contact_phone: "+375000000000",
+  telegram_contact_url: "",
+  viber_contact_url: ""
 } satisfies Parameters<typeof payloadFor>[0];
 
 const catalogGeneration = { id: "generation-1", slug: "generation-1", name: "Поколение 1", model_id: "catalog-model" };
@@ -388,6 +390,8 @@ describe("draft form payload", () => {
       vin: null,
       manual_make: null,
       manual_model: null,
+      telegram_contact_url: null,
+      viber_contact_url: null,
       description: ""
     });
   });
@@ -400,14 +404,18 @@ describe("draft form payload", () => {
       body_variant_id: "body-variant-1",
       engine_volume_l: "2.0",
       power_hp: "150",
-      vin: "1hgcm82633a004352"
+      vin: "1hgcm82633a004352",
+      telegram_contact_url: " https://t.me/seller ",
+      viber_contact_url: "https://viber.me/seller"
     })).toMatchObject({
       generation_id: "generation-1",
       body_type_id: "body-1",
       body_variant_id: "body-variant-1",
       engine_volume_l: "2.0",
       power_hp: 150,
-      vin: "1HGCM82633A004352"
+      vin: "1HGCM82633A004352",
+      telegram_contact_url: "https://t.me/seller",
+      viber_contact_url: "https://viber.me/seller"
     });
   });
 
@@ -1005,14 +1013,14 @@ describe("generation-specific body variants", () => {
   it("shows the saved seller details and processed photos in the final review", async () => {
     const coverPhoto = { id: "photo-cover", url: "/uploads/cover.webp", status: "ready", position: 0, is_cover: true } as const;
     const secondPhoto = { id: "photo-side", url: "/uploads/side.webp", status: "ready", position: 1, is_cover: false } as const;
-    const listing = draft({
+    const listing = Object.assign(draft({
       description: "Осмотрен и обслужен.\nБез вложений.",
       engine_volume_l: "2.0",
       power_hp: 150,
       contact_phone: "+375291234567",
       seller: { type: "company", id: "seller-1", name: "Автосалон" },
       photos: [coverPhoto, secondPhoto]
-    });
+    }), { telegram_contact_url: "https://t.me/seller", viber_contact_url: "https://viber.me/seller" });
     vi.spyOn(api, "catalog").mockResolvedValue({ items: [] });
     vi.spyOn(api, "cities").mockResolvedValue({ items: [listing.city!] });
     vi.spyOn(api, "photos").mockResolvedValue({ items: [coverPhoto, secondPhoto] });
@@ -1039,6 +1047,8 @@ describe("generation-specific body variants", () => {
     expect(valueFor("Объём двигателя и мощность")).toBe("2.0 л · 150 л.с.");
     expect(valueFor("Тип продавца")).toBe("Компания");
     expect(valueFor("Телефон для связи")).toBe("+375291234567");
+    expect(valueFor("Telegram")).toBe("https://t.me/seller");
+    expect(valueFor("Viber")).toBe("https://viber.me/seller");
     expect(valueFor("Фотографии")).toBe("2 обработано");
 
     const thumbnails = [...container.querySelectorAll<HTMLImageElement>(".review-photo-list img")];

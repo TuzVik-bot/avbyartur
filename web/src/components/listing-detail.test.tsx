@@ -6,6 +6,7 @@ import { api, ApiClientError } from "@/lib/api";
 import type { Listing } from "@/lib/types";
 
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
+const authMocks = vi.hoisted(() => ({ user: null as { id: string } | null }));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>
@@ -14,7 +15,7 @@ vi.mock("next/image", () => ({
   default: ({ unoptimized: _unoptimized, priority: _priority, ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { unoptimized?: boolean; priority?: boolean }) => <img {...props} />
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
-vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: null }) }));
+vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: authMocks.user }) }));
 vi.mock("@/components/compare-button", () => ({ CompareButton: ({ listingId }: { listingId: string }) => <button data-compare-listing={listingId}>Сравнить</button> }));
 vi.mock("@/components/share-button", () => ({ ShareButton: ({ title }: { href: string; title: string }) => <button>Поделиться {title}</button> }));
 
@@ -23,6 +24,7 @@ let root: Root;
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  authMocks.user = null;
   vi.spyOn(api, "guestContactEnabled").mockResolvedValue({ guest_contact_reveal_enabled: false });
   container = document.createElement("div");
   document.body.append(container);
@@ -145,6 +147,21 @@ describe("contact reveal", () => {
       await Promise.resolve();
     });
     expect(container.textContent).toContain("+375 29 000 00 00");
+  });
+});
+
+describe("owner promotion entry", () => {
+  it("shows the listing promotion entry only to its owner", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
+
+    authMocks.user = { id: "another-user" };
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
+
+    authMocks.user = { id: listing.seller.id };
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/account/billing?listing_id=listing-1"]')?.textContent).toContain("Услуги продвижения");
   });
 });
 
