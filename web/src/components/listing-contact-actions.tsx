@@ -1,18 +1,13 @@
 import { MessageCircle, Phone } from "lucide-react";
-
-export type ListingMessengerChannel = {
-  channel: "telegram" | "viber";
-  uri: string;
-  opted_in: boolean;
-};
+import type { ListingMessengerChannel } from "@/lib/api";
 
 function safeMessengerUri(channel: ListingMessengerChannel["channel"], rawUri: string) {
   try {
     const url = new URL(rawUri);
-    if (url.protocol !== "https:") return null;
+    if (url.protocol !== "https:" || url.username || url.password || url.port || url.search || url.hash) return null;
     const host = url.hostname.toLowerCase();
     if (channel === "telegram" && (host === "t.me" || host === "telegram.me") && url.pathname.length > 1) return url.toString();
-    if (channel === "viber" && (host === "viber.com" || host.endsWith(".viber.com")) && url.pathname.length > 1) return url.toString();
+    if (channel === "viber" && (host === "viber.me" || host === "viber.com" || host.endsWith(".viber.com")) && url.pathname.length > 1) return url.toString();
   } catch { /* Invalid provider data is omitted. */ }
   return null;
 }

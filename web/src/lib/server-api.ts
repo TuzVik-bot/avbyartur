@@ -27,6 +27,7 @@ export const serverApi = {
   listings: (search: ListingSearch = {}) => serverApiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
   listing: (id: string) => serverApiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   relatedListings: (id: string) => serverApiRequest<{ items: ListingSummary[] }>(`listings/${encodeURIComponent(id)}/related`),
+  sellerListings: (id: string) => serverApiRequest<{ items: (ListingSummary & { status: "active" })[] }>(`listings/${encodeURIComponent(id)}/seller-listings`),
   listingAnalytics: (id: string, options: { dateFrom?: string; dateTo?: string } = {}) => {
     const params = new URLSearchParams();
     if (options.dateFrom) params.set("date_from", options.dateFrom);

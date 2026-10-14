@@ -151,6 +151,12 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
 type GuestContactCapabilities = components["schemas"]["ListingPublicCapabilitiesOut"];
 
+export type ListingMessengerChannel = {
+  channel: "telegram" | "viber";
+  uri: string;
+  opted_in: boolean;
+};
+
 async function loadGuestContactCapabilities(): Promise<GuestContactCapabilities> {
   const base = typeof window === "undefined" ? internalApiBase() : API_PREFIX;
   const response = await fetch(`${base}/listings/public-capabilities`, {
@@ -167,21 +173,24 @@ async function loadGuestContactCapabilities(): Promise<GuestContactCapabilities>
   return capabilities;
 }
 
-async function revealListingPhone(id: string, asGuest: boolean): Promise<{ phone: string }> {
+async function revealListingPhone(id: string, asGuest: boolean): Promise<{ phone: string; messengers?: ListingMessengerChannel[] }> {
   if (asGuest && (!guestContactRequestToken || Date.now() >= guestContactRequestTokenExpiresAt)) {
     await loadGuestContactCapabilities();
   }
 
-  const request = () => apiRequest<{ phone: string }>(
-    `listings/${encodeURIComponent(id)}/phone-reveal`,
-    {
+  const request = async () => {
+    const result = await apiRequest<{ phone: string; messengers?: ListingMessengerChannel[] }>(
+      `listings/${encodeURIComponent(id)}/phone-reveal`,
+      {
       method: "POST",
       body: JSON.stringify({}),
       headers: asGuest && guestContactRequestToken
         ? { "X-Guest-Contact-Token": guestContactRequestToken }
         : undefined
-    }
-  );
+      }
+    );
+    return { phone: result.phone, messengers: result.messengers ?? [] };
+  };
 
   try {
     return await request();

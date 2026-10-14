@@ -8,7 +8,7 @@ export function SellerListings({ listingId, sellerId, items }: { listingId: stri
   for (const item of items) {
     if (item.id !== listingId && item.seller.id === sellerId && item.status === "active" && !unique.has(item.id)) unique.set(item.id, item);
   }
-  const visible = [...unique.values()].sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id)).slice(0, 8);
+  const visible = [...unique.values()].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)).slice(0, 8);
   if (!visible.length) return null;
   return <section className="related-listings section" aria-labelledby="seller-listings-heading">
     <div className="section-heading"><h2 id="seller-listings-heading">Другие объявления продавца</h2></div>

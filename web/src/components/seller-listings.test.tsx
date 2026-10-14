@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SellerListings, type PublicSellerListing } from "@/components/seller-listings";
+import { CompareProvider } from "@/components/compare-provider";
 
 vi.mock("next/link", () => ({ default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a> }));
 vi.mock("next/image", () => ({ default: ({ unoptimized: _unoptimized, priority: _priority, ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { unoptimized?: boolean; priority?: boolean }) => <img {...props} /> }));
@@ -17,7 +18,7 @@ describe("seller listings", () => {
   it("excludes current, other sellers, duplicates and returns at most eight in stable date order", () => {
     const items = [listing("current"), ...Array.from({ length: 10 }, (_, index) => listing(`item-${index}`, `2026-10-${String(index + 1).padStart(2, "0")}T00:00:00Z`)),
       { ...listing("other-seller"), seller: { id: "seller-2", type: "private" as const, name: "Другой" } }];
-    const html = renderToStaticMarkup(createElement(SellerListings, { listingId: "current", sellerId: "seller-1", items: [...items, items[1]] }));
+    const html = renderToStaticMarkup(createElement(CompareProvider, null, createElement(SellerListings, { listingId: "current", sellerId: "seller-1", items: [...items, items[1]] })));
     expect(html.match(/<article class="listing-card/g)).toHaveLength(8);
     expect(html).not.toContain(">current</a>");
     expect(html).not.toContain(">other-seller</a>");
@@ -25,7 +26,7 @@ describe("seller listings", () => {
   });
 
   it("renders nothing when the seller has no other public listings", () => {
-    const html = renderToStaticMarkup(createElement(SellerListings, { listingId: "current", sellerId: "seller-1", items: [listing("current")] }));
+    const html = renderToStaticMarkup(createElement(CompareProvider, null, createElement(SellerListings, { listingId: "current", sellerId: "seller-1", items: [listing("current")] })));
     expect(html).toBe("");
   });
 });

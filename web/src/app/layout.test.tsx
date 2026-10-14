@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({ getSessionServer: vi.fn() }));
 vi.mock("@/components/auth-provider", () => ({ AuthProvider: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("@/components/site-header", () => ({ SiteHeader: () => null }));
 vi.mock("@/components/site-footer", () => ({ SiteFooter: () => null }));
+vi.mock("@/components/compare-provider", () => ({ CompareProvider: ({ children }: { children: React.ReactNode }) => <div data-compare-provider>{children}</div> }));
 vi.mock("@/lib/server-api", () => ({ getSessionServer: mocks.getSessionServer }));
 
 import RootLayout, { metadata } from "./layout";
@@ -20,6 +21,7 @@ describe("closed-pilot root layout", () => {
 
     expect(html).toContain('href="#main-content"');
     expect(html).toContain('id="main-content"');
+    expect(html).toContain("data-compare-provider");
     expect(html).toContain("Перейти к основному содержимому");
     expect(metadata.robots).toMatchObject({ index: true, follow: true, googleBot: { index: true, follow: true } });
     expect(metadata.metadataBase).toBeInstanceOf(URL);

@@ -15,12 +15,15 @@ describe("listing contact channels", () => {
   it("shows only opted-in channels with provider-approved HTTPS addresses after reveal", () => {
     const html = renderToStaticMarkup(createElement(ListingContactActions, { ...props, phone: "+375290000000", messengers: [
       { channel: "telegram", uri: "https://t.me/seller", opted_in: true },
+      { channel: "viber", uri: "https://viber.me/seller", opted_in: true },
       { channel: "viber", uri: "viber://chat?number=375290000000", opted_in: true },
       { channel: "telegram", uri: "https://t.me/not-opted-in", opted_in: false }
     ] }));
     expect(html).toContain("Telegram");
     expect(html).toContain("href=\"https://t.me/seller\"");
-    expect(html).not.toContain("Viber");
+    expect(html).toContain("Viber");
+    expect(html).toContain("href=\"https://viber.me/seller\"");
+    expect(html).not.toContain("href=\"viber://");
     expect(html).not.toContain("not-opted-in");
   });
 

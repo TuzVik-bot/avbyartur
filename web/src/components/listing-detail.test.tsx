@@ -15,6 +15,8 @@ vi.mock("next/image", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: null }) }));
+vi.mock("@/components/compare-button", () => ({ CompareButton: ({ listingId }: { listingId: string }) => <button data-compare-listing={listingId}>Сравнить</button> }));
+vi.mock("@/components/share-button", () => ({ ShareButton: ({ title }: { href: string; title: string }) => <button>Поделиться {title}</button> }));
 
 let container: HTMLDivElement;
 let root: Root;
@@ -70,7 +72,13 @@ describe("contact reveal", () => {
 
   it("lets a guest explicitly reveal a phone only when the public capability is enabled", async () => {
     vi.spyOn(api, "guestContactEnabled").mockResolvedValue({ guest_contact_reveal_enabled: true });
-    const revealPhone = vi.spyOn(api, "revealPhone").mockResolvedValue({ phone: "+375 29 000 00 00" });
+    const revealPhone = vi.spyOn(api, "revealPhone").mockResolvedValue({
+      phone: "+375 29 000 00 00",
+      messengers: [
+        { channel: "telegram", uri: "https://t.me/seller", opted_in: true },
+        { channel: "viber", uri: "https://viber.me/seller", opted_in: true }
+      ]
+    });
     await act(async () => {
       root.render(createElement(ListingDetail, { listing }));
       await Promise.resolve();
@@ -78,6 +86,8 @@ describe("contact reveal", () => {
 
     expect(container.textContent).toContain("Телефон можно посмотреть без входа в аккаунт.");
     expect(container.textContent).not.toContain("+375 29 000 00 00");
+    expect(container.querySelector('a[href="https://t.me/seller"]')).toBeNull();
+    expect(container.querySelector('a[href="https://viber.me/seller"]')).toBeNull();
     expect(container.querySelector<HTMLAnchorElement>(".contact-chat")?.getAttribute("href")).toBe(
       `/login?next=${encodeURIComponent(`/account/messages/new?listing_id=${listing.id}`)}`
     );
@@ -89,6 +99,10 @@ describe("contact reveal", () => {
 
     expect(revealPhone).toHaveBeenCalledOnce();
     expect(container.textContent).toContain("+375 29 000 00 00");
+    expect(container.querySelector('a[href="https://t.me/seller"]')?.textContent).toContain("Telegram");
+    expect(container.querySelector('a[href="https://viber.me/seller"]')?.textContent).toContain("Viber");
+    expect(container.querySelector('[data-compare-listing="listing-1"]')).not.toBeNull();
+    expect(container.textContent).toContain("Поделиться Марка Модель");
   });
 
   it("keeps the disabled pilot login redirect after an unauthenticated reveal is rejected", async () => {
@@ -190,6 +204,13 @@ describe("catalog specifications", () => {
     await act(async () => root.render(createElement(ListingDetail, { listing, relatedListings: [{ ...listing }, ...items] })));
     expect(container.querySelectorAll(".related-listings .listing-card")).toHaveLength(8);
     expect(container.querySelector('.related-listings a[href$="listing-1"]')).toBeNull();
+  });
+
+  it("shows other active listings from the same seller", async () => {
+    const sellerListing = { ...listing, id: "seller-other", status: "active" as const, title: "Ещё одно объявление" };
+    await act(async () => root.render(createElement(ListingDetail, { listing, sellerListings: [sellerListing] })));
+    expect(container.querySelector("#seller-listings-heading")?.textContent).toBe("Другие объявления продавца");
+    expect(container.textContent).toContain("Ещё одно объявление");
   });
 });
 

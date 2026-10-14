@@ -6,6 +6,7 @@ import { Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { CompareButton } from "@/components/compare-button";
 import { api, ApiClientError } from "@/lib/api";
 import { formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import type { ListingSummary, Money } from "@/lib/types";
@@ -114,6 +115,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
           </span>
           {listing.city?.slug ? <Link href={`/cars/city/${encodeURIComponent(listing.city.slug)}`}>{listing.city.name}</Link> : <span>{listing.manual_city || "Населённый пункт не указан"}</span>}
         </div>
+        <div className="card-actions"><CompareButton listingId={listing.id} /></div>
       </div>
     </article>
   );

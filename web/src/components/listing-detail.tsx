@@ -10,7 +10,10 @@ import { FavoriteButton, ListingCard } from "@/components/listing-card";
 import { ListingContactActions } from "@/components/listing-contact-actions";
 import { ListingTrust } from "@/components/listing-trust";
 import { SellerListings, type PublicSellerListing } from "@/components/seller-listings";
+import { CompareButton } from "@/components/compare-button";
+import { ShareButton } from "@/components/share-button";
 import { api, ApiClientError } from "@/lib/api";
+import type { ListingMessengerChannel } from "@/lib/api";
 import { formatDate, formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import type { Listing, ReportCategory } from "@/lib/types";
 
@@ -34,6 +37,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   const router = useRouter();
   const { user } = useAuth();
   const [phone, setPhone] = useState("");
+  const [messengers, setMessengers] = useState<ListingMessengerChannel[]>([]);
   const [phoneError, setPhoneError] = useState("");
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [guestContactRevealEnabled, setGuestContactRevealEnabled] = useState(false);
@@ -118,6 +122,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
     try {
       const result = await api.revealPhone(listing.id, !user);
       setPhone(result.phone);
+      setMessengers(result.messengers ?? []);
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 401) router.push(`/login?next=${encodeURIComponent(href)}`);
       else setPhoneError(error instanceof Error ? error.message : "Не удалось показать контакт");
@@ -161,10 +166,14 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           <p className="detail-price">{formatMoney(listing.price)}</p>
           {listing.price?.currency === "USD" && listing.price.display_byn && listing.price.rate_date && <p className="muted">В BYN по курсу на {formatDate(listing.price.rate_date)}</p>}
           {listing.status === "active" ? <>
-            <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} />
+            <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} messengers={messengers} />
             {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
           </> : <ListingContactActions active={false} guestContactRevealEnabled={false} phone="" busy={false} error="" onReveal={() => undefined} />}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
+          <div className="detail-actions">
+            <CompareButton listingId={listing.id} />
+            <ShareButton href={href} title={listing.title} />
+          </div>
           <div className="seller-box">
             <span className={`seller-tag ${listing.seller.type === "private" ? "private" : ""}`}>
               {listing.seller.type === "company" ? <Building2 size={16} /> : <CircleUserRound size={16} />}
