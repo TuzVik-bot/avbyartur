@@ -209,12 +209,12 @@ def add_listing(
     return listing
 
 
-def run_job(factory, job_id: uuid.UUID) -> None:
+def run_job(factory, job_id: uuid.UUID, *, attempt: int = 1) -> None:
     with factory() as db:
         job = db.get(models.WorkerJob, job_id)
         job.status = "running"
         job.locked_by = "notification-test-worker"
-        job.attempts = 1
+        job.attempts = attempt
         job.lease_until = datetime.now(timezone.utc) + timedelta(minutes=3)
         db.commit()
     _run_job(job_id, "notification-test-worker")
@@ -815,20 +815,36 @@ def test_email_saved_search_is_retained_as_unsupported_without_delivery(integrat
         assert db.scalar(select(models.UserNotification.id).where(models.UserNotification.user_id == subscriber.id)) is None
 
 
-def test_configured_email_saved_search_delivers_only_to_verified_contact(integration, monkeypatch):
+@pytest.mark.parametrize(
+    "fail_after_accept",
+    [
+        pytest.param(False, id="successful-send"),
+        pytest.param(True, id="retry-after-ambiguous-provider-failure"),
+    ],
+)
+def test_configured_email_saved_search_delivers_idempotently(
+    integration, monkeypatch, fail_after_accept
+):
     from app.identity_models import VerifiedEmailContact
     import app.worker as worker
 
-    class MemoryEmailSender:
+    class IdempotentMemoryEmailSender:
         is_configured = True
 
-        def __init__(self):
-            self.sent = []
+        def __init__(self, fail_after_accept):
+            self.attempts = []
+            self.accepted = {}
+            self.fail_after_accept = fail_after_accept
 
         def send_email(self, recipient, subject, body, *, idempotency_key):
-            self.sent.append((recipient, subject, body, idempotency_key))
+            message = (recipient, subject, body, idempotency_key)
+            self.attempts.append(message)
+            self.accepted.setdefault(idempotency_key, message)
+            if self.fail_after_accept:
+                self.fail_after_accept = False
+                raise RuntimeError("simulated provider response loss after acceptance")
 
-    sender = MemoryEmailSender()
+    sender = IdempotentMemoryEmailSender(fail_after_accept)
     monkeypatch.setattr(
         worker, "get_email_sender", lambda _settings=None: sender, raising=False
     )
@@ -886,20 +902,45 @@ def test_configured_email_saved_search_delivers_only_to_verified_contact(integra
 
     run_job(factory, delivery_job_id)
 
-    assert len(sender.sent) == 1
-    recipient, subject, body, dedupe_key = sender.sent[0]
+    if fail_after_accept:
+        with factory() as db:
+            outbox = db.scalar(
+                select(models.NotificationOutbox).where(
+                    models.NotificationOutbox.saved_search_id == saved_search.id,
+                )
+            )
+            delivery_job = db.get(models.WorkerJob, delivery_job_id)
+            assert outbox.status == "queued"
+            assert outbox.attempts == 1
+            assert outbox.last_error == "email_delivery_failed"
+            assert delivery_job.status == "queued"
+            assert delivery_job.attempts == 1
+
+        run_job(factory, delivery_job_id, attempt=2)
+        # Even a duplicate worker execution after success cannot send again.
+        run_job(factory, delivery_job_id, attempt=2)
+
+    expected_attempts = 2 if fail_after_accept else 1
+    assert len(sender.attempts) == expected_attempts
+    assert len(sender.accepted) == 1
+    recipient, subject, body, dedupe_key = sender.attempts[-1]
     assert recipient == subscriber.email
     assert subject == "Новое объявление по сохранённому поиску"
     assert "Audi A4" in body
     assert "https://cars.example.test/cars?q=audi" in body
+    assert {attempt[3] for attempt in sender.attempts} == {dedupe_key}
     with factory() as db:
         outbox = db.scalar(
             select(models.NotificationOutbox).where(
                 models.NotificationOutbox.saved_search_id == saved_search.id,
             )
         )
+        delivery_job = db.get(models.WorkerJob, delivery_job_id)
         assert outbox.status == "delivered"
         assert outbox.last_error is None
+        assert outbox.attempts == expected_attempts
+        assert delivery_job.status == "succeeded"
+        assert delivery_job.attempts == expected_attempts
         assert dedupe_key == outbox.dedupe_key
 
 
@@ -1060,3 +1101,97 @@ def test_saved_search_match_is_suppressed_for_non_matching_listing(integration):
     run_job(factory, match_job_id)
     with factory() as db:
         assert db.scalar(select(models.NotificationOutbox.id).where(models.NotificationOutbox.saved_search_id == saved_search.id)) is None
+
+
+def test_saved_search_notifications_skip_private_and_removed_listings(integration):
+    factory = integration["SessionLocal"]
+    owner = add_user(factory, f"visibility-owner-{uuid.uuid4().hex[:8]}@example.com")
+    subscriber = add_user(factory, f"visibility-subscriber-{uuid.uuid4().hex[:8]}@example.com")
+    private_listing = add_listing(factory, owner.id, title="BMW private listing")
+    removed_listing = add_listing(factory, owner.id, title="BMW removed listing")
+    saved_search = models.SavedSearch(
+        user_id=subscriber.id,
+        name="BMW alerts",
+        search_url="/cars?q=bmw",
+        filters={"q": "bmw"},
+        notifications_enabled=True,
+        notification_channel="web",
+        notification_frequency="instant",
+        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
+    )
+
+    with factory() as db:
+        db.add(saved_search)
+        db.flush()
+        enqueue_saved_search_match(db, private_listing)
+        enqueue_saved_search_match(db, removed_listing)
+        db.commit()
+        private_match_job = db.scalar(
+            select(models.WorkerJob).where(
+                models.WorkerJob.kind == "saved-search.match",
+                models.WorkerJob.payload["listing_id"].as_string() == str(private_listing.id),
+            )
+        )
+        removed_match_job = db.scalar(
+            select(models.WorkerJob).where(
+                models.WorkerJob.kind == "saved-search.match",
+                models.WorkerJob.payload["listing_id"].as_string() == str(removed_listing.id),
+            )
+        )
+        assert private_match_job is not None
+        assert removed_match_job is not None
+        private_match_job_id = private_match_job.id
+        removed_match_job_id = removed_match_job.id
+
+    with factory() as db:
+        current_private = db.get(models.Listing, private_listing.id)
+        current_private.status = "draft"
+        current_private.revision += 1
+        db.commit()
+    run_job(factory, private_match_job_id)
+
+    with factory() as db:
+        assert db.scalar(
+            select(models.NotificationOutbox.id).where(
+                models.NotificationOutbox.saved_search_id == saved_search.id,
+                models.NotificationOutbox.listing_id == private_listing.id,
+            )
+        ) is None
+
+    run_job(factory, removed_match_job_id)
+    with factory() as db:
+        removed_outbox = db.scalar(
+            select(models.NotificationOutbox).where(
+                models.NotificationOutbox.saved_search_id == saved_search.id,
+                models.NotificationOutbox.listing_id == removed_listing.id,
+            )
+        )
+        assert removed_outbox is not None
+        assert removed_outbox.status == "queued"
+        delivery_job = db.scalar(
+            select(models.WorkerJob).where(
+                models.WorkerJob.kind == "notification.deliver",
+                models.WorkerJob.payload["outbox_id"].as_string() == str(removed_outbox.id),
+            )
+        )
+        assert delivery_job is not None
+        removed_outbox_id = removed_outbox.id
+        delivery_job_id = delivery_job.id
+
+    with factory() as db:
+        current_removed = db.get(models.Listing, removed_listing.id)
+        current_removed.status = "archived"
+        current_removed.revision += 1
+        db.commit()
+    run_job(factory, delivery_job_id)
+
+    with factory() as db:
+        removed_outbox = db.get(models.NotificationOutbox, removed_outbox_id)
+        assert removed_outbox.status == "unsupported"
+        assert removed_outbox.last_error == "listing_no_longer_matches"
+        assert db.scalar(
+            select(models.UserNotification.id).where(
+                models.UserNotification.user_id == subscriber.id,
+                models.UserNotification.outbox_id == removed_outbox.id,
+            )
+        ) is None
