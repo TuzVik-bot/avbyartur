@@ -42,7 +42,8 @@ export async function POST(request: Request) {
     if (typeof p.path === "string" && isPublicAssistantPage(p.path) && typeof p.title === "string" && typeof p.text === "string") page = { path: p.path, title: p.title.slice(0, 160), text: p.text.slice(0, 6000) };
   }
   inFlight++; hour.count++;
-  try { return json(await answerAssistant({ message: body.message.trim(), filters: validateAssistantFilters(body.filters), history, page, action: body.action === "summary" ? "summary" : undefined })); }
+  const listingIds = Array.isArray(body.listingIds) ? body.listingIds.filter((id) => typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)).slice(0, 3) : [];
+  try { return json(await answerAssistant({ message: body.message.trim(), filters: validateAssistantFilters(body.filters), history, page, listingIds, action: body.action === "summary" ? "summary" : undefined })); }
   catch (error) {
     const code = error instanceof Error ? error.message : "";
     const message = code === "search_unavailable" ? "Поиск по цене сейчас недоступен: не удалось получить свежий курс валют. Попробуйте позже или откройте каталог." : code.startsWith("model_") ? "ИИ временно не ответил. Попробуйте ещё раз чуть позже; каталог сайта доступен." : "Не удалось получить данные сайта. Попробуйте ещё раз позже.";

@@ -111,7 +111,7 @@ export function SiteAssistant() {
     const timer = setTimeout(() => abort.abort(), 35000);
     try {
       const response = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, signal: abort.signal,
-        body: JSON.stringify({ message, filters, history: messages.slice(-6).map(({ role, text }) => ({ role, content: text })), ...(summary ? { action: "summary", page } : {}) }) });
+        body: JSON.stringify({ message, filters, history: messages.slice(-6).map(({ role, text }) => ({ role, content: text })), listingIds: [...messages].reverse().find((item) => item.reply?.listings.length)?.reply?.listings.slice(0, 3).map((listing) => listing.id) || [], ...(summary ? { action: "summary", page } : {}) }) });
       const reply = await response.json();
       if (!response.ok) throw new Error(reply.message || "Помощник временно недоступен.");
       setFilters(reply.filters); setEngine(reply.engine);
