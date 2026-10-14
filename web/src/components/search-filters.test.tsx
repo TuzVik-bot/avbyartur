@@ -54,6 +54,8 @@ describe("search filter dependencies", () => {
     })));
 
     const form = container.querySelector<HTMLFormElement>("form")!;
+    expect(form.querySelector<HTMLAnchorElement>(".filter-reset")?.getAttribute("href")).toBe("/cars");
+    expect(new FormData(form).get("page")).toBeNull();
     const price = form.querySelector<HTMLInputElement>('input[name="price_min"]')!;
     price.value = "10000";
     await act(async () => { price.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -68,6 +70,77 @@ describe("search filter dependencies", () => {
     expect(count.mock.calls[0][0]).not.toHaveProperty("page");
     expect(count.mock.calls[0][0]).not.toHaveProperty("page_size");
     expect(new FormData(form).getAll("equipment")).toEqual(["abs", "rear_camera"]);
+    expect(container.querySelector(".filter-apply")?.textContent).toContain("Показать 2 предложения");
+  });
+
+  it.each([0, 1, 2, 5, 1234])("shows the initial matching total %i", async (total) => {
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: {}, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [], initialCount: total
+    })));
+
+    expect(container.querySelector(".filter-apply")?.textContent).toContain(total.toLocaleString("ru-BY"));
+    expect(container.querySelector('[data-count-state="count"]')?.textContent).toContain(total.toLocaleString("ru-BY"));
+  });
+
+  it("counts dependent filters after the parent change has cleared stale child fields", async () => {
+    vi.useFakeTimers();
+    const count = vi.spyOn(api, "listingCount").mockResolvedValue({ total: 4 });
+    vi.spyOn(api, "catalog").mockImplementation(async (kind, params = {}) => {
+      if (kind === "models" && params.make_id === makeB.id) return { items: [modelB] };
+      return { items: [] };
+    });
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: {
+        make_id: makeA.id,
+        model_id: modelA.id,
+        generation_id: generationA.id,
+        body_variant_id: "variant-a",
+        modification_id: modificationA.id
+      },
+      makes: [makeA, makeB],
+      initialModels: [modelA],
+      initialGenerations: [generationA],
+      initialModifications: [modificationA],
+      regions: [], initialCities: [], bodyTypes: []
+    })));
+
+    await act(async () => {
+      choose("make_id", makeB.id);
+      await Promise.resolve();
+    });
+    await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
+
+    const countedFilters = count.mock.calls.at(-1)?.[0];
+    expect(countedFilters).toMatchObject({ make_id: makeB.id });
+    expect(countedFilters).not.toHaveProperty("model_id");
+    expect(countedFilters).not.toHaveProperty("generation_id");
+    expect(countedFilters).not.toHaveProperty("body_variant_id");
+    expect(countedFilters).not.toHaveProperty("modification_id");
+  });
+
+  it("ignores an older filter-count response after a newer request", async () => {
+    vi.useFakeTimers();
+    let resolveFirst!: (value: { total: number }) => void;
+    let resolveSecond!: (value: { total: number }) => void;
+    const count = vi.spyOn(api, "listingCount")
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }));
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: {}, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [], initialCount: 10
+    })));
+
+    const minimum = container.querySelector<HTMLInputElement>('input[name="price_min"]')!;
+    minimum.value = "10000";
+    await act(async () => { minimum.dispatchEvent(new Event("input", { bubbles: true })); });
+    await act(async () => { vi.advanceTimersByTime(300); });
+    const maximum = container.querySelector<HTMLInputElement>('input[name="price_max"]')!;
+    maximum.value = "20000";
+    await act(async () => { maximum.dispatchEvent(new Event("input", { bubbles: true })); });
+    await act(async () => { vi.advanceTimersByTime(300); });
+
+    await act(async () => { resolveSecond({ total: 2 }); });
+    await act(async () => { resolveFirst({ total: 99 }); });
+    expect(count).toHaveBeenCalledTimes(2);
     expect(container.querySelector(".filter-apply")?.textContent).toContain("Показать 2 предложения");
   });
 
@@ -230,11 +303,12 @@ describe("search filter dependencies", () => {
   it("keeps the extended seller fields, feature toggles, and repeated equipment selections", async () => {
     await act(async () => {
       root.render(createElement(SearchFilters, {
-        search: { color: "blue", customs_status: "cleared_rb", technical_condition: "good", body_condition: "repaired", exchange: "true", credit: "true", equipment: ["abs", "rear_camera"], district: "Центральный", has_vin: "true", engine_volume_min: "1.6", power_max: "180" },
+        search: { category_code: "parts", color: "blue", customs_status: "cleared_rb", technical_condition: "good", body_condition: "repaired", exchange: "true", credit: "true", equipment: ["abs", "rear_camera"], district: "Центральный", has_vin: "true", engine_volume_min: "1.6", power_max: "180" },
         makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: []
       }));
     });
     const submitted = new FormData(container.querySelector<HTMLFormElement>("form")!);
+    expect(submitted.get("category_code")).toBe("parts");
     expect(submitted.get("color")).toBe("blue");
     expect(submitted.get("customs_status")).toBe("cleared_rb");
     expect(submitted.get("technical_condition")).toBe("good");

@@ -20,8 +20,10 @@ export function readSearchParams(input: URLSearchParams | Record<string, string 
   const result: ListingSearch = {};
   for (const key of allowedSearchKeys) {
     const value = input instanceof URLSearchParams ? key === "equipment" ? input.getAll(key) : input.get(key) : input[key];
-    if (key === "equipment" && Array.isArray(value)) {
-      const values = value.filter((item): item is string => typeof item === "string" && item.trim() !== "").map((item) => item.trim());
+    if (key === "equipment") {
+      const values = (Array.isArray(value) ? value : [value])
+        .filter((item): item is string => typeof item === "string" && item.trim() !== "")
+        .map((item) => item.trim());
       if (values.length) result.equipment = values;
       continue;
     }

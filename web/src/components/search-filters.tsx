@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Filter, SlidersHorizontal, X } from "lucide-react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch } from "@/lib/types";
 
@@ -95,15 +96,12 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const updateCount = () => {
       if (timeout) clearTimeout(timeout);
-      const nextSearch = searchFromFilterForm(form);
       const currentRequest = ++countRequestId.current;
       setCountLoading(false);
-      if (!Object.keys(nextSearch).length) {
-        setResultCount(initialCount ?? null);
-        return;
-      }
       setResultCount(null);
       timeout = setTimeout(async () => {
+        // Read after React has applied dependent-field resets from this event.
+        const nextSearch = searchFromFilterForm(form);
         setCountLoading(true);
         try {
           const response = await api.listingCount(nextSearch);
@@ -456,6 +454,7 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
             </div>
           </fieldset>
           <input type="hidden" name="currency" value={search.currency || "BYN"} />
+          {search.category_code && <input type="hidden" name="category_code" value={search.category_code} />}
           {search.q && <input type="hidden" name="q" value={search.q} />}
           {search.sort && <input type="hidden" name="sort" value={search.sort} />}
           <fieldset className="filter-wide">
@@ -507,7 +506,10 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <input type="hidden" name="page_size" value={search.page_size || "25"} />
           </div>
           <div className="filter-wide filter-apply-wrap">
-            <button className="button button-primary filter-apply" type="submit">{countLoading ? "Подбираем…" : resultCount === null ? "Показать автомобили" : `Показать ${offerLabel(resultCount)}`}</button>
+            <div className="filter-actions">
+              <Link className="button button-secondary filter-reset" href="/cars">Сбросить фильтры</Link>
+              <button className="button button-primary filter-apply" type="submit">{countLoading ? "Подбираем…" : resultCount === null ? "Показать автомобили" : `Показать ${offerLabel(resultCount)}`}</button>
+            </div>
             <span className="filter-result-count" role="status" aria-live="polite" data-count-state={resultCount === null ? "generic" : "count"}>
               {countLoading ? "Подбираем подходящие предложения" : resultCount === null ? "Количество уточнится после применения фильтров" : `Найдено ${offerLabel(resultCount)}`}
             </span>

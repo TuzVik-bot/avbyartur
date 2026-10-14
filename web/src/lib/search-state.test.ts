@@ -83,4 +83,11 @@ describe("URL-backed listing filters", () => {
     expect(search).toMatchObject({ equipment: ["abs", "rear_camera"], color: "blue", customs_status: "cleared_rb", power_min: "150", has_vin: "true" });
     expect(searchUrl(search)).toBe("/cars?color=blue&customs_status=cleared_rb&equipment=abs&equipment=rear_camera&has_vin=true&power_min=150");
   });
+
+  it("normalizes a single equipment value from the Next.js search-params record", () => {
+    const search = readSearchParams({ equipment: "abs" });
+
+    expect(search.equipment).toEqual(["abs"]);
+    expect(searchUrl(search)).toBe("/cars?equipment=abs");
+  });
 });
