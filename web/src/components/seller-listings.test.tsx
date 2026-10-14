@@ -29,4 +29,12 @@ describe("seller listings", () => {
     const html = renderToStaticMarkup(createElement(CompareProvider, null, createElement(SellerListings, { listingId: "current", sellerId: "seller-1", items: [listing("current")] })));
     expect(html).toBe("");
   });
+
+  it("keeps descending ID order when creation timestamps match", () => {
+    const timestamp = "2026-10-01T00:00:00Z";
+    const html = renderToStaticMarkup(createElement(CompareProvider, null, createElement(SellerListings, {
+      listingId: "current", sellerId: "seller-1", items: [listing("seller-a", timestamp), listing("seller-z", timestamp)]
+    })));
+    expect(html.indexOf("seller-z")).toBeLessThan(html.indexOf("seller-a"));
+  });
 });

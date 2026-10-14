@@ -258,6 +258,23 @@ def test_phone_reveal_returns_only_opted_in_messengers(integration):
     }
 
 
+def test_phone_reveal_returns_no_channels_when_seller_has_not_opted_in(integration):
+    factory = integration["SessionLocal"]
+    owner = _add_user(factory)
+    buyer = _add_user(factory)
+    listing = _add_listing(factory, owner.id)
+    client = _client(integration)
+    csrf = _login(client, buyer.email)
+
+    response = client.post(
+        f"/api/v1/listings/{listing.id}/phone-reveal",
+        headers=_csrf(csrf),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"phone": listing.contact_phone, "messengers": []}
+
+
 def test_owner_can_edit_messenger_links_but_other_users_and_public_readers_cannot(integration):
     factory = integration["SessionLocal"]
     owner = _add_user(factory)
