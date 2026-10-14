@@ -5,6 +5,15 @@ import uuid
 import pytest
 
 from app.market_pricing import build_market_comparisons
+from app.models import (
+    CatalogBodyType,
+    CatalogGeneration,
+    CatalogMake,
+    CatalogModel,
+    Company,
+    Listing,
+    User,
+)
 
 
 def _listing(**overrides):
@@ -46,6 +55,100 @@ def _compare(target, candidates):
     return build_market_comparisons(FakeSession(candidates), [target], (None, False))[
         target.id
     ]
+
+
+def _db_market_catalog(db):
+    suffix = uuid.uuid4().hex
+    make = CatalogMake(slug=f"market-make-{suffix}", name="Market Make", aliases=[])
+    db.add(make)
+    db.flush()
+    model = CatalogModel(
+        make_id=make.id,
+        slug=f"market-model-{suffix}",
+        name="Market Model",
+        aliases=[],
+    )
+    db.add(model)
+    db.flush()
+    generation = CatalogGeneration(
+        model_id=model.id,
+        slug=f"market-generation-{suffix}",
+        name="Market Generation",
+        year_from=2018,
+        year_to=2022,
+    )
+    body_type = CatalogBodyType(slug=f"market-body-{suffix}", name="Sedan")
+    db.add_all([generation, body_type])
+    db.flush()
+    return make, model, generation, body_type
+
+
+def _db_market_owner(db, *, status="active"):
+    owner = User(
+        email=f"market-{uuid.uuid4().hex}@example.com",
+        display_name="Market Seller",
+        password_hash="unused",
+        role="user",
+        status=status,
+    )
+    db.add(owner)
+    db.flush()
+    return owner
+
+
+def _db_market_company(db, owner, *, status="pending"):
+    company = Company(
+        owner_id=owner.id,
+        name="Pending Market Company",
+        slug=f"pending-market-{uuid.uuid4().hex}",
+        unp=f"{uuid.uuid4().int % 999_999_999 + 1:09d}",
+        address="Test address",
+        phone="+375291234567",
+        status=status,
+    )
+    db.add(company)
+    db.flush()
+    return company
+
+
+def _db_market_listing(
+    db,
+    owner,
+    catalog,
+    amount,
+    *,
+    status="active",
+    category_code="cars",
+    company=None,
+):
+    make, model, generation, body_type = catalog
+    listing = Listing(
+        owner_id=owner.id,
+        company_id=company.id if company else None,
+        slug=f"market-listing-{uuid.uuid4().hex}",
+        status=status,
+        category_code=category_code,
+        revision=1,
+        title="Market Make Market Model",
+        make_id=make.id,
+        model_id=model.id,
+        generation_id=generation.id,
+        body_type_id=body_type.id,
+        year=2020,
+        mileage_km=80_000,
+        condition="used",
+        fuel="petrol",
+        transmission="automatic",
+        damaged=False,
+        parts_only=False,
+        price_amount=Decimal(amount),
+        currency="BYN",
+        description="",
+        contact_phone="+375291234567",
+    )
+    db.add(listing)
+    db.flush()
+    return listing
 
 
 def test_market_comparison_hides_ten_listings_from_fewer_than_five_sellers():
@@ -200,6 +303,59 @@ def test_market_comparison_batches_twenty_five_targets_and_queries_only_car_anal
     assert "listings.status =" in query
     assert "users.status =" in query
     assert "companies.status =" in query
+
+
+def test_database_query_uses_only_active_public_car_analogs_and_excludes_target_seller(
+    integration,
+):
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        catalog = _db_market_catalog(db)
+        target_owner = _db_market_owner(db)
+        target = _db_market_listing(db, target_owner, catalog, "18000")
+        for _ in range(10):
+            _db_market_listing(db, _db_market_owner(db), catalog, "20000")
+
+        # These rows match the car cohort but must not affect the comparison.
+        _db_market_listing(db, target_owner, catalog, "1000")
+        _db_market_listing(
+            db,
+            _db_market_owner(db),
+            catalog,
+            "1000",
+            category_code="trucks",
+        )
+        _db_market_listing(
+            db,
+            _db_market_owner(db),
+            catalog,
+            "1000",
+            status="paused",
+        )
+        _db_market_listing(
+            db,
+            _db_market_owner(db, status="inactive"),
+            catalog,
+            "1000",
+        )
+        pending_company_owner = _db_market_owner(db)
+        pending_company = _db_market_company(db, pending_company_owner)
+        _db_market_listing(
+            db,
+            pending_company_owner,
+            catalog,
+            "1000",
+            company=pending_company,
+        )
+        db.flush()
+
+        comparison = build_market_comparisons(db, [target], (None, False))[target.id]
+
+    assert comparison is not None
+    assert comparison["label"] == "below_market"
+    assert comparison["median_byn"] == "20000.00"
+    assert comparison["sample_size"] == 10
+    assert comparison["seller_count"] == 10
 
 
 @pytest.mark.parametrize(
