@@ -334,6 +334,7 @@ def test_saved_search_api_queue_delivery_and_pause_cancellation(integration):
         )
         assert match_job is not None
         match_job_id = match_job.id
+        db.commit()
     run_job(factory, match_job_id)
 
     with factory() as db:
@@ -371,6 +372,7 @@ def test_saved_search_api_queue_delivery_and_pause_cancellation(integration):
         )
         assert match_job is not None
         second_match_job_id = match_job.id
+        db.commit()
     run_job(factory, second_match_job_id)
 
     paused_response = client.post(
