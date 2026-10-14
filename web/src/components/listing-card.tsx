@@ -79,7 +79,10 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
   const title = listing.title || [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ") || "Автомобиль без названия";
   const comparison = listing.price?.market_comparison;
   const age = publishedAge(listing.published_at);
-  const engineVolume = listing.engine_volume_l === null || listing.engine_volume_l === undefined || listing.engine_volume_l === "" ? null : Number(listing.engine_volume_l);
+  const engineVolumeValue = listing.engine_volume_l;
+  const engineVolume = typeof engineVolumeValue === "string"
+    ? engineVolumeValue.trim() ? Number(engineVolumeValue) : null
+    : engineVolumeValue ?? null;
   return (
     <article className={`listing-card ${variant === "row" ? "listing-row" : ""}`}>
       <div className="listing-card-media">
@@ -98,7 +101,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
         <div className="card-specs">
           <span>{listing.year ? `${listing.year} г.` : "Год не указан"}</span>
           <span>{formatMileage(listing.mileage_km)}</span>
-          {engineVolume !== null && Number.isFinite(engineVolume) && <span>{new Intl.NumberFormat("ru-BY", { maximumFractionDigits: 1 }).format(engineVolume)} л</span>}
+          {listing.fuel !== "electric" && engineVolume !== null && Number.isFinite(engineVolume) && <span>{new Intl.NumberFormat("ru-BY", { maximumFractionDigits: 1 }).format(engineVolume)} л</span>}
           {typeof listing.power_hp === "number" && Number.isFinite(listing.power_hp) && <span>{listing.power_hp} л.с.</span>}
           <span>{vehicleLabel(listing.fuel)}</span>
           <span>{vehicleLabel(listing.transmission)}</span>

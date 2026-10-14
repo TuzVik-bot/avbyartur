@@ -35,8 +35,10 @@ def _listing(**overrides):
 class FakeSession:
     def __init__(self, listings):
         self.listings = listings
+        self.statements = []
 
-    def scalars(self, _statement):
+    def scalars(self, statement):
+        self.statements.append(statement)
         return SimpleNamespace(all=lambda: self.listings)
 
 
@@ -59,6 +61,29 @@ def test_market_comparison_hides_ten_listings_from_fewer_than_five_sellers():
     assert _compare(target, candidates) is None
 
 
+def test_market_comparison_requires_ten_listings_and_five_sellers_at_the_threshold():
+    target = _listing(owner_id=uuid.UUID(int=1000))
+    nine_candidates = [
+        _listing(owner_id=uuid.UUID(int=index + 1), price_amount=Decimal("20000"))
+        for index in range(9)
+    ]
+    assert _compare(target, nine_candidates) is None
+
+    ten_candidates = [
+        _listing(
+            owner_id=uuid.UUID(int=(index % 5) + 1),
+            price_amount=Decimal("20000"),
+        )
+        for index in range(10)
+    ]
+    comparison = _compare(target, ten_candidates)
+
+    assert comparison is not None
+    assert comparison["label"] == "below_market"
+    assert comparison["sample_size"] == 10
+    assert comparison["seller_count"] == 5
+
+
 def test_market_comparison_hides_sample_with_iqr_over_half_the_median():
     target = _listing(owner_id=uuid.UUID(int=1000))
     prices = [Decimal("10000")] * 6 + [Decimal("30000")] * 4
@@ -68,6 +93,113 @@ def test_market_comparison_hides_sample_with_iqr_over_half_the_median():
     ]
 
     assert _compare(target, candidates) is None
+
+
+def test_market_comparison_excludes_the_target_listing_and_seller():
+    target_seller = uuid.UUID(int=1000)
+    target = _listing(owner_id=target_seller)
+    candidates = [
+        _listing(owner_id=uuid.UUID(int=index + 1), price_amount=Decimal("20000"))
+        for index in range(10)
+    ]
+    candidates.extend(
+        _listing(owner_id=target_seller, price_amount=Decimal("1000"))
+        for _ in range(3)
+    )
+    candidates.append(
+        _listing(
+            id=target.id,
+            owner_id=target_seller,
+            price_amount=Decimal("1000"),
+        )
+    )
+
+    comparison = _compare(target, candidates)
+
+    assert comparison is not None
+    assert comparison["sample_size"] == 10
+    assert comparison["seller_count"] == 10
+    assert comparison["median_byn"] == "20000.00"
+
+
+def test_market_comparison_hides_many_listings_from_one_dealer():
+    target = _listing(owner_id=uuid.UUID(int=1000))
+    company_id = uuid.UUID(int=2000)
+    candidates = [
+        _listing(
+            owner_id=uuid.UUID(int=index + 1),
+            company_id=company_id,
+            price_amount=Decimal("20000"),
+        )
+        for index in range(10)
+    ]
+
+    assert _compare(target, candidates) is None
+
+
+def test_market_comparison_converts_usd_analogs_with_a_fresh_rate():
+    target = _listing(owner_id=uuid.UUID(int=1000))
+    candidates = [
+        _listing(owner_id=uuid.UUID(int=index + 1), price_amount=Decimal("20000"))
+        for index in range(9)
+    ]
+    candidates.append(
+        _listing(
+            owner_id=uuid.UUID(int=10),
+            price_amount=Decimal("6666.67"),
+            currency="USD",
+        )
+    )
+    rate = SimpleNamespace(
+        official_rate=Decimal("3"), scale=1, rate_date="2026-10-14"
+    )
+
+    comparison = build_market_comparisons(
+        FakeSession(candidates), [target], (rate, True)
+    )[target.id]
+
+    assert comparison is not None
+    assert comparison["median_byn"] == "20000.00"
+    assert comparison["rate_date"] == "2026-10-14"
+
+
+def test_market_comparison_hides_mixed_currencies_when_the_rate_is_stale():
+    target = _listing(owner_id=uuid.UUID(int=1000))
+    candidates = [
+        _listing(owner_id=uuid.UUID(int=index + 1), price_amount=Decimal("20000"))
+        for index in range(9)
+    ]
+    candidates.append(
+        _listing(
+            owner_id=uuid.UUID(int=10),
+            price_amount=Decimal("6666.67"),
+            currency="USD",
+        )
+    )
+
+    assert build_market_comparisons(FakeSession(candidates), [target], (None, False))[target.id] is None
+
+
+def test_market_comparison_batches_twenty_five_targets_and_queries_only_car_analogs():
+    targets = [
+        _listing(owner_id=uuid.UUID(int=10_000 + index))
+        for index in range(25)
+    ]
+    candidates = [
+        _listing(owner_id=uuid.UUID(int=index + 1), price_amount=Decimal("20000"))
+        for index in range(10)
+    ]
+    session = FakeSession(candidates)
+
+    comparisons = build_market_comparisons(session, targets, (None, False))
+
+    assert len(session.statements) == 1
+    assert all(comparisons[target.id] is not None for target in targets)
+    query = str(session.statements[0])
+    assert "listings.category_code =" in query
+    assert "listings.status =" in query
+    assert "users.status =" in query
+    assert "companies.status =" in query
 
 
 @pytest.mark.parametrize(
