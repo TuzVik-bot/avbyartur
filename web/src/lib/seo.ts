@@ -99,12 +99,15 @@ export function buildVehicleJsonLd(listing: Listing) {
   if (listing.body_type) schema.bodyType = listing.body_type;
   if (images.length) schema.image = images;
 
-  const amount = listing.price ? Number(listing.price.amount) : NaN;
+  const rawAmount = listing.price?.amount;
+  const amount = typeof rawAmount === "string" && /^\d+(?:\.\d+)?$/.test(rawAmount)
+    ? Number(rawAmount)
+    : NaN;
   if (listing.price && Number.isFinite(amount) && amount > 0 && ["BYN", "USD"].includes(listing.price.currency)) {
     schema.offers = {
       "@type": "Offer",
       url: canonical,
-      price: listing.price.amount,
+      price: rawAmount,
       priceCurrency: listing.price.currency,
       availability: "https://schema.org/InStock",
     };
