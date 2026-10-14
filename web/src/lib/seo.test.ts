@@ -67,6 +67,41 @@ describe("public listing SEO data", () => {
     expect(JSON.stringify(jsonLd)).not.toContain("+375291234567");
   });
 
+  it("omits Offer when price is absent or is not a plain positive decimal", () => {
+    for (const price of [null, { amount: "<script>alert(1)</script>", currency: "USD" }, { amount: "0", currency: "USD" }, { amount: "25000", currency: "EUR" }] as const) {
+      const jsonLd = buildVehicleJsonLd(activeListing({ price: price as Listing["price"] }));
+      expect(jsonLd).not.toHaveProperty("offers");
+    }
+  });
+
+  it("omits image when the listing has no photos and ignores unsafe photo URLs", () => {
+    const noPhotos = buildVehicleJsonLd(activeListing({ cover_url: null, photo_urls: [] }));
+    expect(noPhotos).not.toHaveProperty("image");
+
+    const unsafePhotos = buildVehicleJsonLd(activeListing({
+      cover_url: "//attacker.invalid/cover.jpg",
+      photo_urls: ["https://attacker.invalid/photo.jpg", "javascript:alert(1)", "data:image/svg+xml,<svg>"]
+    }));
+    expect(unsafePhotos).not.toHaveProperty("image");
+  });
+
+  it("safely serializes malicious seller text without adding arbitrary fields", () => {
+    const jsonLd = buildVehicleJsonLd(activeListing({
+      title: "</script><script>alert(1)</script>",
+      description: "tel:+375291234567 <img src=x onerror=alert(1)>",
+      seller: { type: "private", id: "seller-1", name: "<script>steal()</script>" },
+    }));
+    const serialized = serializeJsonLd(jsonLd);
+
+    expect(serialized).not.toContain("</script>");
+    expect(serialized).not.toContain("contact_phone");
+    expect(serialized).not.toContain("+375291234567");
+    expect(serialized).not.toContain("steal()");
+    expect(Object.keys(jsonLd ?? {}).sort()).toEqual([
+      "@context", "@type", "bodyType", "brand", "driveWheelConfiguration", "fuelType", "image", "mileageFromOdometer", "model", "name", "offers", "url", "vehicleModelDate", "vehicleTransmission",
+    ].sort());
+  });
+
   it("keeps sold listings visible without indexing them", () => {
     const metadata = buildListingMetadata(activeListing({ status: "sold" }));
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowUpRight, Building2, Wrench } from "lucide-react";
 import { InformationalPage } from "@/components/informational-page";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Полезная информация" };
 
@@ -46,6 +47,11 @@ export default function UsefulInformationPage() {
             </article>
           ))}
         </div>
+      </section>
+      <section className="info-section">
+        <h2>Покупка автомобиля</h2>
+        <p>Сверьте документы и VIN, осмотрите машину и договоритесь о независимой диагностике до расчёта.</p>
+        <Link className="text-link" href="/useful-information/check-car-before-buying">Как проверить авто перед покупкой <ArrowUpRight size={16} aria-hidden="true" /></Link>
       </section>
       <section className="info-section">
         <h2>Перед поездкой</h2>
