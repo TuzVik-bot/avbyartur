@@ -16,7 +16,7 @@ type SavedSearchActionProps = {
 function canonicalSearch(search: ListingSearch) {
   const pairs: Array<[string, string]> = [];
   for (const key of Object.keys(search).sort()) {
-    if (key === "page" || key === "page_size") continue;
+    if (key === "page" || key === "page_size" || key === "sort") continue;
     const value = search[key as keyof ListingSearch];
     const values = Array.isArray(value) ? [...new Set(value)].sort() : [value];
     for (const entry of values) {

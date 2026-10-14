@@ -45,6 +45,7 @@ from app.models import (
 from app.notification_service import (
     saved_search_digest_email_content,
     saved_search_email_content,
+    saved_search_filter_snapshot,
     saved_search_filters,
     saved_search_matches,
 )
@@ -499,8 +500,7 @@ def _enqueue_daily_notification_batch(db, saved_search: SavedSearch, listing: Li
         prior_payload = dict(outbox.payload or {})
         same_snapshot = (
             prior_payload.get("notification_frequency") == saved_search.notification_frequency
-            and prior_payload.get("search_url") == saved_search.search_url
-            and prior_payload.get("filters") == current_filters
+            and saved_search_filter_snapshot(prior_payload.get("filters")) == current_filters
             and prior_payload.get("subscription_started_at") == subscription_started_at
         )
         if outbox.status in {"delivered", "running"}:
@@ -764,7 +764,6 @@ def _saved_search_delivery_snapshot(
         "notifications_enabled": saved_search.notifications_enabled,
         "notification_channel": saved_search.notification_channel,
         "notification_frequency": saved_search.notification_frequency,
-        "search_url": saved_search.search_url,
         "filters": filters,
         "subscription_started_at": _subscription_started_at_snapshot(saved_search),
     }
@@ -988,8 +987,10 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 or not saved_search.notifications_enabled
                 or saved_search.notification_channel != outbox.channel
                 or (payload.get("notification_frequency") is not None and saved_search.notification_frequency != payload["notification_frequency"])
-                or (payload.get("search_url") is not None and saved_search.search_url != payload["search_url"])
-                or (payload.get("filters") is not None and current_filters != payload["filters"])
+                or (
+                    payload.get("filters") is not None
+                    and current_filters != saved_search_filter_snapshot(payload["filters"])
+                )
                 or ("subscription_started_at" in payload and current_subscription_started_at != payload["subscription_started_at"])
             ):
                 outbox.status = "cancelled" if is_batch else "unsupported"

@@ -16,6 +16,19 @@ from app.models import Listing, SavedSearch
 from app.services import listing_matches_public_search
 
 SAVED_SEARCH_EMAIL_SUBJECT = "Новое объявление по сохранённому поиску"
+_SAVED_SEARCH_PRESENTATION_KEYS = frozenset({"page", "page_size", "sort"})
+
+
+def saved_search_filter_snapshot(filters: Any) -> dict[str, Any] | None:
+    """Drop pagination and ordering from current or legacy filter snapshots."""
+
+    if not isinstance(filters, dict):
+        return None
+    return {
+        key: value
+        for key, value in filters.items()
+        if key not in _SAVED_SEARCH_PRESENTATION_KEYS
+    }
 
 
 def saved_search_email_content(payload: dict[str, Any], public_app_url: str) -> tuple[str, str]:
@@ -162,7 +175,7 @@ def saved_search_filters(saved_search: SavedSearch) -> dict[str, Any]:
     query = parse_qs(parsed.query, keep_blank_values=False, max_num_fields=64)
     filters: dict[str, Any] = {}
     for key, values in query.items():
-        if key in {"page", "page_size"} or not values:
+        if key in _SAVED_SEARCH_PRESENTATION_KEYS or not values:
             continue
         if key == "equipment":
             filters[key] = values
@@ -170,7 +183,7 @@ def saved_search_filters(saved_search: SavedSearch) -> dict[str, Any]:
             if len(set(values)) > 1:
                 raise ValueError(f"Contradictory repeated URL filter: {key}")
             filters[key] = values[0]
-    return filters
+    return saved_search_filter_snapshot(filters) or {}
 
 
 def saved_search_matches(db: Session, saved_search: SavedSearch, listing: Listing) -> bool:

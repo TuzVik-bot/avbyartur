@@ -60,7 +60,7 @@ describe("saved searches", () => {
   it("renders an empty state and creates a search from a relative URL", async () => {
     const created = search({ id: "search-2", name: "Мой новый поиск", url: "/cars?q=Belgee", filters: { q: "Belgee" } });
     request.mockResolvedValueOnce({ preferences: { email_verified: false, email_delivery_configured: false } }).mockResolvedValueOnce({ saved_search: created });
-    await act(async () => root.render(createElement(SavedSearches, { initialItems: [], initialUrl: "/cars?q=Belgee" })));
+    await act(async () => root.render(createElement(SavedSearches, { initialItems: [], initialUrl: "/cars?q=Belgee&page=3&sort=price_asc" })));
 
     expect(container.textContent).toContain("Сохранённых поисков пока нет");
     const form = container.querySelector<HTMLFormElement>("form")!;
