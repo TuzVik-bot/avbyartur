@@ -10,7 +10,7 @@ import { requireSession } from "@/lib/server";
 import type { CatalogItem, Company, Listing, ListingPhoto } from "@/lib/types";
 
 type SearchParams = { listing?: string | string[]; category?: string | string[] };
-export const metadata: Metadata = { title: "Подать объявление" };
+export const metadata: Metadata = { title: "Подать объявление", robots: { index: false, follow: false } };
 
 export default async function SellPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requireSession("/sell");

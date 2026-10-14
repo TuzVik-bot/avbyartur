@@ -51,9 +51,10 @@ export default async function DealerAnalyticsPage({ searchParams }: { searchPara
           <article><span>Показов телефона</span><strong>{analytics.totals.contact_reveals}</strong></article>
           <article><span>Диалогов</span><strong>{analytics.totals.chats}</strong></article>
           <article><span>Просмотров</span><strong>{analytics.totals.views}</strong></article>
+          <article><span>Переходов к компании</span><strong>{analytics.totals.company_clicks}</strong></article>
         </div>
         <section className="section" aria-labelledby="dealer-analytics-listings"><div className="section-heading"><h2 id="dealer-analytics-listings">По объявлениям</h2></div>
-          {!analytics.items.length ? <p className="muted" role="status">За этот период нет объявлений для отображения.</p> : <div className="info-table-wrap"><table className="info-table"><thead><tr><th>Объявление</th><th>Состояние</th><th>Показы телефона</th><th>Диалоги</th><th>Просмотры</th></tr></thead><tbody>{analytics.items.map((item) => { const status = listingStatusBadge(item.status); return <tr key={item.listing_id}><td>{item.title}</td><td><span className={status.className}>{status.label}</span></td><td>{item.contact_reveals}</td><td>{item.chats}</td><td>{item.views}</td></tr>; })}</tbody></table></div>}
+          {!analytics.items.length ? <p className="muted" role="status">За этот период нет объявлений для отображения.</p> : <div className="info-table-wrap"><table className="info-table"><thead><tr><th>Объявление</th><th>Состояние</th><th>Показы телефона</th><th>Диалоги</th><th>Просмотры</th><th>Переходы к компании</th></tr></thead><tbody>{analytics.items.map((item) => { const status = listingStatusBadge(item.status); return <tr key={item.listing_id}><td>{item.title}</td><td><span className={status.className}>{status.label}</span></td><td>{item.contact_reveals}</td><td>{item.chats}</td><td>{item.views}</td><td>{item.company_clicks}</td></tr>; })}</tbody></table></div>}
         </section>
       </>}
   </div>;

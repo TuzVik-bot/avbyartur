@@ -133,7 +133,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   }
 
   const normalizedPath = path.replace(/^\//, "");
-  const csrfExempt = new Set(["auth/login", "auth/recovery/request", "auth/recovery/confirm", "auth/email/verification/confirm"]).has(normalizedPath);
+  const csrfExempt = new Set(["auth/login", "auth/recovery/request", "auth/recovery/confirm", "auth/email/verification/confirm", "dealer/clicks"]).has(normalizedPath);
   if (!new Set(["GET", "HEAD", "OPTIONS"]).has(method) && !csrfExempt) {
     const token = await ensureCsrfToken(path);
     if (token) headers.set("X-CSRF-Token", token);
@@ -289,6 +289,7 @@ export const api = {
   updateCompany: (id: string, revision: number, data: components["schemas"]["CompanyInput"]) => apiRequest<{ company: Company }>(`companies/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ ...data, expected_revision: revision }) }),
   dealers: () => apiRequest<ListResponse<CompanySummary>>("dealers"),
   dealer: (slug: string) => apiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary> }>(`dealers/${encodeURIComponent(slug)}`),
+  trackDealerClick: (listingId: string) => apiRequest<{ accepted: true }>("dealer/clicks", { method: "POST", body: JSON.stringify({ listing_id: listingId, source: "listing_detail" }), keepalive: true }),
   moderationListings: () => apiRequest<{ items: Listing[] }>("moderation/listings"),
   setListingPhotoBadges: (id: string, expected_revision: number, photo_badges: import("@/lib/types").PhotoBadge[]) => apiRequest<{ listing: Listing }>(`moderation/listings/${encodeURIComponent(id)}/photo-badges`, { method: "PUT", body: JSON.stringify({ expected_revision, photo_badges }) }),
   moderateListing: (id: string, action: "approve" | "reject" | "block", revision: number, reason?: string) => apiRequest<{ listing: Listing }>(`moderation/listings/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify({ expected_revision: revision, ...(reason ? { reason } : {}) }) }),

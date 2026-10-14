@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
   title: { default: `${SITE_NAME} — ${getMessage("layout.titleSuffix", DEFAULT_LOCALE)}`, template: `%s — ${SITE_NAME}` },
   description: getMessage("layout.description", DEFAULT_LOCALE),
-  robots: { index: false, follow: false, noarchive: true, googleBot: { index: false, follow: false, noimageindex: true } },
+  robots: { index: true, follow: true, noarchive: false, googleBot: { index: true, follow: true, noimageindex: false } },
   applicationName: SITE_NAME,
   referrer: "strict-origin-when-cross-origin"
 };

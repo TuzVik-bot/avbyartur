@@ -15,14 +15,14 @@ import { SITE_NAME, SITE_ORIGIN } from "@/lib/site-config";
 
 beforeEach(() => mocks.getSessionServer.mockResolvedValue(null));
 
-describe("closed-pilot root layout", () => {
-  it("provides a keyboard skip link and noindex metadata", async () => {
+describe("public root layout", () => {
+  it("provides a keyboard skip link and indexing metadata", async () => {
     const html = renderToStaticMarkup(await RootLayout({ children: createElement("h1", null, "Содержимое") }));
 
     expect(html).toContain('href="#main-content"');
     expect(html).toContain('id="main-content"');
     expect(html).toContain("Перейти к основному содержимому");
-    expect(metadata.robots).toMatchObject({ index: false, follow: false, googleBot: { index: false, follow: false } });
+    expect(metadata.robots).toMatchObject({ index: true, follow: true, googleBot: { index: true, follow: true } });
     expect(metadata.metadataBase).toBeInstanceOf(URL);
     expect((metadata.metadataBase as URL).origin).toBe(SITE_ORIGIN);
     expect(metadata.title).toEqual({ default: `${SITE_NAME} — автомобили Беларуси`, template: `%s — ${SITE_NAME}` });

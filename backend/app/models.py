@@ -530,6 +530,22 @@ class ListingViewEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
+class DealerClickEvent(Base):
+    """A public click from a company listing to its company page."""
+
+    __tablename__ = "dealer_click_events"
+    __table_args__ = (
+        Index("ix_dealer_click_events_company_created", "company_id", "created_at"),
+        Index("ix_dealer_click_events_listing_created", "listing_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(32), default="listing_detail", server_default="listing_detail")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
 class ListingStatusEvent(Base):
     __tablename__ = "listing_status_events"
 

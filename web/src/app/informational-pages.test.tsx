@@ -19,7 +19,7 @@ vi.mock("@/lib/legal-documents", () => ({ loadApprovedLegalDocument: vi.fn().moc
 
 describe("informational pilot pages", () => {
   const routes = [
-    ["about", AboutPage, "Авторынок BY — закрытый пилот"],
+    ["about", AboutPage, "Авторынок BY"],
     ["faq", FaqPage, "Частые вопросы"],
     ["support", SupportPage, "Поддержка закрытого пилота"],
     ["partner", PartnerPage, "Сотрудничество"],
@@ -79,9 +79,9 @@ describe("informational pilot pages", () => {
     expect(html).not.toMatch(/<input[^>]*type="checkbox"/i);
   });
 
-  it("describes the unauthenticated noindex test mode and local financing estimate", async () => {
+  it("describes public access and local financing estimate", async () => {
     const html = renderToStaticMarkup(<AboutPage />);
-    expect(html).toContain("Общий пароль отключён по запросу пользователя");
+    expect(html).toContain("Публичные страницы каталога и компаний доступны для просмотра без входа в аккаунт");
     expect(html).toContain("ориентировочный локальный расчёт");
     expect(html).toContain("без заявок и передачи данных");
   });

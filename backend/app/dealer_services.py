@@ -8,6 +8,7 @@ from app.models import (
     Company,
     ContactReveal,
     Conversation,
+    DealerClickEvent,
     DealerTeamMember,
     Listing,
     ListingViewEvent,
@@ -150,6 +151,7 @@ def dealer_analytics(
     reveal_counts: dict[UUID, int] = {}
     chat_counts: dict[UUID, int] = {}
     view_counts: dict[UUID, int] = {}
+    click_counts: dict[UUID, int] = {}
     if listing_ids:
         reveal_counts = dict(db.execute(
             select(ContactReveal.listing_id, func.count(ContactReveal.id))
@@ -178,6 +180,15 @@ def dealer_analytics(
             )
             .group_by(ListingViewEvent.listing_id)
         ).all())
+        click_counts = dict(db.execute(
+            select(DealerClickEvent.listing_id, func.count(DealerClickEvent.id))
+            .where(
+                DealerClickEvent.listing_id.in_(listing_ids),
+                DealerClickEvent.created_at >= start,
+                DealerClickEvent.created_at < end,
+            )
+            .group_by(DealerClickEvent.listing_id)
+        ).all())
 
     return {
         "period": {"start": date_from.isoformat(), "end": date_to.isoformat()},
@@ -187,6 +198,7 @@ def dealer_analytics(
             "contact_reveals": sum(reveal_counts.values()),
             "chats": sum(chat_counts.values()),
             "views": sum(view_counts.values()),
+            "company_clicks": sum(click_counts.values()),
         },
         "items": [
             {
@@ -197,6 +209,7 @@ def dealer_analytics(
                 "contact_reveals": reveal_counts.get(row.id, 0),
                 "chats": chat_counts.get(row.id, 0),
                 "views": view_counts.get(row.id, 0),
+                "company_clicks": click_counts.get(row.id, 0),
             }
             for row in listing_rows
         ],

@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,7 @@ from app.api.dependencies import get_current_user, require_csrf
 from app.db import get_db
 from app.dealer_schemas import (
     DealerAnalyticsOut,
+    DealerClickInput,
     DealerTeamCreate,
     DealerTeamListOut,
     DealerTeamMutationOut,
@@ -20,12 +21,30 @@ from app.dealer_services import (
     dealer_analytics,
     resolve_company_for_user,
 )
-from app.models import AuditEvent, Company, DealerTeamMember, User, UserSession
-from app.services import check_revision, fail, lock_owner
+from app.models import AuditEvent, Company, DealerClickEvent, DealerTeamMember, Listing, User, UserSession
+from app.security import client_ip
+from app.services import check_revision, consume_rate_limit, fail, listing_is_public, lock_owner
 from app.admin_service import lock_active_administrators
 
 
 router = APIRouter(prefix="/api/v1/dealer", tags=["dealer"])
+
+
+@router.post("/clicks", status_code=202)
+def record_dealer_click(
+    payload: DealerClickInput,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    """Record an anonymous, non-PII click from a public listing to its company page."""
+    consume_rate_limit(db, "dealer-click-ip", client_ip(request), 120, timedelta(hours=1))
+    listing = db.scalar(select(Listing).where(Listing.id == payload.listing_id, Listing.status == "active"))
+    if listing is not None and listing.company_id is not None and listing_is_public(db, listing):
+        company = db.scalar(select(Company).where(Company.id == listing.company_id, Company.status == "approved"))
+        if company is not None:
+            db.add(DealerClickEvent(company_id=company.id, listing_id=listing.id, source=payload.source))
+            db.commit()
+    return {"accepted": True}
 
 
 def _member_out(member: DealerTeamMember, user: User) -> dict:

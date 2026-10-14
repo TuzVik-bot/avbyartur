@@ -23,6 +23,8 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     ("/api/v1/dealer/team", "post"): {"401", "403", "404", "409", "422"},
     ("/api/v1/dealer/team/{member_id}", "patch"): {"401", "403", "404", "409", "422"},
     ("/api/v1/dealer/analytics", "get"): {"401", "403", "404", "422"},
+    ("/api/v1/dealer/clicks", "post"): {"429"},
+    ("/api/v1/moderation/listings/{listing_id}/photo-badges", "put"): {"401", "403", "404", "409", "422"},
     ("/api/v1/dealer/feeds", "get"): {"401", "403", "404"},
     ("/api/v1/dealer/feeds/schema", "get"): {"401", "403", "404"},
     ("/api/v1/dealer/feeds/samples/{format_}", "get"): {"401", "403", "404", "422"},

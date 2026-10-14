@@ -59,6 +59,7 @@ class DealerAnalyticsTotalsOut(BaseModel):
     contact_reveals: int
     chats: int
     views: int
+    company_clicks: int
 
 
 class DealerAnalyticsItemOut(BaseModel):
@@ -69,9 +70,15 @@ class DealerAnalyticsItemOut(BaseModel):
     contact_reveals: int
     chats: int
     views: int
+    company_clicks: int
 
 
 class DealerAnalyticsOut(BaseModel):
     period: DealerAnalyticsPeriodOut
     totals: DealerAnalyticsTotalsOut
     items: list[DealerAnalyticsItemOut]
+
+
+class DealerClickInput(BaseModel):
+    listing_id: UUID
+    source: Literal["listing_detail"] = "listing_detail"

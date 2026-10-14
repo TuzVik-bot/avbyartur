@@ -1429,6 +1429,26 @@ export interface paths {
         patch: operations["update_setting_api_v1_admin_settings__key__patch"];
         trace?: never;
     };
+    "/api/v1/dealer/clicks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Dealer Click
+         * @description Record an anonymous, non-PII click from a public listing to its company page.
+         */
+        post: operations["record_dealer_click_api_v1_dealer_clicks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dealer/team": {
         parameters: {
             query?: never;
@@ -3505,6 +3525,8 @@ export interface components {
             chats: number;
             /** Views */
             views: number;
+            /** Company Clicks */
+            company_clicks: number;
         };
         /** DealerAnalyticsOut */
         DealerAnalyticsOut: {
@@ -3532,6 +3554,8 @@ export interface components {
             chats: number;
             /** Views */
             views: number;
+            /** Company Clicks */
+            company_clicks: number;
         };
         /** DealerCatalogItemOut */
         DealerCatalogItemOut: {
@@ -3556,6 +3580,20 @@ export interface components {
             year_from?: number | null;
             /** Year To */
             year_to?: number | null;
+        };
+        /** DealerClickInput */
+        DealerClickInput: {
+            /**
+             * Listing Id
+             * Format: uuid
+             */
+            listing_id: string;
+            /**
+             * Source
+             * @default listing_detail
+             * @constant
+             */
+            source: "listing_detail";
         };
         /** DealerDetailResponse */
         DealerDetailResponse: {
@@ -9270,6 +9308,42 @@ export interface operations {
                     "application/json": components["schemas"]["ModerationListingResponse"];
                 };
             };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
             /** @description Request validation error */
             422: {
                 headers: {
@@ -11915,6 +11989,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request rate limit was exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    record_dealer_click_api_v1_dealer_clicks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealerClickInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Request validation error */

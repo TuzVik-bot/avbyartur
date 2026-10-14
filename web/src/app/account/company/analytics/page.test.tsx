@@ -26,11 +26,11 @@ describe("dealer analytics page", () => {
       .mockResolvedValueOnce({ items: [{ user_id: "owner-user", status: "active", role: "owner" }] })
       .mockResolvedValueOnce({
         period: { start: "2026-09-01", end: "2026-09-30" },
-        totals: { listings: 8, active_listings: 5, contact_reveals: 11, chats: 4, views: 230 },
+        totals: { listings: 8, active_listings: 5, contact_reveals: 11, chats: 4, views: 230, company_clicks: 7 },
         items: [
-          { listing_id: "listing-1", title: "Toyota Camry", status: "active", contact_reveals: 3, chats: 2, views: 70 },
-          { listing_id: "listing-2", title: "Skoda Octavia", status: "pending_review", contact_reveals: 0, chats: 0, views: 0 },
-          { listing_id: "listing-3", title: "Volvo XC60", status: "rejected", contact_reveals: 0, chats: 0, views: 0 }
+          { listing_id: "listing-1", title: "Toyota Camry", status: "active", contact_reveals: 3, chats: 2, views: 70, company_clicks: 7 },
+          { listing_id: "listing-2", title: "Skoda Octavia", status: "pending_review", contact_reveals: 0, chats: 0, views: 0, company_clicks: 0 },
+          { listing_id: "listing-3", title: "Volvo XC60", status: "rejected", contact_reveals: 0, chats: 0, views: 0, company_clicks: 0 }
         ]
       });
     const html = renderToStaticMarkup(await DealerAnalyticsPage({ searchParams: Promise.resolve({ from: "2026-09-01", to: "2026-09-30" }) }));
@@ -39,6 +39,8 @@ describe("dealer analytics page", () => {
     expect(mocks.request).toHaveBeenNthCalledWith(2, "dealer/analytics?from=2026-09-01&to=2026-09-30");
     expect(html).toContain("Показов телефона");
     expect(html).toContain("230");
+    expect(html).toContain("Переходов к компании");
+    expect(html).toContain("<strong>7</strong>");
     expect(html).toContain("Toyota Camry");
     expect(html).toContain('class="status-pill status-active">Опубликовано</span>');
     expect(html).toContain('class="status-pill status-pending_review">На проверке</span>');
