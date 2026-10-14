@@ -178,6 +178,9 @@ services:
       SITE_NAME: ${SITE_NAME:-Авторынок BY}
       SITE_ORIGIN: ${SITE_ORIGIN:-https://suite-s1.denjik.by}
       API_INTERNAL_URL: http://api:8000
+      ASSISTANT_API_KEY: ${ASSISTANT_API_KEY:-}
+      ASSISTANT_BASE_URL: ${ASSISTANT_BASE_URL:-}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-}
     depends_on:
       api:
         condition: service_healthy

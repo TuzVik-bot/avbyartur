@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/auth-provider";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { SiteAssistant } from "@/components/site-assistant";
 import { DEFAULT_LOCALE, getMessage } from "@/lib/i18n";
 import { getSessionServer } from "@/lib/server-api";
 import { SITE_NAME, SITE_ORIGIN } from "@/lib/site-config";
@@ -32,6 +33,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <SiteHeader />
           <main id="main-content">{children}</main>
           <SiteFooter />
+          <SiteAssistant />
         </AuthProvider>
       </body>
     </html>
