@@ -1,6 +1,7 @@
 import { internalApiBase } from "@/lib/api";
 import { assistantFilterLabels, parseAssistantSearch, validateAssistantFilters, type AssistantFilters, type AssistantLink, type AssistantPage, type AssistantReply } from "@/lib/assistant";
 import { searchUrl } from "@/lib/search-state";
+import { formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import type { CatalogItem, ListingSummary } from "@/lib/types";
 
 type Catalog = { makes: CatalogItem[]; models: CatalogItem[]; cities: CatalogItem[] };
@@ -67,6 +68,15 @@ export async function answerAssistant(input: { message: string; filters: Assista
   let modelText = "";
   let intent = input.action === "summary" ? "summary" : "";
   const baseReply = (): Omit<AssistantReply, "text"> => ({ filters, labels: assistantFilterLabels(filters, catalog), listings: [], links: [], engine });
+  if (/сравн/i.test(input.message) && input.listingIds?.length) {
+    const details = (await Promise.all(input.listingIds.slice(0, 3).map(async (id) => {
+      try { return (await publicAssistantApi<{ listing: ListingSummary }>(`listings/${encodeURIComponent(id)}`)).listing; }
+      catch { return null; }
+    }))).filter((listing): listing is ListingSummary => Boolean(listing));
+    if (!details.length) return { ...baseReply(), text: "Не удалось получить актуальные данные этих объявлений. Выполните поиск ещё раз." };
+    const rows = details.map((listing, index) => `${index + 1}. ${listing.title}\n${formatMoney(listing.price)}; ${listing.year || "год не указан"}; ${formatMileage(listing.mileage_km)}; ${vehicleLabel(listing.fuel)}; ${vehicleLabel(listing.transmission)}; ${vehicleLabel(listing.drive)} привод.${listing.damaged ? " Указаны повреждения." : ""}`);
+    return { ...baseReply(), engine: assistantModelEnabled() ? "ai" : "basic", text: `Сравнение по актуальным данным объявлений:\n\n${rows.join("\n\n")}\n\nСостояние и историю по этим характеристикам подтвердить нельзя. Проверьте автомобиль и документы перед покупкой.`, links: details.map((listing, index) => ({ title: `${index + 1}. Открыть объявление`, href: listingHref(listing) })) };
+  }
   if (input.action === "summary" && !input.page) return { ...baseReply(), text: "Пересказ доступен на публичных страницах с текстом. Откройте объявление, помощь или страницу услуги." };
   if (assistantModelEnabled()) {
     const details = /сравн|объявлен|характерист|лучш|вариант/i.test(input.message) && input.listingIds?.length ? await Promise.all(input.listingIds.slice(0, 3).map(async (id) => {

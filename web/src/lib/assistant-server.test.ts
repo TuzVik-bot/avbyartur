@@ -56,4 +56,13 @@ describe("assistant server", () => {
     expect(reply.text).toBe("Первый вариант новее.");
     expect(fetch.mock.calls.some(([url]) => url.includes("/listings?"))).toBe(false);
   });
+  it("compares selected listings using fresh public facts", async () => {
+    const fetch = vi.fn(async () => Response.json({ listing: { id: "id-1", slug: "car", title: "[ТЕСТ] Машина", make: null, model: null, price: { amount: "10000", currency: "BYN" }, year: 2020, mileage_km: 150000, fuel: "petrol", transmission: "automatic", drive: "front" } }));
+    vi.stubGlobal("fetch", fetch);
+    const reply = await answerAssistant({ ...input, message: "Сравни первые три", listingIds: ["id-1"] });
+    expect(reply.text).toContain("[ТЕСТ] Машина");
+    expect(reply.text).toContain("2020");
+    expect(reply.links).toHaveLength(1);
+    expect(fetch.mock.calls).toHaveLength(1);
+  });
 });
