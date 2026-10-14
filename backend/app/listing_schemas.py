@@ -210,6 +210,8 @@ class ListingOwnerOut(ListingPublicOut):
     vin: str | None = None
     moderation_reason: str | None = None
     contact_phone: str | None = None
+    telegram_contact_url: str | None = None
+    viber_contact_url: str | None = None
 
 
 class ListingPaginationOut(BaseModel):
@@ -260,6 +262,15 @@ class PhoneRevealOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     phone: str
+    messengers: list["ListingContactChannelOut"] = Field(default_factory=list)
+
+
+class ListingContactChannelOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    channel: Literal["telegram", "viber"]
+    uri: str
+    opted_in: Literal[True]
 
 
 class ListingReportOut(BaseModel):

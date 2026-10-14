@@ -467,6 +467,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/{listing_id}/seller-listings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Seller Listings */
+        get: operations["seller_listings_api_v1_listings__listing_id__seller_listings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listings/{listing_id}/analytics": {
         parameters: {
             query?: never;
@@ -4205,6 +4222,21 @@ export interface components {
              */
             created_at: string;
         };
+        /** ListingContactChannelOut */
+        ListingContactChannelOut: {
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "telegram" | "viber";
+            /** Uri */
+            uri: string;
+            /**
+             * Opted In
+             * @constant
+             */
+            opted_in: true;
+        };
         /** ListingCountOut */
         ListingCountOut: {
             /** Total */
@@ -4313,6 +4345,10 @@ export interface components {
             manual_city?: string | null;
             /** Contact Phone */
             contact_phone?: string | null;
+            /** Telegram Contact Url */
+            telegram_contact_url?: string | null;
+            /** Viber Contact Url */
+            viber_contact_url?: string | null;
         };
         /** ListingFxOut */
         ListingFxOut: {
@@ -4521,6 +4557,10 @@ export interface components {
             moderation_reason?: string | null;
             /** Contact Phone */
             contact_phone?: string | null;
+            /** Telegram Contact Url */
+            telegram_contact_url?: string | null;
+            /** Viber Contact Url */
+            viber_contact_url?: string | null;
         };
         /** ListingOwnerSearchOut */
         ListingOwnerSearchOut: {
@@ -4619,6 +4659,10 @@ export interface components {
             manual_city?: string | null;
             /** Contact Phone */
             contact_phone?: string | null;
+            /** Telegram Contact Url */
+            telegram_contact_url?: string | null;
+            /** Viber Contact Url */
+            viber_contact_url?: string | null;
             /** Expected Revision */
             expected_revision: number;
             /**
@@ -5528,6 +5572,8 @@ export interface components {
         PhoneRevealOut: {
             /** Phone */
             phone: string;
+            /** Messengers */
+            messengers?: components["schemas"]["ListingContactChannelOut"][];
         };
         /** PhotoMutationResponse */
         PhotoMutationResponse: {
@@ -7435,6 +7481,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    seller_listings_api_v1_listings__listing_id__seller_listings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listing_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingRelatedOut"];
                 };
             };
             /** @description Request validation error */

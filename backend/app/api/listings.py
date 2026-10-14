@@ -113,6 +113,7 @@ EDITABLE_FIELDS = {
     "manual_make", "manual_model", "title", "year", "mileage_km", "fuel", "transmission", "drive",
     "condition", "damaged", "parts_only", "engine_volume_l", "power_hp", "description", "vin",
     "region_id", "city_id", "manual_city", "contact_phone", "color", "customs_status",
+    "telegram_contact_url", "viber_contact_url",
     "technical_condition", "body_condition", "exchange", "bargaining", "credit", "leasing",
     "equipment", "district", "call_hours",
     "category_code",
@@ -702,6 +703,29 @@ def related_listings(
 
 
 @router.get(
+    "/listings/{listing_id}/seller-listings",
+    response_model=ListingRelatedOut,
+    response_model_exclude_unset=True,
+)
+def seller_listings(
+    listing_id: UUID,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    listing = db.get(Listing, listing_id)
+    if listing is None or not listing_is_public(db, listing):
+        fail(404, "not_found", "Listing not found")
+
+    query = _active_query().where(Listing.id != listing.id)
+    if listing.company_id is not None:
+        query = query.where(Listing.company_id == listing.company_id)
+    else:
+        query = query.where(Listing.owner_id == listing.owner_id, Listing.company_id.is_(None))
+
+    rows = db.scalars(query.order_by(Listing.created_at.desc(), Listing.id.desc()).limit(8)).all()
+    return {"items": _listed(db, rows)}
+
+
+@router.get(
     "/listings/{listing_id}/analytics",
     response_model=ListingAnalyticsOut,
 )
@@ -841,9 +865,14 @@ def reveal_phone(
         user_id=user.id if user is not None else None,
     )
     phone = listing.contact_phone
+    messengers = []
+    if listing.telegram_contact_url:
+        messengers.append({"channel": "telegram", "uri": listing.telegram_contact_url, "opted_in": True})
+    if listing.viber_contact_url:
+        messengers.append({"channel": "viber", "uri": listing.viber_contact_url, "opted_in": True})
     db.add(reveal)
     db.commit()
-    return {"phone": phone}
+    return {"phone": phone, "messengers": messengers}
 
 
 @router.post(

@@ -6,7 +6,15 @@ from app.main import app
 from app.models import Listing, User
 from app.services import serialize_listing
 
-UNSAFE_PUBLIC_PROPERTIES = {"contact_phone", "phone", "vin", "moderation_reason"}
+UNSAFE_PUBLIC_PROPERTIES = {
+    "contact_phone",
+    "phone",
+    "telegram_contact_url",
+    "viber_contact_url",
+    "messengers",
+    "vin",
+    "moderation_reason",
+}
 
 
 def _component(openapi: dict, reference: str) -> dict:
@@ -293,7 +301,7 @@ def test_favorites_collection_documents_public_listing_items() -> None:
     )
 
 
-def test_phone_reveal_documents_only_its_authenticated_phone_response() -> None:
+def test_phone_reveal_documents_phone_and_opted_in_messengers() -> None:
     openapi = app.openapi()
     response = openapi["paths"]["/api/v1/listings/{listing_id}/phone-reveal"]["post"][
         "responses"
@@ -302,8 +310,24 @@ def test_phone_reveal_documents_only_its_authenticated_phone_response() -> None:
 
     assert response_schema["$ref"] == "#/components/schemas/PhoneRevealOut"
     phone_schema = _component(openapi, response_schema["$ref"])
-    assert set(phone_schema["properties"]) == {"phone"}
+    assert set(phone_schema["properties"]) == {"phone", "messengers"}
     assert phone_schema["properties"]["phone"]["type"] == "string"
+    messenger_schema = phone_schema["properties"]["messengers"]["items"]
+    messenger = _component(openapi, messenger_schema["$ref"])
+    assert set(messenger["properties"]) == {"channel", "uri", "opted_in"}
+
+
+def test_owner_contact_links_are_not_part_of_public_listing_schema() -> None:
+    openapi = app.openapi()
+    public_schema = _component(openapi, "#/components/schemas/ListingPublicOut")
+    owner_schema = _component(openapi, "#/components/schemas/ListingOwnerOut")
+
+    assert {"telegram_contact_url", "viber_contact_url"}.isdisjoint(
+        _all_property_names(openapi, public_schema)
+    )
+    assert {"telegram_contact_url", "viber_contact_url"}.issubset(
+        _all_property_names(openapi, owner_schema)
+    )
 
 
 def test_listing_report_documents_exact_created_report_result() -> None:

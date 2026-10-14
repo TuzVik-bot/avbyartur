@@ -1,11 +1,47 @@
 import re
 from decimal import Decimal
 from typing import Literal
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from app.listing_categories import CategoryCode, ListingCategoryDetailsInput
+
+
+def _validate_contact_channel_url(value: str | None, *, channel: Literal["telegram", "viber"]) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    try:
+        parsed = urlsplit(cleaned)
+        host = parsed.hostname
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Enter a valid HTTPS contact link") from exc
+    if (
+        parsed.scheme.lower() != "https"
+        or host is None
+        or port is not None
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("Enter a valid HTTPS contact link")
+
+    host = host.lower()
+    path = [segment for segment in parsed.path.split("/") if segment]
+    if channel == "telegram":
+        if host not in {"t.me", "telegram.me"} or len(path) != 1 or re.fullmatch(r"[A-Za-z0-9_]{5,32}", path[0]) is None:
+            raise ValueError("Enter a public Telegram username link from t.me or telegram.me")
+        return f"https://{host}/{path[0]}"
+
+    if host not in {"viber.me", "viber.com", "www.viber.com"} or len(path) != 1 or re.fullmatch(r"[A-Za-z0-9_.+-]{1,160}", path[0]) is None:
+        raise ValueError("Enter a Viber chat link from viber.me or viber.com")
+    return f"https://{host}/{path[0]}"
 
 
 class LoginInput(BaseModel):
@@ -93,6 +129,8 @@ class ListingForm(BaseModel):
     city_id: UUID | None = None
     manual_city: str | None = Field(default=None, max_length=160)
     contact_phone: str | None = Field(default=None, min_length=5, max_length=40)
+    telegram_contact_url: str | None = Field(default=None, max_length=320)
+    viber_contact_url: str | None = Field(default=None, max_length=320)
 
     @model_validator(mode="after")
     def category_details_match_category(self) -> "ListingForm":
@@ -107,6 +145,16 @@ class ListingForm(BaseModel):
             cleaned = re.sub(r"\s+", " ", value).strip()
             return cleaned or None
         return value
+
+    @field_validator("telegram_contact_url")
+    @classmethod
+    def validate_telegram_contact_url(cls, value: str | None) -> str | None:
+        return _validate_contact_channel_url(value, channel="telegram")
+
+    @field_validator("viber_contact_url")
+    @classmethod
+    def validate_viber_contact_url(cls, value: str | None) -> str | None:
+        return _validate_contact_channel_url(value, channel="viber")
 
     @field_validator("district", "call_hours", mode="before")
     @classmethod

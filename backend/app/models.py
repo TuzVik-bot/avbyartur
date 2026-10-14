@@ -425,6 +425,8 @@ class Listing(Base):
     city_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("location_cities.id", ondelete="SET NULL"), nullable=True, index=True)
     manual_city: Mapped[str | None] = mapped_column(String(160), nullable=True)
     contact_phone: Mapped[str] = mapped_column(String(40), default="")
+    telegram_contact_url: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    viber_contact_url: Mapped[str | None] = mapped_column(String(320), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

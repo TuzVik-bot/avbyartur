@@ -793,6 +793,8 @@ def _serialize_listing(
         result["modification"] = catalog_modification_item(modification, include_aliases=False) if modification else None
     if include_contact:
         result["contact_phone"] = listing.contact_phone
+        result["telegram_contact_url"] = listing.telegram_contact_url
+        result["viber_contact_url"] = listing.viber_contact_url
     return result
 
 
