@@ -18,9 +18,10 @@ describe("useful information pages", () => {
     expect(html).toContain("Сверьте документы и данные продавца");
     expect(html).toContain("3.58.01");
     expect(html).toContain("3.59.01");
+    expect(html).toContain("проверке, находится ли транспортное средство в розыске, по полному совпадению VIN");
     expect(html).toContain("3.62.01");
     expect(html).toContain("3.68.01");
-    expect(html).toContain('href="https://e-pasluga.by/en_US/services/traffic-police-transport"');
+    expect(html).toContain('href="https://e-pasluga.by/services/gai-transport"');
     expect(html).toContain('href="/vin-check"');
     expect(html).toContain('href="/customs-calculator"');
     expect(html).toContain('href="/sale-contract"');

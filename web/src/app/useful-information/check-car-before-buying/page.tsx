@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/useful-information/check-car-before-buying" },
 };
 
-const officialVehicleServicesUrl = "https://e-pasluga.by/en_US/services/traffic-police-transport";
+const officialVehicleServicesUrl = "https://e-pasluga.by/services/gai-transport";
 
 export default function CheckCarBeforeBuyingPage() {
   return (
@@ -28,7 +28,7 @@ export default function CheckCarBeforeBuyingPage() {
 
       <section className="info-section" aria-labelledby="check-car-official">
         <h2 id="check-car-official">2. Сверьте сведения по официальным источникам</h2>
-        <p>На Едином портале электронных услуг Беларуси в разделе «Госавтоинспекция, транспорт» опубликованы услуги по систематизированным сведениям об автомобиле (3.58.01), поиску транспортного средства (3.59.01), диагностическим сведениям (3.62.01) и сведениям о залоге движимого имущества по VIN (3.68.01).</p>
+        <p>На Едином портале электронных услуг Беларуси в разделе «Госавтоинспекция, транспорт» опубликованы услуги по систематизированным сведениям об автомобиле (3.58.01), проверке, находится ли транспортное средство в розыске, по полному совпадению VIN (3.59.01), диагностическим сведениям (3.62.01) и сведениям о залоге движимого имущества по VIN (3.68.01).</p>
         <p>У каждой услуги могут быть свои требования к идентификации, праву доступа, входным данным и оплате. Перед заказом откройте её карточку на портале и проверьте актуальные условия. Один найденный отчёт не заменяет визуальный осмотр, разговор с продавцом и диагностику.</p>
         <a className="text-link" href={officialVehicleServicesUrl} target="_blank" rel="noreferrer">Официальный перечень электронных услуг по транспорту</a>
         <p>Мы не принимаем и не сохраняем VIN на этой странице. Проверка по VIN на Авторынке пока недоступна: поставщик отчётов не подключён.</p>
