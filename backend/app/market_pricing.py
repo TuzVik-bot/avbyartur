@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from statistics import median, quantiles
+from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from app.models import Company, ExchangeRate, Listing, User
@@ -16,9 +17,10 @@ from app.models import Company, ExchangeRate, Listing, User
 MINIMUM_SAMPLE_SIZE = 10
 MINIMUM_SELLER_COUNT = 5
 MAXIMUM_IQR_RATIO = Decimal("0.5")
+MAXIMUM_ANALOGS_PER_TARGET = 100
 
 
-def _seller_key(listing: Listing) -> tuple[str, UUID]:
+def _seller_key(listing: Any) -> tuple[str, UUID]:
     if listing.company_id is not None:
         return "company", listing.company_id
     return "owner", listing.owner_id
@@ -67,6 +69,90 @@ def _usd_to_byn(amount: Decimal, rate: ExchangeRate) -> Decimal:
     return amount * rate.official_rate / Decimal(rate.scale)
 
 
+def _candidate_select(target: Listing):
+    """Select a bounded, deterministic candidate batch for one target."""
+
+    mileage_tolerance = max(5000, target.mileage_km * 0.10)
+    if target.company_id is not None:
+        other_seller = or_(
+            Listing.company_id.is_(None),
+            Listing.company_id != target.company_id,
+        )
+    else:
+        other_seller = or_(
+            Listing.company_id.is_not(None),
+            Listing.owner_id != target.owner_id,
+        )
+
+    return (
+        select(
+            literal(target.id).label("target_id"),
+            Listing.id.label("candidate_id"),
+            Listing.owner_id.label("candidate_owner_id"),
+            Listing.company_id.label("candidate_company_id"),
+            Listing.category_code.label("candidate_category_code"),
+            Listing.make_id.label("candidate_make_id"),
+            Listing.model_id.label("candidate_model_id"),
+            Listing.generation_id.label("candidate_generation_id"),
+            Listing.year.label("candidate_year"),
+            Listing.mileage_km.label("candidate_mileage_km"),
+            Listing.condition.label("candidate_condition"),
+            Listing.fuel.label("candidate_fuel"),
+            Listing.transmission.label("candidate_transmission"),
+            Listing.body_type_id.label("candidate_body_type_id"),
+            Listing.price_amount.label("candidate_price_amount"),
+            Listing.currency.label("candidate_currency"),
+            Listing.status.label("candidate_status"),
+            Listing.damaged.label("candidate_damaged"),
+            Listing.parts_only.label("candidate_parts_only"),
+        )
+        .join(User, Listing.owner_id == User.id)
+        .outerjoin(Company, Listing.company_id == Company.id)
+        .where(
+            Listing.category_code == "cars",
+            Listing.status == "active",
+            User.status == "active",
+            or_(Listing.company_id.is_(None), Company.status == "approved"),
+            Listing.price_amount.is_not(None),
+            Listing.currency.in_({"BYN", "USD"}),
+            Listing.mileage_km.is_not(None),
+            Listing.damaged.is_(False),
+            Listing.parts_only.is_(False),
+            Listing.id != target.id,
+            other_seller,
+            _cohort_clause(target),
+            Listing.mileage_km >= target.mileage_km - mileage_tolerance,
+            Listing.mileage_km <= target.mileage_km + mileage_tolerance,
+        )
+        .order_by(Listing.id)
+        .limit(MAXIMUM_ANALOGS_PER_TARGET + 1)
+    )
+
+
+def _candidate_from_row(row: Any) -> Any:
+    values = row._mapping if hasattr(row, "_mapping") else row
+    return SimpleNamespace(
+        id=values["candidate_id"],
+        owner_id=values["candidate_owner_id"],
+        company_id=values["candidate_company_id"],
+        category_code=values["candidate_category_code"],
+        make_id=values["candidate_make_id"],
+        model_id=values["candidate_model_id"],
+        generation_id=values["candidate_generation_id"],
+        year=values["candidate_year"],
+        mileage_km=values["candidate_mileage_km"],
+        condition=values["candidate_condition"],
+        fuel=values["candidate_fuel"],
+        transmission=values["candidate_transmission"],
+        body_type_id=values["candidate_body_type_id"],
+        price_amount=values["candidate_price_amount"],
+        currency=values["candidate_currency"],
+        status=values["candidate_status"],
+        damaged=values["candidate_damaged"],
+        parts_only=values["candidate_parts_only"],
+    )
+
+
 def build_market_comparisons(
     db: Session,
     listings: list[Listing],
@@ -80,35 +166,30 @@ def build_market_comparisons(
         return output
 
     rate, rate_is_fresh = rate_info
-    clauses = [_cohort_clause(listing) for listing in targets]
-    candidates = db.scalars(
-        select(Listing)
-        .join(User, Listing.owner_id == User.id)
-        .outerjoin(Company, Listing.company_id == Company.id)
-        .where(
-            Listing.category_code == "cars",
-            Listing.status == "active",
-            User.status == "active",
-            or_(Listing.company_id.is_(None), Company.status == "approved"),
-            Listing.price_amount.is_not(None),
-            Listing.currency.in_({"BYN", "USD"}),
-            Listing.mileage_km.is_not(None),
-            Listing.damaged.is_(False),
-            Listing.parts_only.is_(False),
-            or_(*clauses),
-        )
-    ).all()
+    candidate_query = union_all(*(_candidate_select(target) for target in targets))
+    candidate_rows = db.execute(candidate_query).all()
+    candidates_by_target: dict[UUID, list[Any]] = {target.id: [] for target in targets}
+    for row in candidate_rows:
+        values = row._mapping if hasattr(row, "_mapping") else row
+        candidates_by_target[values["target_id"]].append(_candidate_from_row(values))
 
     calculation_date = datetime.now(timezone.utc).date()
     as_of = datetime.combine(calculation_date, datetime.min.time(), tzinfo=timezone.utc)
     for target in targets:
         mileage_tolerance = max(5000, target.mileage_km * 0.10)
         target_seller = _seller_key(target)
+        candidate_batch = candidates_by_target[target.id]
+        # The extra row is an overflow sentinel. Never compute a market badge from
+        # a truncated cohort, since that could move the median or seller count.
+        if len(candidate_batch) > MAXIMUM_ANALOGS_PER_TARGET:
+            continue
+
         target_candidates = [
-            candidate for candidate in candidates
+            candidate for candidate in candidate_batch
             if candidate.id != target.id
             and _seller_key(candidate) != target_seller
             and candidate.category_code == "cars"
+            and candidate.status == "active"
             and candidate.make_id == target.make_id
             and candidate.model_id == target.model_id
             and candidate.condition == target.condition
@@ -129,6 +210,10 @@ def build_market_comparisons(
                 )
             )
             and abs(candidate.mileage_km - target.mileage_km) <= mileage_tolerance
+            and candidate.price_amount is not None
+            and candidate.currency in {"BYN", "USD"}
+            and not candidate.damaged
+            and not candidate.parts_only
         ]
         if len(target_candidates) < MINIMUM_SAMPLE_SIZE:
             continue

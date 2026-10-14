@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from app.market_pricing import build_market_comparisons
+from app.market_pricing import MAXIMUM_ANALOGS_PER_TARGET, build_market_comparisons
 from app.models import (
     CatalogBodyType,
     CatalogGeneration,
@@ -46,9 +46,50 @@ class FakeSession:
         self.listings = listings
         self.statements = []
 
-    def scalars(self, statement):
+    def execute(self, statement):
         self.statements.append(statement)
-        return SimpleNamespace(all=lambda: self.listings)
+        rows = []
+        ordered_listings = sorted(self.listings, key=lambda listing: listing.id)
+        for branch in statement.selects:
+            target_id = branch.selected_columns["target_id"].element.value
+            for listing in ordered_listings[: MAXIMUM_ANALOGS_PER_TARGET + 1]:
+                rows.append(
+                    {
+                        "target_id": target_id,
+                        "candidate_id": listing.id,
+                        "candidate_owner_id": listing.owner_id,
+                        "candidate_company_id": listing.company_id,
+                        "candidate_category_code": listing.category_code,
+                        "candidate_make_id": listing.make_id,
+                        "candidate_model_id": listing.model_id,
+                        "candidate_generation_id": listing.generation_id,
+                        "candidate_year": listing.year,
+                        "candidate_mileage_km": listing.mileage_km,
+                        "candidate_condition": listing.condition,
+                        "candidate_fuel": listing.fuel,
+                        "candidate_transmission": listing.transmission,
+                        "candidate_body_type_id": listing.body_type_id,
+                        "candidate_price_amount": listing.price_amount,
+                        "candidate_currency": listing.currency,
+                        "candidate_status": listing.status,
+                        "candidate_damaged": listing.damaged,
+                        "candidate_parts_only": listing.parts_only,
+                    }
+                )
+        return SimpleNamespace(all=lambda: rows)
+
+
+class CountingSession:
+    def __init__(self, session):
+        self.session = session
+        self.statements = []
+        self.returned_row_counts = []
+
+    def execute(self, statement):
+        self.statements.append(statement)
+        rows = self.session.execute(statement).all()
+        self.returned_row_counts.append(len(rows))
+        return SimpleNamespace(all=lambda: rows)
 
 
 def _compare(target, candidates):
@@ -297,12 +338,14 @@ def test_market_comparison_batches_twenty_five_targets_and_queries_only_car_anal
     comparisons = build_market_comparisons(session, targets, (None, False))
 
     assert len(session.statements) == 1
+    assert len(session.statements[0].selects) == 25
     assert all(comparisons[target.id] is not None for target in targets)
     query = str(session.statements[0])
     assert "listings.category_code =" in query
     assert "listings.status =" in query
     assert "users.status =" in query
     assert "companies.status =" in query
+    assert query.upper().count("LIMIT") == 25
 
 
 def test_database_query_uses_only_active_public_car_analogs_and_excludes_target_seller(
@@ -349,13 +392,63 @@ def test_database_query_uses_only_active_public_car_analogs_and_excludes_target_
         )
         db.flush()
 
-        comparison = build_market_comparisons(db, [target], (None, False))[target.id]
+        session = CountingSession(db)
+        comparison = build_market_comparisons(session, [target], (None, False))[target.id]
 
     assert comparison is not None
     assert comparison["label"] == "below_market"
     assert comparison["median_byn"] == "20000.00"
     assert comparison["sample_size"] == 10
     assert comparison["seller_count"] == 10
+    assert len(session.statements) == 1
+    assert session.returned_row_counts == [10]
+
+
+def test_database_market_comparison_caps_each_target_and_hides_overflow(integration):
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        targets_by_count = {}
+        for candidate_count in (99, 100, MAXIMUM_ANALOGS_PER_TARGET + 1):
+            catalog = _db_market_catalog(db)
+            target_owner = _db_market_owner(db)
+            target = _db_market_listing(db, target_owner, catalog, "18000")
+            targets_by_count[candidate_count] = target
+            for _ in range(candidate_count):
+                _db_market_listing(db, _db_market_owner(db), catalog, "20000")
+
+        session = CountingSession(db)
+        comparisons = build_market_comparisons(
+            session, list(targets_by_count.values()), (None, False)
+        )
+
+    assert len(session.statements) == 1
+    assert session.returned_row_counts == [99 + 100 + 101]
+    assert comparisons[targets_by_count[99].id]["sample_size"] == 99
+    assert comparisons[targets_by_count[100].id]["sample_size"] == 100
+    assert comparisons[targets_by_count[101].id] is None
+
+
+def test_database_market_comparison_batches_a_page_of_twenty_five_targets(integration):
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        targets = []
+        for _ in range(25):
+            catalog = _db_market_catalog(db)
+            target = _db_market_listing(
+                db, _db_market_owner(db), catalog, "18000"
+            )
+            targets.append(target)
+            for _ in range(10):
+                _db_market_listing(
+                    db, _db_market_owner(db), catalog, "20000"
+                )
+
+        session = CountingSession(db)
+        comparisons = build_market_comparisons(session, targets, (None, False))
+
+    assert len(session.statements) == 1
+    assert session.returned_row_counts == [250]
+    assert all(comparisons[target.id]["sample_size"] == 10 for target in targets)
 
 
 @pytest.mark.parametrize(
