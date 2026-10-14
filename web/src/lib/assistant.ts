@@ -1,6 +1,9 @@
-import type { CatalogItem, ListingSearch, ListingSummary } from "@/lib/types";
+import type { CatalogItem, ListingSummary } from "@/lib/types";
 
-export type AssistantFilters = Pick<ListingSearch, "category_code" | "make_id" | "model_id" | "price_min" | "price_max" | "currency" | "year_min" | "year_max" | "mileage_max" | "fuel" | "transmission" | "drive" | "body_type" | "city_id" | "has_photos" | "damaged" | "parts_only" | "sort">;
+export type AssistantFilters = Partial<Record<"make_id" | "model_id" | "price_min" | "price_max" | "currency" | "year_min" | "year_max" | "mileage_max" | "fuel" | "transmission" | "drive" | "body_type" | "city_id" | "has_photos" | "damaged" | "parts_only", string>> & {
+  category_code?: "cars";
+  sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
+};
 export type AssistantLink = { title: string; href: string };
 export type AssistantReply = {
   text: string;
