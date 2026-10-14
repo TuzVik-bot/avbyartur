@@ -86,6 +86,7 @@ def build_market_comparisons(
         .join(User, Listing.owner_id == User.id)
         .outerjoin(Company, Listing.company_id == Company.id)
         .where(
+            Listing.category_code == "cars",
             Listing.status == "active",
             User.status == "active",
             or_(Listing.company_id.is_(None), Company.status == "approved"),

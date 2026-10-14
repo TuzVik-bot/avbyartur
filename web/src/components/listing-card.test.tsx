@@ -37,9 +37,10 @@ afterEach(() => {
   mocks.push.mockReset();
   mocks.refresh.mockReset();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
-function listing(overrides: Partial<ListingSummary & { published_at?: string | null; engine_volume_l?: string | null; power_hp?: number | null }> = {}): ListingSummary {
+function listing(overrides: Partial<ListingSummary & { published_at?: string | null; engine_volume_l?: string | number | null; power_hp?: number | null }> = {}): ListingSummary {
   return {
     id: "listing-1",
     slug: "listing-1",
@@ -162,15 +163,69 @@ describe("listing card facts", () => {
     expect(marketBadge?.title).toContain("По предложениям Авторынка");
     expect(marketBadge?.title).toContain("14 объявлениям");
     expect(marketBadge?.title).toContain("08.10.2026");
+    const specs = Array.from(container.querySelectorAll(".card-specs > span"), (element) => element.textContent ?? "");
+    expect(specs).toHaveLength(6);
+    expect(specs[0]).toBe("2020 г.");
+    expect(specs[1]).toContain("км");
+    expect(specs[2]).toBe("1,6 л");
+    expect(specs[3]).toBe("120 л.с.");
+    expect(container.querySelector('.card-footer a[href="/cars/city/minsk"]')?.textContent).toBe("Минск");
+    expect(container.querySelector(".card-published")?.textContent).toBe("Опубликовано сегодня");
 
     const withoutAge = listing({ created_at: "2026-10-09T21:30:00.000Z" });
     act(() => root.render(createElement(ListingCard, { listing: withoutAge })));
     expect(container.textContent).not.toContain("Опубликовано");
     expect(container.textContent).not.toContain("л.с.");
+    expect(container.querySelector("[data-market-comparison]")).toBeNull();
 
     act(() => root.render(createElement(ListingCard, { listing: listing({ published_at: "2026-10-07T21:30:00.000Z" }) })));
     expect(container.textContent).toContain("Опубликовано 2 дня назад");
     vi.useRealTimers();
+  });
+
+  it("does not invent missing facts or show combustion volume for an electric car", () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing({
+      year: null,
+      mileage_km: null,
+      engine_volume_l: null,
+      power_hp: null,
+      fuel: null,
+      transmission: null,
+      city: null,
+      manual_city: null,
+      published_at: null
+    }) })));
+
+    const specs = Array.from(container.querySelectorAll(".card-specs > span"), (element) => element.textContent ?? "");
+    expect(specs).toContain("Год не указан");
+    expect(specs).toContain("Пробег не указан");
+    expect(specs.filter((value) => value === "Не указан")).toHaveLength(2);
+    expect(specs.some((value) => value.includes("л.с."))).toBe(false);
+    expect(specs.some((value) => value.includes(" л"))).toBe(false);
+    expect(container.querySelector(".card-published")).toBeNull();
+    expect(container.querySelector(".card-footer")?.textContent).toContain("Населённый пункт не указан");
+
+    act(() => root.render(createElement(ListingCard, { listing: listing({ engine_volume_l: " " }) })));
+    expect(container.querySelector(".card-specs")?.textContent).not.toContain("0 л");
+
+    act(() => root.render(createElement(ListingCard, { listing: listing({ fuel: "electric", engine_volume_l: "1.6", power_hp: 125 }) })));
+    expect(container.querySelector(".card-specs")?.textContent).not.toContain("1,6 л");
+    expect(container.querySelector(".card-specs")?.textContent).toContain("125 л.с.");
+  });
+
+  it("uses Minsk calendar days and omits a future publication date", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-09T20:59:00.000Z"));
+    const publishedAt = "2026-10-09T20:58:00.000Z";
+    act(() => root.render(createElement(ListingCard, { listing: listing({ published_at: publishedAt }) })));
+    expect(container.querySelector(".card-published")?.textContent).toBe("Опубликовано сегодня");
+
+    vi.setSystemTime(new Date("2026-10-09T21:01:00.000Z"));
+    act(() => root.render(createElement(ListingCard, { listing: listing({ published_at: publishedAt }) })));
+    expect(container.querySelector(".card-published")?.textContent).toBe("Опубликовано вчера");
+
+    act(() => root.render(createElement(ListingCard, { listing: listing({ published_at: "2026-10-10T22:00:00.000Z" }) })));
+    expect(container.querySelector(".card-published")).toBeNull();
   });
 });
 
