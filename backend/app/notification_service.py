@@ -170,7 +170,7 @@ def saved_search_filters(saved_search: SavedSearch) -> dict[str, Any]:
         # Small legacy rows and unit-test stubs may only carry the normalized
         # filter snapshot. Real saved searches are canonicalized through the
         # URL path, but retaining this fallback keeps old records matchable.
-        return dict(getattr(saved_search, "filters", {}) or {})
+        return saved_search_filter_snapshot(getattr(saved_search, "filters", {})) or {}
     parsed = urlsplit(search_url)
     query = parse_qs(parsed.query, keep_blank_values=False, max_num_fields=64)
     filters: dict[str, Any] = {}

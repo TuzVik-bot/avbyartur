@@ -98,6 +98,16 @@ def test_saved_search_filters_ignore_presentation_state_for_legacy_urls():
     ) == {"q": "audi"}
 
 
+def test_saved_search_filters_ignore_presentation_state_in_legacy_snapshot():
+    from app.notification_service import saved_search_filters
+
+    saved_search = SimpleNamespace(
+        filters={"q": "audi", "page": "3", "page_size": "50", "sort": "price_asc"}
+    )
+
+    assert saved_search_filters(saved_search) == {"q": "audi"}
+
+
 def test_saved_search_delivery_snapshot_ignores_name_and_presentation_changes():
     from app.worker import _saved_search_delivery_snapshot
 
