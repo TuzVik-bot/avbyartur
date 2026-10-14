@@ -96,6 +96,7 @@ export async function answerAssistant(input: { message: string; filters: Assista
   }
   const topic = topics.find(({ pattern }) => pattern.test(input.message));
   if (topic && intent !== "search") return { ...baseReply(), text: modelText || topic.text, links: topic.links };
+  if (intent === "answer") return { ...baseReply(), text: modelText || "Уточните, что вы хотите узнать по данным сайта." };
   const searchIntent = intent === "search" || parsed.changed || /найд|подбер|покажи|ищу|тачк|машин|автомоб|вариант|дешев|бюджет|доллар|рубл/i.test(input.message);
   if (!searchIntent) return { ...baseReply(), text: modelText || "Могу подобрать объявления по бюджету, марке, году, городу и другим параметрам. Также помогу найти нужный раздел сайта. Что вас интересует?", links: [{ title: "Помощь", href: "/help" }] };
   if ((filters.price_min || filters.price_max || filters.sort?.startsWith("price_")) && !filters.currency) return { ...baseReply(), text: "Бюджет в долларах (USD) или белорусских рублях (BYN)?" };

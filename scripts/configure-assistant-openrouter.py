@@ -32,7 +32,7 @@ print('Ключ установлен на VPS; значение не вывод�
 '''
 
 def main():
-    model = input('Бесплатная модель [google/gemma-4-31b-it:free]: ').strip() or 'google/gemma-4-31b-it:free'
+    model = input('Бесплатная модель [dots-studio/dots-3-note-preview:free]: ').strip() or 'dots-studio/dots-3-note-preview:free'
     if not re_valid(model):
         raise SystemExit('Допускается только идентификатор модели OpenRouter с суффиксом :free.')
     key = getpass.getpass('OpenRouter API-ключ (ввод скрыт): ').strip()

@@ -44,4 +44,16 @@ describe("assistant server", () => {
     vi.stubEnv("ASSISTANT_MODEL", "openai/gpt-4.1-mini");
     await expect(answerAssistant(input)).rejects.toThrow("model_configuration");
   });
+  it("keeps a comparison answer instead of treating the word variants as a new search", async () => {
+    vi.stubEnv("ASSISTANT_API_KEY", "test-not-a-real-key");
+    vi.stubEnv("ASSISTANT_BASE_URL", "https://openrouter.ai/api/v1");
+    vi.stubEnv("ASSISTANT_MODEL", "dots-studio/dots-3-note-preview:free");
+    const fetch = vi.fn(async (url: string) => url.includes("chat/completions")
+      ? Response.json({ choices: [{ message: { content: JSON.stringify({ intent: "answer", text: "Первый вариант новее.", filters: {} }) } }] })
+      : Response.json({ items: [] }));
+    vi.stubGlobal("fetch", fetch);
+    const reply = await answerAssistant({ ...input, message: "Сравни первые три варианта" });
+    expect(reply.text).toBe("Первый вариант новее.");
+    expect(fetch.mock.calls.some(([url]) => url.includes("/listings?"))).toBe(false);
+  });
 });
