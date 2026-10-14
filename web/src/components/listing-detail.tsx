@@ -4,9 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Building2, Check, ChevronRight, CircleUserRound, MapPin, MessageCircle, Phone, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Building2, ChevronRight, CircleUserRound, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { FavoriteButton, ListingCard } from "@/components/listing-card";
+import { ListingContactActions } from "@/components/listing-contact-actions";
+import { ListingTrust } from "@/components/listing-trust";
+import { SellerListings, type PublicSellerListing } from "@/components/seller-listings";
 import { api, ApiClientError } from "@/lib/api";
 import { formatDate, formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import type { Listing, ReportCategory } from "@/lib/types";
@@ -27,7 +30,7 @@ const optionLabels: Record<string, string> = {
   abs: "ABS", esp: "ESP", airbags: "Подушки безопасности", air_conditioning: "Кондиционер", climate_control: "Климат-контроль", heated_seats: "Подогрев сидений", cruise_control: "Круиз-контроль", parking_sensors: "Парктроники", rear_camera: "Камера заднего вида", leather_seats: "Кожаный салон", carplay: "Apple CarPlay", android_auto: "Android Auto"
 };
 
-export function ListingDetail({ listing, initialSaved = false, relatedListings = [] }: { listing: Listing; initialSaved?: boolean; relatedListings?: import("@/lib/types").ListingSummary[] }) {
+export function ListingDetail({ listing, initialSaved = false, relatedListings = [], sellerListings = [] }: { listing: Listing; initialSaved?: boolean; relatedListings?: import("@/lib/types").ListingSummary[]; sellerListings?: PublicSellerListing[] }) {
   const router = useRouter();
   const { user } = useAuth();
   const [phone, setPhone] = useState("");
@@ -64,10 +67,15 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   if (listing.district) facts.push(["Район", listing.district]);
   if (listing.call_hours) facts.push(["Время звонков", listing.call_hours]);
   if (listing.equipment?.length) facts.push(["Комплектация", listing.equipment.map((value) => optionLabels[value] || value).join(", ")]);
-  if (listing.exchange) facts.push(["Обмен", "Рассматривается"]);
-  if (listing.bargaining) facts.push(["Торг", "Возможен"]);
-  if (listing.credit) facts.push(["Кредит", "Возможен"]);
-  if (listing.leasing) facts.push(["Лизинг", "Возможен"]);
+  const sellerClaims = [
+    ...(listing.exchange ? [{ label: "Обмен", value: "Рассматривается" }] : []),
+    ...(listing.bargaining ? [{ label: "Торг", value: "Возможен" }] : []),
+    ...(listing.credit ? [{ label: "Кредит", value: "Возможен" }] : []),
+    ...(listing.leasing ? [{ label: "Лизинг", value: "Возможен" }] : [])
+  ];
+  const visibleRelatedListings = [...new Map(relatedListings
+    .filter((item) => item.id !== listing.id)
+    .map((item) => [item.id, item])).values()].slice(0, 8);
 
   useEffect(() => {
     setSelectedPhotoIndex(0);
@@ -142,6 +150,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             {listing.damaged && <p className="notice">Продавец указал повреждения.</p>}
             {listing.parts_only && <p className="notice">Продаётся на запчасти.</p>}
           </section>
+          <ListingTrust claims={sellerClaims} />
           <section className="detail-summary">
             <h2>Описание</h2>
             <p className="detail-description">{listing.description || "Продавец не добавил описание."}</p>
@@ -152,11 +161,9 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           <p className="detail-price">{formatMoney(listing.price)}</p>
           {listing.price?.currency === "USD" && listing.price.display_byn && listing.price.rate_date && <p className="muted">В BYN по курсу на {formatDate(listing.price.rate_date)}</p>}
           {listing.status === "active" ? <>
-            {!user && guestContactRevealEnabled && <p className="muted">Телефон можно посмотреть без входа в аккаунт.</p>}
-            {phone ? <div className="phone-revealed"><strong>{phone}</strong><span className="muted">Контакт продавца</span></div> : <button className="button button-primary contact-reveal" type="button" aria-busy={phoneBusy} disabled={phoneBusy} onClick={revealPhone}><Phone size={17} /> {phoneBusy ? "Загружаем телефон…" : "Показать телефон"}</button>}
-            {phoneError && <p className="inline-error" role="alert">{phoneError}</p>}
+            <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} />
             {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
-          </> : <p className="muted">Контакт недоступен для проданного автомобиля.</p>}
+          </> : <ListingContactActions active={false} guestContactRevealEnabled={false} phone="" busy={false} error="" onReveal={() => undefined} />}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
           <div className="seller-box">
             <span className={`seller-tag ${listing.seller.type === "private" ? "private" : ""}`}>
@@ -170,7 +177,8 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           {listing.status === "active" && <p className="privacy-note"><ShieldCheck size={15} /> Телефон открывается по запросу и не показывается в публичной выдаче.</p>}
         </aside>
       </div>
-      {relatedListings.length > 0 && <section className="related-listings section" aria-labelledby="related-listings-heading"><div className="section-heading"><h2 id="related-listings-heading">Похожие объявления</h2></div><div className="listing-stack">{relatedListings.map((item) => <ListingCard key={item.id} listing={item} variant="row" />)}</div></section>}
+      {visibleRelatedListings.length > 0 && <section className="related-listings section" aria-labelledby="related-listings-heading"><div className="section-heading"><h2 id="related-listings-heading">Похожие объявления</h2></div><div className="listing-stack">{visibleRelatedListings.map((item) => <ListingCard key={item.id} listing={item} variant="row" />)}</div></section>}
+      <SellerListings listingId={listing.id} sellerId={listing.seller.id} items={sellerListings} />
     </div>
   );
 }

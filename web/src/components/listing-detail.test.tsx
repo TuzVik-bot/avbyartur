@@ -175,13 +175,21 @@ describe("catalog specifications", () => {
     const facts = container.querySelector(".detail-facts")?.textContent || "";
     expect(facts).toContain("Синий");
     expect(facts).toContain("Оформлен в РБ");
-    expect(facts).toContain("Возможен");
     expect(facts).toContain("ABS");
     expect(facts).toContain("Центральный");
     expect(facts).toContain("9:00–20:00");
+    expect(container.querySelector(".listing-trust")?.textContent).toContain("Указано продавцом");
+    expect(container.querySelector(".listing-trust")?.textContent).toContain("Торг: Возможен");
     expect(container.textContent).toContain("Похожие объявления");
     const relatedLink = container.querySelector<HTMLAnchorElement>('.related-listings .card-title[href="/cars/marka/model/related-1"]');
     expect(relatedLink?.textContent).toBe("Похожий автомобиль");
+  });
+
+  it("does not show the current listing twice and caps related results at eight", async () => {
+    const items = Array.from({ length: 10 }, (_, index) => ({ ...listing, id: `related-${index}`, title: `Автомобиль ${index}` }));
+    await act(async () => root.render(createElement(ListingDetail, { listing, relatedListings: [{ ...listing }, ...items] })));
+    expect(container.querySelectorAll(".related-listings .listing-card")).toHaveLength(8);
+    expect(container.querySelector('.related-listings a[href$="listing-1"]')).toBeNull();
   });
 });
 
