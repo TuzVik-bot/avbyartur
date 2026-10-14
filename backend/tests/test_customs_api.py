@@ -1,14 +1,29 @@
 from datetime import date
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
 
 from app.api import customs_calculator as customs_api
+from app.customs_rates import CurrencyRate, RateHistoryPoint, RateSnapshot
 from app.main import app
 
 
 client = TestClient(app)
 META_PATH = "/api/v1/customs-calculator/meta"
 CALCULATE_PATH = "/api/v1/customs-calculator/calculate"
+RATES_PATH = "/api/v1/customs-calculator/rates"
+HISTORY_PATH = "/api/v1/customs-calculator/rates/history"
+
+
+def _rate_snapshot(rate_date: date = date(2026, 10, 4)) -> RateSnapshot:
+    rates = {
+        "BYN": CurrencyRate("BYN", Decimal("1"), 1, Decimal("1")),
+        "EUR": CurrencyRate("EUR", Decimal("3.4"), 1, Decimal("3.4"), 292),
+        "USD": CurrencyRate("USD", Decimal("3.1"), 1, Decimal("3.1"), 431),
+        "RUB": CurrencyRate("RUB", Decimal("3.6"), 100, Decimal("0.036"), 456),
+        "CNY": CurrencyRate("CNY", Decimal("4.5"), 10, Decimal("0.45"), 451),
+    }
+    return RateSnapshot(rate_date=rate_date, rates=rates)
 
 
 def _request_body(**overrides):
@@ -52,6 +67,74 @@ def test_meta_has_the_exact_public_contract_and_does_not_fetch_rates(monkeypatch
     assert isinstance(meta["sources"], list)
     assert any(source.startswith("https://api.nbrb.by/exrates/rates?") for source in meta["sources"])
     assert isinstance(meta["scope_notes"], list)
+
+
+def test_rates_endpoint_returns_the_validated_same_date_snapshot(monkeypatch) -> None:
+    snapshot = _rate_snapshot()
+    monkeypatch.setattr(customs_api, "minsk_today", lambda: date(2026, 10, 4))
+    monkeypatch.setattr(customs_api, "get_nbrb_rates", lambda _: snapshot)
+
+    response = client.get(RATES_PATH)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["rate_date"] == "2026-10-04"
+    assert [rate["currency"] for rate in body["rates"]] == ["EUR", "USD", "BYN", "RUB", "CNY"]
+    rub = next(rate for rate in body["rates"] if rate["currency"] == "RUB")
+    assert rub == {
+        "currency": "RUB",
+        "official_rate": "3.6",
+        "scale": 100,
+        "byn_per_unit": "0.036",
+    }
+
+
+def test_history_endpoint_uses_limited_period_and_official_currency_id(monkeypatch) -> None:
+    snapshot = _rate_snapshot()
+    requested = []
+    monkeypatch.setattr(customs_api, "minsk_today", lambda: date(2026, 10, 4))
+    monkeypatch.setattr(customs_api, "get_nbrb_rates", lambda _: snapshot)
+
+    def history(currency_id, start_date, end_date, default_scale):
+        requested.append((currency_id, start_date, end_date, default_scale))
+        return (RateHistoryPoint(date(2026, 10, 3), Decimal("3.61"), 100, Decimal("0.0361")),)
+
+    monkeypatch.setattr(customs_api, "get_nbrb_rate_history", history)
+
+    response = client.get(HISTORY_PATH, params={"currency": "RUB", "period": "30d"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert requested == [(456, date(2026, 9, 5), date(2026, 10, 4), 100)]
+    assert body["currency"] == "RUB"
+    assert body["period"] == "30d"
+    assert body["start_date"] == "2026-09-05"
+    assert body["end_date"] == "2026-10-04"
+    assert body["source_url"] == (
+        "https://api.nbrb.by/exrates/rates/dynamics/456"
+        "?startdate=2026-09-05&enddate=2026-10-04"
+    )
+    assert body["points"] == [{
+        "rate_date": "2026-10-03",
+        "official_rate": "3.61",
+        "scale": 100,
+        "byn_per_unit": "0.0361",
+    }]
+
+
+def test_history_rejects_unsupported_currency_and_missing_nbrb_id(monkeypatch) -> None:
+    monkeypatch.setattr(customs_api, "minsk_today", lambda: date(2026, 10, 4))
+    unsupported = client.get(HISTORY_PATH, params={"currency": "BYN"})
+    assert unsupported.status_code == 422
+
+    snapshot = _rate_snapshot()
+    rates = dict(snapshot.rates)
+    rates["USD"] = CurrencyRate("USD", Decimal("3.1"), 1, Decimal("3.1"))
+    monkeypatch.setattr(customs_api, "get_nbrb_rates", lambda _: RateSnapshot(snapshot.rate_date, rates))
+    unavailable = client.get(HISTORY_PATH, params={"currency": "USD"})
+
+    assert unavailable.status_code == 503
+    assert unavailable.json()["code"] == "customs_rates_unavailable"
 
 
 def test_closed_publication_gate_returns_api_error_envelope_without_rates(monkeypatch) -> None:

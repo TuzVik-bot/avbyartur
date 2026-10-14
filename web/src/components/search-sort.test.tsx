@@ -49,4 +49,13 @@ describe("search sorting", () => {
     expect(container.querySelector<HTMLSelectElement>('option[value="price_desc"]')?.disabled).toBe(true);
     expect(container.querySelector<HTMLSelectElement>('option[value="year_desc"]')?.disabled).toBe(false);
   });
+
+  it("preserves repeated equipment values when changing sort", async () => {
+    await act(async () => root.render(createElement(SearchSort, {
+      search: { equipment: ["abs", "rear_camera"], q: "BMW" }
+    })));
+
+    const form = container.querySelector<HTMLFormElement>("form")!;
+    expect(new FormData(form).getAll("equipment")).toEqual(["abs", "rear_camera"]);
+  });
 });

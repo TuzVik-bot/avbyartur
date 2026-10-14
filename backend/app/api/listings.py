@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from sqlalchemy import String, case, cast, func, inspect as sa_inspect, or_, select
+from sqlalchemy import case, func, inspect as sa_inspect, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -23,12 +23,14 @@ from app.listing_schemas import (
     FavoriteToggleOut,
     ListingDetailOut,
     ListingAnalyticsOut,
+    ListingCountOut,
     ListingFavoritesOut,
     ListingOwnerDetailOut,
     ListingOwnerSearchOut,
     ListingReportOut,
     ListingRelatedOut,
     ListingSearchOut,
+    ListingSearchFilters,
     PhoneRevealOut,
     ListingPublicCapabilitiesOut,
 )
@@ -78,12 +80,17 @@ from app.services import (
     listing_is_public,
     lock_owner,
     quota_limit,
+    listing_publication_dates,
+    latest_listing_exchange_rate,
+    build_public_listing_query,
+    public_listings_query,
     require_owned_listing,
     seller_company,
     serialize_listing,
     serialize_listings,
     validate_listing_for_submit,
 )
+from app.market_pricing import build_market_comparisons
 
 router = APIRouter(prefix="/api/v1", tags=["listings"])
 
@@ -336,17 +343,7 @@ def _record_transition(db: Session, listing: Listing, actor: User, target: str, 
 
 
 def _latest_exchange_rate(db: Session) -> tuple[ExchangeRate | None, bool]:
-    now = datetime.now(timezone.utc)
-    rate = db.scalar(
-        select(ExchangeRate)
-        .where(ExchangeRate.currency == "USD", ExchangeRate.rate_date <= now.date().isoformat())
-        .order_by(ExchangeRate.rate_date.desc())
-        .limit(1)
-    )
-    if rate is None or rate.fetched_at is None:
-        return rate, False
-    fetched = rate.fetched_at if rate.fetched_at.tzinfo else rate.fetched_at.replace(tzinfo=timezone.utc)
-    return rate, fetched >= now - timedelta(hours=72)
+    return latest_listing_exchange_rate(db)
 
 
 def _convert_price(amount: Decimal, source: str | None, target: str, rate: ExchangeRate | None, *, fresh: bool) -> Decimal | None:
@@ -361,15 +358,6 @@ def _convert_price(amount: Decimal, source: str | None, target: str, rate: Excha
     return None
 
 
-def _display_price_expression(currency: str, rate: ExchangeRate):
-    amount = Listing.price_amount
-    if currency == "BYN":
-        converted = amount * rate.official_rate / Decimal(rate.scale)
-        return case((Listing.currency == "BYN", amount), (Listing.currency == "USD", converted), else_=None)
-    converted = amount * Decimal(rate.scale) / rate.official_rate
-    return case((Listing.currency == "USD", amount), (Listing.currency == "BYN", converted), else_=None)
-
-
 def _listed(
     db: Session,
     listings: list[Listing],
@@ -379,6 +367,7 @@ def _listed(
     rate_info: tuple[ExchangeRate | None, bool] | None = None,
     display_currency: str | None = None,
     include_modification: bool = False,
+    publication_dates: dict[UUID, datetime] | None = None,
 ) -> list[dict]:
     if rate_info is None:
         rate_info = _latest_exchange_rate(db)
@@ -389,8 +378,12 @@ def _listed(
         if include_modification
         else serialize_listings(db, listings, public=public, include_contact=include_contact)
     )
+    publication_dates = publication_dates if publication_dates is not None else listing_publication_dates(db, listings)
+    market_comparisons = build_market_comparisons(db, listings, rate_info) if public else {}
     for listing, item in zip(listings, items, strict=True):
+        item["published_at"] = publication_dates.get(listing.id)
         if item["price"]:
+            item["price"]["market_comparison"] = market_comparisons.get(listing.id)
             amount = Decimal(str(listing.price_amount))
             if fresh and rate:
                 byn = _convert_price(amount, listing.currency, "BYN", rate, fresh=True)
@@ -407,7 +400,7 @@ def _listed(
 
 
 def _active_query():
-    return select(Listing).join(User, Listing.owner_id == User.id).where(Listing.status == "active", User.status == "active").outerjoin(Company, Listing.company_id == Company.id).where(or_(Listing.company_id.is_(None), Company.status == "approved"))
+    return public_listings_query()
 
 
 @router.get("/listing-options", response_model=ListingOptionsOut)
@@ -418,136 +411,49 @@ def listing_options() -> dict:
 @router.get("/listings", response_model=ListingSearchOut, response_model_exclude_unset=True)
 def search_listings(
     db: Annotated[Session, Depends(get_db)],
-    q: str | None = None,
-    make_id: UUID | None = None,
-    model_id: UUID | None = None,
-    generation_id: UUID | None = None,
-    body_variant_id: UUID | None = None,
-    modification_id: UUID | None = None,
-    price_min: Annotated[Decimal | None, Query(gt=0)] = None,
-    price_max: Annotated[Decimal | None, Query(gt=0)] = None,
-    currency: Literal["BYN", "USD"] | None = None,
-    year_min: Annotated[int | None, Query(ge=1886, le=2100)] = None,
-    year_max: Annotated[int | None, Query(ge=1886, le=2100)] = None,
-    mileage_min: Annotated[int | None, Query(ge=0)] = None,
-    mileage_max: Annotated[int | None, Query(ge=0)] = None,
-    fuel: str | None = None,
-    transmission: str | None = None,
-    drive: str | None = None,
-    body_type: str | None = None,
-    damaged: bool | None = None,
-    parts_only: bool | None = None,
-    condition: str | None = None,
-    color: Literal[
-        "black", "white", "gray", "silver", "red", "blue", "green", "yellow", "brown", "beige", "orange", "purple", "other",
-    ] | None = None,
-    customs_status: Literal["cleared_rb", "eaeu_import", "uncleared", "unknown"] | None = None,
-    technical_condition: Literal["good", "needs_repair", "non_operational"] | None = None,
-    body_condition: Literal["good", "minor_damage", "significant_damage", "repaired"] | None = None,
-    exchange: bool | None = None,
-    bargaining: bool | None = None,
-    credit: bool | None = None,
-    leasing: bool | None = None,
+    filters: Annotated[ListingSearchFilters, Depends()],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=25)] = 25,
     equipment: Annotated[list[Literal[
         "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
         "cruise_control", "parking_sensors", "rear_camera", "leather_seats", "carplay", "android_auto",
     ]] | None, Query()] = None,
-    district: str | None = None,
-    call_hours: str | None = None,
-    has_vin: bool | None = None,
-    has_photos: bool | None = None,
-    engine_volume_min: Annotated[Decimal | None, Query(ge=0, le=30)] = None,
-    engine_volume_max: Annotated[Decimal | None, Query(ge=0, le=30)] = None,
-    power_min: Annotated[int | None, Query(ge=1, le=3000)] = None,
-    power_max: Annotated[int | None, Query(ge=1, le=3000)] = None,
-    region_id: UUID | None = None,
-    city_id: UUID | None = None,
-    seller_type: Literal["private", "company"] | None = None,
-    page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=25)] = 25,
     sort: Literal["newest", "price_asc", "price_desc", "year_desc", "mileage_asc"] = "newest",
 ) -> dict:
-    price_operation = price_min is not None or price_max is not None or sort in {"price_asc", "price_desc"}
-    if price_operation and currency is None:
+    filters = filters.model_copy(update={"equipment": equipment})
+    price_operation = filters.price_min is not None or filters.price_max is not None or sort in {"price_asc", "price_desc"}
+    if price_operation and filters.currency is None:
         fail(422, "currency_required", "Price filters and sorting require currency=BYN or currency=USD", {"currency": "Required for price operations"})
     rate_info = _latest_exchange_rate(db)
     latest_rate, rate_fresh = rate_info
     if price_operation and not rate_fresh:
         fail(422, "exchange_rate_unavailable", "Price filtering and sorting require a fresh official exchange rate", {"currency": "A fresh exchange rate is unavailable"})
 
-    query = _active_query()
-    if q:
-        term = f"%{q.strip()[:100]}%"
-        query = query.outerjoin(CatalogMake, Listing.make_id == CatalogMake.id).outerjoin(CatalogModel, Listing.model_id == CatalogModel.id).where(
-            or_(Listing.title.ilike(term), Listing.make_name_snapshot.ilike(term), Listing.model_name_snapshot.ilike(term),
-                CatalogMake.name.ilike(term), cast(CatalogMake.aliases, String).ilike(term), CatalogModel.name.ilike(term), cast(CatalogModel.aliases, String).ilike(term),
-                Listing.manual_city.ilike(term), Listing.district.ilike(term))
+    query, display_price = build_public_listing_query(db, filters, rate_info)
+    total = int(db.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0)
+    publication_dates = (
+        select(
+            ListingStatusEvent.listing_id.label("listing_id"),
+            func.min(ListingStatusEvent.created_at).label("published_at"),
         )
-    for field, value in ((Listing.make_id, make_id), (Listing.model_id, model_id), (Listing.generation_id, generation_id),
-                         (Listing.body_variant_id, body_variant_id),
-                         (Listing.modification_id, modification_id),
-                         (Listing.region_id, region_id), (Listing.city_id, city_id), (Listing.fuel, fuel),
-                         (Listing.transmission, transmission), (Listing.drive, drive), (Listing.condition, condition),
-                         (Listing.color, color), (Listing.customs_status, customs_status),
-                         (Listing.technical_condition, technical_condition), (Listing.body_condition, body_condition),
-                         (Listing.exchange, exchange), (Listing.bargaining, bargaining), (Listing.credit, credit),
-                         (Listing.leasing, leasing), (Listing.damaged, damaged), (Listing.parts_only, parts_only)):
-        if value is not None:
-            query = query.where(field == value)
-    if body_type:
-        query = query.join(CatalogBodyType, Listing.body_type_id == CatalogBodyType.id).where(
-            or_(cast(Listing.body_type_id, String) == body_type, CatalogBodyType.slug == body_type)
-        )
-    if equipment:
-        query = query.where(Listing.equipment.contains(equipment))
-    if district:
-        query = query.where(Listing.district.ilike(f"%{district.strip()[:120]}%"))
-    if call_hours:
-        query = query.where(Listing.call_hours.ilike(f"%{call_hours.strip()[:120]}%"))
-    if has_vin is not None:
-        has_vin_expression = Listing.vin.is_not(None) & (func.length(func.trim(Listing.vin)) > 0)
-        query = query.where(has_vin_expression if has_vin else ~has_vin_expression)
-    if has_photos is not None:
-        ready_photo = select(ListingPhoto.id).where(
-            ListingPhoto.listing_id == Listing.id,
-            ListingPhoto.status == "ready",
-        ).exists()
-        query = query.where(ready_photo if has_photos else ~ready_photo)
-    if seller_type == "private":
-        query = query.where(Listing.company_id.is_(None))
-    if seller_type == "company":
-        query = query.where(Listing.company_id.is_not(None))
-    display_price = _display_price_expression(currency, latest_rate) if currency and rate_fresh and latest_rate else Listing.price_amount
-    if price_min is not None:
-        query = query.where(display_price >= price_min)
-    if price_max is not None:
-        query = query.where(display_price <= price_max)
-    if year_min is not None:
-        query = query.where(Listing.year >= year_min)
-    if year_max is not None:
-        query = query.where(Listing.year <= year_max)
-    if mileage_min is not None:
-        query = query.where(Listing.mileage_km >= mileage_min)
-    if mileage_max is not None:
-        query = query.where(Listing.mileage_km <= mileage_max)
-    if engine_volume_min is not None:
-        query = query.where(Listing.engine_volume_l >= engine_volume_min)
-    if engine_volume_max is not None:
-        query = query.where(Listing.engine_volume_l <= engine_volume_max)
-    if power_min is not None:
-        query = query.where(Listing.power_hp >= power_min)
-    if power_max is not None:
-        query = query.where(Listing.power_hp <= power_max)
-
-    count_query = select(func.count()).select_from(query.order_by(None).subquery())
-    total = int(db.scalar(count_query) or 0)
+        .where(ListingStatusEvent.to_status == "active")
+        .group_by(ListingStatusEvent.listing_id)
+        .subquery()
+    )
     order = {
-        "newest": (Listing.created_at.desc(), Listing.id.desc()),
+        "newest": (
+            func.coalesce(publication_dates.c.published_at, Listing.created_at).desc(),
+            Listing.id.desc(),
+        ),
         "price_asc": (display_price.asc().nullslast(), Listing.id.asc()),
         "price_desc": (display_price.desc().nullslast(), Listing.id.desc()),
-        "year_desc": (Listing.year.desc(), Listing.id.desc()),
-        "mileage_asc": (Listing.mileage_km.asc(), Listing.id.asc()),
+        "year_desc": (Listing.year.desc().nullslast(), Listing.id.desc()),
+        "mileage_asc": (Listing.mileage_km.asc().nullslast(), Listing.id.asc()),
     }[sort]
+    publication_dates_for_page: dict[UUID, datetime] = {}
+    if sort == "newest":
+        query = query.outerjoin(publication_dates, publication_dates.c.listing_id == Listing.id)
+        query = query.add_columns(publication_dates.c.published_at)
     bind = db.get_bind()
     promotion_table_available = (
         bind.dialect.name == "postgresql"
@@ -574,14 +480,55 @@ def search_listings(
         )
         query = query.outerjoin(active_boost, active_boost.c.listing_id == Listing.id)
         order = (active_boost.c.rank.desc().nullslast(), *order)
-    rows = db.scalars(query.order_by(*order).offset((page - 1) * page_size).limit(page_size)).all()
+    page_query = query.order_by(*order).offset((page - 1) * page_size).limit(page_size)
+    if sort == "newest":
+        selected_rows = db.execute(page_query).all()
+        rows = [row[0] for row in selected_rows]
+        publication_dates_for_page = {
+            row[0].id: row[1] for row in selected_rows if row[1] is not None
+        }
+    else:
+        rows = db.scalars(page_query).all()
     result = {
-        "items": _listed(db, rows, rate_info=rate_info, display_currency=currency),
+        "items": _listed(
+            db,
+            rows,
+            rate_info=rate_info,
+            display_currency=filters.currency,
+            publication_dates=publication_dates_for_page if sort == "newest" else None,
+        ),
         "pagination": {"page": page, "page_size": page_size, "total": total, "pages": (total + page_size - 1) // page_size},
     }
     if rate_fresh and latest_rate:
         result["fx"] = {"rate_date": latest_rate.rate_date, "usd_rate": str(latest_rate.official_rate), "scale": latest_rate.scale}
     return result
+
+
+@router.get("/listings/count", response_model=ListingCountOut)
+def count_public_listings(
+    db: Annotated[Session, Depends(get_db)],
+    filters: Annotated[ListingSearchFilters, Depends()],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=25)] = 25,
+    equipment: Annotated[list[Literal[
+        "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
+        "cruise_control", "parking_sensors", "rear_camera", "leather_seats", "carplay", "android_auto",
+    ]] | None, Query()] = None,
+    sort: Literal["newest", "price_asc", "price_desc", "year_desc", "mileage_asc"] = "newest",
+) -> dict:
+    # Pagination and ordering are accepted for call compatibility but do not affect the count.
+    del page, page_size, sort
+    filters = filters.model_copy(update={"equipment": equipment})
+    price_operation = filters.price_min is not None or filters.price_max is not None
+    if price_operation and filters.currency is None:
+        fail(422, "currency_required", "Price filters require currency=BYN or currency=USD", {"currency": "Required for price operations"})
+    rate_info = _latest_exchange_rate(db)
+    latest_rate, rate_fresh = rate_info
+    if price_operation and not rate_fresh:
+        fail(422, "exchange_rate_unavailable", "Price filtering requires a fresh official exchange rate", {"currency": "A fresh exchange rate is unavailable"})
+    query, _display_price = build_public_listing_query(db, filters, rate_info)
+    total = int(db.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0)
+    return {"total": total}
 
 
 @router.get("/listings/public-capabilities", response_model=ListingPublicCapabilitiesOut)

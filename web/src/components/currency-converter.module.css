@@ -1,0 +1,341 @@
+.converterPage {
+  display: grid;
+  gap: 28px;
+  padding-bottom: 44px;
+}
+
+.rateSection,
+.historySection {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(36, 58, 104, .045);
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 20px;
+}
+
+.sectionHeading h2 {
+  margin: 0;
+}
+
+.sectionHeading .eyebrow {
+  margin-bottom: 4px;
+}
+
+.rateDate {
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--soft-accent);
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.currencyFields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.currencyField {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+}
+
+.currencyLabel {
+  display: flex;
+  min-height: 24px;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.currencyLabel strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.currencyField input {
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.currencyField input:focus {
+  border-color: var(--accent);
+  outline: 3px solid rgba(63, 92, 196, .15);
+}
+
+.rateHint {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.sourceNote {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sourceNote a,
+.historySource a {
+  color: var(--accent-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.inputError {
+  margin: 12px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.historySection .sectionHeading {
+  align-items: center;
+}
+
+.changeSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.changeSummary span {
+  font-size: 18px;
+}
+
+.increase {
+  color: var(--danger);
+}
+
+.decrease {
+  color: var(--green);
+}
+
+.chartToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.currencyTabs,
+.periodTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.tab,
+.periodTab {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab:hover,
+.periodTab:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-muted);
+}
+
+.activeTab {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.activeTab:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.activePeriod {
+  border-color: var(--line-strong);
+  background: var(--soft-accent);
+  color: var(--accent-dark);
+}
+
+.chartCard {
+  min-width: 0;
+  overflow: hidden;
+  padding: 17px 18px 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--surface-muted) 0%, var(--surface) 100%);
+}
+
+.chartTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 4px;
+}
+
+.chartTitle h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.chartTitle span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chartWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  min-width: 480px;
+  height: auto;
+  overflow: visible;
+}
+
+.gridLine {
+  stroke: var(--line);
+  stroke-dasharray: 4 5;
+  stroke-width: 1;
+}
+
+.axisLabel {
+  fill: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chartLine {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.chartMarker {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.chartMessage {
+  display: grid;
+  min-height: 220px;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+.chartMessage p {
+  margin: 0;
+}
+
+.historySource {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 860px) {
+  .currencyFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chartToolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .converterPage {
+    gap: 18px;
+    padding-bottom: 30px;
+  }
+
+  .rateSection,
+  .historySection {
+    padding: 17px 14px;
+  }
+
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-bottom: 16px;
+  }
+
+  .currencyFields {
+    gap: 14px 9px;
+  }
+
+  .currencyLabel {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .currencyField input {
+    height: 51px;
+    padding-inline: 10px;
+    font-size: 19px;
+  }
+
+  .chartCard {
+    padding: 13px 10px 11px;
+  }
+
+  .tab,
+  .periodTab {
+    padding-inline: 10px;
+    font-size: 13px;
+  }
+}

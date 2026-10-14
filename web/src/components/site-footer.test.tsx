@@ -18,7 +18,10 @@ const requiredContentLinks = {
   "/credit-policy": { group: "Правила и политики", label: "Согласие на обработку персональных данных для фин. организаций" },
   "/promotion": { group: "Разделы", label: "Продвижение" },
   "/pro-subscription": { group: "Разделы", label: "PRO-подписка" },
-  "/customs-calculator": { group: "Разделы", label: "Таможенный калькулятор" }
+  "/customs-calculator": { group: "Разделы", label: "Таможенный калькулятор" },
+  "/currency-converter": { group: "Разделы", label: "Конвертер валют" },
+  "/vin-check": { group: "Разделы", label: "Проверка авто по VIN" },
+  "/sale-contract": { group: "Разделы", label: "Договор купли-продажи" }
 } as const;
 
 let container: HTMLDivElement;
@@ -48,7 +51,7 @@ describe("SiteFooter", () => {
       expect(link?.textContent).toBe(expected.label);
       expect(link?.closest(".footer-group")?.querySelector(".footer-group-title")?.textContent).toBe(expected.group);
     }
-    expect(Object.keys(requiredContentLinks)).toHaveLength(15);
+    expect(Object.keys(requiredContentLinks)).toHaveLength(18);
   });
 
   it("keeps the pilot navigation and closed-pilot notice", () => {

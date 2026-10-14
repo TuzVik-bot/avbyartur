@@ -56,6 +56,7 @@ export function PasswordRecoveryForm({ token }: { token?: string }) {
   if (!capabilities?.password_recovery) return <div><p className="notice" role="status">Восстановление по почте сейчас недоступно. Обратитесь к администратору пилота.</p><Link className="text-link" href="/login">Вернуться ко входу</Link></div>;
 
   return <>
+    {capabilities.test_mail && <p className="notice">Тестовый режим: письма поступают в защищённый ящик администратора, а не на внешнюю почту. Для восстановления адрес должен быть предварительно подтверждён.</p>}
     {actionToken ? <form onSubmit={confirm}>
       <label className="field"><span>Новый пароль</span><input name="new_password" type="password" autoComplete="new-password" maxLength={256} required /></label>
       <label className="field"><span>Повторите новый пароль</span><input name="confirm_password" type="password" autoComplete="new-password" maxLength={256} required /></label>

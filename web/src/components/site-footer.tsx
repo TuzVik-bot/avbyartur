@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { FooterChannels } from "./footer-channels";
+import { advertisementSections } from "@/lib/advertisement-sections";
 
 type FooterLink = { href: string; label: string };
 
@@ -9,6 +11,7 @@ type FooterGroup = {
 };
 
 const footerGroups: FooterGroup[] = [
+  { id: "advertisements", title: "Объявления", links: [...advertisementSections] },
   {
     id: "information",
     title: "Информация",
@@ -17,7 +20,8 @@ const footerGroups: FooterGroup[] = [
       { href: "/faq", label: "Часто задаваемые вопросы" },
       { href: "/support", label: "Служба поддержки" },
       { href: "/partner", label: "Информация для рекламодателей" },
-      { href: "/help", label: "Помощь и документы" }
+      { href: "/help", label: "Помощь и документы" },
+      { href: "/useful-information", label: "Полезная информация" }
     ]
   },
   {
@@ -46,9 +50,12 @@ const footerGroups: FooterGroup[] = [
     links: [
       { href: "/promotion", label: "Продвижение" },
       { href: "/pro-subscription", label: "PRO-подписка" },
-      { href: "/dealers", label: "Компании" },
+      { href: "/dealers", label: "Компаниям" },
       { href: "/sell", label: "Подать объявление" },
-      { href: "/customs-calculator", label: "Таможенный калькулятор" }
+      { href: "/customs-calculator", label: "Таможенный калькулятор" },
+      { href: "/currency-converter", label: "Конвертер валют" },
+      { href: "/vin-check", label: "Проверка авто по VIN" },
+      { href: "/sale-contract", label: "Договор купли-продажи" }
     ]
   }
 ];
@@ -70,6 +77,7 @@ export function SiteFooter() {
             </section>
           ))}
         </nav>
+        <FooterChannels />
         <p className="footer-note">Закрытый пилот. Данные и контакты предназначены для тестирования.</p>
       </div>
     </footer>

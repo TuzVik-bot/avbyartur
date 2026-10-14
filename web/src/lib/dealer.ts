@@ -14,7 +14,13 @@ export type DealerFeedImportRow = components["schemas"]["DealerFeedImportRowOut"
 export type DealerFeedMissingCandidate = components["schemas"]["DealerFeedMissingCandidateOut"];
 export type DealerFeedMissingConfirmation = components["schemas"]["DealerFeedMissingCandidateConfirmation"];
 export type DealerFeedPolicyPatch = Pick<components["schemas"]["DealerFeedPatch"], "manual_conflict_policy" | "missing_retirement_enabled" | "missing_retirement_delay_hours">;
-export type DealerAnalytics = components["schemas"]["DealerAnalyticsOut"];
+type GeneratedDealerAnalytics = components["schemas"]["DealerAnalyticsOut"];
+type GeneratedDealerAnalyticsTotals = GeneratedDealerAnalytics["totals"];
+type GeneratedDealerAnalyticsItem = GeneratedDealerAnalytics["items"][number];
+export type DealerAnalytics = Omit<GeneratedDealerAnalytics, "totals" | "items"> & {
+  totals: Omit<GeneratedDealerAnalyticsTotals, "company_clicks"> & { company_clicks: number };
+  items: Array<Omit<GeneratedDealerAnalyticsItem, "company_clicks"> & { company_clicks: number }>;
+};
 
 export const dealerTeamApi = {
   list() {

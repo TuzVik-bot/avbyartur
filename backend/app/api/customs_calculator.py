@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter
@@ -9,8 +9,18 @@ from app.customs_calculator import (
     get_rules_for_date,
     is_publicly_available,
 )
-from app.customs_rates import NBRB_API_URL, RatesUnavailable, get_nbrb_rates
-from app.customs_schemas import CustomsCalculationRequest, CustomsCalculationResponse, CustomsMetaResponse
+from app.customs_rates import NBRB_API_URL, RatesUnavailable, SUPPORTED_CURRENCIES, get_nbrb_rate_history, get_nbrb_rates
+from app.customs_schemas import (
+    CustomsCalculationRequest,
+    CustomsCalculationResponse,
+    CustomsMetaResponse,
+    CustomsRateHistoryPoint,
+    CustomsRateHistoryResponse,
+    CustomsRateUsed,
+    CustomsRatesResponse,
+    HistoryCurrency,
+    RateHistoryPeriod,
+)
 from app.schemas import ApiErrorOut
 from app.services import fail
 
@@ -64,6 +74,79 @@ def customs_calculator_meta() -> CustomsMetaResponse:
     except CustomsRulesUnavailable:
         return _meta_for_rules(None, unavailable_reason="customs_rules_unavailable")
     return _meta_for_rules(rules)
+
+
+@router.get(
+    "/rates",
+    response_model=CustomsRatesResponse,
+    responses={503: {"model": ApiErrorOut, "description": "Official exchange rates are unavailable"}},
+)
+def customs_exchange_rates() -> CustomsRatesResponse:
+    rate_date = minsk_today()
+    try:
+        snapshot = get_nbrb_rates(rate_date)
+    except RatesUnavailable:
+        fail(503, "customs_rates_unavailable", "Official exchange rates are unavailable for today")
+    return CustomsRatesResponse(
+        rate_date=snapshot.rate_date,
+        rates=[
+            CustomsRateUsed(
+                currency=currency,
+                official_rate=format(snapshot.rates[currency].official_rate, "f"),
+                scale=snapshot.rates[currency].scale,
+                byn_per_unit=format(snapshot.rates[currency].byn_per_unit, "f"),
+            )
+            for currency in SUPPORTED_CURRENCIES
+        ],
+    )
+
+
+@router.get(
+    "/rates/history",
+    response_model=CustomsRateHistoryResponse,
+    responses={503: {"model": ApiErrorOut, "description": "Official exchange-rate history is unavailable"}},
+)
+def customs_rate_history(
+    currency: HistoryCurrency = "USD",
+    period: RateHistoryPeriod = "90d",
+) -> CustomsRateHistoryResponse:
+    rate_date = minsk_today()
+    period_days = {"30d": 30, "90d": 90, "180d": 180, "365d": 365}[period]
+    start_date = rate_date - timedelta(days=period_days - 1)
+    try:
+        snapshot = get_nbrb_rates(rate_date)
+        current_rate = snapshot.rates[currency]
+        if current_rate.nbrb_id is None:
+            raise RatesUnavailable(f"NBRB response is missing the currency ID for {currency}")
+        points = get_nbrb_rate_history(
+            current_rate.nbrb_id,
+            start_date,
+            rate_date,
+            current_rate.scale,
+        )
+    except RatesUnavailable:
+        fail(503, "customs_rates_unavailable", "Official exchange-rate history is unavailable")
+    source_url = (
+        f"{NBRB_API_URL}/dynamics/{current_rate.nbrb_id}"
+        f"?startdate={start_date.isoformat()}&enddate={rate_date.isoformat()}"
+    )
+    return CustomsRateHistoryResponse(
+        currency=currency,
+        period=period,
+        rate_date=snapshot.rate_date,
+        start_date=start_date,
+        end_date=rate_date,
+        source_url=source_url,
+        points=[
+            CustomsRateHistoryPoint(
+                rate_date=point.rate_date,
+                official_rate=format(point.official_rate, "f"),
+                scale=point.scale,
+                byn_per_unit=format(point.byn_per_unit, "f"),
+            )
+            for point in points
+        ],
+    )
 
 
 @router.post(

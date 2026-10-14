@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Filter, SlidersHorizontal } from "lucide-react";
+import { Filter, SlidersHorizontal, X } from "lucide-react";
 import { api } from "@/lib/api";
 import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch } from "@/lib/types";
 
@@ -12,7 +12,27 @@ function citiesForRegion(cities: CatalogCity[], regionId: string) {
   return regionId ? cities.filter((city) => city.region_id === regionId) : cities;
 }
 
-export function SearchFilters({ search, makes, initialModels, initialGenerations, initialModifications = emptyModifications, regions, initialCities, bodyTypes, priceOperationsAvailable = true }: {
+function offerLabel(count: number) {
+  const plural = new Intl.PluralRules("ru").select(count);
+  const noun = plural === "one" ? "предложение" : plural === "few" ? "предложения" : "предложений";
+  return `${count.toLocaleString("ru-BY")} ${noun}`;
+}
+
+function searchFromFilterForm(form: HTMLFormElement): ListingSearch {
+  const search: ListingSearch = {};
+  const excluded = new Set(["page", "page_size", "sort"]);
+  new FormData(form).forEach((entry, key) => {
+    if (excluded.has(key) || typeof entry !== "string" || !entry.trim()) return;
+    if (key === "equipment") {
+      search.equipment = [...(search.equipment || []), entry.trim()];
+      return;
+    }
+    (search as Record<string, string | string[]>)[key] = entry.trim();
+  });
+  return search;
+}
+
+export function SearchFilters({ search, makes, initialModels, initialGenerations, initialModifications = emptyModifications, regions, initialCities, bodyTypes, priceOperationsAvailable = true, initialCount }: {
   search: ListingSearch;
   makes: CatalogItem[];
   initialModels: CatalogItem[];
@@ -22,9 +42,18 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
   initialCities: CatalogCity[];
   bodyTypes: CatalogItem[];
   priceOperationsAvailable?: boolean;
+  initialCount?: number | null;
 }) {
   const initialRegionId = search.region_id || initialCities.find((city) => city.id === search.city_id)?.region_id || "";
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [resultCount, setResultCount] = useState<number | null>(initialCount ?? null);
+  const [countLoading, setCountLoading] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const focusBeforeOpen = useRef<HTMLElement | null>(null);
+  const countRequestId = useRef(0);
   const [makeId, setMakeId] = useState(search.make_id || "");
   const [modelId, setModelId] = useState(search.model_id || "");
   const [generationId, setGenerationId] = useState(search.generation_id || "");
@@ -54,6 +83,93 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
   const firstGenerationModelId = useRef<string | undefined>(initialGenerations !== undefined && (!search.generation_id || initialGenerations.some((item) => item.id === search.generation_id)) ? search.model_id || "" : undefined);
   const firstRegionId = useRef<string | undefined>(initialRegionId && initialCities.some((city) => city.region_id === initialRegionId) ? initialRegionId : undefined);
   const firstGenerationId = useRef<string | undefined>(search.generation_id || "");
+
+  useEffect(() => {
+    setResultCount(initialCount ?? null);
+  }, [initialCount]);
+
+  useEffect(() => {
+    const form = overlayRef.current?.querySelector("form");
+    if (!form) return;
+    let active = true;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const updateCount = () => {
+      if (timeout) clearTimeout(timeout);
+      const nextSearch = searchFromFilterForm(form);
+      const currentRequest = ++countRequestId.current;
+      setCountLoading(false);
+      if (!Object.keys(nextSearch).length) {
+        setResultCount(initialCount ?? null);
+        return;
+      }
+      setResultCount(null);
+      timeout = setTimeout(async () => {
+        setCountLoading(true);
+        try {
+          const response = await api.listingCount(nextSearch);
+          if (active && countRequestId.current === currentRequest) setResultCount(response.total);
+        } catch {
+          if (active && countRequestId.current === currentRequest) setResultCount(null);
+        } finally {
+          if (active && countRequestId.current === currentRequest) setCountLoading(false);
+        }
+      }, 300);
+    };
+    form.addEventListener("input", updateCount);
+    form.addEventListener("change", updateCount);
+    return () => {
+      active = false;
+      if (timeout) clearTimeout(timeout);
+      form.removeEventListener("input", updateCount);
+      form.removeEventListener("change", updateCount);
+    };
+  }, [initialCount, search]);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(max-width: 800px)");
+    const update = () => {
+      setIsMobile(media.matches);
+      if (media.matches) setOpen(false);
+    };
+    update();
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile || !open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...(overlayRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+      ) || [])];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !overlayRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !overlayRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      (focusBeforeOpen.current || triggerRef.current)?.focus();
+    };
+  }, [isMobile, open]);
 
   useEffect(() => {
     firstMakeId.current = search.model_id && !initialModels.some((item) => item.id === search.model_id) ? undefined : search.make_id || "";
@@ -237,14 +353,35 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
     setModificationsLoading(Boolean(nextGenerationId));
   }
 
+  const activeFilterCount = Object.entries(search).filter(([key, value]) =>
+    !["currency", "page", "page_size", "sort"].includes(key) && (Array.isArray(value) ? value.length > 0 : Boolean(value))
+  ).length;
+  const mobileDialogOpen = isMobile && open;
+
   return (
-    <aside aria-label="Фильтры поиска">
-      <button className="button button-secondary filter-toggle" type="button" aria-expanded={open} aria-controls="search-filter-panel" onClick={() => setOpen(!open)}>
-        <SlidersHorizontal size={17} /> Фильтры <Filter size={15} />
+    <aside className={`search-filters ${open ? "is-open" : ""}`} aria-label="Фильтры поиска">
+      <button ref={triggerRef} className="button button-secondary filter-toggle" type="button" aria-expanded={open} aria-controls="search-filter-panel" onClick={() => {
+        if (!open) focusBeforeOpen.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setOpen(!open);
+      }}>
+        <SlidersHorizontal size={17} /> <span>Фильтры{activeFilterCount ? ` · ${activeFilterCount}` : ""}</span> <Filter size={15} />
       </button>
+      <div
+        ref={overlayRef}
+        className={`filter-overlay ${mobileDialogOpen ? "is-open" : ""}`}
+        role={mobileDialogOpen ? "dialog" : undefined}
+        aria-modal={mobileDialogOpen ? "true" : undefined}
+        aria-hidden={isMobile && !open ? "true" : undefined}
+        aria-labelledby="search-filter-heading"
+        onClick={(event) => { if (event.target === event.currentTarget) setOpen(false); }}
+      >
       <div id="search-filter-panel" className={`filter-panel ${open ? "is-open" : ""}`}>
-        <h2>Параметры поиска</h2>
-        <form key={JSON.stringify(search)} action="/cars" method="get" className="filter-grid">
+        <div className="filter-panel-heading">
+          <h2 id="search-filter-heading">Параметры поиска</h2>
+          <button ref={closeRef} className="icon-button filter-close" type="button" aria-label="Закрыть фильтры" onClick={() => setOpen(false)}><X size={19} /></button>
+        </div>
+        <form key={JSON.stringify(search)} action="/cars" method="get" className="filter-form" onSubmit={() => { if (mobileDialogOpen) setOpen(false); }}>
+          <div className="filter-grid">
           <label className="field filter-wide">
             <span>Марка</span>
             <select name="make_id" value={makeId} onChange={(event) => {
@@ -368,8 +505,15 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <label className="field"><span>Район</span><input name="district" maxLength={120} defaultValue={search.district || ""} /></label>
           <label className="field"><span>Время звонков</span><input name="call_hours" maxLength={80} defaultValue={search.call_hours || ""} /></label>
           <input type="hidden" name="page_size" value={search.page_size || "25"} />
-          <div className="filter-wide"><button className="button button-primary" type="submit">Показать автомобили</button></div>
+          </div>
+          <div className="filter-wide filter-apply-wrap">
+            <button className="button button-primary filter-apply" type="submit">{countLoading ? "Подбираем…" : resultCount === null ? "Показать автомобили" : `Показать ${offerLabel(resultCount)}`}</button>
+            <span className="filter-result-count" role="status" aria-live="polite" data-count-state={resultCount === null ? "generic" : "count"}>
+              {countLoading ? "Подбираем подходящие предложения" : resultCount === null ? "Количество уточнится после применения фильтров" : `Найдено ${offerLabel(resultCount)}`}
+            </span>
+          </div>
         </form>
+      </div>
       </div>
     </aside>
   );

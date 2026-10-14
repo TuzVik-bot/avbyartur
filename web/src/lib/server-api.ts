@@ -65,7 +65,15 @@ export const serverApi = {
   moderationReports: () => serverApiRequest<{ items: Report[] }>("moderation/reports"),
   regions: () => serverApiRequest<{ items: CatalogItem[] }>("locations/regions"),
   cities: (regionId = "") => serverApiRequest<{ items: CatalogItem[] }>(`locations/cities?region_id=${encodeURIComponent(regionId)}`),
-  photos: (id: string) => serverApiRequest<{ items: ListingPhoto[] }>(`listings/${encodeURIComponent(id)}/photos`)
+  photos: (id: string) => serverApiRequest<{ items: ListingPhoto[] }>(`listings/${encodeURIComponent(id)}/photos`),
+  customsRates: () => serverApiRequest<components["schemas"]["CustomsRatesResponse"]>("customs-calculator/rates"),
+  customsRateHistory: (
+    currency: components["schemas"]["CustomsRateHistoryResponse"]["currency"] = "USD",
+    period: components["schemas"]["CustomsRateHistoryResponse"]["period"] = "90d"
+  ) => {
+    const query = new URLSearchParams({ currency, period }).toString();
+    return serverApiRequest<components["schemas"]["CustomsRateHistoryResponse"]>(`customs-calculator/rates/history?${query}`);
+  }
 };
 
 export async function getSavedListingIds() {

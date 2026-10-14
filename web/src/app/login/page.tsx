@@ -34,7 +34,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="auth-card">
         <p className="eyebrow">Закрытый пилот</p>
         <h1>Вход в кабинет</h1>
-        <p className="muted">Используйте почту и пароль тестовой учётной записи.</p>
+        <p className="muted">Войдите по почте и паролю или создайте аккаунт, если регистрация доступна.</p>
         <LoginForm nextPath={safeNextPath(next)} consentVersions={consentVersions} />
       </div>
     </section>

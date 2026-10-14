@@ -66,7 +66,7 @@
 .engine legend,
 .confirmations legend {
   margin-bottom: 7px;
-  color: #485350;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 750;
 }
@@ -130,10 +130,10 @@
 
 .status {
   padding: 10px 12px;
-  border: 1px solid #cbd7fa;
+  border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--soft-accent);
-  color: #304d9e;
+  color: var(--accent-dark);
 }
 
 .fieldError {
@@ -152,7 +152,7 @@
   justify-items: start;
   gap: 9px;
   margin-bottom: 15px;
-  border-color: #efc1c4;
+  border-color: var(--danger-line);
   background: var(--soft-danger);
   color: var(--danger);
 }
@@ -163,9 +163,9 @@
 }
 
 .unavailable {
-  border-color: #e8d59e;
+  border-color: var(--amber-line);
   background: var(--soft-amber);
-  color: #5c481b;
+  color: var(--amber);
 }
 
 .sources {
@@ -223,7 +223,7 @@
 
 .result {
   margin-top: 16px;
-  border-color: #cbd7fa;
+  border-color: var(--line);
   box-shadow: 0 8px 24px rgba(36, 58, 104, .07);
 }
 
@@ -291,11 +291,11 @@
   padding: 13px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #fbfcff;
+  background: var(--surface-muted);
 }
 
 .warnings {
-  border-color: #e8d59e;
+  border-color: var(--amber-line);
   background: var(--soft-amber);
 }
 

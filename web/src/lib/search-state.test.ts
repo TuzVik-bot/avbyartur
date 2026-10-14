@@ -25,6 +25,19 @@ describe("URL-backed listing filters", () => {
     });
   });
 
+  it("reads valid category codes and drops unsupported values", () => {
+    expect(readSearchParams(new URLSearchParams("category_code=parts"))).toEqual({ category_code: "parts" });
+    expect(readSearchParams({ category_code: "aircraft" })).toEqual({});
+  });
+
+  it("preserves category codes in canonical URLs without exposing them as filter chips", () => {
+    const search = readSearchParams(new URLSearchParams("page=2&q=tires&category_code=parts"));
+
+    expect(searchUrl(search)).toBe("/cars?category_code=parts&q=tires&page=2");
+    expect(readSearchParams(new URLSearchParams(searchUrl(search).split("?")[1]))).toEqual(search);
+    expect(activeSearchKeys).not.toContain("category_code");
+  });
+
   it("drops empty values instead of leaving stale query parameters", () => {
     expect(searchUrl({ q: "", page: "2", city_id: "city-1" }, { city_id: undefined })).toBe("/cars");
   });

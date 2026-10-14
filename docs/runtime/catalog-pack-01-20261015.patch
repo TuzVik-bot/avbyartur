@@ -1,0 +1,87 @@
+--- a/web/src/components/sell-form.tsx
++++ b/web/src/components/sell-form.tsx
+@@ -408,6 +408,27 @@
+   const firstFields = useMemo(() => ({ ...initialFields(initialListing), ...(!initialListing && initialCategory !== "cars" ? { category_code: initialCategory, make_mode: "manual" as const, model_mode: "manual" as const } : {}), body_type_id: bodyTypes.find((item) => item.name === initialListing?.body_type)?.id || "" }), [initialListing, bodyTypes, initialCategory]);
+   const [fields, setFields] = useState(firstFields);
+   const category = fields.category_code || "cars";
++  const [categoryMakes, setCategoryMakes] = useState<CatalogItem[]>([]);
++  const [categoryModels, setCategoryModels] = useState<CatalogItem[]>([]);
++  const hasCategoryCatalog = category === "trucks" || category === "motorcycles";
++  useEffect(() => {
++    let active = true;
++    setCategoryMakes([]);
++    if (hasCategoryCatalog) api.catalog("makes", { category_code: category }).then(result => {
++      if (active) setCategoryMakes(result.items);
++    }).catch(() => { if (active) setCategoryMakes([]); });
++    return () => { active = false; };
++  }, [category, hasCategoryCatalog]);
++  useEffect(() => {
++    let active = true;
++    setCategoryModels([]);
++    const make = categoryMakes.find(item => item.name.toLocaleLowerCase() === fields.manual_make.trim().toLocaleLowerCase());
++    if (hasCategoryCatalog && make) api.catalog("models", { category_code: category, make_id: make.id }).then(result => {
++      if (active) setCategoryModels(result.items);
++    }).catch(() => { if (active) setCategoryModels([]); });
++    return () => { active = false; };
++  }, [category, hasCategoryCatalog, categoryMakes, fields.manual_make]);
++
+   const [missingModificationSelected, setMissingModificationSelected] = useState(false);
+   const [manualModificationName, setManualModificationName] = useState("");
+   const [catalogRequestNote, setCatalogRequestNote] = useState("");
+@@ -1161,8 +1182,13 @@
+         {category !== "cars" && <>
+           {isGoods(category) && <label className="field"><span>Название объявления</span><input value={fields.title || ""} onChange={event => update("title", event.target.value)} maxLength={180} required />{fieldError("title")}</label>}
+           {!isGoods(category) && <>
+-            <label className="field"><span>Марка</span><input aria-label="Марка вручную" value={fields.manual_make} onChange={event => update("manual_make", event.target.value)} maxLength={180} required /></label>
+-            <label className="field"><span>Модель</span><input aria-label="Модель вручную" value={fields.manual_model} onChange={event => update("manual_model", event.target.value)} maxLength={180} required /></label>
++            {hasCategoryCatalog && <>
++              <datalist id="category-pack-makes">{categoryMakes.map(item => <option key={item.id} value={item.name} />)}</datalist>
++              <datalist id="category-pack-models">{categoryModels.map(item => <option key={item.id} value={item.name} />)}</datalist>
++              <p className="muted wide">Выберите марку и модель из подсказок или введите вручную. Каталог NHTSA неполный; классификацию модели проверьте перед подачей.</p>
++            </>}
++            <label className="field"><span>Марка</span><input list={hasCategoryCatalog ? "category-pack-makes" : undefined} aria-label="Марка вручную" value={fields.manual_make} onChange={event => { update("manual_make", event.target.value); update("manual_model", ""); }} maxLength={180} required /></label>
++            <label className="field"><span>Модель</span><input list={hasCategoryCatalog ? "category-pack-models" : undefined} aria-label="Модель вручную" value={fields.manual_model} onChange={event => update("manual_model", event.target.value)} maxLength={180} required /></label>
+             <label className="field"><span>Год выпуска</span><input type="number" min={validationPolicy?.listing_year_min} max={fields.condition === "new" ? validationPolicy?.new_year_max : validationPolicy?.used_year_max} value={fields.year} onChange={event => update("year", event.target.value)} required />{fieldError("year")}</label>
+           </>}
+           {hasMileage(category) && <label className="field"><span>Пробег, км</span><input type="number" min={0} step="1" value={fields.mileage_km} onChange={event => update("mileage_km", event.target.value)} /></label>}
+--- a/backend/app/api/catalog.py
++++ b/backend/app/api/catalog.py
+@@ -2,7 +2,7 @@
+ from uuid import UUID
+ 
+ from fastapi import APIRouter, Depends, Query
+-from sqlalchemy import String, cast, select
++from sqlalchemy import String, cast, select, or_
+ from sqlalchemy.orm import Session
+ 
+ from app.api.catalog_schemas import CatalogItemsOut, CatalogModificationsOut, CategorySubtypesOut
+@@ -30,11 +30,11 @@
+ 
+ @router.get("/catalog/makes", response_model=CatalogItemsOut, response_model_exclude_unset=True)
+ def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: Annotated[int, Query(ge=1, le=200)] = 200, category_code: CategoryCode = "cars") -> dict:
+-    if category_code != "cars":
+-        # Existing imported catalog data has car provenance only. Manual make
+-        # entry remains available until a licensed category catalog is added.
+-        return {"items": []}
+     query = select(CatalogMake).order_by(CatalogMake.sort_order, CatalogMake.name).limit(limit)
++    if category_code == "cars":
++        query = query.where(or_(CatalogMake.source_name.is_(None), CatalogMake.source_name != "NHTSA vPIC catalog pack 01"))
++    else:
++        query = query.where(CatalogMake.source_metadata.contains({"category_codes": [category_code]}))
+     if q:
+         term = f"%{q[:80]}%"
+         query = query.where(CatalogMake.name.ilike(term) | CatalogMake.slug.ilike(term) | cast(CatalogMake.aliases, String).ilike(term))
+@@ -43,9 +43,11 @@
+ 
+ @router.get("/catalog/models", response_model=CatalogItemsOut, response_model_exclude_unset=True)
+ def models(db: Annotated[Session, Depends(get_db)], make_id: UUID | None = None, q: str | None = None, limit: Annotated[int, Query(ge=1, le=300)] = 300, category_code: CategoryCode = "cars") -> dict:
+-    if category_code != "cars":
+-        return {"items": []}
+     query = select(CatalogModel).order_by(CatalogModel.name).limit(limit)
++    if category_code == "cars":
++        query = query.where(or_(CatalogModel.source_name.is_(None), CatalogModel.source_name != "NHTSA vPIC catalog pack 01"))
++    else:
++        query = query.where(CatalogModel.source_metadata.contains({"category_codes": [category_code]}))
+     if make_id:
+         query = query.where(CatalogModel.make_id == make_id)
+     if q:

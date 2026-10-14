@@ -1,13 +1,80 @@
 import uuid
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
+import pytest
+from pydantic import ValidationError
 from fastapi.testclient import TestClient
 
 from app import models
+from app.api.saved_searches import SavedSearchCreate
 from app.main import app
 from app.security import hash_password
 
 
 PASSWORD = "saved-search-test-password-123"
+
+
+def test_saved_search_create_canonicalizes_url_and_derives_filters_from_it():
+    payload = SavedSearchCreate(
+        name="  Audi   Q5 ",
+        url="/cars?year_min=2020&q=Audi&page=3&page_size=50&sort=newest&price_max=25000&currency=USD",
+        filters={"q": "Audi", "year_min": "2020", "price_max": 25000, "currency": "USD", "sort": "newest"},
+    )
+
+    assert payload.url == "/cars?currency=USD&price_max=25000&q=Audi&sort=newest&year_min=2020"
+    assert payload.filters == {"currency": "USD", "price_max": 25000, "q": "Audi", "sort": "newest", "year_min": 2020}
+    assert payload.notifications_enabled is False
+    assert payload.notification_channel is None
+
+
+def test_saved_search_create_accepts_semantically_equal_numeric_filters():
+    payload = SavedSearchCreate(
+        name="Audi under 25k",
+        url="/cars?price_max=20000&currency=USD&year_min=2020",
+        filters={"price_max": 20000, "currency": "USD", "year_min": "2020"},
+    )
+
+    assert payload.filters == {"currency": "USD", "price_max": 20000, "year_min": 2020}
+
+
+def test_saved_search_create_normalizes_supported_category_filter():
+    payload = SavedSearchCreate(
+        name="Грузовики",
+        url="/cars?category_code=TRUCKS",
+        filters={"category_code": "trucks"},
+    )
+
+    assert payload.url == "/cars?category_code=trucks"
+    assert payload.filters == {"category_code": "trucks"}
+
+    with pytest.raises(ValidationError, match="category_code"):
+        SavedSearchCreate(name="Самолёты", url="/cars?category_code=aircraft", filters={})
+
+
+def test_saved_search_create_rejects_different_numeric_filters():
+    with pytest.raises(ValidationError, match="contradict"):
+        SavedSearchCreate(
+            name="Audi under 25k",
+            url="/cars?price_max=20000&currency=USD",
+            filters={"price_max": 25000, "currency": "USD"},
+        )
+
+
+def test_saved_search_create_rejects_filters_that_contradict_url():
+    with pytest.raises(ValidationError, match="contradict"):
+        SavedSearchCreate(name="Audi", url="/cars?make_id=audi", filters={"make_id": "bmw"})
+
+
+def test_saved_search_create_requires_explicit_subscription_after_save():
+    with pytest.raises(ValidationError, match="subscribe"):
+        SavedSearchCreate(
+            name="Audi",
+            url="/cars?q=audi",
+            filters={"q": "audi"},
+            notifications_enabled=True,
+            notification_channel="web",
+        )
 
 
 def add_user(factory, email: str) -> models.User:
@@ -53,11 +120,8 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
         "/api/v1/me/saved-searches",
         json={
             "name": "  BMW   under 20k ",
-            "url": "/cars?q=bmw&price_max=20000",
+            "url": "/cars?currency=USD&price_max=20000&q=bmw",
             "filters": {"q": "bmw", "price_max": "20000", "currency": "USD"},
-            "notifications_enabled": True,
-            "notification_channel": "email",
-            "notification_frequency": "daily",
         },
         headers={"X-CSRF-Token": owner_csrf, "Idempotency-Key": "saved-search-1"},
     )
@@ -66,7 +130,17 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
     assert saved["name"] == "BMW under 20k"
     assert saved["status"] == "active"
     assert saved["revision"] == 1
-    assert saved["notification"] == {"enabled": True, "channel": "email", "frequency": "daily"}
+    assert saved["notification"] == {"enabled": False, "channel": None, "frequency": "daily"}
+
+    subscribed = owner_client.patch(
+        f"/api/v1/me/saved-searches/{saved['id']}",
+        json={"notifications_enabled": True, "notification_channel": "web", "notification_frequency": "daily", "expected_revision": 1},
+        headers={"X-CSRF-Token": owner_csrf},
+    )
+    assert subscribed.status_code == 200, subscribed.text
+    saved = subscribed.json()["saved_search"]
+    assert saved["revision"] == 2
+    assert saved["notification"] == {"enabled": True, "channel": "web", "frequency": "daily"}
 
     replay = owner_client.post(
         "/api/v1/me/saved-searches",
@@ -93,16 +167,18 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
 
     paused = owner_client.post(
         f"/api/v1/me/saved-searches/{saved['id']}/pause",
-        json={"expected_revision": 1},
+        json={"expected_revision": 2},
         headers={"X-CSRF-Token": owner_csrf},
     )
     assert paused.status_code == 200, paused.text
     assert paused.json()["saved_search"]["status"] == "paused"
-    assert paused.json()["saved_search"]["revision"] == 2
+    assert paused.json()["saved_search"]["revision"] == 3
+    with factory() as db:
+        assert db.get(models.SavedSearch, uuid.UUID(saved["id"])).subscription_started_at is None
 
     stale_resume = owner_client.post(
         f"/api/v1/me/saved-searches/{saved['id']}/resume",
-        json={"expected_revision": 1},
+        json={"expected_revision": 2},
         headers={"X-CSRF-Token": owner_csrf},
     )
     assert stale_resume.status_code == 409
@@ -114,7 +190,9 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
     )
     assert resumed.status_code == 200, resumed.text
     assert resumed.json()["saved_search"]["status"] == "active"
-    assert resumed.json()["saved_search"]["revision"] == 3
+    assert resumed.json()["saved_search"]["revision"] == 4
+    with factory() as db:
+        assert db.get(models.SavedSearch, uuid.UUID(saved["id"])).subscription_started_at is not None
 
     updated = owner_client.patch(
         f"/api/v1/me/saved-searches/{saved['id']}",
@@ -123,12 +201,12 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
             "filters": {"make_id": "1"},
             "notifications_enabled": False,
             "notification_channel": None,
-            "expected_revision": 3,
+            "expected_revision": 4,
         },
         headers={"X-CSRF-Token": owner_csrf},
     )
     assert updated.status_code == 200, updated.text
-    assert updated.json()["saved_search"]["revision"] == 4
+    assert updated.json()["saved_search"]["revision"] == 5
     assert updated.json()["saved_search"]["notifications_enabled"] is False
 
     listed = owner_client.get("/api/v1/me/saved-searches")
@@ -142,6 +220,168 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
     assert deleted.status_code == 200
     assert deleted.json() == {"ok": True}
     assert owner_client.get("/api/v1/me/saved-searches").json()["items"] == []
+
+
+def test_pausing_search_cancels_queued_batch_and_delivery_job(integration):
+    factory = integration["SessionLocal"]
+    owner = add_user(factory, f"saved-pause-batch-{uuid.uuid4().hex[:8]}@example.com")
+    saved_search = models.SavedSearch(
+        user_id=owner.id,
+        name="BMW daily",
+        search_url="/cars?q=bmw",
+        filters={"q": "bmw"},
+        status="active",
+        revision=1,
+        notifications_enabled=True,
+        notification_channel="web",
+        notification_frequency="daily",
+        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=1),
+    )
+    with factory() as db:
+        db.add(saved_search)
+        db.flush()
+        outbox = models.NotificationOutbox(
+            dedupe_key=f"pause-batch:{uuid.uuid4()}",
+            saved_search_id=saved_search.id,
+            user_id=owner.id,
+            listing_id=None,
+            channel="web",
+            status="queued",
+            payload={"batch": True},
+            attempts=0,
+            available_at=datetime.now(timezone.utc),
+        )
+        db.add(outbox)
+        db.flush()
+        job = models.WorkerJob(
+            kind="notification.deliver",
+            job_key=f"notification.deliver:{outbox.id}",
+            payload={"outbox_id": str(outbox.id)},
+            status="queued",
+            attempts=0,
+            max_attempts=5,
+        )
+        db.add(job)
+        db.commit()
+
+    client = TestClient(app, base_url="http://testserver")
+    csrf = login(client, owner.email)
+    paused = client.post(
+        f"/api/v1/me/saved-searches/{saved_search.id}/pause",
+        json={"expected_revision": 1},
+        headers={"X-CSRF-Token": csrf},
+    )
+
+    assert paused.status_code == 200, paused.text
+    with factory() as db:
+        current_outbox = db.get(models.NotificationOutbox, outbox.id)
+        current_job = db.get(models.WorkerJob, job.id)
+        current_search = db.get(models.SavedSearch, saved_search.id)
+        assert current_outbox.status == "cancelled"
+        assert current_job.status == "failed"
+        assert current_job.last_error == "notification_batch_cancelled"
+        assert current_search.subscription_started_at is None
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"notification_frequency": "daily"},
+        {"url": "/cars?q=audi", "filters": {"q": "audi"}},
+    ],
+    ids=["frequency-change", "search-change"],
+)
+@pytest.mark.parametrize("job_status", ["queued", "running"])
+def test_changing_legacy_weekly_subscription_cancels_queued_single_listing_delivery(
+    integration, changes, job_status
+):
+    factory = integration["SessionLocal"]
+    owner = add_user(factory, f"saved-weekly-legacy-{uuid.uuid4().hex[:8]}@example.com")
+    saved_search = models.SavedSearch(
+        user_id=owner.id,
+        name="Legacy BMW weekly",
+        search_url="/cars?q=bmw",
+        filters={"q": "bmw"},
+        status="active",
+        revision=1,
+        notifications_enabled=True,
+        notification_channel="web",
+        notification_frequency="weekly",
+        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
+    )
+    listing = models.Listing(
+        owner_id=owner.id,
+        slug=f"legacy-weekly-{uuid.uuid4().hex}",
+        status="active",
+        revision=1,
+        title="BMW 320d",
+        make_name_snapshot="BMW",
+        model_name_snapshot="3 Series",
+        year=2020,
+        mileage_km=45_000,
+        fuel="diesel",
+        transmission="automatic",
+        drive="rear",
+        condition="used",
+        damaged=False,
+        parts_only=False,
+        price_amount=Decimal("20000"),
+        currency="USD",
+        description="A published legacy notification test listing",
+        contact_phone="",
+    )
+    with factory() as db:
+        db.add(saved_search)
+        db.add(listing)
+        db.flush()
+        outbox = models.NotificationOutbox(
+            dedupe_key=f"legacy-weekly:{uuid.uuid4()}",
+            saved_search_id=saved_search.id,
+            user_id=owner.id,
+            listing_id=listing.id,
+            channel="web",
+            status="queued",
+            payload={"title": "Новое объявление", "body": listing.title, "url": "/cars"},
+            attempts=0,
+            available_at=datetime.now(timezone.utc),
+        )
+        db.add(outbox)
+        db.flush()
+        job = models.WorkerJob(
+            kind="notification.deliver",
+            job_key=f"notification.deliver:{outbox.id}",
+            payload={"outbox_id": str(outbox.id)},
+            status=job_status,
+            locked_by="notification-test-worker" if job_status == "running" else None,
+            lease_until=(
+                datetime.now(timezone.utc) + timedelta(minutes=3)
+                if job_status == "running"
+                else None
+            ),
+            attempts=0,
+            max_attempts=5,
+        )
+        db.add(job)
+        db.commit()
+
+    client = TestClient(app, base_url="http://testserver")
+    csrf = login(client, owner.email)
+    updated = client.patch(
+        f"/api/v1/me/saved-searches/{saved_search.id}",
+        json={**changes, "expected_revision": 1},
+        headers={"X-CSRF-Token": csrf},
+    )
+
+    assert updated.status_code == 200, updated.text
+    with factory() as db:
+        current_outbox = db.get(models.NotificationOutbox, outbox.id)
+        current_job = db.get(models.WorkerJob, job.id)
+        assert current_outbox.status == "cancelled"
+        assert current_outbox.last_error == "notification_preference_changed"
+        assert current_job.status == "failed"
+        assert current_job.last_error == "notification_preference_changed"
+        assert current_job.locked_by is None
+        assert current_job.lease_until is None
 
 
 def test_saved_search_rejects_external_urls_unknown_filters_and_invalid_notification(integration):

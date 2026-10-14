@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 
 
 SupportedCurrency = Literal["EUR", "USD", "BYN", "RUB", "CNY"]
+HistoryCurrency = Literal["EUR", "USD", "RUB"]
+RateHistoryPeriod = Literal["30d", "90d", "180d", "365d"]
 SupportedEngine = Literal["petrol", "diesel"]
 AgeBand = Literal["up_to_3_years", "over_3_to_5_years", "over_5_years"]
 _DECIMAL_TEXT_PATTERN = re.compile(r"^\d+(?:\.\d+)?$")
@@ -54,6 +56,28 @@ class CustomsRateUsed(_CustomsModel):
     official_rate: DecimalText
     scale: int = Field(ge=1)
     byn_per_unit: DecimalText
+
+
+class CustomsRatesResponse(_CustomsModel):
+    rate_date: date
+    rates: list[CustomsRateUsed]
+
+
+class CustomsRateHistoryPoint(_CustomsModel):
+    rate_date: date
+    official_rate: DecimalText
+    scale: int = Field(ge=1)
+    byn_per_unit: DecimalText
+
+
+class CustomsRateHistoryResponse(_CustomsModel):
+    currency: HistoryCurrency
+    period: RateHistoryPeriod
+    rate_date: date
+    start_date: date
+    end_date: date
+    source_url: str
+    points: list[CustomsRateHistoryPoint]
 
 
 class CustomsMetaResponse(_CustomsModel):

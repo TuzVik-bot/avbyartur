@@ -10,6 +10,7 @@ const tabs = [
   { href: "/admin/settings", label: "Лимиты", icon: Settings2 },
   { href: "/admin/tariffs", label: "Тарифы", icon: FileText },
   { href: "/admin/content", label: "Материалы", icon: FileText },
+  { href: "/admin/test-mail", label: "Тестовая почта", icon: FileText },
   { href: "/admin/monitoring", label: "Мониторинг", icon: Activity }
 ];
 

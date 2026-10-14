@@ -163,7 +163,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
               {listing.seller.type === "company" ? <Building2 size={16} /> : <CircleUserRound size={16} />}
               {listing.seller.type === "company" ? "Компания" : "Частный продавец"}
             </span>
-            {listing.seller.type === "company" && listing.seller.slug ? <p><Link className="text-link" href={`/dealers/${encodeURIComponent(listing.seller.slug)}`}>{listing.seller.name} <ChevronRight size={15} /></Link></p> : <p><strong>{listing.seller.name}</strong></p>}
+            {listing.seller.type === "company" && listing.seller.slug ? <p><Link className="text-link" href={`/dealers/${encodeURIComponent(listing.seller.slug)}`} onClick={() => { void api.trackDealerClick(listing.id).catch(() => undefined); }}>{listing.seller.name} <ChevronRight size={15} /></Link></p> : <p><strong>{listing.seller.name}</strong></p>}
             <p className="muted">{location}</p>
           </div>
           <ReportForm listingId={listing.id} href={href} />

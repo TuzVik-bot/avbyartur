@@ -32,6 +32,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -43,6 +45,107 @@ function choose(name: string, value: string) {
 }
 
 describe("search filter dependencies", () => {
+  it("debounces the matching result count while preserving BYN and repeated equipment", async () => {
+    vi.useFakeTimers();
+    const count = vi.spyOn(api, "listingCount").mockResolvedValue({ total: 2 });
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: { q: "BMW", equipment: ["abs", "rear_camera"], sort: "newest", page: "3" },
+      makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: [], initialCount: 11
+    })));
+
+    const form = container.querySelector<HTMLFormElement>("form")!;
+    const price = form.querySelector<HTMLInputElement>('input[name="price_min"]')!;
+    price.value = "10000";
+    await act(async () => { price.dispatchEvent(new Event("input", { bubbles: true })); });
+    await act(async () => { vi.advanceTimersByTime(299); });
+    expect(count).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(1); await Promise.resolve(); });
+
+    expect(count).toHaveBeenCalledWith(expect.objectContaining({
+      q: "BMW", currency: "BYN", price_min: "10000", equipment: ["abs", "rear_camera"]
+    }));
+    expect(count.mock.calls[0][0]).not.toHaveProperty("sort");
+    expect(count.mock.calls[0][0]).not.toHaveProperty("page");
+    expect(count.mock.calls[0][0]).not.toHaveProperty("page_size");
+    expect(new FormData(form).getAll("equipment")).toEqual(["abs", "rear_camera"]);
+    expect(container.querySelector(".filter-apply")?.textContent).toContain("Показать 2 предложения");
+  });
+
+  it("returns to a generic apply label after count errors and displays zero results", async () => {
+    vi.useFakeTimers();
+    const count = vi.spyOn(api, "listingCount").mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({ total: 0 });
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: {}, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: []
+    })));
+    const price = container.querySelector<HTMLInputElement>('input[name="price_max"]')!;
+    price.value = "20000";
+    await act(async () => { price.dispatchEvent(new Event("input", { bubbles: true })); vi.advanceTimersByTime(300); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(container.querySelector(".filter-apply")?.textContent).toContain("Показать автомобили");
+    expect(container.querySelector('[data-count-state="generic"]')).not.toBeNull();
+
+    price.value = "15000";
+    await act(async () => { price.dispatchEvent(new Event("input", { bubbles: true })); vi.advanceTimersByTime(300); await Promise.resolve(); });
+    expect(count).toHaveBeenCalledTimes(2);
+    expect(container.querySelector(".filter-apply")?.textContent).toContain("Показать 0 предложений");
+  });
+
+  it("keeps a mobile filter draft, closes on Escape, and restores focus and scroll", async () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }));
+    document.body.style.overflow = "";
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: { transmission: "manual" },
+      makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: []
+    })));
+
+    const trigger = container.querySelector<HTMLButtonElement>(".filter-toggle")!;
+    trigger.focus();
+    await act(async () => { trigger.click(); });
+    expect(container.querySelector('[role="dialog"][aria-modal="true"]')).not.toBeNull();
+    expect(document.body.style.overflow).toBe("hidden");
+    expect(container.querySelector<HTMLButtonElement>(".filter-close") === document.activeElement).toBe(true);
+
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true })); });
+    expect(document.activeElement).toBe(container.querySelector(".filter-apply"));
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })); });
+    expect(document.activeElement).toBe(container.querySelector(".filter-close"));
+
+    const transmission = container.querySelector<HTMLSelectElement>('select[name="transmission"]')!;
+    transmission.value = "automatic";
+    transmission.dispatchEvent(new Event("change", { bubbles: true }));
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.style.overflow).toBe("");
+    expect(document.activeElement).toBe(trigger);
+
+    await act(async () => { trigger.click(); });
+    expect(container.querySelector<HTMLSelectElement>('select[name="transmission"]')?.value).toBe("automatic");
+    expect(container.querySelector(".filter-apply")).not.toBeNull();
+  });
+
+  it.each(["close", "backdrop"] as const)("restores focus and scrolling when the mobile drawer closes by %s", async (method) => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    await act(async () => root.render(createElement(SearchFilters, {
+      search: {}, makes: [], initialModels: [], regions: [], initialCities: [], bodyTypes: []
+    })));
+    const trigger = container.querySelector<HTMLButtonElement>(".filter-toggle")!;
+    trigger.focus();
+    await act(async () => { trigger.click(); });
+    if (method === "close") {
+      await act(async () => { container.querySelector<HTMLButtonElement>(".filter-close")!.click(); });
+    } else {
+      const backdrop = container.querySelector<HTMLDivElement>(".filter-overlay")!;
+      await act(async () => { backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    }
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    expect(document.body.style.overflow).toBe("");
+  });
+
   it("preserves selected catalog IDs when option catalog requests fail temporarily", async () => {
     vi.spyOn(api, "catalog").mockRejectedValue(new Error("catalog temporarily unavailable"));
     vi.spyOn(api, "cities").mockRejectedValue(new Error("cities temporarily unavailable"));

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { ListingCard } from "@/components/listing-card";
+import { CatalogDisplay } from "@/components/catalog-display";
 import { SearchFilters } from "@/components/search-filters";
 import { SearchSort } from "@/components/search-sort";
+import { SavedSearchAction } from "@/components/saved-search-action";
 import { activeSearchKeys, searchUrl } from "@/lib/search-state";
 import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch, ListingSummary, ListResponse } from "@/lib/types";
 
@@ -62,7 +63,6 @@ export function SearchResults({ search, data, title, makes, models, generations,
   const page = Number(search.page || 1);
   const pages = data?.pagination?.pages || 1;
   const total = data?.pagination?.total ?? entries.length;
-  const savedIds = new Set(savedListingIds);
 
   return (
     <>
@@ -71,7 +71,7 @@ export function SearchResults({ search, data, title, makes, models, generations,
       {catalogsFailed && <p className="notice" role="status">Часть справочников фильтров временно недоступна. Объявления остаются доступны; повторите загрузку страницы позже.</p>}
       {!priceOperationsAvailable && <p className="notice" role="status">Фильтрация и сортировка по цене временно недоступны: нет подтверждённого курса НБРБ за последние 72 часа. Цены показаны в исходной валюте.</p>}
       <div className="results-layout">
-        <SearchFilters search={search} makes={makes} initialModels={models} initialGenerations={generations} initialModifications={modifications} regions={regions} initialCities={cities} bodyTypes={bodyTypes} priceOperationsAvailable={priceOperationsAvailable} />
+        <SearchFilters search={search} makes={makes} initialModels={models} initialGenerations={generations} initialModifications={modifications} regions={regions} initialCities={cities} bodyTypes={bodyTypes} priceOperationsAvailable={priceOperationsAvailable} initialCount={data?.pagination?.total ?? null} />
         <section aria-label="Результаты поиска">
           {activeSearchKeys.filter((key) => search[key]).length > 0 && (
             <div className="active-filters" aria-label="Выбранные фильтры">
@@ -83,17 +83,19 @@ export function SearchResults({ search, data, title, makes, models, generations,
               <Link className="filter-chip" href="/cars">Сбросить все</Link>
             </div>
           )}
-          <div className="results-toolbar">
-            <strong>{total ? `${total.toLocaleString("ru-BY")} предложений` : "Подходящие предложения"}</strong>
-            <SearchSort search={search} priceOperationsAvailable={priceOperationsAvailable} />
-          </div>
-          {entries.length ? <div className="listing-stack">{entries.map((listing) => <ListingCard key={listing.id} listing={listing} variant="row" saved={savedIds.has(listing.id)} />)}</div> : (
+          <CatalogDisplay entries={entries} savedListingIds={savedListingIds}
+            count={<strong>{total ? `${total.toLocaleString("ru-BY")} предложений` : "Подходящие предложения"}</strong>}
+            controls={<>
+              <SavedSearchAction search={search} title={title} />
+              <SearchSort search={search} priceOperationsAvailable={priceOperationsAvailable} />
+            </>}
+            emptyState={
             <div className="empty-state">
               <h2>{failed ? "Не удалось загрузить объявления" : "По этим условиям объявлений пока нет"}</h2>
               <p className="muted">{failed ? "Проверьте соединение с каталогом." : "Измените или сбросьте часть фильтров, чтобы увидеть другие варианты."}</p>
               <Link className="button button-secondary" href="/cars">Сбросить фильтры</Link>
             </div>
-          )}
+            } />
           {pages > 1 && <nav className="pagination" aria-label="Страницы выдачи">
             {page > 1 && <Link className="button button-secondary button-small" href={searchUrl(search, { page: String(page - 1) })}><ChevronLeft size={16} /> Назад</Link>}
             <span>Страница {page} из {pages}</span>

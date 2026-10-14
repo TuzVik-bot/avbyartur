@@ -1,0 +1,9 @@
+.channels { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 24px 48px; padding-top: 18px; border-top: 1px solid var(--line); }
+.socials, .stores { display: flex; flex-wrap: wrap; gap: 10px; }
+.social { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink); }
+.store { display: inline-flex; gap: 10px; align-items: center; min-height: 52px; padding: 8px 14px; border-radius: 8px; background: #182126; color: #fff; text-decoration: none; }
+.caption, .storeName { display: block; }
+.caption { font-size: 10px; line-height: 1.4; }
+.storeName { font-size: 16px; font-weight: 650; line-height: 1.3; }
+.channels [aria-disabled="true"] { cursor: default; }
+.channels a:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 3px; }

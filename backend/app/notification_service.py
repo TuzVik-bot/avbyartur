@@ -7,14 +7,13 @@ provider and does not treat an email preference as an email delivery.
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import CatalogBodyType, Listing, ListingPhoto, SavedSearch
+from app.models import Listing, SavedSearch
+from app.services import listing_matches_public_search
 
 SAVED_SEARCH_EMAIL_SUBJECT = "Новое объявление по сохранённому поиску"
 
@@ -73,179 +72,108 @@ def saved_search_email_content(payload: dict[str, Any], public_app_url: str) -> 
     return SAVED_SEARCH_EMAIL_SUBJECT, body
 
 
-def _as_decimal(value: Any) -> Decimal | None:
+def saved_search_digest_email_content(
+    payload: dict[str, Any], public_app_url: str, total_count: int
+) -> tuple[str, str]:
+    """Build a bounded digest email with stable same-origin listing links."""
+
+    origin = str(public_app_url or "").strip()
     try:
-        return Decimal(str(value))
-    except (InvalidOperation, TypeError, ValueError):
-        return None
+        parsed_origin = urlsplit(origin)
+        origin_port = parsed_origin.port
+    except ValueError:
+        raise ValueError("invalid_notification_url") from None
+    if (
+        parsed_origin.scheme.lower() != "https"
+        or not parsed_origin.netloc
+        or not parsed_origin.hostname
+        or parsed_origin.username is not None
+        or parsed_origin.password is not None
+        or parsed_origin.path not in {"", "/"}
+        or parsed_origin.query
+        or parsed_origin.fragment
+        or (origin_port is not None and not 1 <= origin_port <= 65535)
+        or any(ord(character) < 0x20 or ord(character) == 0x7F for character in origin)
+    ):
+        raise ValueError("invalid_notification_url")
+
+    listings = payload.get("listings")
+    if not isinstance(listings, list) or not 1 <= len(listings) <= 20:
+        raise ValueError("invalid_notification_batch")
+    try:
+        safe_total_count = max(1, int(total_count))
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError("invalid_notification_batch") from None
+    lines = [f"Найдено объявлений: {safe_total_count}"]
+    for item in listings:
+        if not isinstance(item, dict):
+            raise ValueError("invalid_notification_batch")
+        raw_url = str(item.get("url") or "").strip()
+        try:
+            parsed_url = urlsplit(raw_url)
+        except ValueError:
+            raise ValueError("invalid_notification_url") from None
+        if (
+            not raw_url.startswith("/")
+            or raw_url.startswith("//")
+            or parsed_url.scheme
+            or parsed_url.netloc
+            or parsed_url.fragment
+            or "\\" in raw_url
+            or any(ord(character) < 0x20 or ord(character) == 0x7F for character in raw_url)
+        ):
+            raise ValueError("invalid_notification_url")
+        title = " ".join(str(item.get("title") or "Новое объявление").split())[:240]
+        lines.append(f"{title}\n{origin.rstrip('/')}{raw_url}")
+    if safe_total_count > len(listings):
+        lines.append(f"Ещё объявлений: {safe_total_count - len(listings)}")
+    search_url = str(payload.get("search_url") or "").strip()
+    try:
+        parsed_search_url = urlsplit(search_url)
+    except ValueError:
+        raise ValueError("invalid_notification_url") from None
+    if (
+        not search_url.startswith("/")
+        or search_url.startswith("//")
+        or parsed_search_url.scheme
+        or parsed_search_url.netloc
+        or parsed_search_url.username is not None
+        or parsed_search_url.password is not None
+        or parsed_search_url.path not in {"/cars", "/cars/"}
+        or parsed_search_url.fragment
+        or "\\" in search_url
+        or any(ord(character) < 0x20 or ord(character) == 0x7F for character in search_url)
+    ):
+        raise ValueError("invalid_notification_url")
+    lines.extend(("", f"Все результаты поиска: {origin.rstrip('/')}{search_url}"))
+    return SAVED_SEARCH_EMAIL_SUBJECT, "\n\n".join(lines)[:12000]
 
 
-def _as_bool(value: Any) -> bool | None:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        normalized = value.strip().casefold()
-        if normalized in {"true", "1", "yes"}:
-            return True
-        if normalized in {"false", "0", "no"}:
-            return False
-    return None
+def saved_search_filters(saved_search: SavedSearch) -> dict[str, Any]:
+    """Read matcher filters from the canonical URL, including legacy rows."""
 
-
-def _same_identifier(value: Any, actual: Any) -> bool:
-    if value is None or actual is None:
-        return value is actual
-    return str(value).casefold() == str(actual).casefold()
+    search_url = getattr(saved_search, "search_url", None)
+    if not search_url:
+        # Small legacy rows and unit-test stubs may only carry the normalized
+        # filter snapshot. Real saved searches are canonicalized through the
+        # URL path, but retaining this fallback keeps old records matchable.
+        return dict(getattr(saved_search, "filters", {}) or {})
+    parsed = urlsplit(search_url)
+    query = parse_qs(parsed.query, keep_blank_values=False, max_num_fields=64)
+    filters: dict[str, Any] = {}
+    for key, values in query.items():
+        if key in {"page", "page_size"} or not values:
+            continue
+        if key == "equipment":
+            filters[key] = values
+        else:
+            if len(set(values)) > 1:
+                raise ValueError(f"Contradictory repeated URL filter: {key}")
+            filters[key] = values[0]
+    return filters
 
 
 def saved_search_matches(db: Session, saved_search: SavedSearch, listing: Listing) -> bool:
-    """Return whether a saved-search filter matches one published listing."""
+    """Match a saved search with the same filters and visibility as the catalog."""
 
-    filters = dict(saved_search.filters or {})
-    if not filters:
-        return True
-
-    query = filters.get("q")
-    if query:
-        needle = str(query).strip().casefold()
-        haystack = " ".join(
-            value
-            for value in (
-                listing.title,
-                listing.make_name_snapshot,
-                listing.model_name_snapshot,
-                listing.generation_name_snapshot,
-                listing.manual_make,
-                listing.manual_model,
-                listing.manual_city,
-            )
-            if value
-        ).casefold()
-        if needle not in haystack:
-            return False
-
-    identifier_filters = (
-        ("make_id", listing.make_id),
-        ("model_id", listing.model_id),
-        ("generation_id", listing.generation_id),
-        ("body_variant_id", listing.body_variant_id),
-        ("modification_id", listing.modification_id),
-        ("region_id", listing.region_id),
-        ("city_id", listing.city_id),
-    )
-    for key, actual in identifier_filters:
-        if key in filters and not _same_identifier(filters[key], actual):
-            return False
-
-    if "body_type" in filters:
-        expected = str(filters["body_type"]).casefold()
-        actual_id = str(listing.body_type_id).casefold() if listing.body_type_id else None
-        actual_slug = None
-        if listing.body_type_id:
-            body_type = db.get(CatalogBodyType, listing.body_type_id)
-            actual_slug = body_type.slug.casefold() if body_type else None
-        if expected not in {actual_id, actual_slug}:
-            return False
-
-    for key, actual in (
-        ("fuel", listing.fuel),
-        ("transmission", listing.transmission),
-        ("drive", listing.drive),
-        ("condition", listing.condition),
-        ("color", listing.color),
-        ("customs_status", listing.customs_status),
-        ("technical_condition", listing.technical_condition),
-        ("body_condition", listing.body_condition),
-    ):
-        if key in filters and str(filters[key]).casefold() != str(actual or "").casefold():
-            return False
-
-    for key, actual in (
-        ("damaged", listing.damaged),
-        ("parts_only", listing.parts_only),
-        ("exchange", listing.exchange),
-        ("bargaining", listing.bargaining),
-        ("credit", listing.credit),
-        ("leasing", listing.leasing),
-    ):
-        if key in filters:
-            expected = _as_bool(filters[key])
-            if expected is None or expected != bool(actual):
-                return False
-
-    if "equipment" in filters:
-        requested = filters["equipment"]
-        if isinstance(requested, str):
-            requested = [requested]
-        if not isinstance(requested, list) or any(not isinstance(item, str) for item in requested):
-            return False
-        if not set(requested).issubset(set(listing.equipment or [])):
-            return False
-
-    for key, actual in (("district", listing.district), ("call_hours", listing.call_hours)):
-        if key in filters:
-            needle = " ".join(str(filters[key]).split()).casefold()
-            if not needle or actual is None or needle not in " ".join(actual.split()).casefold():
-                return False
-
-    if "has_vin" in filters:
-        expected = _as_bool(filters["has_vin"])
-        actual = bool((listing.vin or "").strip())
-        if expected is None or expected != actual:
-            return False
-
-    if "has_photos" in filters:
-        expected = _as_bool(filters["has_photos"])
-        actual = db.scalar(
-            select(ListingPhoto.id)
-            .where(ListingPhoto.listing_id == listing.id, ListingPhoto.status == "ready")
-            .limit(1)
-        ) is not None
-        if expected is None or expected != actual:
-            return False
-
-    if "seller_type" in filters:
-        seller_type = "company" if listing.company_id else "private"
-        if str(filters["seller_type"]).casefold() != seller_type:
-            return False
-
-    for key, actual in (
-        ("year_min", listing.year),
-        ("mileage_min", listing.mileage_km),
-        ("engine_volume_min", listing.engine_volume_l),
-        ("power_min", listing.power_hp),
-    ):
-        if key in filters:
-            expected = _as_decimal(filters[key])
-            actual_number = _as_decimal(actual)
-            if expected is None or actual_number is None or actual_number < expected:
-                return False
-    for key, actual in (
-        ("year_max", listing.year),
-        ("mileage_max", listing.mileage_km),
-        ("engine_volume_max", listing.engine_volume_l),
-        ("power_max", listing.power_hp),
-    ):
-        if key in filters:
-            expected = _as_decimal(filters[key])
-            actual_number = _as_decimal(actual)
-            if expected is None or actual_number is None or actual_number > expected:
-                return False
-
-    has_price_bound = "price_min" in filters or "price_max" in filters
-    if has_price_bound:
-        expected_currency = str(filters.get("currency") or "").upper()
-        if not expected_currency or listing.currency != expected_currency or listing.price_amount is None:
-            return False
-        if "price_min" in filters:
-            minimum = _as_decimal(filters["price_min"])
-            if minimum is None or listing.price_amount < minimum:
-                return False
-        if "price_max" in filters:
-            maximum = _as_decimal(filters["price_max"])
-            if maximum is None or listing.price_amount > maximum:
-                return False
-
-    # ``page``, ``page_size``, ``sort`` and a currency used only for display
-    # control the listing page, not whether an individual listing is a match.
-    return True
+    return listing_matches_public_search(db, saved_search_filters(saved_search), listing)

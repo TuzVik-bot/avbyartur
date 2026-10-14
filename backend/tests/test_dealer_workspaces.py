@@ -377,6 +377,8 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
     # Owner views are excluded from public listing analytics.
     owner_view = owner.get(f"/api/v1/listings/{listing_id}")
     assert owner_view.status_code == 200, owner_view.text
+    click = public.post("/api/v1/dealer/clicks", json={"listing_id": str(listing_id)})
+    assert click.status_code == 202, click.text
 
     response = owner.get("/api/v1/dealer/analytics")
     assert response.status_code == 200, response.text
@@ -386,8 +388,10 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
         "contact_reveals": 1,
         "chats": 1,
         "views": 1,
+        "company_clicks": 1,
     }
     assert response.json()["items"][0]["views"] == 1
+    assert response.json()["items"][0]["company_clicks"] == 1
 
     isolated = outsider.get("/api/v1/dealer/analytics")
     assert isolated.status_code == 200, isolated.text

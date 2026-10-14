@@ -12,7 +12,9 @@
 .heading p { margin: 0; color: var(--muted); font-size: 15px; }
 .catalogLink { display: inline-flex; flex-shrink: 0; align-items: center; gap: 8px; min-height: 44px; color: var(--accent-dark); font-size: 13px; }
 .search:global(.home-search) { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 12px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.search :global(.search-query) { grid-column: 1 / -1; min-height: 48px; border-radius: 10px; background: var(--home-field); color: var(--muted); padding-inline: 16px; }
+.search :global(.search-query) { display: flex; align-items: center; gap: 10px; grid-column: 1 / -1; min-height: 48px; border-radius: 10px; background: var(--home-field); color: var(--muted); padding-inline: 16px; }
+.search :global(.search-query) input { flex: 1; width: 100%; min-width: 0; height: 46px; border: 0; background: transparent; color: var(--ink); }
+.search :global(.search-query) svg { flex-shrink: 0; }
 .search :global(.field) { gap: 6px; }
 .search :global(.field) > span { color: var(--muted); font-size: 12px; font-weight: 500; }
 .search :global(.field) input, .search :global(.field) select { height: 46px; min-height: 46px; border: 1px solid transparent; border-radius: 9px; background: var(--home-field); padding-inline: 12px; font-size: 14px; }

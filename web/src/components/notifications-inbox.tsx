@@ -14,7 +14,24 @@ type NotificationsInboxProps = {
 
 function safeHref(value: string) {
   const trimmed = value.trim();
-  return trimmed.startsWith("/") && !trimmed.startsWith("//") ? trimmed : "/cars";
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.includes("\\") || /[\u0000-\u001f\u007f]/.test(trimmed)) return "/cars";
+  try {
+    const parsed = new URL(trimmed, "https://avtorinok.invalid");
+    if (parsed.origin !== "https://avtorinok.invalid" || !/^\/cars(?:\/|$)/.test(parsed.pathname) || parsed.hash) return "/cars";
+  } catch {
+    return "/cars";
+  }
+  return trimmed;
+}
+
+function digestTitle(count: number) {
+  const safeCount = Math.max(1, Math.trunc(count));
+  const lastTwo = safeCount % 100;
+  const last = safeCount % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return `${safeCount} новых объявлений`;
+  if (last === 1) return `${safeCount} новое объявление`;
+  if (last >= 2 && last <= 4) return `${safeCount} новых объявления`;
+  return `${safeCount} новых объявлений`;
 }
 
 function messageFor(error: unknown, fallback: string) {
@@ -71,7 +88,7 @@ export function NotificationsInbox({ initialItems, initialUnreadCount, initialLo
       <div className="notification-support-icon" aria-hidden="true"><Bell size={18} /></div>
       <div>
         <h2 id="notification-support-title">Уведомления о новых автомобилях</h2>
-        <p>Web-инбокс работает. Email-настройка сохраняется, но письма не отправляются; SMS и Telegram для этих уведомлений пока недоступны.</p>
+        <p>Web-инбокс работает. Email доступен при подтверждённом адресе и настроенной доставке; SMS и Telegram пока недоступны.</p>
         <a className="text-link" href="/account/saved-searches">Настроить сохранённые поиски <ExternalLink size={14} aria-hidden="true" /></a>
       </div>
     </section>
@@ -107,10 +124,14 @@ export function NotificationsInbox({ initialItems, initialUnreadCount, initialLo
               <span className="notification-kind"><Inbox size={14} aria-hidden="true" /> Сохранённый поиск</span>
               <time className="muted" dateTime={item.created_at}>{notificationDate(item.created_at)}</time>
             </div>
-            <h3>{item.title}</h3>
+            <h3>{item.listing_id === null ? digestTitle(item.total_count) : item.title}</h3>
             <p>{item.body}</p>
+            {item.listings.length > 0 && <div className="notification-item-listings" aria-label="Объявления по сохранённому поиску">
+              {item.listings.map((listing) => <a className="text-link" href={safeHref(listing.url)} key={listing.id}>{listing.title} <ExternalLink size={14} aria-hidden="true" /></a>)}
+            </div>}
             <div className="notification-item-actions">
-              <a className="text-link" href={safeHref(item.url)}>Открыть объявление <ExternalLink size={14} aria-hidden="true" /></a>
+              {item.listing_id !== null && item.listings.length === 0 && <a className="text-link" href={safeHref(item.url)}>Открыть объявление <ExternalLink size={14} aria-hidden="true" /></a>}
+              {item.listing_id === null && <a className="text-link" href={safeHref(item.url)}>Открыть поиск <ExternalLink size={14} aria-hidden="true" /></a>}
               {unread && <button className="button button-secondary button-small" type="button" onClick={() => void markRead(item)} disabled={itemBusy}>{itemBusy ? "Сохраняем…" : "Отметить прочитанным"}</button>}
             </div>
           </div>
