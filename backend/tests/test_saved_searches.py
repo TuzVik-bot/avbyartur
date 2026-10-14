@@ -22,8 +22,8 @@ def test_saved_search_create_canonicalizes_url_and_derives_filters_from_it():
         filters={"q": "Audi", "year_min": "2020", "price_max": 25000, "currency": "USD", "sort": "newest"},
     )
 
-    assert payload.url == "/cars?currency=USD&price_max=25000&q=Audi&sort=newest&year_min=2020"
-    assert payload.filters == {"currency": "USD", "price_max": 25000, "q": "Audi", "sort": "newest", "year_min": 2020}
+    assert payload.url == "/cars?currency=USD&price_max=25000&q=Audi&year_min=2020"
+    assert payload.filters == {"currency": "USD", "price_max": 25000, "q": "Audi", "year_min": 2020}
     assert payload.notifications_enabled is False
     assert payload.notification_channel is None
 

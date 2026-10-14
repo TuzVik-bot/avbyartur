@@ -146,7 +146,7 @@ def _filters_from_url(value: str) -> dict[str, Any]:
     query_values = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=_MAX_FILTER_KEYS)
     filters: dict[str, Any] = {}
     for key, values in query_values.items():
-        if key in {"page", "page_size"}:
+        if key in {"page", "page_size", "sort"}:
             continue
         nonblank = [entry for entry in values if entry != ""]
         if not nonblank:
@@ -216,6 +216,10 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Filters are too large")
 
     normalized = dict(value)
+    # Pagination and result ordering describe how the catalog is presented;
+    # they must not split or restart an alert subscription.
+    for field in ("page", "page_size", "sort"):
+        normalized.pop(field, None)
     for field, option_group in _FILTER_ENUMS.items():
         if field not in normalized or normalized[field] is None:
             continue
