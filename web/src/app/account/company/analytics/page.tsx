@@ -44,6 +44,7 @@ export default async function DealerAnalyticsPage({ searchParams }: { searchPara
       : !analytics ? <p className="notice" role="alert">Аналитика пока недоступна. Попробуйте позже.</p>
       : <>
         <p className="muted">Период: {analytics.period.start || "—"} — {analytics.period.end || "—"}</p>
+        <p className="muted">Показатели — независимые агрегаты за выбранный период. Они не связывают действия одного посетителя и не означают состоявшийся звонок или сообщение.</p>
         <div className="dealer-analytics-totals" aria-label="Сводные показатели">
           <article><span>Объявлений</span><strong>{analytics.totals.listings}</strong></article>
           <article><span>Активных</span><strong>{analytics.totals.active_listings}</strong></article>

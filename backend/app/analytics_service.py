@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -7,12 +5,13 @@ from app.analytics_models import ContactClickEvent
 from app.models import Listing
 from app.analytics_schemas import ContactClickEventIn
 
-
-
-# Funnel reporting compares aggregate stages for the same listing within a rolling window.
-ATTRIBUTION_WINDOW = timedelta(days=30)
-
 def record_contact_click(db: Session, payload: ContactClickEventIn) -> dict[str, bool]:
+    """Record one opted-in contact action for independent period aggregates.
+
+    Events contain no visitor or session identifier, so analytics does not link
+    a view, reveal, and contact action to the same person or claim a completed
+    call or message.
+    """
     listing = db.scalar(select(Listing).where(Listing.id == payload.listing_id, Listing.status == "active"))
     if listing is None or listing.status != "active":
         return {"accepted": True, "recorded": False, "duplicate": False}

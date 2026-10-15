@@ -38,6 +38,7 @@ describe("dealer analytics page", () => {
     expect(html).toContain(">17<");
     expect(html).toContain("230");
     expect(html).toContain(">9<");
+    expect(html).toContain("независимые агрегаты за выбранный период");
     expect(html).toContain("Toyota Camry");
   });
 
