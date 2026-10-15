@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app import services
 from app import worker
+from app.analytics_models import ContactClickEvent
 
 from app.api.saved_searches import _normalise_filters
 from app.models import (
@@ -378,6 +379,15 @@ def test_public_detail_views_feed_owner_scoped_analytics(integration):
     owner = _add_user(factory, label="listing-analytics-owner")
     outsider = _add_user(factory, label="listing-analytics-outsider")
     listing = _add_listing(factory, owner.id, title="Measured listing")
+    with factory() as db:
+        db.add(ContactClickEvent(
+            listing_id=listing.id,
+            channel="phone",
+            dedup_id=str(uuid.uuid4()),
+            occurred_at=datetime.now(UTC),
+            created_at=datetime.now(UTC),
+        ))
+        db.commit()
     owner_client, _ = _login(integration, owner.email)
     outsider_client, _ = _login(integration, outsider.email)
     anonymous = TestClient(integration["client"].app, base_url="http://testserver")
@@ -392,6 +402,7 @@ def test_public_detail_views_feed_owner_scoped_analytics(integration):
     assert analytics.status_code == 200, analytics.text
     assert analytics.json()["listing_id"] == str(listing.id)
     assert analytics.json()["views"] == 1
+    assert analytics.json()["contact_clicks"] == 1
 
     denied = outsider_client.get(f"/api/v1/listings/{listing.id}/analytics")
     assert denied.status_code == 404
