@@ -49,6 +49,34 @@ class ListingMarketComparisonOut(BaseModel):
     rate_date: str | None
 
 
+class ListingMarketEstimateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    seller_type: Literal["private", "company"]
+    make_id: UUID
+    model_id: UUID
+    generation_id: UUID | None = None
+    body_type_id: UUID
+    year: int = Field(ge=1886, le=2100)
+    mileage_km: int = Field(ge=0, le=5_000_000)
+    condition: Literal["new", "used"]
+    fuel: Literal["petrol", "diesel", "hybrid", "electric", "lpg", "other"]
+    transmission: Literal["manual", "automatic", "robot", "cvt", "other"]
+    damaged: bool = False
+    parts_only: bool = False
+
+
+class ListingMarketEstimateOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    available: bool
+    median_byn: str | None
+    sample_size: int = Field(ge=0)
+    seller_count: int = Field(ge=0)
+    as_of: datetime | None
+    rate_date: str | None
+
+
 class ListingSearchFilters(BaseModel):
     category_code: CategoryCode = "cars"
     q: str | None = None
@@ -201,7 +229,7 @@ class ListingPublicOut(BaseModel):
     equipment: list[str] = Field(default_factory=list)
     district: str | None = None
     call_hours: str | None = None
-    promotion_badges: list[Literal["bump", "highlight", "top"]] = Field(default_factory=list)
+    promotion_badges: list[Literal["bump", "highlight", "top", "urgent"]] = Field(default_factory=list)
     photo_urls: list[str]
     photos: list[ListingPhotoOut]
     modification: ListingModificationOut | None = None

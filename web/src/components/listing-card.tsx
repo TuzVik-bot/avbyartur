@@ -10,6 +10,7 @@ import { CompareButton } from "@/components/compare-button";
 import { api, ApiClientError } from "@/lib/api";
 import { formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import type { ListingSummary, Money } from "@/lib/types";
+import styles from "./listing-card.module.css";
 
 const fallbackPhoto = "/vehicles/silver-wagon.png";
 
@@ -22,7 +23,8 @@ type MarketComparison = {
   rate_date: string | null;
 };
 
-type CardListing = ListingSummary & {
+type CardListing = Omit<ListingSummary, "promotion_badges"> & {
+  promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
   published_at?: string | null;
   engine_volume_l?: string | number | null;
   power_hp?: number | null;
@@ -91,6 +93,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
           <Image src={photo} alt={hasActualPhoto ? `Фотография: ${title}` : `Синтетическое изображение для объявления «${title}»`} width={900} height={563} sizes={listingImageSizes(variant)} unoptimized priority={false} />
         </Link>
         {!hasActualPhoto && <span className="synthetic-label">Синтетическое фото</span>}
+        {listing.promotion_badges?.includes("urgent") && <span className={styles.urgentBadge} data-urgent-badge>Срочно</span>}
         <FavoriteButton listingId={listing.id} href={href} initialSaved={saved} />
       </div>
       <div className="card-body">

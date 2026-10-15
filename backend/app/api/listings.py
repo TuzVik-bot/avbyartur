@@ -2,6 +2,7 @@ import hmac
 import re
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
+from types import SimpleNamespace
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
@@ -33,6 +34,8 @@ from app.listing_schemas import (
     ListingSearchFilters,
     PhoneRevealOut,
     ListingPublicCapabilitiesOut,
+    ListingMarketEstimateIn,
+    ListingMarketEstimateOut,
 )
 from app.models import (
     CatalogBodyType,
@@ -91,7 +94,7 @@ from app.services import (
     serialize_listings,
     validate_listing_for_submit,
 )
-from app.market_pricing import build_market_comparisons
+from app.market_pricing import build_market_comparisons, build_market_estimate
 
 router = APIRouter(prefix="/api/v1", tags=["listings"])
 
@@ -100,6 +103,53 @@ router = APIRouter(prefix="/api/v1", tags=["listings"])
 def public_listing_validation_policy(response: Response) -> dict:
     response.headers["Cache-Control"] = "no-store"
     return listing_validation_policy()
+
+
+@router.post(
+    "/listings/market-price-estimate",
+    response_model=ListingMarketEstimateOut,
+    responses={
+        401: {"model": ApiErrorOut, "description": "Authentication is required"},
+        403: {"model": ApiErrorOut, "description": "CSRF validation failed"},
+        429: {"model": ApiErrorOut, "description": "Market estimate rate limit exceeded"},
+    },
+)
+def estimate_draft_market_price(
+    payload: ListingMarketEstimateIn,
+    request: Request,
+    response: Response,
+    user: Annotated[User, Depends(get_current_user)],
+    csrf: Annotated[UserSession, Depends(require_csrf)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    del csrf
+    ip = client_ip(request)
+    consume_rate_limit(db, "market-price-estimate-user", str(user.id), 20, timedelta(hours=1))
+    consume_rate_limit(db, "market-price-estimate-ip", ip, 80, timedelta(hours=1))
+    company = seller_company(db, user, payload.seller_type)
+    target = SimpleNamespace(
+        id=uuid4(),
+        owner_id=user.id,
+        company_id=company.id if company else None,
+        category_code="cars",
+        status="active",
+        make_id=payload.make_id,
+        model_id=payload.model_id,
+        generation_id=payload.generation_id,
+        body_type_id=payload.body_type_id,
+        year=payload.year,
+        mileage_km=payload.mileage_km,
+        condition=payload.condition,
+        fuel=payload.fuel,
+        transmission=payload.transmission,
+        damaged=payload.damaged,
+        parts_only=payload.parts_only,
+    )
+    estimate = build_market_estimate(db, target, latest_listing_exchange_rate(db))
+    response.headers["Cache-Control"] = "no-store"
+    if estimate is None:
+        return {"available": False, "median_byn": None, "sample_size": 0, "seller_count": 0, "as_of": None, "rate_date": None}
+    return {"available": True, **estimate}
 
 
 GUEST_PHONE_REVEAL_IP_LIMIT = 30
@@ -466,13 +516,14 @@ def search_listings(
             select(
                 ListingPromotion.listing_id.label("listing_id"),
                 func.max(case(
+                    (ListingPromotion.service_code == "urgent", 3),
                     (ListingPromotion.service_code == "top", 2),
                     else_=1,
                 )).label("rank"),
             )
             .where(
                 ListingPromotion.listing_id.is_not(None),
-                ListingPromotion.service_code.in_({"top", "bump"}),
+                ListingPromotion.service_code.in_({"urgent", "top", "bump"}),
                 ListingPromotion.status == "active",
                 ListingPromotion.starts_at <= func.now(),
                 ListingPromotion.ends_at > func.now(),

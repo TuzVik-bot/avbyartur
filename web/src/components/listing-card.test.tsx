@@ -140,6 +140,12 @@ describe("listing card photos", () => {
 });
 
 describe("listing card facts", () => {
+  it("shows an active urgent promotion badge", () => {
+    act(() => root.render(createElement(ListingCard, { listing: { ...listing(), promotion_badges: ["urgent"] } as ListingSummary })));
+
+    expect(container.querySelector("[data-urgent-badge]")?.textContent).toBe("Срочно");
+  });
+
   it("shows only supplied specs and reports Minsk publication age and market comparison source", () => {
     vi.setSystemTime(new Date("2026-10-09T21:30:00.000Z"));
     const detailed = {

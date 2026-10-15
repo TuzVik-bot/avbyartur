@@ -14,6 +14,7 @@ const DRIVE_OPTIONS = ["front", "rear", "all", "other"] as const satisfies reado
 const CONDITION_OPTIONS = ["new", "used"] as const satisfies readonly NonNullable<ListingDraftInput["condition"]>[];
 
 type ListingValidationPolicy = Awaited<ReturnType<typeof api.listingValidationPolicy>>;
+type MarketEstimate = Awaited<ReturnType<typeof api.listingMarketEstimate>>;
 
 function minimumPhotoCount(
   policy: ListingValidationPolicy,
@@ -448,6 +449,9 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [busy, setBusy] = useState(false);
+  const [marketEstimate, setMarketEstimate] = useState<MarketEstimate | null>(null);
+  const [marketEstimateBusy, setMarketEstimateBusy] = useState(false);
+  const [marketEstimateError, setMarketEstimateError] = useState("");
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const lastFocusedStep = useRef(step);
   const mileageInputRef = useRef<HTMLInputElement>(null);
@@ -686,9 +690,35 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
     setError("");
     clearFieldErrors(key);
     setFields((current) => ({ ...current, [key]: value }));
+    if (["make_id", "model_id", "generation_id", "body_type_id", "year", "mileage_km", "fuel", "transmission", "condition", "damaged", "parts_only", "seller_type"].includes(key)) setMarketEstimate(null);
+  }
+
+  async function estimateDraftPrice() {
+    if (fields.make_mode !== "catalog" || fields.model_mode !== "catalog" || !fields.make_id || !fields.model_id || !fields.body_type_id || !fields.year || !fields.mileage_km || !fields.fuel || !fields.transmission || !fields.condition) {
+      setMarketEstimateError("Заполните марку, модель, кузов, год, пробег, топливо, коробку передач и состояние.");
+      setMarketEstimate(null);
+      return;
+    }
+    setMarketEstimateBusy(true);
+    setMarketEstimateError("");
+    try {
+      const estimate = await api.listingMarketEstimate({
+        seller_type: fields.seller_type, make_id: fields.make_id, model_id: fields.model_id,
+        generation_id: fields.generation_id || null, body_type_id: fields.body_type_id,
+        year: Number(fields.year), mileage_km: Number(fields.mileage_km), condition: fields.condition,
+        fuel: fields.fuel, transmission: fields.transmission, damaged: fields.damaged, parts_only: fields.parts_only
+      });
+      setMarketEstimate(estimate);
+    } catch {
+      setMarketEstimate(null);
+      setMarketEstimateError("Не удалось получить оценку. Повторите попытку позже.");
+    } finally {
+      setMarketEstimateBusy(false);
+    }
   }
 
   function changeMake(makeId: string) {
+    setMarketEstimate(null);
     setError("");
     clearFieldErrors("make_id", "model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -704,6 +734,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeModel(modelId: string) {
+    setMarketEstimate(null);
     setError("");
     clearFieldErrors("model_id", "generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -711,6 +742,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeMakeMode(mode: FormFields["make_mode"]) {
+    setMarketEstimate(null);
     setError("");
     clearFieldErrors("make_id", "manual_make", "model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -730,6 +762,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeModelMode(mode: FormFields["model_mode"]) {
+    setMarketEstimate(null);
     setError("");
     clearFieldErrors("model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -758,6 +791,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeGeneration(generationId: string) {
+    setMarketEstimate(null);
     setError("");
     clearFieldErrors("generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -766,6 +800,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeModification(modificationId: string) {
+    setMarketEstimate(null);
     const modification = modifications.find((item) => item.id === modificationId)
       || (initialListing?.modification?.id === modificationId ? initialListing.modification : undefined);
     setError("");
@@ -1196,7 +1231,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
       </div></section>}
 
       {step === 4 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Цена, расположение и контакт</h2><div className="form-grid">
-        <label className="field"><span>Цена</span><input {...fieldProps("price_amount")} type="number" inputMode="decimal" min="0.01" step="0.01" value={fields.price_amount} onChange={(event) => update("price_amount", event.target.value)} required />{fieldError("price_amount")}<small className="muted">Оценка рынка для черновика сейчас недоступна. Сравнение появится в карточке, только если будет достаточно сопоставимых объявлений.</small></label>
+        <div className="field"><label htmlFor="price_amount"><span>Цена</span></label><input {...fieldProps("price_amount")} type="number" inputMode="decimal" min="0.01" step="0.01" value={fields.price_amount} onChange={(event) => update("price_amount", event.target.value)} required />{fieldError("price_amount")}<button className="button button-secondary button-small" type="button" onClick={estimateDraftPrice} disabled={marketEstimateBusy || busy}>{marketEstimateBusy ? "Оцениваем…" : "Оценить по рынку"}</button>{marketEstimateError && <small className="inline-error" role="alert">{marketEstimateError}</small>}{marketEstimate?.available ? <small className="muted" role="status">Медианная цена по {marketEstimate.sample_size} объявлениям от {marketEstimate.seller_count} продавцов: {Number(marketEstimate.median_byn).toLocaleString("ru-BY", { maximumFractionDigits: 2 })} BYN.</small> : marketEstimate && <small className="muted" role="status">Недостаточно актуальных сопоставимых объявлений для надёжной оценки.</small>}<small className="muted">Сравниваются опубликованные предложения с похожими характеристиками. VIN и контактные данные не передаются.</small></div>
         <label className="field"><span>Валюта</span><select value={fields.currency} onChange={(event) => update("currency", event.target.value as FormFields["currency"])}><option value="BYN">BYN</option><option value="USD">USD</option></select></label>
         <label className="field"><span>Область</span><select {...fieldProps("region_id")} value={fields.region_id} onChange={(event) => changeRegion(event.target.value)} required><option value="">Выберите область</option>{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("region_id")}</label>
         <label className="field"><span>Способ выбора населённого пункта</span><select aria-label="Источник населённого пункта" value={fields.city_mode} onChange={(event) => changeCityMode(event.target.value as FormFields["city_mode"])} disabled={!fields.region_id}><option value="catalog">Из справочника</option><option value="manual">Нет в справочнике</option></select></label>

@@ -9,7 +9,8 @@ import type { components } from "@/lib/types.generated";
 
 export const metadata: Metadata = { title: "Заказ" };
 type Order = components["schemas"]["BillingOrderOut"];
-const serviceLabels: Record<Order["service_code"], string> = { bump: "Поднять объявление", highlight: "Выделить объявление", top: "Размещение вверху", dealer_package: "Пакет для компании" };
+type ServiceCode = Order["service_code"] | "urgent";
+const serviceLabels: Record<ServiceCode, string> = { bump: "Поднять объявление", highlight: "Выделить объявление", top: "Размещение вверху", urgent: "Отметить «Срочно»", dealer_package: "Пакет для компании" };
 const statusLabels: Record<Order["status"], string> = { pending: "Ожидает оплаты", paid: "Оплачен", failed: "Не удалось оплатить", cancelled: "Отменён", expired: "Истёк" };
 
 export default async function BillingOrderPage({ params }: { params: Promise<{ orderId: string }> }) {

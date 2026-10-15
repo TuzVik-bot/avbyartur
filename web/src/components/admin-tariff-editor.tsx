@@ -21,6 +21,7 @@ const serviceLabels: Record<TariffServiceCode, string> = {
   bump: "Поднять объявление",
   highlight: "Выделить объявление",
   top: "Разместить вверху",
+  urgent: "Отметить «Срочно»",
   dealer_package: "Пакет объявлений дилера"
 };
 

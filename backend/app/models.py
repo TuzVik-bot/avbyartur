@@ -870,7 +870,7 @@ class BillingTariff(Base):
     __tablename__ = "billing_tariffs"
     __table_args__ = (
         CheckConstraint(
-            "service_code IN ('bump', 'highlight', 'top', 'dealer_package')",
+            "service_code IN ('bump', 'highlight', 'top', 'urgent', 'dealer_package')",
             name="ck_billing_tariff_service_code",
         ),
         CheckConstraint("amount > 0", name="ck_billing_tariff_amount_positive"),
@@ -910,7 +910,7 @@ class BillingOrder(Base):
             "(service_code <> 'dealer_package' AND listing_id IS NOT NULL AND company_id IS NULL)",
             name="ck_billing_order_target",
         ),
-        CheckConstraint("service_code IN ('bump', 'highlight', 'top', 'dealer_package')", name="ck_billing_order_service_code"),
+        CheckConstraint("service_code IN ('bump', 'highlight', 'top', 'urgent', 'dealer_package')", name="ck_billing_order_service_code"),
         CheckConstraint("amount > 0", name="ck_billing_order_amount_positive"),
         CheckConstraint("currency IN ('BYN', 'USD')", name="ck_billing_order_currency"),
         CheckConstraint("duration_days BETWEEN 1 AND 365", name="ck_billing_order_duration"),
@@ -1006,7 +1006,7 @@ class ListingPromotion(Base):
             "(service_code <> 'dealer_package' AND listing_id IS NOT NULL AND company_id IS NULL)",
             name="ck_listing_promotion_target",
         ),
-        CheckConstraint("service_code IN ('bump', 'highlight', 'top', 'dealer_package')", name="ck_listing_promotion_service_code"),
+        CheckConstraint("service_code IN ('bump', 'highlight', 'top', 'urgent', 'dealer_package')", name="ck_listing_promotion_service_code"),
         CheckConstraint("amount > 0", name="ck_listing_promotion_amount_positive"),
         CheckConstraint("currency IN ('BYN', 'USD')", name="ck_listing_promotion_currency"),
         CheckConstraint("duration_days BETWEEN 1 AND 365", name="ck_listing_promotion_duration"),

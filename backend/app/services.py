@@ -660,7 +660,7 @@ def serialize_listings(
 def _active_promotion_badges(db: Session, listing_ids: list[UUID]) -> dict[UUID, list[str]]:
     if not listing_ids:
         return {}
-    active_codes = {"bump", "highlight", "top"}
+    active_codes = {"bump", "highlight", "top", "urgent"}
     if hasattr(db, "get_bind"):
         try:
             bind = db.get_bind()
@@ -696,7 +696,7 @@ def _active_promotion_badges(db: Session, listing_ids: list[UUID]) -> dict[UUID,
     found: dict[UUID, set[str]] = defaultdict(set)
     for listing_id, service_code in rows:
         found[listing_id].add(service_code)
-    order = ("top", "bump", "highlight")
+    order = ("urgent", "top", "bump", "highlight")
     return {listing_id: [code for code in order if code in codes] for listing_id, codes in found.items()}
 
 

@@ -4,7 +4,8 @@ import uuid
 
 import pytest
 
-from app.market_pricing import MAXIMUM_ANALOGS_PER_TARGET, build_market_comparisons
+from app.market_pricing import MAXIMUM_ANALOGS_PER_TARGET, build_market_comparisons, build_market_estimate
+from app.listing_schemas import ListingMarketEstimateIn
 from app.models import (
     CatalogBodyType,
     CatalogGeneration,
@@ -50,7 +51,7 @@ class FakeSession:
         self.statements.append(statement)
         rows = []
         ordered_listings = sorted(self.listings, key=lambda listing: listing.id)
-        for branch in statement.selects:
+        for branch in getattr(statement, "selects", (statement,)):
             target_id = branch.selected_columns["target_id"].element.value
             for listing in ordered_listings[: MAXIMUM_ANALOGS_PER_TARGET + 1]:
                 rows.append(
@@ -226,6 +227,40 @@ def test_market_comparison_requires_ten_listings_and_five_sellers_at_the_thresho
     assert comparison["label"] == "below_market"
     assert comparison["sample_size"] == 10
     assert comparison["seller_count"] == 5
+
+
+def test_market_estimate_returns_only_aggregate_median_and_excludes_own_seller():
+    target = _listing(owner_id=uuid.UUID(int=1000), price_amount=None, currency=None)
+    candidates = [
+        _listing(owner_id=uuid.UUID(int=index + 1), price_amount=Decimal("20000"))
+        for index in range(10)
+    ] + [_listing(owner_id=target.owner_id, price_amount=Decimal("1000"))]
+
+    result = build_market_estimate(FakeSession(candidates), target, (None, False))
+
+    assert result is not None
+    assert result["median_byn"] == "20000.00"
+    assert result["sample_size"] == 10
+    assert result["seller_count"] == 10
+    assert set(result) == {"median_byn", "sample_size", "seller_count", "as_of", "rate_date"}
+
+
+def test_market_estimate_hides_insufficient_samples():
+    target = _listing(owner_id=uuid.UUID(int=1000), price_amount=None, currency=None)
+    candidates = [_listing(owner_id=uuid.UUID(int=index + 1)) for index in range(9)]
+
+    assert build_market_estimate(FakeSession(candidates), target, (None, False)) is None
+
+
+def test_market_estimate_request_rejects_vin_and_plate_fields():
+    payload = {
+        "seller_type": "private", "make_id": str(uuid.uuid4()), "model_id": str(uuid.uuid4()),
+        "body_type_id": str(uuid.uuid4()), "year": 2020, "mileage_km": 80000,
+        "condition": "used", "fuel": "petrol", "transmission": "manual", "vin": "WVWZZZ",
+    }
+
+    with pytest.raises(Exception):
+        ListingMarketEstimateIn.model_validate(payload)
 
 
 def test_market_comparison_hides_sample_with_iqr_over_half_the_median():

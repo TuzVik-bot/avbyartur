@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictInt, field_validator, model_validator
 
-ServiceCode = Literal["bump", "highlight", "top", "dealer_package"]
+ServiceCode = Literal["bump", "highlight", "top", "urgent", "dealer_package"]
 CurrencyCode = Literal["BYN", "USD"]
 TariffStatus = Literal["active", "disabled"]
 

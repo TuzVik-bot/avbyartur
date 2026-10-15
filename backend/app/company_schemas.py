@@ -132,7 +132,7 @@ class DealerListingSummaryOut(BaseModel):
     equipment: list[str] = Field(default_factory=list)
     district: str | None = None
     call_hours: str | None = None
-    promotion_badges: list[Literal["bump", "highlight", "top"]] = Field(default_factory=list)
+    promotion_badges: list[Literal["bump", "highlight", "top", "urgent"]] = Field(default_factory=list)
     photo_urls: list[str]
     photos: list[DealerListingPhotoOut]
 

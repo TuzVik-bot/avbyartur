@@ -41,6 +41,19 @@ describe("same-origin API client", () => {
     expect(new Headers(init.headers).get("Content-Type")).toBe("application/json");
   });
 
+  it("requests a market estimate with only draft characteristics and CSRF", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ available: false, median_byn: null, sample_size: 0, seller_count: 0, as_of: null, rate_date: null }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    setCsrfToken("session-csrf");
+
+    await api.listingMarketEstimate({ seller_type: "private", make_id: "make-1", model_id: "model-1", body_type_id: "body-1", year: 2020, mileage_km: 50000, condition: "used", fuel: "petrol", transmission: "manual", damaged: false, parts_only: false });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/listings/market-price-estimate");
+    expect(new Headers(init.headers).get("X-CSRF-Token")).toBe("session-csrf");
+    expect(String(init.body)).not.toMatch(/vin|plate|phone/i);
+  });
+
   it("fetches the pre-auth OTP CSRF token before requesting a one-time code", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: "otp-csrf" }), { status: 200, headers: { "Content-Type": "application/json" } }))

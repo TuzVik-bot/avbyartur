@@ -31,7 +31,7 @@ from app.services import fail, lock_owner, require_owned_listing
 
 
 ORDER_TTL = timedelta(minutes=30)
-SUPPORTED_SERVICES = frozenset({"bump", "highlight", "top", "dealer_package"})
+SUPPORTED_SERVICES = frozenset({"bump", "highlight", "top", "urgent", "dealer_package"})
 CALLBACK_STATUSES = frozenset({"succeeded", "failed", "cancelled"})
 
 

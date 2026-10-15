@@ -153,6 +153,95 @@ def _candidate_from_row(row: Any) -> Any:
     )
 
 
+def _market_sample(target: Any, candidate_batch: list[Any], rate_info: tuple[ExchangeRate | None, bool]) -> dict[str, Any] | None:
+    if len(candidate_batch) > MAXIMUM_ANALOGS_PER_TARGET:
+        return None
+    mileage_tolerance = max(5000, target.mileage_km * 0.10)
+    target_seller = _seller_key(target)
+    target_candidates = [
+        candidate for candidate in candidate_batch
+        if candidate.id != target.id
+        and _seller_key(candidate) != target_seller
+        and candidate.category_code == "cars"
+        and candidate.status == "active"
+        and candidate.make_id == target.make_id
+        and candidate.model_id == target.model_id
+        and candidate.condition == target.condition
+        and candidate.fuel == target.fuel
+        and candidate.transmission == target.transmission
+        and candidate.body_type_id == target.body_type_id
+        and candidate.mileage_km is not None
+        and (
+            (
+                target.generation_id is None
+                and candidate.generation_id is None
+                and candidate.year == target.year
+            )
+            or (
+                target.generation_id is not None
+                and candidate.generation_id == target.generation_id
+                and abs(candidate.year - target.year) <= 1
+            )
+        )
+        and abs(candidate.mileage_km - target.mileage_km) <= mileage_tolerance
+        and candidate.price_amount is not None
+        and candidate.currency in {"BYN", "USD"}
+        and not candidate.damaged
+        and not candidate.parts_only
+    ]
+    if len(target_candidates) < MINIMUM_SAMPLE_SIZE:
+        return None
+
+    seller_count = len({_seller_key(candidate) for candidate in target_candidates})
+    if seller_count < MINIMUM_SELLER_COUNT:
+        return None
+
+    rate, rate_is_fresh = rate_info
+    has_usd = any(candidate.currency == "USD" for candidate in target_candidates)
+    if has_usd and (not rate_is_fresh or rate is None):
+        return None
+
+    prices_byn: list[Decimal] = []
+    for candidate in target_candidates:
+        amount = Decimal(candidate.price_amount)
+        if candidate.currency == "USD":
+            if not rate_is_fresh or rate is None:
+                return None
+            amount = _usd_to_byn(amount, rate)
+        prices_byn.append(amount)
+
+    median_byn = median(prices_byn)
+    first_quartile, _, third_quartile = quantiles(prices_byn, n=4, method="inclusive")
+    if median_byn <= 0 or (third_quartile - first_quartile) / median_byn > MAXIMUM_IQR_RATIO:
+        return None
+
+    calculation_date = datetime.now(timezone.utc).date()
+    as_of = datetime.combine(calculation_date, datetime.min.time(), tzinfo=timezone.utc)
+    return {
+        "median_byn": median_byn,
+        "sample_size": len(target_candidates),
+        "seller_count": seller_count,
+        "as_of": as_of,
+        "rate_date": rate.rate_date if has_usd and rate is not None else None,
+    }
+
+
+def _has_estimate_fields(target: Any) -> bool:
+    return bool(
+        target.category_code == "cars"
+        and target.make_id is not None
+        and target.model_id is not None
+        and target.year is not None
+        and target.mileage_km is not None
+        and target.condition in {"new", "used"}
+        and target.fuel
+        and target.transmission
+        and target.body_type_id is not None
+        and not target.damaged
+        and not target.parts_only
+    )
+
+
 def build_market_comparisons(
     db: Session,
     listings: list[Listing],
@@ -173,78 +262,14 @@ def build_market_comparisons(
         values = row._mapping if hasattr(row, "_mapping") else row
         candidates_by_target[values["target_id"]].append(_candidate_from_row(values))
 
-    calculation_date = datetime.now(timezone.utc).date()
-    as_of = datetime.combine(calculation_date, datetime.min.time(), tzinfo=timezone.utc)
     for target in targets:
-        mileage_tolerance = max(5000, target.mileage_km * 0.10)
-        target_seller = _seller_key(target)
-        candidate_batch = candidates_by_target[target.id]
-        # The extra row is an overflow sentinel. Never compute a market badge from
-        # a truncated cohort, since that could move the median or seller count.
-        if len(candidate_batch) > MAXIMUM_ANALOGS_PER_TARGET:
+        stats = _market_sample(target, candidates_by_target[target.id], rate_info)
+        if stats is None:
+            continue
+        if target.currency == "USD" and (not rate_is_fresh or rate is None):
             continue
 
-        target_candidates = [
-            candidate for candidate in candidate_batch
-            if candidate.id != target.id
-            and _seller_key(candidate) != target_seller
-            and candidate.category_code == "cars"
-            and candidate.status == "active"
-            and candidate.make_id == target.make_id
-            and candidate.model_id == target.model_id
-            and candidate.condition == target.condition
-            and candidate.fuel == target.fuel
-            and candidate.transmission == target.transmission
-            and candidate.body_type_id == target.body_type_id
-            and candidate.mileage_km is not None
-            and (
-                (
-                    target.generation_id is None
-                    and candidate.generation_id is None
-                    and candidate.year == target.year
-                )
-                or (
-                    target.generation_id is not None
-                    and candidate.generation_id == target.generation_id
-                    and abs(candidate.year - target.year) <= 1
-                )
-            )
-            and abs(candidate.mileage_km - target.mileage_km) <= mileage_tolerance
-            and candidate.price_amount is not None
-            and candidate.currency in {"BYN", "USD"}
-            and not candidate.damaged
-            and not candidate.parts_only
-        ]
-        if len(target_candidates) < MINIMUM_SAMPLE_SIZE:
-            continue
-
-        seller_count = len({_seller_key(candidate) for candidate in target_candidates})
-        if seller_count < MINIMUM_SELLER_COUNT:
-            continue
-
-        has_usd = target.currency == "USD" or any(
-            candidate.currency == "USD" for candidate in target_candidates
-        )
-        if has_usd and (not rate_is_fresh or rate is None):
-            continue
-
-        prices_byn: list[Decimal] = []
-        for candidate in target_candidates:
-            amount = Decimal(candidate.price_amount)
-            if candidate.currency == "USD":
-                if not rate_is_fresh or rate is None:
-                    prices_byn = []
-                    break
-                amount = _usd_to_byn(amount, rate)
-            prices_byn.append(amount)
-        if not prices_byn:
-            continue
-
-        median_byn = median(prices_byn)
-        first_quartile, _, third_quartile = quantiles(prices_byn, n=4, method="inclusive")
-        if median_byn <= 0 or (third_quartile - first_quartile) / median_byn > MAXIMUM_IQR_RATIO:
-            continue
-
+        median_byn = stats["median_byn"]
         target_price_byn = Decimal(target.price_amount)
         if target.currency == "USD":
             assert rate is not None and rate_is_fresh
@@ -259,9 +284,31 @@ def build_market_comparisons(
         output[target.id] = {
             "label": label,
             "median_byn": str(median_byn.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
-            "sample_size": len(target_candidates),
-            "seller_count": seller_count,
-            "as_of": as_of.isoformat(),
-            "rate_date": rate.rate_date if has_usd and rate is not None else None,
+            "sample_size": stats["sample_size"],
+            "seller_count": stats["seller_count"],
+            "as_of": stats["as_of"].isoformat(),
+            "rate_date": stats["rate_date"],
         }
     return output
+
+
+def build_market_estimate(
+    db: Session,
+    target: Any,
+    rate_info: tuple[ExchangeRate | None, bool],
+) -> dict[str, Any] | None:
+    """Return only anonymous aggregate price data for an unpublished car draft."""
+    if not _has_estimate_fields(target):
+        return None
+    rows = db.execute(_candidate_select(target)).all()
+    candidates = [_candidate_from_row(row) for row in rows]
+    stats = _market_sample(target, candidates, rate_info)
+    if stats is None:
+        return None
+    return {
+        "median_byn": str(stats["median_byn"].quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+        "sample_size": stats["sample_size"],
+        "seller_count": stats["seller_count"],
+        "as_of": stats["as_of"].isoformat(),
+        "rate_date": stats["rate_date"],
+    }

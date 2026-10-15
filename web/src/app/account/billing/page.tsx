@@ -9,7 +9,8 @@ export const metadata: Metadata = { title: "Тарифы и заказы" };
 type SearchParams = { listing_id?: string | string[] };
 type Tariff = components["schemas"]["BillingTariffOut"];
 type Order = components["schemas"]["BillingOrderOut"];
-const serviceLabels: Record<Tariff["service_code"], string> = { bump: "Поднять объявление", highlight: "Выделить объявление", top: "Размещение вверху", dealer_package: "Пакет для компании" };
+type ServiceCode = Tariff["service_code"] | "urgent";
+const serviceLabels: Record<ServiceCode, string> = { bump: "Поднять объявление", highlight: "Выделить объявление", top: "Размещение вверху", urgent: "Отметить «Срочно»", dealer_package: "Пакет для компании" };
 const orderStatus: Record<Order["status"], string> = { pending: "Ожидает оплаты", paid: "Оплачен", failed: "Не удалось оплатить", cancelled: "Отменён", expired: "Истёк" };
 function money(amount: string, currency: string) { return `${Number(amount).toLocaleString("ru-BY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`; }
 

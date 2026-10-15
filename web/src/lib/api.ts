@@ -268,6 +268,7 @@ export const api = {
   },
   listingOptions: () => apiRequest<ListingOptions>("listing-options"),
   listingValidationPolicy: () => apiRequest<ListingValidationPolicy>("listing-validation-policy"),
+  listingMarketEstimate: (data: { seller_type: "private" | "company"; make_id: string; model_id: string; generation_id?: string | null; body_type_id: string; year: number; mileage_km: number; condition: "new" | "used"; fuel: "petrol" | "diesel" | "hybrid" | "electric" | "lpg" | "other"; transmission: "manual" | "automatic" | "robot" | "cvt" | "other"; damaged: boolean; parts_only: boolean }) => apiRequest<{ available: boolean; median_byn: string | null; sample_size: number; seller_count: number; as_of: string | null; rate_date: string | null }>("listings/market-price-estimate", { method: "POST", body: JSON.stringify(data) }),
   createBillingOrder: (data: components["schemas"]["BillingOrderCreate"], idempotencyKey?: string) => apiRequest<components["schemas"]["BillingCheckoutOut"]>("billing/orders", { method: "POST", body: JSON.stringify(data), headers: idempotencyHeaders(idempotencyKey) }),
   listingPromotionEligibility: (listingId: string) => apiRequest<{ promotable: boolean }>(`billing/listings/${encodeURIComponent(listingId)}/eligibility`),
   regions: () => apiRequest<{ items: CatalogItem[] }>("locations/regions"),
