@@ -379,13 +379,14 @@ def test_public_detail_views_feed_owner_scoped_analytics(integration):
     owner = _add_user(factory, label="listing-analytics-owner")
     outsider = _add_user(factory, label="listing-analytics-outsider")
     listing = _add_listing(factory, owner.id, title="Measured listing")
+    now_utc = datetime.now(UTC)
     with factory() as db:
         db.add(ContactClickEvent(
             listing_id=listing.id,
             channel="phone",
             dedup_id=str(uuid.uuid4()),
-            occurred_at=datetime.now(UTC),
-            created_at=datetime.now(UTC),
+            occurred_at=now_utc,
+            created_at=now_utc,
         ))
         db.commit()
     owner_client, _ = _login(integration, owner.email)
@@ -394,7 +395,7 @@ def test_public_detail_views_feed_owner_scoped_analytics(integration):
 
     assert anonymous.get(f"/api/v1/listings/{listing.id}").status_code == 200
     assert owner_client.get(f"/api/v1/listings/{listing.id}").status_code == 200
-    today = datetime.now(UTC).date().isoformat()
+    today = now_utc.date().isoformat()
     analytics = owner_client.get(
         f"/api/v1/listings/{listing.id}/analytics",
         params={"date_from": today, "date_to": today},
