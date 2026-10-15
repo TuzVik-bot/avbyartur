@@ -23,6 +23,28 @@ afterEach(() => {
 });
 
 describe("route error reporting", () => {
+  it.each([
+    [AppError, "Route failed"],
+    [CarsError, "Cars route failed"],
+    [DealersError, "Dealer directory route failed"],
+    [AccountError, "Account route failed"],
+  ])("logs only a fixed message from %s", async (Boundary, fixedMessage) => {
+    vi.stubEnv("NEXT_PUBLIC_RELEASE_ID", undefined);
+    const error = Object.assign(new TypeError("private message"), { digest: "private-digest" });
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(createElement(Boundary, { error, reset: () => {} }));
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith(fixedMessage);
+    expect(JSON.stringify(consoleSpy.mock.calls)).not.toContain("private");
+    expect(JSON.stringify(consoleSpy.mock.calls)).not.toContain("private-digest");
+  });
+
   it.each(boundaries)("reports only safe metadata from %s", async (Boundary) => {
     vi.stubEnv("NEXT_PUBLIC_RELEASE_ID", "release-2026.10");
     const error = Object.assign(new TypeError("secret contact and query data"), { digest: "private-digest" });

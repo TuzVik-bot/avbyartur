@@ -11,7 +11,7 @@ type AppErrorProps = {
 
 export default function AppError({ error, reset }: AppErrorProps) {
   useEffect(() => {
-    console.error("Route failed", error);
+    console.error("Route failed");
     void reportFrontendError({
       errorType: error.name as FrontendErrorType,
       releaseId: process.env.NEXT_PUBLIC_RELEASE_ID ?? "",

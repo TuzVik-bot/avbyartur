@@ -11,7 +11,7 @@ type CarsErrorProps = {
 
 export default function CarsError({ error, reset }: CarsErrorProps) {
   useEffect(() => {
-    console.error("Cars route failed", error);
+    console.error("Cars route failed");
     void reportFrontendError({
       errorType: error.name as FrontendErrorType,
       releaseId: process.env.NEXT_PUBLIC_RELEASE_ID ?? "",

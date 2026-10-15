@@ -13,7 +13,7 @@ export default function AccountError({ error, reset }: AccountErrorProps) {
   useEffect(() => {
     // Keep the boundary visible to the operator without exposing the digest in
     // the page, where it could be mistaken for an actionable support token.
-    console.error("Account route failed", error);
+    console.error("Account route failed");
     void reportFrontendError({
       errorType: error.name as FrontendErrorType,
       releaseId: process.env.NEXT_PUBLIC_RELEASE_ID ?? "",

@@ -11,7 +11,7 @@ type DealersErrorProps = {
 
 export default function DealersError({ error, reset }: DealersErrorProps) {
   useEffect(() => {
-    console.error("Dealer directory route failed", error);
+    console.error("Dealer directory route failed");
     void reportFrontendError({
       errorType: error.name as FrontendErrorType,
       releaseId: process.env.NEXT_PUBLIC_RELEASE_ID ?? "",
