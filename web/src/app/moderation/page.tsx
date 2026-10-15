@@ -2,14 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { AccountNav } from "@/components/account-nav";
-import { CompanyModerationActions, ListingModerationActions, ReportResolution } from "@/components/moderation-actions";
+import { CompanyModerationActions, DealerReviewReportResolution, ListingModerationActions, ReportResolution } from "@/components/moderation-actions";
 import { ModerationListingPreview } from "@/components/moderation-listing-preview";
 import { ModerationRiskSignals, type ModerationRiskSignal } from "@/components/moderation-risk-signals";
 import { serverApi } from "@/lib/server-api";
 import { requireSession } from "@/lib/server";
 import type { ListResponse, Listing } from "@/lib/types";
 
-type Queue = "listings" | "active" | "companies" | "reports";
+type Queue = "listings" | "active" | "companies" | "reports" | "review-reports";
 type ModerationQueueListing = Listing & { risk_signals?: ModerationRiskSignal[] };
 type SearchParams = { queue?: string | string[]; page?: string | string[] };
 export const metadata: Metadata = { title: "Модерация" };
@@ -30,7 +30,7 @@ export default async function ModerationPage({ searchParams }: { searchParams: P
   const session = await requireSession("/moderation");
   const params = await searchParams;
   const requested = Array.isArray(params.queue) ? params.queue[0] : params.queue;
-  const queue: Queue = requested === "active" || requested === "companies" || requested === "reports" ? requested : "listings";
+  const queue: Queue = requested === "active" || requested === "companies" || requested === "reports" || requested === "review-reports" ? requested : "listings";
   const rawPage = Array.isArray(params.page) ? params.page[0] : params.page;
   const parsedPage = parsePage(rawPage);
   const requestedPage = parsedPage ?? 1;
@@ -44,6 +44,9 @@ export default async function ModerationPage({ searchParams }: { searchParams: P
     queue === "companies" ? serverApi.moderationCompanies() : Promise.resolve({ items: [] }),
     queue === "reports" ? serverApi.moderationReports() : Promise.resolve({ items: [] })
   ]);
+  const reviewReportsResult = queue === "review-reports"
+    ? await Promise.allSettled([serverApi.moderationDealerReviewReports("open")]).then(([result]) => result)
+    : null;
   const listingsData = listingsResult.status === "fulfilled" ? listingsResult.value : null;
   const pageCountValue = listingsData?.pagination?.pages;
   const pageCount = pageCountValue === undefined
@@ -51,7 +54,7 @@ export default async function ModerationPage({ searchParams }: { searchParams: P
     : Number.isSafeInteger(pageCountValue) && pageCountValue > 0 ? pageCountValue : 1;
   if (showingListings && listingsData?.pagination && requestedPage > pageCount) redirect(pageUrl(queue, pageCount));
   const page = Math.min(requestedPage, pageCount);
-  const failed = showingListings ? listingsResult.status === "rejected" : queue === "companies" ? companiesResult.status === "rejected" : reportsResult.status === "rejected";
+  const failed = showingListings ? listingsResult.status === "rejected" : queue === "companies" ? companiesResult.status === "rejected" : queue === "review-reports" ? reviewReportsResult?.status === "rejected" : reportsResult.status === "rejected";
 
   return (
     <div className="page-width">
@@ -62,6 +65,7 @@ export default async function ModerationPage({ searchParams }: { searchParams: P
         <Link href="/moderation?queue=active" aria-current={queue === "active" ? "page" : undefined}>Активные</Link>
         <Link href="/moderation?queue=companies" aria-current={queue === "companies" ? "page" : undefined}>Компании</Link>
         <Link href="/moderation?queue=reports" aria-current={queue === "reports" ? "page" : undefined}>Жалобы</Link>
+        <Link href="/moderation?queue=review-reports" aria-current={queue === "review-reports" ? "page" : undefined}>Жалобы на отзывы</Link>
       </nav>
       {failed && <p className="notice" role="alert">Не удалось загрузить эту очередь. Проверьте доступ и повторите попытку.</p>}
       {showingListings && listingsResult.status === "fulfilled" && <div className="account-list">{listingsResult.value.items.length ? listingsResult.value.items.map((listing) => {
@@ -75,6 +79,7 @@ export default async function ModerationPage({ searchParams }: { searchParams: P
       </nav>}
       {queue === "companies" && companiesResult.status === "fulfilled" && <div className="account-list">{companiesResult.value.items.length ? companiesResult.value.items.map((company) => <article className="account-list-item moderation-item" key={company.id}><div><h2>{company.name}</h2><p className="muted">УНП {company.unp} · {company.address} · {company.phone}</p><span className={`status-pill status-${company.status}`}>{company.status}</span></div><CompanyModerationActions company={company} /></article>) : <div className="empty-state"><h2>Заявок компаний нет</h2></div>}</div>}
       {queue === "reports" && reportsResult.status === "fulfilled" && <div className="account-list">{reportsResult.value.items.length ? reportsResult.value.items.map((report) => <article className="account-list-item moderation-item" key={report.id}><div><h2>Жалоба: {report.category}</h2><p>{report.comment || "Комментарий не добавлен."}</p><p className="muted">Объявление: {report.listing_id || "не указано"} · {report.status}</p></div><ReportResolution report={report} /></article>) : <div className="empty-state"><h2>Нерассмотренных жалоб нет</h2></div>}</div>}
+      {queue === "review-reports" && reviewReportsResult?.status === "fulfilled" && <div className="account-list">{reviewReportsResult.value.items.length ? reviewReportsResult.value.items.map((report) => <article className="account-list-item moderation-item" key={report.id}><div><h2>Жалоба на отзыв компании {report.company_name}</h2><p>{report.review_text}</p><p className="muted">Оценка: {report.review_rating} из 5 · Причина жалобы: {report.reason} · {report.status}</p></div><DealerReviewReportResolution report={report} /></article>) : <div className="empty-state"><h2>Нерассмотренных жалоб на отзывы нет</h2></div>}</div>}
     </div>
   );
 }

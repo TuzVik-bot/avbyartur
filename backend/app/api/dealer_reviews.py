@@ -8,7 +8,16 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_csrf, require_moderator
 from app.db import get_db
-from app.dealer_review_schemas import DealerReviewInput, DealerReviewModerationInput, DealerReviewPatch, DealerReviewReportInput
+from app.dealer_review_schemas import (
+    DealerReviewInput,
+    DealerReviewModerationInput,
+    DealerReviewPatch,
+    DealerReviewReportInput,
+    DealerReviewReportQueueOut,
+    DealerReviewReportResolutionInput,
+    DealerReviewReportResolutionOut,
+    DealerReviewReportResolutionResponse,
+)
 from app.dealer_review_service import public_reviews, review_out
 from app.dealer_services import company_role_for
 from app.models import AuditEvent, Company, DealerReview, DealerReviewReport, User, UserSession
@@ -134,3 +143,62 @@ def moderate_review(
     db.commit()
     db.refresh(review)
     return {"review": review_out(review, private=True)}
+
+
+@router.get("/moderation/dealer-review-reports", response_model=DealerReviewReportQueueOut)
+def dealer_review_report_queue(
+    _moderator: Annotated[User, Depends(require_moderator)],
+    db: Annotated[Session, Depends(get_db)],
+    status: Annotated[Literal["open", "resolved"], Query()] = "open",
+) -> dict:
+    rows = db.execute(
+        select(DealerReviewReport, DealerReview, Company)
+        .join(DealerReview, DealerReviewReport.review_id == DealerReview.id)
+        .join(Company, DealerReview.company_id == Company.id)
+        .where(DealerReviewReport.status == status)
+        .order_by(DealerReviewReport.created_at, DealerReviewReport.id)
+        .limit(100)
+    ).all()
+    return {"items": [{
+        "id": report.id,
+        "review_id": review.id,
+        "company_name": company.name,
+        "review_rating": review.rating,
+        "review_text": review.text,
+        "reason": report.reason,
+        "status": report.status,
+        "created_at": report.created_at,
+    } for report, review, company in rows]}
+
+
+@router.post(
+    "/moderation/dealer-review-reports/{report_id}/resolve",
+    response_model=DealerReviewReportResolutionResponse,
+)
+def resolve_dealer_review_report(
+    report_id: UUID,
+    payload: DealerReviewReportResolutionInput,
+    moderator: Annotated[User, Depends(require_moderator)],
+    _csrf: Annotated[UserSession, Depends(require_csrf)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    report = db.scalar(
+        select(DealerReviewReport)
+        .where(DealerReviewReport.id == report_id)
+        .with_for_update()
+    )
+    if report is None:
+        fail(404, "not_found", "Dealer review report not found")
+    if report.status != "open":
+        fail(409, "report_already_resolved", "Dealer review report is already resolved")
+    report.status = "resolved"
+    db.add(AuditEvent(
+        actor_id=moderator.id,
+        entity_type="dealer_review_report",
+        entity_id=report.id,
+        action="resolved",
+        details={"resolution": payload.resolution, "review_id": str(report.review_id)},
+    ))
+    db.commit()
+    db.refresh(report)
+    return {"report": {"id": report.id, "status": report.status, "resolution": payload.resolution}}

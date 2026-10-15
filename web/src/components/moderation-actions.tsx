@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Ban, Check, CheckCircle2, CircleX, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { api } from "@/lib/api";
-import type { Company, Listing, Report } from "@/lib/types";
+import type { Company, DealerReviewReport, Listing, Report } from "@/lib/types";
 
 export function ListingModerationActions({ listing }: { listing: Listing }) {
   const router = useRouter();
@@ -68,6 +68,36 @@ export function ReportResolution({ report }: { report: Report }) {
   }
   return <form className="report-resolution" onSubmit={submit}>
     <label className="field"><span>Решение</span><input value={resolution} onChange={(event) => setResolution(event.target.value)} required maxLength={1000} /></label>
+    <button className="button button-secondary button-small" disabled={busy} type="submit"><CheckCircle2 size={15} /> Закрыть жалобу</button>
+    {error && <span className="inline-error" role="alert">{error}</span>}
+  </form>;
+}
+
+export function DealerReviewReportResolution({ report }: { report: DealerReviewReport }) {
+  const router = useRouter();
+  const [resolution, setResolution] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [resolved, setResolved] = useState(false);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!resolution.trim()) { setError("Укажите решение."); return; }
+    setBusy(true); setError("");
+    try {
+      await api.resolveDealerReviewReport(report.id, resolution.trim());
+      setResolved(true);
+      router.refresh();
+    } catch (issue) {
+      setError(issue instanceof Error ? issue.message : "Не удалось закрыть жалобу");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (resolved) return <p role="status">Жалоба закрыта.</p>;
+  return <form className="report-resolution" onSubmit={submit}>
+    <label className="field"><span>Решение</span><input name="resolution" value={resolution} onChange={(event) => setResolution(event.target.value)} required maxLength={1000} /></label>
     <button className="button button-secondary button-small" disabled={busy} type="submit"><CheckCircle2 size={15} /> Закрыть жалобу</button>
     {error && <span className="inline-error" role="alert">{error}</span>}
   </form>;

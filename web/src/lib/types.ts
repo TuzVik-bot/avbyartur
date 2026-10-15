@@ -202,6 +202,16 @@ export type CompanySummary = Omit<components["schemas"]["PublicCompanyOut"], "st
 export type DealerReview = { id: string; rating: number; text: string; created_at: string };
 export type DealerReviewPrivate = DealerReview & { status: "pending" | "published" | "rejected" | "hidden"; revision: number; moderation_reason: string | null };
 export type DealerReviews = { items: DealerReview[]; count: number; average_rating: number | null };
+export type DealerReviewReport = {
+  id: string;
+  review_id: string;
+  company_name: string;
+  review_rating: number;
+  review_text: string;
+  reason: string;
+  status: "open" | "resolved";
+  created_at: string;
+};
 
 export type Report = {
   id: string;

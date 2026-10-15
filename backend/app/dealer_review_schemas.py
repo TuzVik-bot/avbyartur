@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -47,3 +48,34 @@ class DealerReviewMutationOut(BaseModel):
 class DealerReviewReportOut(BaseModel):
     id: UUID
     status: Literal["open", "resolved"]
+
+
+class DealerReviewReportQueueItemOut(BaseModel):
+    id: UUID
+    review_id: UUID
+    company_name: str
+    review_rating: int
+    review_text: str
+    reason: str
+    status: Literal["open", "resolved"]
+    created_at: datetime
+
+
+class DealerReviewReportQueueOut(BaseModel):
+    items: list[DealerReviewReportQueueItemOut]
+
+
+class DealerReviewReportResolutionInput(BaseModel):
+    resolution: str = Field(min_length=1, max_length=1000)
+
+    _clean_resolution = field_validator("resolution")(clean_text)
+
+
+class DealerReviewReportResolutionOut(BaseModel):
+    id: UUID
+    status: Literal["open", "resolved"]
+    resolution: str
+
+
+class DealerReviewReportResolutionResponse(BaseModel):
+    report: DealerReviewReportResolutionOut

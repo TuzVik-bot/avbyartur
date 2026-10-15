@@ -149,3 +149,114 @@ def test_dealer_review_create_edit_duplicate_report_and_public_aggregate(integra
         actions = db.query(AuditEvent).filter_by(entity_type="dealer_review").all()
         assert {event.action for event in actions} >= {"created", "updated", "reported", "published"}
         assert db.query(DealerReviewReport).count() == 1
+    moderator_queue = moderator_client.get("/api/v1/moderation/dealer-review-reports?status=open")
+    assert moderator_queue.status_code == 200, moderator_queue.text
+    report_item = next(item for item in moderator_queue.json()["items"] if item["id"] == report.json()["id"])
+    assert report_item["company_name"] == company.name
+    assert report_item["reason"] == "Проверить содержание"
+    assert "reporter_id" not in report_item
+    assert moderator_client.post(
+        f"/api/v1/moderation/dealer-review-reports/{report.json()['id']}/resolve",
+        json={"resolution": "Жалоба рассмотрена"},
+    ).status_code == 403
+    resolved = moderator_client.post(
+        f"/api/v1/moderation/dealer-review-reports/{report.json()['id']}/resolve",
+        json={"resolution": "Жалоба рассмотрена"},
+        headers=moderator_headers,
+    )
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["report"]["status"] == "resolved"
+    with factory() as db:
+        resolution_event = db.query(AuditEvent).filter_by(
+            entity_type="dealer_review_report", entity_id=uuid.UUID(report.json()["id"]),
+        ).one()
+        assert resolution_event.actor_id == moderator.id
+        assert resolution_event.action == "resolved"
+        assert resolution_event.details["resolution"] == "Жалоба рассмотрена"
+
+
+def test_dealer_review_report_moderation_routes_require_moderator_and_csrf():
+    from app.api.dependencies import require_csrf, require_moderator
+    from app.api import dealer_reviews
+    from app.main import CSRF_REQUIRED_OPERATIONS
+
+    routes = {route.path: route for route in dealer_reviews.router.routes}
+    queue = routes.get("/api/v1/moderation/dealer-review-reports")
+    resolve = routes.get("/api/v1/moderation/dealer-review-reports/{report_id}/resolve")
+
+    assert queue is not None
+    assert resolve is not None
+    assert require_moderator in [dependency.call for dependency in queue.dependant.dependencies]
+    assert require_moderator in [dependency.call for dependency in resolve.dependant.dependencies]
+    assert require_csrf in [dependency.call for dependency in resolve.dependant.dependencies]
+    assert ("/api/v1/moderation/dealer-review-reports/{report_id}/resolve", "post") in CSRF_REQUIRED_OPERATIONS
+
+
+def test_dealer_review_report_queue_hides_reporter_identity_and_resolution_is_audited():
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from app.api import dealer_reviews
+
+    routes = {route.path: route for route in dealer_reviews.router.routes}
+    queue_route = routes.get("/api/v1/moderation/dealer-review-reports")
+    resolve_route = routes.get("/api/v1/moderation/dealer-review-reports/{report_id}/resolve")
+    assert queue_route is not None and resolve_route is not None
+
+    report_id, review_id, company_id, reporter_id, moderator_id = [uuid.uuid4() for _ in range(5)]
+    created_at = datetime.now(UTC)
+    report = DealerReviewReport(id=report_id, review_id=review_id, reporter_id=reporter_id, reason="Утверждение не подтверждено", status="open", created_at=created_at)
+    review = DealerReview(id=review_id, company_id=company_id, author_id=uuid.uuid4(), rating=4, text="Публичный текст отзыва", status="published")
+    company = Company(id=company_id, name="Компания", slug="company", status="approved")
+
+    class FakeDB:
+        def __init__(self):
+            self.added = []
+            self.committed = False
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [(report, review, company)])
+
+        def scalar(self, _statement):
+            return report
+
+        def add(self, value):
+            self.added.append(value)
+
+        def commit(self):
+            self.committed = True
+
+        def refresh(self, _value):
+            pass
+
+    db = FakeDB()
+    moderator = User(id=moderator_id, role="moderator")
+    queue = queue_route.endpoint(_moderator=moderator, db=db, status="open")
+    assert queue["items"] == [{
+        "id": report_id,
+        "review_id": review_id,
+        "company_name": "Компания",
+        "review_rating": 4,
+        "review_text": "Публичный текст отзыва",
+        "reason": "Утверждение не подтверждено",
+        "status": "open",
+        "created_at": created_at,
+    }]
+    assert "reporter_id" not in queue["items"][0]
+
+    resolved = resolve_route.endpoint(
+        report_id=report_id,
+        payload=SimpleNamespace(resolution="Жалоба рассмотрена"),
+        moderator=moderator,
+        _csrf=object(),
+        db=db,
+    )
+    assert report.status == "resolved"
+    assert db.committed
+    assert resolved["report"]["status"] == "resolved"
+    event = next(value for value in db.added if isinstance(value, AuditEvent))
+    assert event.actor_id == moderator_id
+    assert event.entity_type == "dealer_review_report"
+    assert event.entity_id == report_id
+    assert event.action == "resolved"
+    assert event.details["resolution"] == "Жалоба рассмотрена"

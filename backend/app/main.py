@@ -66,6 +66,7 @@ CSRF_REQUIRED_OPERATIONS = {
     ("/api/v1/dealer-reviews/{review_id}", "patch"),
     ("/api/v1/dealer-reviews/{review_id}/reports", "post"),
     ("/api/v1/moderation/dealer-reviews/{review_id}/review", "post"),
+    ("/api/v1/moderation/dealer-review-reports/{report_id}/resolve", "post"),
     ("/api/v1/auth/otp/request", "post"),
     ("/api/v1/auth/register/otp/request", "post"),
     ("/api/v1/auth/otp/verify", "post"),
@@ -206,6 +207,8 @@ ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
     ("/api/v1/dealer-reviews/{review_id}/reports", "post"): (401, 403, 404, 409, 422),
     ("/api/v1/moderation/dealer-reviews", "get"): (401, 403, 422),
     ("/api/v1/moderation/dealer-reviews/{review_id}/review", "post"): (401, 403, 404, 409, 422),
+    ("/api/v1/moderation/dealer-review-reports", "get"): (401, 403, 422),
+    ("/api/v1/moderation/dealer-review-reports/{report_id}/resolve", "post"): (401, 403, 404, 409, 422),
     ("/api/v1/moderation/listings", "get"): (401, 403),
     ("/api/v1/moderation/listings/{listing_id}/approve", "post"): (
         401, 403, 404, 409
