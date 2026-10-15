@@ -364,6 +364,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/market-price-estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Estimate Draft Market Price */
+        post: operations["estimate_draft_market_price_api_v1_listings_market_price_estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listing-options": {
         parameters: {
             query?: never;
@@ -758,6 +775,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Stats */
+        get: operations["public_stats_api_v1_public_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{company_id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upload Company Logo */
+        put: operations["upload_company_logo_api_v1_companies__company_id__logo_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/company-logos/{storage_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Logo */
+        get: operations["company_logo_api_v1_company_logos__storage_name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/company": {
         parameters: {
             query?: never;
@@ -1058,6 +1126,108 @@ export interface paths {
         put?: never;
         /** Resolve Report */
         post: operations["resolve_report_api_v1_moderation_reports__report_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dealers/{slug}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Review */
+        post: operations["create_review_api_v1_dealers__slug__reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dealers/{slug}/reviews/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Review */
+        get: operations["my_review_api_v1_dealers__slug__reviews_mine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dealer-reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Review */
+        patch: operations["update_review_api_v1_dealer_reviews__review_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/dealer-reviews/{review_id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report Review */
+        post: operations["report_review_api_v1_dealer_reviews__review_id__reports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moderation/dealer-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Moderation Reviews */
+        get: operations["moderation_reviews_api_v1_moderation_dealer_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moderation/dealer-reviews/{review_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Moderate Review */
+        post: operations["moderate_review_api_v1_moderation_dealer_reviews__review_id__review_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1843,6 +2013,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/listings/{listing_id}/eligibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listing Promotion Eligibility
+         * @description Expose promotion availability only to a user authorized for this listing.
+         */
+        get: operations["listing_promotion_eligibility_api_v1_billing_listings__listing_id__eligibility_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/orders": {
         parameters: {
             query?: never;
@@ -2480,7 +2670,7 @@ export interface components {
              * Service Code
              * @enum {string}
              */
-            service_code: "bump" | "highlight" | "top" | "dealer_package";
+            service_code: "bump" | "highlight" | "top" | "urgent" | "dealer_package";
             /** Name */
             name: string;
             /** Amount */
@@ -2562,7 +2752,7 @@ export interface components {
              * Service Code
              * @enum {string}
              */
-            service_code: "bump" | "highlight" | "top" | "dealer_package";
+            service_code: "bump" | "highlight" | "top" | "urgent" | "dealer_package";
             /** Name */
             name: string;
             /** Amount */
@@ -2813,7 +3003,7 @@ export interface components {
              * Service Code
              * @enum {string}
              */
-            service_code: "bump" | "highlight" | "top" | "dealer_package";
+            service_code: "bump" | "highlight" | "top" | "urgent" | "dealer_package";
             /** Tariff Code */
             tariff_code: string;
             /** Tariff Revision */
@@ -2864,7 +3054,7 @@ export interface components {
              * Service Code
              * @enum {string}
              */
-            service_code: "bump" | "highlight" | "top" | "dealer_package";
+            service_code: "bump" | "highlight" | "top" | "urgent" | "dealer_package";
             /** Name */
             name: string;
             /** Amount */
@@ -2885,6 +3075,13 @@ export interface components {
         Body_import_dealer_feed_file_api_v1_dealer_feeds__feed_id__imports_post: {
             /** File */
             file: string;
+        };
+        /** Body_upload_company_logo_api_v1_companies__company_id__logo_put */
+        Body_upload_company_logo_api_v1_companies__company_id__logo_put: {
+            /** File */
+            file: string;
+            /** Expected Revision */
+            expected_revision: number;
         };
         /** Body_upload_photo_api_v1_listings__listing_id__photos_post */
         Body_upload_photo_api_v1_listings__listing_id__photos_post: {
@@ -3609,6 +3806,7 @@ export interface components {
         DealerDetailResponse: {
             company: components["schemas"]["PublicCompanyOut"];
             listings: components["schemas"]["DealerListingsPageOut"];
+            reviews: components["schemas"]["DealerReviewsOut"];
         };
         /** DealerDirectoryResponse */
         DealerDirectoryResponse: {
@@ -4024,7 +4222,7 @@ export interface components {
             /** Call Hours */
             call_hours?: string | null;
             /** Promotion Badges */
-            promotion_badges?: ("bump" | "highlight" | "top")[];
+            promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -4046,6 +4244,65 @@ export interface components {
             display_byn: string | null;
             /** Rate Date */
             rate_date: string | null;
+        };
+        /** DealerReviewInput */
+        DealerReviewInput: {
+            /** Rating */
+            rating: number;
+            /** Text */
+            text: string;
+        };
+        /** DealerReviewModerationInput */
+        DealerReviewModerationInput: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "published" | "rejected" | "hidden";
+            /** Reason */
+            reason: string;
+        };
+        /** DealerReviewOut */
+        DealerReviewOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Rating */
+            rating: number;
+            /** Text */
+            text: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** DealerReviewPatch */
+        DealerReviewPatch: {
+            /** Rating */
+            rating: number;
+            /** Text */
+            text: string;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** DealerReviewReportInput */
+        DealerReviewReportInput: {
+            /** Reason */
+            reason: string;
+        };
+        /** DealerReviewsOut */
+        DealerReviewsOut: {
+            /** Items */
+            items: components["schemas"]["DealerReviewOut"][];
+            /** Count */
+            count: number;
+            /** Average Rating */
+            average_rating: number | null;
         };
         /** DealerTeamCreate */
         DealerTeamCreate: {
@@ -4373,7 +4630,7 @@ export interface components {
             /** Call Hours */
             call_hours?: string | null;
             /** Promotion Badges */
-            promotion_badges?: ("bump" | "highlight" | "top")[];
+            promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -4484,7 +4741,7 @@ export interface components {
             /** Call Hours */
             call_hours?: string | null;
             /** Promotion Badges */
-            promotion_badges?: ("bump" | "highlight" | "top")[];
+            promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -4623,6 +4880,75 @@ export interface components {
              * Format: date-time
              */
             as_of: string;
+            /** Rate Date */
+            rate_date: string | null;
+        };
+        /** ListingMarketEstimateIn */
+        ListingMarketEstimateIn: {
+            /**
+             * Seller Type
+             * @enum {string}
+             */
+            seller_type: "private" | "company";
+            /**
+             * Make Id
+             * Format: uuid
+             */
+            make_id: string;
+            /**
+             * Model Id
+             * Format: uuid
+             */
+            model_id: string;
+            /** Generation Id */
+            generation_id?: string | null;
+            /**
+             * Body Type Id
+             * Format: uuid
+             */
+            body_type_id: string;
+            /** Year */
+            year: number;
+            /** Mileage Km */
+            mileage_km: number;
+            /**
+             * Condition
+             * @enum {string}
+             */
+            condition: "new" | "used";
+            /**
+             * Fuel
+             * @enum {string}
+             */
+            fuel: "petrol" | "diesel" | "hybrid" | "electric" | "lpg" | "other";
+            /**
+             * Transmission
+             * @enum {string}
+             */
+            transmission: "manual" | "automatic" | "robot" | "cvt" | "other";
+            /**
+             * Damaged
+             * @default false
+             */
+            damaged: boolean;
+            /**
+             * Parts Only
+             * @default false
+             */
+            parts_only: boolean;
+        };
+        /** ListingMarketEstimateOut */
+        ListingMarketEstimateOut: {
+            /** Available */
+            available: boolean;
+            /** Median Byn */
+            median_byn: string | null;
+            /** Sample Size */
+            sample_size: number;
+            /** Seller Count */
+            seller_count: number;
+            /** As Of */
+            as_of: string | null;
             /** Rate Date */
             rate_date: string | null;
         };
@@ -4791,7 +5117,7 @@ export interface components {
             /** Call Hours */
             call_hours?: string | null;
             /** Promotion Badges */
-            promotion_badges?: ("bump" | "highlight" | "top")[];
+            promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -5073,7 +5399,7 @@ export interface components {
             /** Call Hours */
             call_hours?: string | null;
             /** Promotion Badges */
-            promotion_badges?: ("bump" | "highlight" | "top")[];
+            promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -5475,7 +5801,7 @@ export interface components {
             /** Call Hours */
             call_hours?: string | null;
             /** Promotion Badges */
-            promotion_badges?: ("bump" | "highlight" | "top")[];
+            promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -5918,6 +6244,8 @@ export interface components {
             /** Address */
             address: string;
             business_hours: components["schemas"]["CompanyBusinessHours"] | null;
+            /** Logo Url */
+            logo_url?: string | null;
             /** Moderation Reason */
             moderation_reason: string | null;
             /** Unp */
@@ -5972,6 +6300,15 @@ export interface components {
             /** Address */
             address: string;
             business_hours: components["schemas"]["CompanyBusinessHours"] | null;
+            /** Logo Url */
+            logo_url?: string | null;
+        };
+        /** PublicMarketStatsOut */
+        PublicMarketStatsOut: {
+            /** Active Listings */
+            active_listings: number;
+            /** Approved Companies */
+            approved_companies: number;
         };
         /** RecoveryConfirmInput */
         RecoveryConfirmInput: {
@@ -7356,6 +7693,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListingValidationPolicyOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    estimate_draft_market_price_api_v1_listings_market_price_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListingMarketEstimateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingMarketEstimateOut"];
+                };
+            };
+            /** @description Authentication is required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description CSRF validation failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Market estimate rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
             /** @description API error */
@@ -9146,6 +9552,193 @@ export interface operations {
             };
         };
     };
+    public_stats_api_v1_public_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicMarketStatsOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    upload_company_logo_api_v1_companies__company_id__logo_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_company_logo_api_v1_companies__company_id__logo_put"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request or uploaded photo exceeds the allowed size */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The uploaded photo format is not supported */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Photo storage is unavailable */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    company_logo_api_v1_company_logos__storage_name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                storage_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
     my_company_api_v1_me_company_get: {
         parameters: {
             query?: never;
@@ -10317,6 +10910,463 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModerationReportResponse"];
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    create_review_api_v1_dealers__slug__reviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealerReviewInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    my_review_api_v1_dealers__slug__reviews_mine_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    update_review_api_v1_dealer_reviews__review_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealerReviewPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    report_review_api_v1_dealer_reviews__review_id__reports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealerReviewReportInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    moderation_reviews_api_v1_moderation_dealer_reviews_get: {
+        parameters: {
+            query?: {
+                status?: "pending" | "published" | "rejected" | "hidden";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    moderate_review_api_v1_moderation_dealer_reviews__review_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealerReviewModerationInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Authentication required or credentials are invalid */
@@ -14057,6 +15107,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BillingTariffOut"][];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    listing_promotion_eligibility_api_v1_billing_listings__listing_id__eligibility_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listing_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
             /** @description API error */
