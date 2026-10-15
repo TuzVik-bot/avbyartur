@@ -2,7 +2,9 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ListingDetail } from "@/components/listing-detail";
+import { ContactClickConsentProvider } from "@/components/contact-click-consent";
 import { api, ApiClientError } from "@/lib/api";
+import * as analytics from "@/lib/analytics";
 import type { Listing, User } from "@/lib/types";
 
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
@@ -35,6 +37,7 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
   vi.restoreAllMocks();
+  localStorage.clear();
 });
 
 const listing: Listing = {
@@ -75,11 +78,16 @@ describe("contact reveal", () => {
   });
 
   it("takes a guest to login with the new chat route as the next path", async () => {
-    await act(async () => root.render(createElement(ListingDetail, { listing })));
+    localStorage.setItem("avtorinok.contact_click_consent", "granted");
+    const track = vi.spyOn(analytics, "trackContactClick").mockResolvedValue(true);
+    await act(async () => root.render(createElement(ContactClickConsentProvider, null, createElement(ListingDetail, { listing }))));
 
     const link = container.querySelector<HTMLAnchorElement>(".contact-chat");
     expect(link?.textContent).toContain("Написать продавцу");
     expect(link?.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(`/account/messages/new?listing_id=${listing.id}`)}`);
+    link!.addEventListener("click", (event) => event.preventDefault());
+    await act(async () => { link!.click(); await Promise.resolve(); });
+    expect(track).toHaveBeenCalledWith({ listingId: "listing-1", channel: "internal_chat", consent: "granted" });
   });
 
   it("lets a guest explicitly reveal a phone only when the public capability is enabled", async () => {
