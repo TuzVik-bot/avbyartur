@@ -16,6 +16,30 @@ if [ "${#TAG}" -gt 128 ]; then
     exit 2
 fi
 
+if [ -n "${NEXT_PUBLIC_RELEASE_ID:-}" ]; then
+    RELEASE_ID=$NEXT_PUBLIC_RELEASE_ID
+else
+    case "$TAG" in
+        _*) RELEASE_ID="r$TAG" ;;
+        *) RELEASE_ID=$TAG ;;
+    esac
+    if [ "${#RELEASE_ID}" -gt 64 ]; then
+        TAG_CHECKSUM=$(printf '%s' "$TAG" | cksum | awk '{ print $1 }')
+        RELEASE_ID="$(printf '%s' "$RELEASE_ID" | cut -c 1-52)-$TAG_CHECKSUM"
+    fi
+fi
+
+case "$RELEASE_ID" in
+    ''|[!A-Za-z0-9]*|*[!A-Za-z0-9._+-]*)
+        printf '%s\n' 'NEXT_PUBLIC_RELEASE_ID must start with an alphanumeric character and contain only letters, digits, dot, underscore, plus, or hyphen.' >&2
+        exit 2
+        ;;
+esac
+if [ "${#RELEASE_ID}" -gt 64 ]; then
+    printf '%s\n' 'NEXT_PUBLIC_RELEASE_ID exceeds 64 characters.' >&2
+    exit 2
+fi
+
 PLATFORM=linux/amd64
 AVAILABLE_KB=$(df -Pk "$ROOT_DIR" | awk 'NR == 2 { print $4 }')
 MINIMUM_KB=$((15 * 1024 * 1024))
@@ -56,6 +80,7 @@ docker buildx build --platform "$PLATFORM" --load \
 
 printf 'Building %s for %s\n' "$WEB_IMAGE" "$PLATFORM"
 docker buildx build --platform "$PLATFORM" --load \
+    --build-arg "NEXT_PUBLIC_RELEASE_ID=$RELEASE_ID" \
     -f web/Dockerfile -t "$WEB_IMAGE" .
 
 verify_image() {

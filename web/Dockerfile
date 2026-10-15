@@ -11,6 +11,8 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY web/ .
+ARG NEXT_PUBLIC_RELEASE_ID=
+ENV NEXT_PUBLIC_RELEASE_ID=${NEXT_PUBLIC_RELEASE_ID}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
