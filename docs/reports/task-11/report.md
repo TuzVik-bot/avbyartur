@@ -58,3 +58,17 @@
 ## Ограничения
 
 Измерения не включают реальный браузерный трафик, полевые Web Vitals, production API, пользовательские сессии или действительные контактные данные. Регистрация проверена только по интерфейсу с локальной capability-заглушкой; отправку формы не выполнял.
+
+## Fix round: reserve filter count space
+
+After commit `9e0ad06` (`Reserve space for filter result count`), headless Playwright measured `.filter-result-count` at 360, 390, and 1440 CSS px. Generic/error fallback, loading, 0, 1, and 1,234 result copy all measured exactly 36.390625 px high at each width. Generic/error copy wrapped to two lines at 360 px and desktop; loading wrapped to two lines on desktop. The count block remained 36.390625 px throughout.
+
+Command used to create and print `/private/tmp/filter-count-reservation-evidence.json`:
+
+```sh
+NODE_PATH=/Users/home/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules /Users/home/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node -e 'const{chromium}=require("playwright");const ss={generic:"Количество уточнится после применения фильтров",zero:"Найдено 0 предложений",one:"Найдено 1 предложение",many:"Найдено 1 234 предложения",loading:"Подбираем подходящие предложения",error:"Количество уточнится после применения фильтров"};(async()=>{const b=await chromium.launch({headless:true});const out=[];for(const width of [360,390,1440]){const p=await b.newPage({viewport:{width,height:900}});await p.goto("http://127.0.0.1:3003/cars",{waitUntil:"domcontentloaded"});await p.waitForTimeout(500);const data=await p.locator(".filter-result-count").evaluate((el,ss)=>{if(innerWidth<=800)el.closest(".filter-overlay").classList.add("is-open");const o={};for(const[k,t]of Object.entries(ss)){el.textContent=t;const n=el.firstChild,r=document.createRange();r.selectNodeContents(n);o[k]={height:el.getBoundingClientRect().height,width:el.getBoundingClientRect().width,lines:r.getClientRects().length,contentHeight:r.getBoundingClientRect().height,text:el.innerText}}return o},ss);out.push({width,states:data});await p.close()}require("fs").writeFileSync("/private/tmp/filter-count-reservation-evidence.json",JSON.stringify(out,null,2));console.log(JSON.stringify(out));await b.close()})().catch(e=>{console.error(e);process.exit(1)})'
+```
+
+The preview did not reopen the mobile drawer through the UI: the overlay remained `display: none`, and the preview reported an HMR/WebSocket handshake error. For the geometry measurement, the command manually applied the existing `.filter-overlay.is-open` class at mobile widths. This verifies layout in the open drawer state, not the UI transition that opens it.
+
+`git diff --check` and `git diff --check HEAD^ HEAD` both exited 0 and produced no output.
