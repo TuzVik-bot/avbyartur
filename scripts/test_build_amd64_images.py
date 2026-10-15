@@ -48,25 +48,35 @@ class BuildAmd64ImagesTests(unittest.TestCase):
         env.update(extra_env)
         return subprocess.run([str(SCRIPT)], cwd=ROOT, text=True, capture_output=True, env=env, check=False)
 
-    def test_web_image_build_receives_derived_release_id(self):
+    def test_api_and_web_image_builds_receive_derived_release_id(self):
         result = self.run_script(AVTORINOK_IMAGE_TAG="pilot-2026.10")
         self.assertEqual(result.returncode, 0, result.stderr)
         build_commands = self.log.read_text(encoding="utf-8").splitlines()
+        api_build = next(command for command in build_commands if "-f backend/Dockerfile" in command)
         web_build = next(command for command in build_commands if "-f web/Dockerfile" in command)
+        self.assertIn("--build-arg RELEASE_ID=pilot-2026.10", api_build)
         self.assertIn("--build-arg NEXT_PUBLIC_RELEASE_ID=pilot-2026.10", web_build)
 
     def test_explicit_release_id_is_validated_and_forwarded(self):
         result = self.run_script(NEXT_PUBLIC_RELEASE_ID="custom.release+1")
         self.assertEqual(result.returncode, 0, result.stderr)
-        web_build = next(command for command in self.log.read_text(encoding="utf-8").splitlines() if "-f web/Dockerfile" in command)
+        build_commands = self.log.read_text(encoding="utf-8").splitlines()
+        api_build = next(command for command in build_commands if "-f backend/Dockerfile" in command)
+        web_build = next(command for command in build_commands if "-f web/Dockerfile" in command)
+        self.assertIn("--build-arg RELEASE_ID=custom.release+1", api_build)
         self.assertIn("--build-arg NEXT_PUBLIC_RELEASE_ID=custom.release+1", web_build)
 
     def test_long_tag_derives_a_valid_release_id(self):
         tag = "pilot-" + "x" * 110
         result = self.run_script(AVTORINOK_IMAGE_TAG=tag)
         self.assertEqual(result.returncode, 0, result.stderr)
-        web_build = next(command for command in self.log.read_text(encoding="utf-8").splitlines() if "-f web/Dockerfile" in command)
-        value = re.search(r"--build-arg NEXT_PUBLIC_RELEASE_ID=([^ ]+)", web_build).group(1)
+        build_commands = self.log.read_text(encoding="utf-8").splitlines()
+        api_build = next(command for command in build_commands if "-f backend/Dockerfile" in command)
+        web_build = next(command for command in build_commands if "-f web/Dockerfile" in command)
+        api_value = re.search(r"--build-arg RELEASE_ID=([^ ]+)", api_build).group(1)
+        web_value = re.search(r"--build-arg NEXT_PUBLIC_RELEASE_ID=([^ ]+)", web_build).group(1)
+        self.assertEqual(api_value, web_value)
+        value = api_value
         self.assertRegex(value, r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$")
 
     def test_invalid_or_overlong_explicit_release_id_fails_before_docker(self):

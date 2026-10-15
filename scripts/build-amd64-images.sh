@@ -76,6 +76,7 @@ WEB_IMAGE="avtorinok-web:$TAG"
 
 printf 'Building %s for %s\n' "$API_IMAGE" "$PLATFORM"
 docker buildx build --platform "$PLATFORM" --load \
+    --build-arg "RELEASE_ID=$RELEASE_ID" \
     -f backend/Dockerfile -t "$API_IMAGE" .
 
 printf 'Building %s for %s\n' "$WEB_IMAGE" "$PLATFORM"

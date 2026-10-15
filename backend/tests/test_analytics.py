@@ -1,8 +1,11 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from uuid import uuid4
+
 import pytest
+from sqlalchemy import func, select
 from pydantic import ValidationError
+from app.analytics_models import ContactClickEvent
 from app.analytics_schemas import ContactClickEventIn
 from app.analytics_service import record_contact_click
 
@@ -35,6 +38,59 @@ def test_contact_click_ignores_inactive_listing():
     db = FakeDb(SimpleNamespace(id=uuid4(), status="draft"))
     assert record_contact_click(db, payload()) == {"accepted": True, "recorded": False, "duplicate": False}
     assert db.added == [] and db.commits == 0
+
+
+@pytest.mark.parametrize(
+    ("owner_status", "company_status", "expected_recorded"),
+    [
+        ("active", None, True),
+        ("inactive", None, False),
+        ("active", "pending", False),
+        ("active", "approved", True),
+    ],
+    ids=("private-active", "inactive-owner", "unapproved-company", "approved-company"),
+)
+def test_contact_click_requires_public_active_listing(integration, owner_status, company_status, expected_recorded):
+    from app.models import Company, Listing, User
+
+    factory = integration["SessionLocal"]
+    owner = User(
+        email=f"analytics-visibility-{uuid4().hex}@example.com",
+        display_name="Analytics visibility test",
+        status=owner_status,
+    )
+    with factory() as db:
+        db.add(owner)
+        db.flush()
+        company = None
+        if company_status is not None:
+            suffix = uuid4().int % 900_000_000 + 100_000_000
+            company = Company(
+                owner_id=owner.id,
+                name=f"Analytics dealer {suffix}",
+                slug=f"analytics-dealer-{suffix}",
+                unp=str(suffix),
+                address="Minsk",
+                phone="+375291234567",
+                status=company_status,
+            )
+            db.add(company)
+            db.flush()
+        listing = Listing(
+            owner_id=owner.id,
+            company_id=company.id if company is not None else None,
+            slug=f"analytics-visibility-{uuid4().hex}",
+            status="active",
+            title="Analytics visibility test",
+        )
+        db.add(listing)
+        db.commit()
+        listing_id = listing.id
+
+    with factory() as db:
+        result = record_contact_click(db, payload(listing_id=listing_id))
+        assert result["recorded"] is expected_recorded
+        assert db.scalar(select(func.count(ContactClickEvent.id)).where(ContactClickEvent.listing_id == listing_id)) == int(expected_recorded)
 
 def test_contact_click_dedup_id_does_not_add_a_second_event():
     db = FakeDb(SimpleNamespace(id=uuid4(), status="active"), existing=object())
@@ -112,7 +168,7 @@ def test_postgres_contact_event_unique_constraint_and_migration_schema(integrati
     from alembic.operations import Operations
 
     engine, factory = integration["engine"], integration["SessionLocal"]
-    migration_path = Path(__file__).parents[1] / "alembic" / "versions" / "0029_contact_click_analytics.py"
+    migration_path = Path(__file__).parents[1] / "alembic" / "versions" / "0031_contact_click_analytics.py"
     spec = importlib.util.spec_from_file_location("task10_contact_click_migration", migration_path)
     migration = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration)

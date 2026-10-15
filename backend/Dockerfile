@@ -17,6 +17,8 @@ COPY backend/alembic ./alembic
 RUN mkdir -p /app/private-media && chown -R app:app /app/private-media /app/.venv
 
 ENV PATH="/app/.venv/bin:$PATH"
+ARG RELEASE_ID=
+ENV RELEASE_ID=${RELEASE_ID}
 USER 10001:10001
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

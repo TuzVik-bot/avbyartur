@@ -22,7 +22,7 @@ Use a dated or otherwise unique release tag; do not use `local` or `latest`:
 make release-amd64 AVTORINOK_IMAGE_TAG=pilot-2026-09-27
 ```
 
-The release builder validates an explicitly supplied `NEXT_PUBLIC_RELEASE_ID` (1–64 safe characters). If it is unset, the builder derives one from the validated image tag; tags longer than 64 characters receive a stable checksum suffix. The value is passed only to the web image build so Next.js can embed it. Local Compose builds accept the optional `NEXT_PUBLIC_RELEASE_ID` build argument and keep reporting disabled when it is empty.
+The release builder validates an explicitly supplied `NEXT_PUBLIC_RELEASE_ID` (1–64 safe characters). If it is unset, the builder derives one from the validated image tag; tags longer than 64 characters receive a stable checksum suffix. The value is passed to both the API image as `RELEASE_ID` and the web image as `NEXT_PUBLIC_RELEASE_ID`. The API and worker share the API image, so both expose the same release identifier to backend monitoring. Local Compose builds keep the optional backend `RELEASE_ID` empty and reporting disabled.
 
 The script requires at least 15 GiB free on both the project filesystem and Docker engine storage, builds the API image and then the web image for `linux/amd64`, pulls the pinned PostgreSQL image for the same architecture, verifies all three architectures, and prints their local image sizes. Compose's default image tag remains `local`; pass the release tag to Compose when testing or starting those images:
 
