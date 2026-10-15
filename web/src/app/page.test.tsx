@@ -138,7 +138,11 @@ describe("home listing cards", () => {
 
     expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Активных объявлений: 27");
     expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Допущенные компании: 4");
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Модерация проверяет сведения перед публикацией");
+    const status = rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent || "";
+    expect(status).toContain("проверяются обязательные поля карточки, их согласованность и минимум обработанных фото");
+    expect(status).toContain("подсказки о повторах и необычно низкой цене");
+    expect(status).toContain("это не автоматическое решение");
+    expect(status).not.toContain("проверяем VIN или историю автомобиля");
   });
 
   it("renders aggregate failures as unavailable, never as a zero market", async () => {

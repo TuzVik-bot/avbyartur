@@ -92,7 +92,7 @@ export function DealerReviews({ slug, reviews }: { slug: string; reviews: Dealer
       {!reviews || reviews.count === 0 ? <p className="muted" role="status">Отзывов пока нет.</p> : (
         <ul className={styles.reviewList}>
           {items.map((review) => <li key={review.id} className={styles.review}>
-            <p className={styles.stars} aria-label={`Оценка ${review.rating} из 5`}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>
+            <p className={styles.stars} role="img" aria-label={`Оценка ${review.rating} из 5`}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>
             <p>{review.text}</p>
             <time dateTime={review.created_at}>{new Date(review.created_at).toLocaleDateString("ru-RU")}</time>
             {user && review.id !== mine?.id && <button type="button" className="text-link" onClick={() => setReportId(review.id)}>Пожаловаться</button>}

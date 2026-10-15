@@ -58,7 +58,7 @@ export default async function HomePage() {
         {marketStats ? <>
           <p>Активных объявлений: <strong>{marketStats.active_listings.toLocaleString("ru-RU")}</strong></p>
           <p>Допущенные компании: <strong>{marketStats.approved_companies.toLocaleString("ru-RU")}</strong></p>
-          <p className={styles.moderationNote}>Модерация проверяет сведения перед публикацией.</p>
+          <p className={styles.moderationNote}>Перед отправкой проверяются обязательные поля карточки, их согласованность и минимум обработанных фото. Модератору показываются подсказки о повторах и необычно низкой цене — это не автоматическое решение.</p>
         </> : <p className="notice" role="status">Статистика временно недоступна.</p>}
       </section>
       <div className="page-width"><aside className={styles.adWide} aria-label="Горизонтальное место под рекламу"><div><span className={styles.adLabel}>Рекламное место</span><p>Ваш бренд на пути к новому автомобилю</p></div><Link href="/partner">О сотрудничестве <ArrowRight size={16} aria-hidden="true" /></Link></aside></div>

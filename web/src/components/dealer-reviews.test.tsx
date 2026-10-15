@@ -37,6 +37,15 @@ describe("DealerReviews", () => {
     expect(container.querySelector('a[href^="/login?"]')?.textContent).toContain("Войдите");
   });
 
+  it("exposes review rating stars as a named image to assistive technology", async () => {
+    await act(async () => { root.render(createElement(DealerReviews, {
+      slug: "dealer",
+      reviews: { items: [{ id: "review-1", rating: 4, text: "Хороший сервис", created_at: "2026-10-10T00:00:00Z" }], count: 1, average_rating: 4 },
+    })); });
+
+    expect(container.querySelector('[role="img"][aria-label="Оценка 4 из 5"]')?.textContent).toBe("★★★★☆");
+  });
+
   it("submits an authenticated review and presents its moderation status", async () => {
     authMocks.user = { id: "user-1", email: "user@example.test", display_name: "Пользователь", role: "user", status: "active", company_id: null, company_role: null } as User;
     vi.spyOn(api, "myDealerReview").mockResolvedValue({ review: null });
