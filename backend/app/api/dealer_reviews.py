@@ -139,7 +139,7 @@ def moderate_review(
     review.status = payload.status
     review.moderation_reason = payload.reason
     review.revision += 1
-    db.add(AuditEvent(actor_id=moderator.id, entity_type="dealer_review", entity_id=review.id, action=payload.status, details={"status_before": before, "status_after": review.status, "revision": review.revision}))
+    db.add(AuditEvent(actor_id=moderator.id, entity_type="dealer_review", entity_id=review.id, action=payload.status, details={"status_before": before, "status_after": review.status, "revision": review.revision, "reason": payload.reason}))
     db.commit()
     db.refresh(review)
     return {"review": review_out(review, private=True)}

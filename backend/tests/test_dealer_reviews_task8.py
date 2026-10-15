@@ -260,3 +260,45 @@ def test_dealer_review_report_queue_hides_reporter_identity_and_resolution_is_au
     assert event.entity_id == report_id
     assert event.action == "resolved"
     assert event.details["resolution"] == "Жалоба рассмотрена"
+
+
+def test_dealer_review_moderation_audit_preserves_moderator_rationale():
+    from types import SimpleNamespace
+
+    from app.api import dealer_reviews
+
+    route = next(
+        route for route in dealer_reviews.router.routes
+        if route.path == "/api/v1/moderation/dealer-reviews/{review_id}/review"
+    )
+    review = DealerReview(
+        id=uuid.uuid4(), company_id=uuid.uuid4(), author_id=uuid.uuid4(),
+        rating=2, text="Отзыв", status="pending", revision=1,
+    )
+    moderator = User(id=uuid.uuid4(), role="moderator")
+
+    class FakeDB:
+        added = []
+
+        def scalar(self, _statement):
+            return review
+
+        def add(self, value):
+            self.added.append(value)
+
+        def commit(self):
+            pass
+
+        def refresh(self, _value):
+            pass
+
+    db = FakeDB()
+    route.endpoint(
+        review_id=review.id,
+        payload=SimpleNamespace(expected_revision=1, status="rejected", reason="Нет подтверждения покупки"),
+        moderator=moderator,
+        _csrf=object(),
+        db=db,
+    )
+    event = next(item for item in db.added if isinstance(item, AuditEvent))
+    assert event.details["reason"] == "Нет подтверждения покупки"

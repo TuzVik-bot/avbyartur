@@ -16,6 +16,8 @@ import type {
   Report,
   ReportCategory,
   DealerReviewReport,
+  DealerReviewPrivate,
+  ModerationDealerReview,
   UserNotificationList
 } from "@/lib/types";
 import type { components } from "@/lib/types.generated";
@@ -315,6 +317,8 @@ export const api = {
   moderationCompanies: () => apiRequest<{ items: Company[] }>("moderation/companies"),
   moderateCompany: (id: string, action: "approve" | "reject" | "block", revision: number, reason?: string) => apiRequest<{ company: Company }>(`moderation/companies/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify({ expected_revision: revision, ...(reason ? { reason } : {}) }) }),
   moderationReports: () => apiRequest<{ items: Report[] }>("moderation/reports"),
+  moderationDealerReviews: (status: "pending" | "published" | "rejected" | "hidden" = "pending") => apiRequest<{ items: ModerationDealerReview[] }>(`moderation/dealer-reviews?${new URLSearchParams({ status })}`),
+  moderateDealerReview: (id: string, expected_revision: number, status: "published" | "rejected", reason: string) => apiRequest<{ review: DealerReviewPrivate }>(`moderation/dealer-reviews/${encodeURIComponent(id)}/review`, { method: "POST", body: JSON.stringify({ expected_revision, status, reason }) }),
   resolveReport: (id: string, resolution: string) => apiRequest<{ report: Report }>(`moderation/reports/${encodeURIComponent(id)}/resolve`, { method: "POST", body: JSON.stringify({ resolution }) }),
   resolveDealerReviewReport: (id: string, resolution: string) => apiRequest<{ report: DealerReviewReport & { resolution: string } }>(`moderation/dealer-review-reports/${encodeURIComponent(id)}/resolve`, { method: "POST", body: JSON.stringify({ resolution }) })
 };

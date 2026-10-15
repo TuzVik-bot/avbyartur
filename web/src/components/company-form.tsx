@@ -245,8 +245,8 @@ export function CompanyForm({ initialCompany, companyRole }: { initialCompany: C
         {company && <div className={`wide ${styles.logoControl}`}>
           <div><h3>Логотип компании</h3><p className="muted">Загрузите JPEG, PNG или WebP. Изображение будет очищено от метаданных.</p></div>
           {company.logo_url && <img className={styles.logoPreview} src={company.logo_url} alt={`Текущий логотип компании «${company.name}»`} width={96} height={96} />}
-          <label className="button button-secondary button-small">{logoBusy ? "Загружаем…" : company.logo_url ? "Заменить логотип" : "Загрузить логотип"}
-            <input name="company_logo" type="file" accept="image/jpeg,image/png,image/webp" disabled={!canEdit || logoBusy} onChange={uploadLogo} hidden />
+          <label className={`button button-secondary button-small ${styles.logoPicker}`}>{logoBusy ? "Загружаем…" : company.logo_url ? "Заменить логотип" : "Загрузить логотип"}
+            <input className={styles.logoInput} name="company_logo" type="file" accept="image/jpeg,image/png,image/webp" disabled={!canEdit || logoBusy} onChange={uploadLogo} />
           </label>
         </div>}
         <label className="field" htmlFor="company-name"><span>Название компании</span><input id="company-name" name="name" required maxLength={180} defaultValue={company?.name || ""} disabled={!canEdit} aria-invalid={Boolean(fieldError("name"))} aria-describedby={fieldError("name") ? "company-name-error" : undefined} />{fieldError("name") && <small id="company-name-error" className="inline-error">{fieldError("name")}</small>}</label>

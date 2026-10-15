@@ -37,4 +37,18 @@ describe("moderation listing status query", () => {
       "http://127.0.0.1:8000/api/v1/moderation/dealer-review-reports?status=open"
     ]);
   });
+
+  it("loads pending dealer reviews from the review moderation endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await serverApi.moderationDealerReviews("pending");
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:8000/api/v1/moderation/dealer-reviews?status=pending"
+    ]);
+  });
 });

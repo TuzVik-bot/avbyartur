@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Ban, Check, CheckCircle2, CircleX, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { api } from "@/lib/api";
-import type { Company, DealerReviewReport, Listing, Report } from "@/lib/types";
+import type { Company, DealerReviewReport, Listing, ModerationDealerReview, Report } from "@/lib/types";
 
 export function ListingModerationActions({ listing }: { listing: Listing }) {
   const router = useRouter();
@@ -101,4 +101,31 @@ export function DealerReviewReportResolution({ report }: { report: DealerReviewR
     <button className="button button-secondary button-small" disabled={busy} type="submit"><CheckCircle2 size={15} /> Закрыть жалобу</button>
     {error && <span className="inline-error" role="alert">{error}</span>}
   </form>;
+}
+
+export function DealerReviewModerationActions({ review }: { review: ModerationDealerReview }) {
+  const router = useRouter();
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function run(status: "published" | "rejected") {
+    if (!reason.trim()) { setError("Укажите решение модератора."); return; }
+    setBusy(true); setError("");
+    try {
+      await api.moderateDealerReview(review.id, review.revision, status, reason.trim());
+      router.refresh();
+    } catch (issue) {
+      setError(issue instanceof Error ? issue.message : "Не удалось сохранить решение");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="moderation-actions">
+    <label className="field"><span>Решение модератора</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={1000} required /></label>
+    <button className="button button-primary button-small" type="button" disabled={busy} onClick={() => run("published")}>Опубликовать</button>
+    <button className="button button-danger button-small" type="button" disabled={busy} onClick={() => run("rejected")}>Отклонить</button>
+    {error && <span className="inline-error" role="alert">{error}</span>}
+  </div>;
 }

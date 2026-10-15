@@ -100,7 +100,7 @@ describe("company pilot status", () => {
 
   it("uploads a real logo with the current company revision", async () => {
     const upload = vi.spyOn(api, "uploadCompanyLogo").mockResolvedValue({ logo_url: "/api/v1/company-logos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp", revision: 2 });
-    render({ ...pendingCompany, status: "approved" });
+    render({ ...pendingCompany, status: "approved", logo_url: "/logo.webp" });
     const input = container.querySelector<HTMLInputElement>('input[name="company_logo"]');
     expect(input?.accept).toBe("image/jpeg,image/png,image/webp");
     const file = new File([new Uint8Array([1, 2, 3])], "brand.png", { type: "image/png" });
@@ -112,6 +112,19 @@ describe("company pilot status", () => {
 
     expect(upload).toHaveBeenCalledWith("company-1", 1, file);
     expect(container.querySelector('.form-actions [aria-live="polite"]')?.textContent).toContain("Логотип обновлён");
+  });
+
+  it("keeps the logo chooser keyboard-focusable and visibly labeled", () => {
+    render({ ...pendingCompany, status: "approved", logo_url: "/logo.webp" });
+    const input = container.querySelector<HTMLInputElement>('input[name="company_logo"]')!;
+    const label = input.closest("label");
+
+    expect(input.hidden).toBe(false);
+    expect(input.tabIndex).toBe(0);
+    expect(label?.textContent).toContain("Заменить логотип");
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    expect(label?.className).toContain("logoPicker");
   });
 
   it("creates a company and immediately presents the pending review state", async () => {
