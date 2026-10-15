@@ -260,7 +260,7 @@ h3 { font-size: 17px; margin-bottom: 8px; }
 .company-form .form-actions { margin-top: 2px; }
 .route-skeleton { display: grid; gap: 12px; }
 .route-skeleton span { display: block; min-height: 76px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(90deg, var(--surface-muted) 25%, var(--surface-muted) 50%, var(--surface-muted) 75%); background-size: 220% 100%; animation: skeleton-shimmer 1.6s ease-in-out infinite; }
-.route-loading { padding-block: 24px 36px; }
+.route-loading { min-height: calc(100vh - 64px); padding-block: 24px 36px; }
 .app-loading-skeleton { max-width: 900px; margin-top: 18px; }
 .app-loading-skeleton span:first-child { min-height: 36px; width: 32%; }
 .app-loading-skeleton span:nth-child(2) { min-height: 170px; }

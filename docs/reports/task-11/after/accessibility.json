@@ -1,0 +1,358 @@
+{
+  "generated_at_utc": "2026-10-15T03:44:13Z",
+  "browser": "Chromium",
+  "browser_version": "147.0.7727.15",
+  "route": "/cars",
+  "viewport_widths": [
+    360,
+    390,
+    768,
+    1440
+  ],
+  "preferences": [
+    "system",
+    "light",
+    "dark"
+  ],
+  "zoom_method": "720 CSS px effective viewport as a 1440 px viewport at 200% zoom; no browser UI zoom control used",
+  "rows": [
+    {
+      "width": 360,
+      "preference": "system",
+      "system_scheme": "light",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 360,
+          "height": 844
+        },
+        "scrollWidth": 360,
+        "clientWidth": 360,
+        "overflow": false,
+        "theme": "light",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(41, 70, 165)",
+          "background": "rgb(237, 242, 255)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 7.46
+      }
+    },
+    {
+      "width": 360,
+      "preference": "light",
+      "system_scheme": "light",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 360,
+          "height": 844
+        },
+        "scrollWidth": 360,
+        "clientWidth": 360,
+        "overflow": false,
+        "theme": "light",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(41, 70, 165)",
+          "background": "rgb(237, 242, 255)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 7.46
+      }
+    },
+    {
+      "width": 360,
+      "preference": "dark",
+      "system_scheme": "dark",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 360,
+          "height": 844
+        },
+        "scrollWidth": 360,
+        "clientWidth": 360,
+        "overflow": false,
+        "theme": "dark",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(168, 189, 255)",
+          "background": "rgb(37, 52, 84)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 6.71
+      }
+    },
+    {
+      "width": 390,
+      "preference": "system",
+      "system_scheme": "light",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "overflow": false,
+        "theme": "light",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(41, 70, 165)",
+          "background": "rgb(237, 242, 255)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 7.46
+      }
+    },
+    {
+      "width": 390,
+      "preference": "light",
+      "system_scheme": "light",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "overflow": false,
+        "theme": "light",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(41, 70, 165)",
+          "background": "rgb(237, 242, 255)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 7.46
+      }
+    },
+    {
+      "width": 390,
+      "preference": "dark",
+      "system_scheme": "dark",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "overflow": false,
+        "theme": "dark",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(168, 189, 255)",
+          "background": "rgb(37, 52, 84)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 6.71
+      }
+    },
+    {
+      "width": 768,
+      "preference": "system",
+      "system_scheme": "light",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 768,
+          "height": 844
+        },
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "overflow": false,
+        "theme": "light",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(41, 70, 165)",
+          "background": "rgb(237, 242, 255)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 7.46
+      }
+    },
+    {
+      "width": 768,
+      "preference": "light",
+      "system_scheme": "light",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 768,
+          "height": 844
+        },
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "overflow": false,
+        "theme": "light",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(41, 70, 165)",
+          "background": "rgb(237, 242, 255)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 7.46
+      }
+    },
+    {
+      "width": 768,
+      "preference": "dark",
+      "system_scheme": "dark",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 768,
+          "height": 844
+        },
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "overflow": false,
+        "theme": "dark",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(168, 189, 255)",
+          "background": "rgb(37, 52, 84)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 6.71
+      }
+    },
+    {
+      "width": 1440,
+      "preference": "system",
+      "system_scheme": "light",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflow": false,
+        "theme": "light",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(41, 70, 165)",
+          "background": "rgb(237, 242, 255)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 7.46
+      }
+    },
+    {
+      "width": 1440,
+      "preference": "light",
+      "system_scheme": "light",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflow": false,
+        "theme": "light",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(41, 70, 165)",
+          "background": "rgb(237, 242, 255)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 7.46
+      }
+    },
+    {
+      "width": 1440,
+      "preference": "dark",
+      "system_scheme": "dark",
+      "status": 200,
+      "scan": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflow": false,
+        "theme": "dark",
+        "reducedMotion": false,
+        "activeText": "Список",
+        "activeContrast": {
+          "foreground": "rgb(168, 189, 255)",
+          "background": "rgb(37, 52, 84)"
+        },
+        "shortControls": [],
+        "unnamedControls": [],
+        "cards": 9,
+        "contrastRatio": 6.71
+      }
+    }
+  ],
+  "interactions": {
+    "zoom_200_effective_720px": {
+      "viewportWidth": 720,
+      "scrollWidth": 720,
+      "clientWidth": 720,
+      "overflow": false
+    },
+    "display_switch": {
+      "list_selected": true,
+      "grid_selected": true
+    },
+    "filter_drawer": {
+      "opened": true,
+      "closed_with_escape": true,
+      "focus_returned": true
+    },
+    "header_menu": {
+      "opened": true,
+      "closed_with_escape": true,
+      "focus_returned": true
+    },
+    "reduced_motion": {
+      "requested": true,
+      "overflow": false
+    }
+  }
+}

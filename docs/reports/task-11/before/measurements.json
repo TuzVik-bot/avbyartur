@@ -1,0 +1,915 @@
+{
+  "config": {
+    "browser": "Chromium",
+    "browser_version": "147.0.7727.15",
+    "viewport_matrix": {
+      "mobile": {
+        "width": 390,
+        "height": 844
+      },
+      "desktop": {
+        "width": 1440,
+        "height": 900
+      }
+    },
+    "device_scale_factor": 1,
+    "cache": "cold=fresh browser context per measured run; warm=one route warm-up then 3 navigations in same context",
+    "wait": "goto networkidle + document.fonts.ready + 500ms settle",
+    "api": "local Python fixture 127.0.0.1:8003; synthetic listing only, no database",
+    "network": "unthrottled local loopback",
+    "runs_per_cell": 3,
+    "generated_at_utc": "2026-10-15T03:12:39Z"
+  },
+  "rows": [
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "cold",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 2014.5,
+      "responseStart": 374.60000002384186,
+      "domContentLoaded": 497.69999998807907,
+      "load": 981.5,
+      "lcp": 500,
+      "cls": 0.40231881139874787,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "cold",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1769.3,
+      "responseStart": 153.89999997615814,
+      "domContentLoaded": 207.5999999642372,
+      "load": 647.3999999761581,
+      "lcp": 212,
+      "cls": 0.00015438337601702222,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "cold",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1762.8,
+      "responseStart": 146.19999998807907,
+      "domContentLoaded": 198,
+      "load": 628.6000000238419,
+      "lcp": 204,
+      "cls": 0.00015438337601702222,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "warm",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 1713.7,
+      "responseStart": 149.0999999642372,
+      "domContentLoaded": 168,
+      "load": 598.8000000119209,
+      "lcp": 172,
+      "cls": 8.510562161244564e-06,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "warm",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1746.3,
+      "responseStart": 140.5,
+      "domContentLoaded": 196.69999998807907,
+      "load": 607.5,
+      "lcp": 204,
+      "cls": 0.00015438337601702222,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "warm",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1751.6,
+      "responseStart": 142.5999999642372,
+      "domContentLoaded": 193.0999999642372,
+      "load": 609.8999999761581,
+      "lcp": 200,
+      "cls": 0.00015438337601702222,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "cold",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 2327.4,
+      "responseStart": 672.6999999880791,
+      "domContentLoaded": 720.1000000238419,
+      "load": 1189.6000000238419,
+      "lcp": 724,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "cold",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1770.5,
+      "responseStart": 108,
+      "domContentLoaded": 157.89999997615814,
+      "load": 630.1999999880791,
+      "lcp": 164,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "cold",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1769.3,
+      "responseStart": 99.39999997615814,
+      "domContentLoaded": 146.79999995231628,
+      "load": 632,
+      "lcp": 152,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "warm",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 1729.8,
+      "responseStart": 125,
+      "domContentLoaded": 143.19999998807907,
+      "load": 582.8000000119209,
+      "lcp": 148,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "warm",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1771.8,
+      "responseStart": 110.80000001192093,
+      "domContentLoaded": 162,
+      "load": 605.5999999642372,
+      "lcp": 168,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "warm",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1735.9,
+      "responseStart": 107.40000003576279,
+      "domContentLoaded": 158.80000001192093,
+      "load": 572,
+      "lcp": 164,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "cold",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 1936.0,
+      "responseStart": 331.2999999523163,
+      "domContentLoaded": 388.7999999523163,
+      "load": 854.2999999523163,
+      "lcp": 396,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "cold",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1680.3,
+      "responseStart": 95.39999997615814,
+      "domContentLoaded": 149.80000001192093,
+      "load": 607.1999999880791,
+      "lcp": 156,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "cold",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1731.9,
+      "responseStart": 92.09999996423721,
+      "domContentLoaded": 152.89999997615814,
+      "load": 655.7999999523163,
+      "lcp": 160,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "warm",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 1661.2,
+      "responseStart": 108.5,
+      "domContentLoaded": 129.69999998807907,
+      "load": 567.3000000119209,
+      "lcp": 132,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "warm",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1661.5,
+      "responseStart": 85.69999998807907,
+      "domContentLoaded": 139.89999997615814,
+      "load": 561,
+      "lcp": 148,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "warm",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1670.3,
+      "responseStart": 88.40000003576279,
+      "domContentLoaded": 140.30000001192093,
+      "load": 566.5,
+      "lcp": 148,
+      "cls": 0,
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "cold",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 2078.7,
+      "responseStart": 166.10000002384186,
+      "domContentLoaded": 224.39999997615814,
+      "load": 947.6000000238419,
+      "lcp": 232,
+      "cls": 2.29768813228738e-05,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "cold",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1833.7,
+      "responseStart": 163.39999997615814,
+      "domContentLoaded": 217.10000002384186,
+      "load": 711.3000000119209,
+      "lcp": 228,
+      "cls": 2.29768813228738e-05,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "cold",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1817.7,
+      "responseStart": 137.80000001192093,
+      "domContentLoaded": 190.5999999642372,
+      "load": 690.8000000119209,
+      "lcp": 200,
+      "cls": 2.29768813228738e-05,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "warm",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 1787.1,
+      "responseStart": 163.19999998807907,
+      "domContentLoaded": 181,
+      "load": 669.5999999642372,
+      "lcp": 188,
+      "cls": 2.29768813228738e-05,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "warm",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1898.0,
+      "responseStart": 137.10000002384186,
+      "domContentLoaded": 192,
+      "load": 667.1999999880791,
+      "lcp": 200,
+      "cls": 2.29768813228738e-05,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "home",
+      "route": "/",
+      "cache": "warm",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1819.3,
+      "responseStart": 151.30000001192093,
+      "domContentLoaded": 207.5,
+      "load": 685.1999999880791,
+      "lcp": 216,
+      "cls": 2.29768813228738e-05,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Автомобили Беларуси"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "cold",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 1784.2,
+      "responseStart": 122,
+      "domContentLoaded": 172.0999999642372,
+      "load": 653.8999999761581,
+      "lcp": 204,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "cold",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1736.0,
+      "responseStart": 101.40000003576279,
+      "domContentLoaded": 152,
+      "load": 611.6999999880791,
+      "lcp": 164,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "cold",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1724.4,
+      "responseStart": 100.09999996423721,
+      "domContentLoaded": 148.5999999642372,
+      "load": 594.3999999761581,
+      "lcp": 176,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "warm",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 1700.5,
+      "responseStart": 109,
+      "domContentLoaded": 131,
+      "load": 552.5,
+      "lcp": 144,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "warm",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1734.7,
+      "responseStart": 105.10000002384186,
+      "domContentLoaded": 156.80000001192093,
+      "load": 571,
+      "lcp": 176,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "catalog",
+      "route": "/cars",
+      "cache": "warm",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1737.1,
+      "responseStart": 102.69999998807907,
+      "domContentLoaded": 152.5999999642372,
+      "load": 574.3999999761581,
+      "lcp": 168,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "Найти автомобиль — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "cold",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 1709.0,
+      "responseStart": 91.5,
+      "domContentLoaded": 145.30000001192093,
+      "load": 620.3000000119209,
+      "lcp": 172,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "cold",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1710.0,
+      "responseStart": 90.59999996423721,
+      "domContentLoaded": 147.69999998807907,
+      "load": 636.0999999642372,
+      "lcp": 172,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "cold",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1699.7,
+      "responseStart": 91.09999996423721,
+      "domContentLoaded": 147,
+      "load": 626.6999999880791,
+      "lcp": 156,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "warm",
+      "run": 1,
+      "status": 200,
+      "elapsed_ms": 1686.8,
+      "responseStart": 120.30000001192093,
+      "domContentLoaded": 139.19999998807907,
+      "load": 596.8000000119209,
+      "lcp": 144,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "warm",
+      "run": 2,
+      "status": 200,
+      "elapsed_ms": 1675.4,
+      "responseStart": 91.89999997615814,
+      "domContentLoaded": 144.10000002384186,
+      "load": 572.5,
+      "lcp": 152,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    },
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route_name": "detail",
+      "route": "/cars/bmw/3-series/00000000-0000-4000-8000-000000000001",
+      "cache": "warm",
+      "run": 3,
+      "status": 200,
+      "elapsed_ms": 1720.2,
+      "responseStart": 99.40000003576279,
+      "domContentLoaded": 152.60000002384186,
+      "load": 612.4000000357628,
+      "lcp": 160,
+      "cls": 0,
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "title": "BMW 3 серия, 2018 — Авторынок BY"
+    }
+  ],
+  "medians": {
+    "mobile/home/cold": {
+      "elapsed_ms": 1769.3,
+      "responseStart": 153.89999997615814,
+      "domContentLoaded": 207.5999999642372,
+      "load": 647.3999999761581,
+      "lcp": 212,
+      "cls": 0.00015438337601702222
+    },
+    "mobile/home/warm": {
+      "elapsed_ms": 1746.3,
+      "responseStart": 142.5999999642372,
+      "domContentLoaded": 193.0999999642372,
+      "load": 607.5,
+      "lcp": 200,
+      "cls": 0.00015438337601702222
+    },
+    "mobile/catalog/cold": {
+      "elapsed_ms": 1770.5,
+      "responseStart": 108,
+      "domContentLoaded": 157.89999997615814,
+      "load": 632,
+      "lcp": 164,
+      "cls": 0
+    },
+    "mobile/catalog/warm": {
+      "elapsed_ms": 1735.9,
+      "responseStart": 110.80000001192093,
+      "domContentLoaded": 158.80000001192093,
+      "load": 582.8000000119209,
+      "lcp": 164,
+      "cls": 0
+    },
+    "mobile/detail/cold": {
+      "elapsed_ms": 1731.9,
+      "responseStart": 95.39999997615814,
+      "domContentLoaded": 152.89999997615814,
+      "load": 655.7999999523163,
+      "lcp": 160,
+      "cls": 0
+    },
+    "mobile/detail/warm": {
+      "elapsed_ms": 1661.5,
+      "responseStart": 88.40000003576279,
+      "domContentLoaded": 139.89999997615814,
+      "load": 566.5,
+      "lcp": 148,
+      "cls": 0
+    },
+    "desktop/home/cold": {
+      "elapsed_ms": 1833.7,
+      "responseStart": 163.39999997615814,
+      "domContentLoaded": 217.10000002384186,
+      "load": 711.3000000119209,
+      "lcp": 228,
+      "cls": 2.29768813228738e-05
+    },
+    "desktop/home/warm": {
+      "elapsed_ms": 1819.3,
+      "responseStart": 151.30000001192093,
+      "domContentLoaded": 192,
+      "load": 669.5999999642372,
+      "lcp": 200,
+      "cls": 2.29768813228738e-05
+    },
+    "desktop/catalog/cold": {
+      "elapsed_ms": 1736.0,
+      "responseStart": 101.40000003576279,
+      "domContentLoaded": 152,
+      "load": 611.6999999880791,
+      "lcp": 176,
+      "cls": 0
+    },
+    "desktop/catalog/warm": {
+      "elapsed_ms": 1734.7,
+      "responseStart": 105.10000002384186,
+      "domContentLoaded": 152.5999999642372,
+      "load": 571,
+      "lcp": 168,
+      "cls": 0
+    },
+    "desktop/detail/cold": {
+      "elapsed_ms": 1709.0,
+      "responseStart": 91.09999996423721,
+      "domContentLoaded": 147,
+      "load": 626.6999999880791,
+      "lcp": 172,
+      "cls": 0
+    },
+    "desktop/detail/warm": {
+      "elapsed_ms": 1686.8,
+      "responseStart": 99.40000003576279,
+      "domContentLoaded": 144.10000002384186,
+      "load": 596.8000000119209,
+      "lcp": 152,
+      "cls": 0
+    }
+  }
+}
