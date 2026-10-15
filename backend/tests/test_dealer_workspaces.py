@@ -372,7 +372,7 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
         db.add(ContactClickEvent(
             listing_id=listing.id,
             channel="telegram",
-            dedup_id=f"contact-click-{uuid.uuid4()}",
+            dedup_id=str(uuid.uuid4()),
             occurred_at=datetime.now(timezone.utc),
         ))
         db.commit()
