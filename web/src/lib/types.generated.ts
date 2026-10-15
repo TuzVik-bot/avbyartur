@@ -1234,6 +1234,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/moderation/dealer-review-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dealer Review Report Queue */
+        get: operations["dealer_review_report_queue_api_v1_moderation_dealer_review_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moderation/dealer-review-reports/{report_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Dealer Review Report */
+        post: operations["resolve_dealer_review_report_api_v1_moderation_dealer_review_reports__report_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/saved-searches": {
         parameters: {
             query?: never;
@@ -4294,6 +4328,66 @@ export interface components {
         DealerReviewReportInput: {
             /** Reason */
             reason: string;
+        };
+        /** DealerReviewReportQueueItemOut */
+        DealerReviewReportQueueItemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Review Id
+             * Format: uuid
+             */
+            review_id: string;
+            /** Company Name */
+            company_name: string;
+            /** Review Rating */
+            review_rating: number;
+            /** Review Text */
+            review_text: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "resolved";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** DealerReviewReportQueueOut */
+        DealerReviewReportQueueOut: {
+            /** Items */
+            items: components["schemas"]["DealerReviewReportQueueItemOut"][];
+        };
+        /** DealerReviewReportResolutionInput */
+        DealerReviewReportResolutionInput: {
+            /** Resolution */
+            resolution: string;
+        };
+        /** DealerReviewReportResolutionOut */
+        DealerReviewReportResolutionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "resolved";
+            /** Resolution */
+            resolution: string;
+        };
+        /** DealerReviewReportResolutionResponse */
+        DealerReviewReportResolutionResponse: {
+            report: components["schemas"]["DealerReviewReportResolutionOut"];
         };
         /** DealerReviewsOut */
         DealerReviewsOut: {
@@ -11367,6 +11461,144 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    dealer_review_report_queue_api_v1_moderation_dealer_review_reports_get: {
+        parameters: {
+            query?: {
+                status?: "open" | "resolved";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealerReviewReportQueueOut"];
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    resolve_dealer_review_report_api_v1_moderation_dealer_review_reports__report_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealerReviewReportResolutionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealerReviewReportResolutionResponse"];
                 };
             };
             /** @description Authentication required or credentials are invalid */
