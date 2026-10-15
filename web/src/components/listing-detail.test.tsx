@@ -384,3 +384,22 @@ describe("report submission", () => {
     expect(comment.value).toBe("");
   });
 });
+
+
+describe("listing photo labels", () => {
+  it("shows assigned labels over the real gallery photo", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: {
+      ...listing, photo_urls: ["/car.jpg"], photo_badges: ["verified", "best_price"]
+    } })));
+    const overlay = container.querySelector(".detail-photo-wrap .listing-photo-badges");
+    expect(overlay?.textContent).toContain("Проверено Авторынок");
+    expect(overlay?.textContent).toContain("Лучшая цена");
+  });
+
+  it("does not show labels on the synthetic gallery image", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: {
+      ...listing, photo_badges: ["verified"]
+    } })));
+    expect(container.querySelector(".listing-photo-badges")).toBeNull();
+  });
+});

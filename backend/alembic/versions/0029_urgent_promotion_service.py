@@ -1,14 +1,14 @@
 """Allow owner-configured urgent listing promotion.
 
-Revision ID: 0027_urgent_promotion_service
-Revises: 0026_listing_trust_evidence
+Revision ID: 0029_urgent_promotion_service
+Revises: 0028_listing_trust_evidence
 """
 
 from alembic import op
 
 
-revision = "0027_urgent_promotion_service"
-down_revision = "0026_listing_trust_evidence"
+revision = "0029_urgent_promotion_service"
+down_revision = "0028_listing_trust_evidence"
 branch_labels = None
 depends_on = None
 

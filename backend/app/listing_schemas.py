@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.listing_categories import CategoryCode
+from app.photo_badge_schemas import PhotoBadge
 from app.listing_trust_schemas import ListingTrustEvidenceOut
 
 
@@ -229,6 +230,7 @@ class ListingPublicOut(BaseModel):
     equipment: list[str] = Field(default_factory=list)
     district: str | None = None
     call_hours: str | None = None
+    photo_badges: list[PhotoBadge] = Field(default_factory=list)
     promotion_badges: list[Literal["bump", "highlight", "top", "urgent"]] = Field(default_factory=list)
     photo_urls: list[str]
     photos: list[ListingPhotoOut]

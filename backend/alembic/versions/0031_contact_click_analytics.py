@@ -1,13 +1,13 @@
 """Add privacy-limited contact click events.
 
-Revision ID: 0029_contact_click_analytics
-Revises: 0028_dealer_reviews_and_logo
+Revision ID: 0031_contact_click_analytics
+Revises: 0030_dealer_reviews_and_logo
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0029_contact_click_analytics"
-down_revision = "0028_dealer_reviews_and_logo"
+revision = "0031_contact_click_analytics"
+down_revision = "0030_dealer_reviews_and_logo"
 branch_labels = None
 depends_on = None
 

@@ -12,6 +12,7 @@ from app.admin_service import lock_active_administrators
 from app.models import AuditEvent, Company, Listing, ListingStatusEvent, ListingTrustEvidence, Report, User, UserSession
 from app.risk_signals import collect_listing_risk_signals
 from app.listing_change_audit import list_listing_change_history
+from app.photo_badge_schemas import ListingPhotoBadgesInput
 from app.schemas import CompanyModerationInput, ModerationInput, ReportResolveInput
 from app.services import (
     check_revision,
@@ -150,6 +151,31 @@ def _lock_listing_owner_first(db: Session, listing_id: UUID, actor: User | None 
     if listing.owner_id != owner_id or listing.company_id != company_id:
         fail(409, "revision_conflict", "Listing ownership changed; reload before retrying")
     return listing
+
+
+@router.put("/listings/{listing_id}/photo-badges", response_model=ModerationListingResponse, response_model_exclude_unset=True)
+def update_photo_badges(
+    listing_id: UUID, payload: ListingPhotoBadgesInput,
+    admin: Annotated[User, Depends(require_admin)],
+    csrf: Annotated[object, Depends(require_csrf)], db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    listing = _lock_listing_owner_first(db, listing_id, admin)
+    check_revision(listing, payload.expected_revision)
+    if listing.status not in {"pending_review", "active"}:
+        fail(409, "listing_not_editable", "Badges can be assigned to pending or active listings")
+    before = list(listing.photo_badges or [])
+    if before != payload.photo_badges:
+        listing.photo_badges = list(payload.photo_badges)
+        listing.revision += 1
+        if listing.status == "pending_review" and listing.submitted_revision == payload.expected_revision:
+            listing.submitted_revision = listing.revision
+        db.add(AuditEvent(
+            actor_id=admin.id, entity_type="listing", entity_id=listing.id,
+            action="photo_badges_updated",
+            details={"before": before, "after": list(payload.photo_badges), "revision": listing.revision},
+        ))
+        db.commit()
+    return {"listing": serialize_listing(db, listing, public=False)}
 
 
 @router.get("/listings", response_model=ModerationListingQueueResponse, response_model_exclude_unset=True)

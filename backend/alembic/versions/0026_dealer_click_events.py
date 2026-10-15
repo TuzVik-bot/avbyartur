@@ -1,15 +1,15 @@
 """Add anonymous dealer click events for company analytics.
 
-Revision ID: 0024_dealer_click_events
-Revises: 0023_saved_search_batches
+Revision ID: 0026_dealer_click_events
+Revises: 0025_listing_photo_badges
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0024_dealer_click_events"
-down_revision = "0023_saved_search_batches"
+revision = "0026_dealer_click_events"
+down_revision = "0025_listing_photo_badges"
 branch_labels = None
 depends_on = None
 

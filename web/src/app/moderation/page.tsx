@@ -74,7 +74,7 @@ export default async function ModerationPage({ searchParams }: { searchParams: P
       {failed && <p className="notice" role="alert">Не удалось загрузить эту очередь. Проверьте доступ и повторите попытку.</p>}
       {showingListings && listingsResult.status === "fulfilled" && <div className="account-list">{listingsResult.value.items.length ? listingsResult.value.items.map((listing) => {
         const moderatedListing = listing as ModerationQueueListing;
-        return <article className="account-list-item moderation-item" key={listing.id}><div><h2>{listing.title}</h2><p className="muted">{listing.seller.name} · ревизия {listing.revision} · {listing.status}</p><ModerationRiskSignals signals={moderatedListing.risk_signals} /><ModerationListingPreview listing={listing} /></div><ListingModerationActions listing={listing} /></article>;
+        return <article className="account-list-item moderation-item" key={listing.id}><div><h2>{listing.title}</h2><p className="muted">{listing.seller.name} · ревизия {listing.revision} · {listing.status}</p><ModerationRiskSignals signals={moderatedListing.risk_signals} /><ModerationListingPreview listing={listing} /></div><ListingModerationActions listing={listing} isAdmin={session.user.role === "admin"} /></article>;
       }) : <div className="empty-state"><h2>{queue === "active" ? "Активных объявлений нет" : "Очередь объявлений пуста"}</h2></div>}</div>}
       {showingListings && listingsData?.pagination && pageCount > 1 && <nav className="pagination" aria-label="Страницы очереди">
         {page > 1 && <Link className="button button-secondary button-small" href={pageUrl(queue, page - 1)}>Назад</Link>}

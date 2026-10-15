@@ -1,15 +1,15 @@
 """Add dealer logos and moderated public reviews.
 
-Revision ID: 0028_dealer_reviews_and_logo
-Revises: 0027_urgent_promotion_service
+Revision ID: 0030_dealer_reviews_and_logo
+Revises: 0029_urgent_promotion_service
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0028_dealer_reviews_and_logo"
-down_revision = "0027_urgent_promotion_service"
+revision = "0030_dealer_reviews_and_logo"
+down_revision = "0029_urgent_promotion_service"
 branch_labels = None
 depends_on = None
 

@@ -1,15 +1,15 @@
 """Persist revision-bound moderator verified listing evidence.
 
-Revision ID: 0026_listing_trust_evidence
-Revises: 0025_listing_contact_channels
+Revision ID: 0028_listing_trust_evidence
+Revises: 0027_listing_contact_channels
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0026_listing_trust_evidence"
-down_revision = "0025_listing_contact_channels"
+revision = "0028_listing_trust_evidence"
+down_revision = "0027_listing_contact_channels"
 branch_labels = None
 depends_on = None
 

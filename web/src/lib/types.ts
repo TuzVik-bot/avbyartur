@@ -108,6 +108,7 @@ export type ConversationThread = {
 };
 
 export type Seller = { type: "private" | "company"; id: string; name: string; slug?: string };
+export type PhotoBadge = "verified" | "free_history" | "best_price";
 export type Money = {
   amount: string;
   currency: "BYN" | "USD";
@@ -138,6 +139,7 @@ export type ListingSummary = {
   manual_city?: string | null;
   cover_url?: string | null;
   photo_urls?: string[];
+  photo_badges?: PhotoBadge[];
   seller: Seller;
   created_at: string;
   updated_at: string;

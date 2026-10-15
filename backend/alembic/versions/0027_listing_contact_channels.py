@@ -1,15 +1,15 @@
 """Add opt-in messenger links to listings.
 
-Revision ID: 0025_listing_contact_channels
-Revises: 0024_dealer_click_events
+Revision ID: 0027_listing_contact_channels
+Revises: 0026_dealer_click_events
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0025_listing_contact_channels"
-down_revision = "0024_dealer_click_events"
+revision = "0027_listing_contact_channels"
+down_revision = "0026_dealer_click_events"
 branch_labels = None
 depends_on = None
 

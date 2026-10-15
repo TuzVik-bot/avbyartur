@@ -1,7 +1,7 @@
 """Add subscription start tracking and saved-search notification batches.
 
-Revision ID: 0023_saved_search_batches
-Revises: 0022_listing_categories
+Revision ID: 0024_saved_search_batches
+Revises: 0023_managed_articles
 """
 
 from alembic import op
@@ -9,8 +9,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = "0023_saved_search_batches"
-down_revision = "0022_listing_categories"
+revision = "0024_saved_search_batches"
+down_revision = "0023_managed_articles"
 branch_labels = None
 depends_on = None
 

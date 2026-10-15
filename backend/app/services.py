@@ -776,6 +776,7 @@ def _serialize_listing(
         "equipment": list(listing.equipment or []),
         "district": listing.district,
         "call_hours": listing.call_hours,
+        "photo_badges": list(listing.photo_badges or []),
         "promotion_badges": list(promotion_badges or []),
         "vin": None if public else listing.vin, "moderation_reason": None if public else listing.moderation_reason,
         "photo_urls": photo_urls,

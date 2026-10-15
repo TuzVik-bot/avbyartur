@@ -196,6 +196,26 @@ h3 { font-size: 17px; margin-bottom: 8px; }
 .detail-photo-wrap { position: relative; }
 .detail-main-image { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--surface-muted); border-radius: var(--radius); }
 .detail-synthetic-label { z-index: 1; }
+.listing-photo-badges { position: absolute; z-index: 2; left: 8px; right: 8px; bottom: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
+.listing-photo-badge { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 5px 9px; border-radius: 16px; font-size: 12px; font-weight: 650; line-height: 1.2; box-shadow: 0 1px 4px #0003; }
+.listing-photo-badge svg { flex: none; }
+.photo-badge-verified { background: #244fc5; color: #fff; }
+.photo-badge-free_history { background: #fff; color: #17212e; }
+.photo-badge-best_price { background: #cff45b; color: #22340a; }
+.detail-photo-wrap .listing-photo-badges { left: 12px; bottom: 12px; }
+.detail-photo-wrap .listing-photo-badge { font-size: 14px; padding: 6px 11px; }
+.photo-badge-editor { width: 100%; margin-top: 8px; }
+.photo-badge-editor fieldset { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.photo-badge-editor legend { padding: 0 4px; font-weight: 650; }
+.photo-badge-editor p { font-size: 12px; line-height: 1.5; }
+.photo-badge-editor label { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 13px; }
+.photo-badge-editor input { width: 17px; height: 17px; flex: none; accent-color: #244fc5; }
+.photo-badge-editor button { margin-top: 8px; }
+@media (max-width: 520px) {
+  .listing-row .listing-photo-badges { left: 5px; right: 5px; bottom: 5px; gap: 4px; }
+  .listing-row .listing-photo-badge { padding: 4px 6px; gap: 3px; font-size: 10px; }
+  .listing-row .listing-photo-badge svg { width: 12px; height: 12px; }
+}
 .detail-panel .favorite-button { position: static; width: 44px; margin-block: 8px; }
 .location-line { display: flex; align-items: center; gap: 5px; }
 .phone-revealed { display: grid; gap: 2px; margin-bottom: 9px; padding: 10px; border: 1px solid var(--green-line); border-radius: 5px; background: var(--soft-green); font-size: 18px; }

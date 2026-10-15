@@ -10,6 +10,7 @@ import { FavoriteButton, ListingCard } from "@/components/listing-card";
 import { ListingContactActions } from "@/components/listing-contact-actions";
 import { useContactClickConsent } from "@/components/contact-click-consent";
 import { ListingTrust } from "@/components/listing-trust";
+import { ListingPhotoBadges } from "@/components/listing-photo-badges";
 import { SellerListings, type PublicSellerListing } from "@/components/seller-listings";
 import { CompareButton } from "@/components/compare-button";
 import { ShareButton } from "@/components/share-button";
@@ -165,6 +166,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             <div className="detail-photo-wrap">
               <Image id="detail-main-image" className="detail-main-image" src={selectedPhoto} alt={hasSyntheticPhoto ? `Синтетическое изображение для объявления «${listing.title}»` : `Фотография ${safeSelectedPhotoIndex + 1} из ${photos.length}: ${listing.title}`} width={1448} height={1086} sizes="(max-width: 800px) calc(100vw - 28px), min(792px, 62vw)" unoptimized priority />
               {hasSyntheticPhoto && <span className="synthetic-label detail-synthetic-label">Синтетическое фото</span>}
+              {!hasSyntheticPhoto && <ListingPhotoBadges badges={listing.photo_badges} />}
             </div>
             {photos.length > 1 && <div className="detail-thumbnails" role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt={`Фото ${index + 1} автомобиля: ${listing.title}`} width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" unoptimized /></button>)}</div>}
           </div>

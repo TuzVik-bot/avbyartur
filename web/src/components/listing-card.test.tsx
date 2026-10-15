@@ -255,3 +255,23 @@ describe("favorite removal", () => {
     expect(mocks.refresh).toHaveBeenCalledOnce();
   });
 });
+
+
+describe("photo labels", () => {
+  it("shows assigned labels over real photos in grid and row layouts", () => {
+    const labelled = listing({ photo_urls: ["/car.jpg"], photo_badges: ["verified", "free_history", "best_price"] });
+    for (const variant of ["grid", "row"] as const) {
+      act(() => root.render(createElement(ListingCard, { listing: labelled, variant })));
+      const overlay = container.querySelector(".listing-card-media .listing-photo-badges");
+      expect(overlay?.textContent).toContain("Проверено Авторынок");
+      expect(overlay?.textContent).toContain("История бесплатно");
+      expect(overlay?.textContent).toContain("Лучшая цена");
+      expect(overlay?.querySelectorAll(".listing-photo-badge")).toHaveLength(3);
+    }
+  });
+
+  it("does not show labels on the synthetic fallback", () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing({ photo_badges: ["verified"] }) })));
+    expect(container.querySelector(".listing-photo-badges")).toBeNull();
+  });
+});

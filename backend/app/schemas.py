@@ -82,6 +82,13 @@ class CatalogItemOut(BaseModel):
 
 
 class ListingForm(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def reject_admin_photo_badges(cls, values):
+        if isinstance(values, dict) and "photo_badges" in values:
+            raise ValueError("Photo badges can only be changed by an administrator")
+        return values
+
     category_code: CategoryCode = "cars"
     category_details: ListingCategoryDetailsInput | None = None
     seller_type: Literal["private", "company"] | None = None
