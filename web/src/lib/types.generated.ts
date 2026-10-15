@@ -2427,6 +2427,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Contact Click
+         * @description Record only a consented click; views and successful reveals use existing counters.
+         */
+        post: operations["contact_click_api_v1_analytics_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Frontend Error
+         * @description Forward only a safe error class, release ID, and fixed breadcrumb codes.
+         */
+        post: operations["report_frontend_error_api_v1_analytics_errors_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -2925,6 +2965,16 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** AnalyticsEventAccepted */
+        AnalyticsEventAccepted: {
+            /** Accepted */
+            accepted: boolean;
+            /**
+             * Recorded
+             * @default true
+             */
+            recorded: boolean;
         };
         /** ApiErrorOut */
         ApiErrorOut: {
@@ -3456,6 +3506,29 @@ export interface components {
             accepted_at: string;
             /** Source */
             source: string;
+        };
+        /** ContactClickEventIn */
+        ContactClickEventIn: {
+            /**
+             * Listing Id
+             * Format: uuid
+             */
+            listing_id: string;
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "phone" | "telegram" | "viber" | "internal_chat";
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Dedup Id
+             * Format: uuid
+             */
+            dedup_id: string;
         };
         /** ConversationActionOut */
         ConversationActionOut: {
@@ -4512,6 +4585,18 @@ export interface components {
              * @constant
              */
             ok: true;
+        };
+        /** FrontendErrorReportIn */
+        FrontendErrorReportIn: {
+            /**
+             * Error Type
+             * @enum {string}
+             */
+            error_type: "Error" | "TypeError" | "RangeError" | "ReferenceError" | "SyntaxError" | "NetworkError" | "ApiClientError" | "ChunkLoadError";
+            /** Release Id */
+            release_id: string;
+            /** Breadcrumbs */
+            breadcrumbs?: ("listing_detail_loaded" | "contact_click" | "contact_reveal_success" | "internal_chat_opened" | "api_request_failed")[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -16993,6 +17078,92 @@ export interface operations {
             };
             /** @description An external service required for this action is unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    contact_click_api_v1_analytics_events_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Analytics-Consent"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactClickEventIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsEventAccepted"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    report_frontend_error_api_v1_analytics_errors_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FrontendErrorReportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsEventAccepted"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

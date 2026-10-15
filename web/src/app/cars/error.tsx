@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { reportFrontendError, type FrontendErrorType } from "@/lib/analytics";
 
 type CarsErrorProps = {
   error: Error & { digest?: string };
@@ -11,6 +12,11 @@ type CarsErrorProps = {
 export default function CarsError({ error, reset }: CarsErrorProps) {
   useEffect(() => {
     console.error("Cars route failed", error);
+    void reportFrontendError({
+      errorType: error.name as FrontendErrorType,
+      releaseId: process.env.NEXT_PUBLIC_RELEASE_ID ?? "",
+      breadcrumbs: [],
+    });
   }, [error]);
 
   return (

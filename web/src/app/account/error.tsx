@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { reportFrontendError, type FrontendErrorType } from "@/lib/analytics";
 
 type AccountErrorProps = {
   error: Error & { digest?: string };
@@ -13,6 +14,11 @@ export default function AccountError({ error, reset }: AccountErrorProps) {
     // Keep the boundary visible to the operator without exposing the digest in
     // the page, where it could be mistaken for an actionable support token.
     console.error("Account route failed", error);
+    void reportFrontendError({
+      errorType: error.name as FrontendErrorType,
+      releaseId: process.env.NEXT_PUBLIC_RELEASE_ID ?? "",
+      breadcrumbs: [],
+    });
   }, [error]);
 
   return (

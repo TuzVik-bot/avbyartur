@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { reportFrontendError, type FrontendErrorType } from "@/lib/analytics";
 
 type AppErrorProps = {
   error: Error & { digest?: string };
@@ -11,6 +12,11 @@ type AppErrorProps = {
 export default function AppError({ error, reset }: AppErrorProps) {
   useEffect(() => {
     console.error("Route failed", error);
+    void reportFrontendError({
+      errorType: error.name as FrontendErrorType,
+      releaseId: process.env.NEXT_PUBLIC_RELEASE_ID ?? "",
+      breadcrumbs: [],
+    });
   }, [error]);
 
   return (
