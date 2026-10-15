@@ -155,7 +155,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             {listing.damaged && <p className="notice">Продавец указал повреждения.</p>}
             {listing.parts_only && <p className="notice">Продаётся на запчасти.</p>}
           </section>
-          <ListingTrust claims={sellerClaims} />
+          <ListingTrust claims={sellerClaims} evidence={listing.verified_evidence || []} />
           <section className="detail-summary">
             <h2>Описание</h2>
             <p className="detail-description">{listing.description || "Продавец не добавил описание."}</p>

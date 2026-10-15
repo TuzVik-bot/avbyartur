@@ -53,6 +53,7 @@ from app.models import (
     ListingPromotion,
     ListingStatusEvent,
     ListingViewEvent,
+    ListingTrustEvidence,
     LocationCity,
     LocationRegion,
     Report,
@@ -634,6 +635,16 @@ def get_listing(listing_id: UUID, db: Annotated[Session, Depends(get_db)], user:
             include_modification=True,
         )[0]
     }
+    if public and listing.status == "active":
+        evidence = db.scalars(select(ListingTrustEvidence).where(
+            ListingTrustEvidence.listing_id == listing.id,
+            ListingTrustEvidence.checked_revision == listing.revision,
+            ListingTrustEvidence.removed_at.is_(None),
+        ).order_by(ListingTrustEvidence.checked_at.desc(), ListingTrustEvidence.id)).all()
+        result["listing"]["verified_evidence"] = [{
+            "id": item.id, "label": item.label, "summary": item.summary,
+            "source": item.source, "checked_at": item.checked_at, "scope": item.scope,
+        } for item in evidence]
     if (
         public
         and not owner_view
@@ -706,6 +717,7 @@ def related_listings(
     "/listings/{listing_id}/seller-listings",
     response_model=ListingRelatedOut,
     response_model_exclude_unset=True,
+    responses={404: {"model": ApiErrorOut, "description": "Listing not found"}},
 )
 def seller_listings(
     listing_id: UUID,

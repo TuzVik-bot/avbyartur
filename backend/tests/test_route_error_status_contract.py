@@ -51,6 +51,7 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     ("/api/v1/moderation/catalog-requests/{request_id}/review", "post"): {"401", "403", "404", "409", "422", "429"},
     ("/api/v1/moderation/listings/{listing_id}/history", "get"): {"401", "403", "404", "422"},
     ("/api/v1/listings/{listing_id}/related", "get"): {"404"},
+    ("/api/v1/listings/{listing_id}/seller-listings", "get"): {"404"},
     ("/api/v1/listings/{listing_id}/analytics", "get"): {"401", "403", "404", "422"},
     ("/api/v1/billing/tariffs", "get"): set(),
     ("/api/v1/billing/orders", "post"): {"401", "403", "404", "409", "422", "503"},
@@ -156,6 +157,12 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     },
     ("/api/v1/moderation/listings/{listing_id}/block", "post"): {
         "401", "403", "404", "409", "422"
+    },
+    ("/api/v1/moderation/listings/{listing_id}/evidence", "post"): {
+        "401", "403", "404", "409", "422"
+    },
+    ("/api/v1/moderation/listings/{listing_id}/evidence/{evidence_id}", "delete"): {
+        "401", "403", "404"
     },
     ("/api/v1/moderation/companies", "get"): {"401", "403"},
     ("/api/v1/moderation/companies/{company_id}/approve", "post"): {

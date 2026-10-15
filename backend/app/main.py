@@ -58,6 +58,8 @@ IDEMPOTENCY_REQUIRED_OPERATIONS = {
     ("/api/v1/me/listings/{listing_id}/catalog-requests", "post"),
 }
 CSRF_REQUIRED_OPERATIONS = {
+    ("/api/v1/moderation/listings/{listing_id}/evidence", "post"),
+    ("/api/v1/moderation/listings/{listing_id}/evidence/{evidence_id}", "delete"),
     ("/api/v1/auth/register", "post"),
     ("/api/v1/auth/otp/request", "post"),
     ("/api/v1/auth/register/otp/request", "post"),
@@ -125,6 +127,7 @@ ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
     ("/api/v1/me/profile/phone-change/request", "post"): (401, 403, 409, 422, 429, 503),
     ("/api/v1/me/profile/phone-change/confirm", "post"): (401, 403, 404, 409, 422, 429),
     ("/api/v1/listings/{listing_id}/related", "get"): (404,),
+    ("/api/v1/listings/{listing_id}/seller-listings", "get"): (404,),
     ("/api/v1/listings/public-capabilities", "get"): (),
     ("/api/v1/listing-validation-policy", "get"): (),
     ("/api/v1/me/listings/{listing_id}/catalog-requests", "get"): (401, 403, 404, 422),
@@ -197,6 +200,12 @@ ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
     ),
     ("/api/v1/moderation/listings/{listing_id}/block", "post"): (
         401, 403, 404, 409, 422
+    ),
+    ("/api/v1/moderation/listings/{listing_id}/evidence", "post"): (
+        401, 403, 404, 409, 422
+    ),
+    ("/api/v1/moderation/listings/{listing_id}/evidence/{evidence_id}", "delete"): (
+        401, 403, 404
     ),
     ("/api/v1/moderation/companies", "get"): (401, 403),
     ("/api/v1/moderation/companies/{company_id}/approve", "post"): (

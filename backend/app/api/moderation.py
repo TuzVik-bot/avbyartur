@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import require_csrf, require_moderator
 from app.db import get_db
 from app.admin_service import lock_active_administrators
-from app.models import AuditEvent, Company, Listing, ListingStatusEvent, Report, User
+from app.models import AuditEvent, Company, Listing, ListingStatusEvent, ListingTrustEvidence, Report, User, UserSession
 from app.risk_signals import collect_listing_risk_signals
 from app.listing_change_audit import list_listing_change_history
 from app.schemas import CompanyModerationInput, ModerationInput, ReportResolveInput
@@ -17,9 +17,11 @@ from app.services import (
     check_revision,
     enqueue_saved_search_match,
     fail,
+    listing_is_public,
     lock_owner,
     serialize_listing,
 )
+from app.listing_trust_schemas import ListingTrustEvidenceInput, ListingTrustEvidenceOut
 from app.staff_schemas import (
     ModerationCompanyQueueResponse,
     ModerationCompanyResponse,
@@ -31,6 +33,60 @@ from app.staff_schemas import (
 )
 
 router = APIRouter(prefix="/api/v1/moderation", tags=["moderation"])
+
+
+@router.post("/listings/{listing_id}/evidence", response_model=ListingTrustEvidenceOut, status_code=201)
+def add_listing_evidence(
+    listing_id: UUID,
+    payload: ListingTrustEvidenceInput,
+    moderator: Annotated[User, Depends(require_moderator)],
+    _csrf: Annotated[UserSession, Depends(require_csrf)],
+    db: Annotated[Session, Depends(get_db)],
+) -> ListingTrustEvidence:
+    listing = _lock_listing_owner_first(db, listing_id, moderator)
+    if listing.status != "active" or not listing_is_public(db, listing):
+        fail(404, "not_found", "Active public listing not found")
+    if listing.revision != payload.expected_revision:
+        fail(409, "revision_conflict", "Listing changed; recheck evidence against the current revision")
+    evidence = ListingTrustEvidence(
+        listing_id=listing.id, checked_revision=listing.revision, label=payload.label,
+        summary=payload.summary, source=payload.source, checked_at=payload.checked_at,
+        scope=payload.scope, created_by_id=moderator.id,
+    )
+    db.add(evidence)
+    db.flush()
+    db.add(AuditEvent(
+        actor_id=moderator.id, entity_type="listing_trust_evidence", entity_id=evidence.id,
+        action="created", details={"listing_id": str(listing.id), "checked_revision": listing.revision},
+    ))
+    db.commit()
+    db.refresh(evidence)
+    return evidence
+
+
+@router.delete("/listings/{listing_id}/evidence/{evidence_id}", status_code=204)
+def remove_listing_evidence(
+    listing_id: UUID,
+    evidence_id: UUID,
+    moderator: Annotated[User, Depends(require_moderator)],
+    _csrf: Annotated[UserSession, Depends(require_csrf)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Response:
+    evidence = db.scalar(select(ListingTrustEvidence).where(
+        ListingTrustEvidence.id == evidence_id,
+        ListingTrustEvidence.listing_id == listing_id,
+        ListingTrustEvidence.removed_at.is_(None),
+    ).with_for_update())
+    if evidence is None:
+        fail(404, "not_found", "Evidence not found")
+    evidence.removed_at = datetime.now(UTC)
+    evidence.removed_by_id = moderator.id
+    db.add(AuditEvent(
+        actor_id=moderator.id, entity_type="listing_trust_evidence", entity_id=evidence.id,
+        action="removed", details={"listing_id": str(listing_id), "checked_revision": evidence.checked_revision},
+    ))
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/listings/{listing_id}/history", response_model=ModerationListingHistoryOut)

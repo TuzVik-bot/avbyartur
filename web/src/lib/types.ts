@@ -171,6 +171,7 @@ export type Listing = ListingSummary & {
   equipment?: string[];
   district?: string | null;
   call_hours?: string | null;
+  verified_evidence?: { id: string; label: string; summary: string; source: string; checked_at: string; scope: string }[];
 };
 
 export type ListingPhoto = {

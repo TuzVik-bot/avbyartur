@@ -843,6 +843,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/moderation/listings/{listing_id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Listing Evidence */
+        post: operations["add_listing_evidence_api_v1_moderation_listings__listing_id__evidence_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moderation/listings/{listing_id}/evidence/{evidence_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Listing Evidence */
+        delete: operations["remove_listing_evidence_api_v1_moderation_listings__listing_id__evidence__evidence_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moderation/listings/{listing_id}/history": {
         parameters: {
             query?: never;
@@ -4245,7 +4279,219 @@ export interface components {
         /** ListingDetailOut */
         ListingDetailOut: {
             /** Listing */
-            listing: components["schemas"]["ListingPublicOut"] | components["schemas"]["ListingOwnerOut"];
+            listing: components["schemas"]["ListingDetailPublicOut"] | components["schemas"]["ListingDetailOwnerOut"];
+        };
+        /** ListingDetailOwnerOut */
+        ListingDetailOwnerOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Revision */
+            revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
+            make: components["schemas"]["ListingCatalogItemOut"] | null;
+            model: components["schemas"]["ListingCatalogItemOut"] | null;
+            generation: components["schemas"]["ListingCatalogItemOut"] | null;
+            /** Year */
+            year: number | null;
+            /** Mileage Km */
+            mileage_km: number | null;
+            /** Fuel */
+            fuel: string | null;
+            /** Transmission */
+            transmission: string | null;
+            /** Drive */
+            drive: string | null;
+            /** Body Type */
+            body_type: string | null;
+            /** Body Variant Id */
+            body_variant_id: string | null;
+            body_variant: components["schemas"]["ListingCatalogItemOut"] | null;
+            price: components["schemas"]["ListingPriceOut"] | null;
+            region: components["schemas"]["ListingCatalogItemOut"] | null;
+            city: components["schemas"]["ListingCatalogItemOut"] | null;
+            /** Manual City */
+            manual_city: string | null;
+            seller: components["schemas"]["ListingSellerOut"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Published At */
+            published_at?: string | null;
+            /** Damaged */
+            damaged: boolean;
+            /** Parts Only */
+            parts_only: boolean;
+            /** Description */
+            description: string;
+            /** Engine Volume L */
+            engine_volume_l: string | null;
+            /** Power Hp */
+            power_hp: number | null;
+            /** Condition */
+            condition: string | null;
+            /** Color */
+            color?: ("black" | "white" | "gray" | "silver" | "red" | "blue" | "green" | "yellow" | "brown" | "beige" | "orange" | "purple" | "other") | null;
+            /** Customs Status */
+            customs_status?: ("cleared_rb" | "eaeu_import" | "uncleared" | "unknown") | null;
+            /** Technical Condition */
+            technical_condition?: ("good" | "needs_repair" | "non_operational") | null;
+            /** Body Condition */
+            body_condition?: ("good" | "minor_damage" | "significant_damage" | "repaired") | null;
+            /** Exchange */
+            exchange?: boolean | null;
+            /** Bargaining */
+            bargaining?: boolean | null;
+            /** Credit */
+            credit?: boolean | null;
+            /** Leasing */
+            leasing?: boolean | null;
+            /** Equipment */
+            equipment?: string[];
+            /** District */
+            district?: string | null;
+            /** Call Hours */
+            call_hours?: string | null;
+            /** Promotion Badges */
+            promotion_badges?: ("bump" | "highlight" | "top")[];
+            /** Photo Urls */
+            photo_urls: string[];
+            /** Photos */
+            photos: components["schemas"]["ListingPhotoOut"][];
+            modification?: components["schemas"]["ListingModificationOut"] | null;
+            /** Vin */
+            vin?: string | null;
+            /** Moderation Reason */
+            moderation_reason?: string | null;
+            /** Contact Phone */
+            contact_phone?: string | null;
+            /** Telegram Contact Url */
+            telegram_contact_url?: string | null;
+            /** Viber Contact Url */
+            viber_contact_url?: string | null;
+            /** Verified Evidence */
+            verified_evidence?: components["schemas"]["ListingTrustEvidenceOut"][];
+        };
+        /** ListingDetailPublicOut */
+        ListingDetailPublicOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Revision */
+            revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
+            make: components["schemas"]["ListingCatalogItemOut"] | null;
+            model: components["schemas"]["ListingCatalogItemOut"] | null;
+            generation: components["schemas"]["ListingCatalogItemOut"] | null;
+            /** Year */
+            year: number | null;
+            /** Mileage Km */
+            mileage_km: number | null;
+            /** Fuel */
+            fuel: string | null;
+            /** Transmission */
+            transmission: string | null;
+            /** Drive */
+            drive: string | null;
+            /** Body Type */
+            body_type: string | null;
+            /** Body Variant Id */
+            body_variant_id: string | null;
+            body_variant: components["schemas"]["ListingCatalogItemOut"] | null;
+            price: components["schemas"]["ListingPriceOut"] | null;
+            region: components["schemas"]["ListingCatalogItemOut"] | null;
+            city: components["schemas"]["ListingCatalogItemOut"] | null;
+            /** Manual City */
+            manual_city: string | null;
+            seller: components["schemas"]["ListingSellerOut"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Published At */
+            published_at?: string | null;
+            /** Damaged */
+            damaged: boolean;
+            /** Parts Only */
+            parts_only: boolean;
+            /** Description */
+            description: string;
+            /** Engine Volume L */
+            engine_volume_l: string | null;
+            /** Power Hp */
+            power_hp: number | null;
+            /** Condition */
+            condition: string | null;
+            /** Color */
+            color?: ("black" | "white" | "gray" | "silver" | "red" | "blue" | "green" | "yellow" | "brown" | "beige" | "orange" | "purple" | "other") | null;
+            /** Customs Status */
+            customs_status?: ("cleared_rb" | "eaeu_import" | "uncleared" | "unknown") | null;
+            /** Technical Condition */
+            technical_condition?: ("good" | "needs_repair" | "non_operational") | null;
+            /** Body Condition */
+            body_condition?: ("good" | "minor_damage" | "significant_damage" | "repaired") | null;
+            /** Exchange */
+            exchange?: boolean | null;
+            /** Bargaining */
+            bargaining?: boolean | null;
+            /** Credit */
+            credit?: boolean | null;
+            /** Leasing */
+            leasing?: boolean | null;
+            /** Equipment */
+            equipment?: string[];
+            /** District */
+            district?: string | null;
+            /** Call Hours */
+            call_hours?: string | null;
+            /** Promotion Badges */
+            promotion_badges?: ("bump" | "highlight" | "top")[];
+            /** Photo Urls */
+            photo_urls: string[];
+            /** Photos */
+            photos: components["schemas"]["ListingPhotoOut"][];
+            modification?: components["schemas"]["ListingModificationOut"] | null;
+            /** Verified Evidence */
+            verified_evidence?: components["schemas"]["ListingTrustEvidenceOut"][];
         };
         /** ListingFavoritesOut */
         ListingFavoritesOut: {
@@ -4874,6 +5120,45 @@ export interface components {
             name: string;
             /** Slug */
             slug?: string | null;
+        };
+        /** ListingTrustEvidenceInput */
+        ListingTrustEvidenceInput: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Label */
+            label: string;
+            /** Summary */
+            summary: string;
+            /** Source */
+            source: string;
+            /**
+             * Checked At
+             * Format: date
+             */
+            checked_at: string;
+            /** Scope */
+            scope: string;
+        };
+        /** ListingTrustEvidenceOut */
+        ListingTrustEvidenceOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** Summary */
+            summary: string;
+            /** Source */
+            source: string;
+            /**
+             * Checked At
+             * Format: date
+             */
+            checked_at: string;
+            /** Scope */
+            scope: string;
         };
         /** ListingValidationPolicyOut */
         ListingValidationPolicyOut: {
@@ -7523,6 +7808,15 @@ export interface operations {
                     "application/json": components["schemas"]["ListingRelatedOut"];
                 };
             };
+            /** @description Listing not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
             /** @description Request validation error */
             422: {
                 headers: {
@@ -9110,6 +9404,152 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DealerDetailResponse"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    add_listing_evidence_api_v1_moderation_listings__listing_id__evidence_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listing_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListingTrustEvidenceInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingTrustEvidenceOut"];
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    remove_listing_evidence_api_v1_moderation_listings__listing_id__evidence__evidence_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listing_id: string;
+                evidence_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
             /** @description The requested resource is not available */

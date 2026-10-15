@@ -6,8 +6,10 @@ function safeMessengerUri(channel: ListingMessengerChannel["channel"], rawUri: s
     const url = new URL(rawUri);
     if (url.protocol !== "https:" || url.username || url.password || url.port || url.search || url.hash) return null;
     const host = url.hostname.toLowerCase();
-    if (channel === "telegram" && (host === "t.me" || host === "telegram.me") && url.pathname.length > 1) return url.toString();
-    if (channel === "viber" && (host === "viber.me" || host === "viber.com" || host.endsWith(".viber.com")) && url.pathname.length > 1) return url.toString();
+    const path = url.pathname.split("/").filter(Boolean);
+    if (path.length !== 1) return null;
+    if (channel === "telegram" && (host === "t.me" || host === "telegram.me") && /^[A-Za-z0-9_]{5,32}$/.test(path[0])) return `https://${host}/${path[0]}`;
+    if (channel === "viber" && ["viber.me", "viber.com", "www.viber.com"].includes(host) && /^[A-Za-z0-9_.+-]{1,160}$/.test(path[0])) return `https://${host}/${path[0]}`;
   } catch { /* Invalid provider data is omitted. */ }
   return null;
 }

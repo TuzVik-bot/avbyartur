@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.listing_categories import CategoryCode
+from app.listing_trust_schemas import ListingTrustEvidenceOut
 
 
 class ListingPublicCapabilitiesOut(BaseModel):
@@ -214,6 +215,14 @@ class ListingOwnerOut(ListingPublicOut):
     viber_contact_url: str | None = None
 
 
+class ListingDetailPublicOut(ListingPublicOut):
+    verified_evidence: list[ListingTrustEvidenceOut] = Field(default_factory=list)
+
+
+class ListingDetailOwnerOut(ListingOwnerOut):
+    verified_evidence: list[ListingTrustEvidenceOut] = Field(default_factory=list)
+
+
 class ListingPaginationOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -284,7 +293,7 @@ class ListingReportOut(BaseModel):
 class ListingDetailOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    listing: ListingPublicOut | ListingOwnerOut = Field(union_mode="smart")
+    listing: ListingDetailPublicOut | ListingDetailOwnerOut = Field(union_mode="smart")
 
 
 class ListingRelatedOut(BaseModel):

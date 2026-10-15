@@ -14,8 +14,8 @@ describe("listing trust labels", () => {
 
   it("renders verification only when source, scope, and date are present", () => {
     const html = renderToStaticMarkup(createElement(ListingTrust, { claims: [], evidence: [
-      { label: "Проверка документов", source: "Реестр документов", checked_at: "2026-10-10T12:00:00Z", scope: "документы" },
-      { label: "Пустая проверка", source: "", checked_at: "2026-10-10", scope: "VIN" }
+      { label: "Проверка документов", summary: "Сверены документы автомобиля", source: "Реестр документов", checked_at: "2026-10-10T12:00:00Z", scope: "документы" },
+      { label: "Пустая проверка", summary: "Пусто", source: "", checked_at: "2026-10-10", scope: "VIN" }
     ] }));
     expect(html).toContain("Реестр документов");
     expect(html).toContain("Проверка документов");

@@ -64,6 +64,16 @@ const listing: Listing = {
 };
 
 describe("contact reveal", () => {
+  it("renders only the verified evidence attached to the public detail payload", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: {
+      ...listing,
+      verified_evidence: [{ id: "evidence-1", label: "Документы проверены", summary: "Сверены регистрационные документы", source: "Реестр документов", checked_at: "2026-10-10", scope: "регистрационные документы" }]
+    } })));
+    expect(container.textContent).toContain("Документы проверены");
+    expect(container.textContent).toContain("Сверены регистрационные документы");
+    expect(container.textContent).toContain("Реестр документов");
+  });
+
   it("takes a guest to login with the new chat route as the next path", async () => {
     await act(async () => root.render(createElement(ListingDetail, { listing })));
 

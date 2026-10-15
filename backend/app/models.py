@@ -561,6 +561,30 @@ class ListingStatusEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class ListingTrustEvidence(Base):
+    __tablename__ = "listing_trust_evidence"
+    __table_args__ = (
+        CheckConstraint("length(trim(label)) > 0", name="ck_listing_trust_label_nonempty"),
+        CheckConstraint("length(trim(summary)) > 0", name="ck_listing_trust_summary_nonempty"),
+        CheckConstraint("length(trim(source)) > 0", name="ck_listing_trust_source_nonempty"),
+        CheckConstraint("length(trim(scope)) > 0", name="ck_listing_trust_scope_nonempty"),
+        Index("ix_listing_trust_listing_revision", "listing_id", "checked_revision", "removed_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    checked_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(240), nullable=False)
+    checked_at: Mapped[date] = mapped_column(Date, nullable=False)
+    scope: Mapped[str] = mapped_column(String(240), nullable=False)
+    created_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    removed_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
 

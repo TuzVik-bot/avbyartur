@@ -17,6 +17,9 @@ describe("listing contact channels", () => {
       { channel: "telegram", uri: "https://t.me/seller", opted_in: true },
       { channel: "viber", uri: "https://viber.me/seller", opted_in: true },
       { channel: "viber", uri: "viber://chat?number=375290000000", opted_in: true },
+      { channel: "telegram", uri: "https://telegram.org/sellername", opted_in: true },
+      { channel: "telegram", uri: "https://t.me/sellername/extra", opted_in: true },
+      { channel: "viber", uri: "https://chat.viber.com/seller", opted_in: true },
       { channel: "telegram", uri: "https://t.me/not-opted-in", opted_in: false }
     ] }));
     expect(html).toContain("Telegram");
@@ -24,6 +27,9 @@ describe("listing contact channels", () => {
     expect(html).toContain("Viber");
     expect(html).toContain("href=\"https://viber.me/seller\"");
     expect(html).not.toContain("href=\"viber://");
+    expect(html).not.toContain("telegram.org");
+    expect(html).not.toContain("/extra");
+    expect(html).not.toContain("chat.viber.com");
     expect(html).not.toContain("not-opted-in");
   });
 
