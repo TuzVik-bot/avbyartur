@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -47,6 +47,8 @@ def contact_click(
             return {"accepted": True, "recorded": False}
         capture_safe_error("analytics", type(exc).__name__)
         return {"accepted": True, "recorded": False}
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001 - analytics must fail open.
         db.rollback()
         capture_safe_error("analytics", type(exc).__name__)
@@ -66,6 +68,8 @@ def report_frontend_error(
             "frontend", payload.error_type, release_id=payload.release_id, breadcrumbs=payload.breadcrumbs
         )
         return {"accepted": True, "recorded": recorded}
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001 - optional monitoring must fail open.
         db.rollback()
         capture_safe_error("analytics", type(exc).__name__)

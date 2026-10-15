@@ -216,3 +216,32 @@ def test_contact_click_endpoint_reports_skipped_listing_as_not_recorded(monkeypa
     monkeypatch.setattr(analytics, "consume_rate_limit", lambda *_args, **_kwargs: None)
     request = Request({"type": "http", "method": "POST", "path": "/", "headers": [], "client": ("127.0.0.1", 1), "server": ("test", 80), "scheme": "http", "query_string": b""})
     assert analytics.contact_click(payload(), request, FakeDb(SimpleNamespace(id=uuid4(), status="draft")), "granted") == {"accepted": True, "recorded": False}
+
+
+@pytest.mark.parametrize(
+    ("path", "body", "headers"),
+    [
+        ("/api/v1/analytics/events", {"listing_id": str(uuid4()), "channel": "phone", "occurred_at": datetime.now(timezone.utc).isoformat(), "dedup_id": str(uuid4())}, {"X-Analytics-Consent": "granted"}),
+        ("/api/v1/analytics/errors", {"error_type": "TypeError", "release_id": "test-release", "breadcrumbs": []}, {}),
+    ],
+)
+def test_analytics_routes_preserve_rate_limit_429(monkeypatch, path, body, headers):
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+    from app.api import analytics
+    from app.db import get_db
+
+    app = FastAPI()
+    app.include_router(analytics.router)
+
+    def override_db():
+        yield FakeDb()
+
+    def rate_limited(*_args, **_kwargs):
+        raise HTTPException(status_code=429, detail="Too many requests")
+
+    app.dependency_overrides[get_db] = override_db
+    monkeypatch.setattr(analytics, "consume_rate_limit", rate_limited)
+    response = TestClient(app).post(path, json=body, headers=headers)
+    assert response.status_code == 429
+    assert response.json()["detail"] == "Too many requests"
