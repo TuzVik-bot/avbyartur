@@ -41,6 +41,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   const [phoneError, setPhoneError] = useState("");
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [guestContactRevealEnabled, setGuestContactRevealEnabled] = useState(false);
+  const [canManageActiveListing, setCanManageActiveListing] = useState(false);
   const actualPhotos = listing.photo_urls.filter(Boolean).slice(0, MAX_GALLERY_PHOTOS);
   const photos = actualPhotos.length ? actualPhotos : [listing.cover_url || fallbackPhoto];
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
@@ -94,6 +95,19 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
     });
     return () => { current = false; };
   }, []);
+
+  useEffect(() => {
+    let current = true;
+    setCanManageActiveListing(false);
+    if (listing.status !== "active" || !user) return () => { current = false; };
+    api.listingPromotionEligibility(listing.id).then(({ promotable }) => {
+      if (!current) return;
+      setCanManageActiveListing(promotable);
+    }).catch(() => {
+      if (current) setCanManageActiveListing(false);
+    });
+    return () => { current = false; };
+  }, [listing.id, listing.seller.id, listing.seller.type, listing.status, user?.id]);
 
   useEffect(() => {
     setSelectedPhotoIndex((current) => Math.min(current, photos.length - 1));
@@ -170,7 +184,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
           </> : <ListingContactActions active={false} guestContactRevealEnabled={false} phone="" busy={false} error="" onReveal={() => undefined} />}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
-          {listing.status === "active" && user?.id === listing.seller.id && <Link className="button button-secondary contact-chat" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}
+          {canManageActiveListing && <Link className="button button-secondary contact-chat" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}
           <div className="detail-actions">
             <CompareButton listingId={listing.id} />
             <ShareButton href={href} title={listing.title} />

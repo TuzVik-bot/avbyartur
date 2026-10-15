@@ -44,6 +44,15 @@ export default async function AccountListingsPage({ searchParams }: { searchPara
   if (data?.pagination && requestedPage > pageCount) redirect(pageUrl(pageCount));
   const page = Math.min(data?.pagination?.page ?? requestedPage, pageCount);
   const listings = data?.items ?? null;
+  const promotionEligibility = await Promise.all((listings ?? []).filter((listing) => listing.status === "active").map(async (listing) => {
+    try {
+      const eligibility = await serverApi.listingPromotionEligibility(listing.id);
+      return eligibility.promotable ? listing.id : null;
+    } catch {
+      return null;
+    }
+  }));
+  const promotableListingIds = new Set(promotionEligibility.filter((id): id is string => id !== null));
   return (
     <div className="page-width">
       <header className="page-head"><p className="eyebrow">Личный кабинет</p><h1>Мои объявления</h1></header>
@@ -53,7 +62,7 @@ export default async function AccountListingsPage({ searchParams }: { searchPara
           const catalogTitle = [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ");
           const title = listing.title?.trim() || catalogTitle || "Черновик без выбранного автомобиля";
           return <article className="account-list-item" key={listing.id}>
-          <div><h2><Link href={`/sell?listing=${encodeURIComponent(listing.id)}`}>{title}</Link></h2><p className="muted">{formatMoney(listing.price)} · ревизия {listing.revision}</p><span className={`status-pill status-${listing.status}`}>{statusLabels[listing.status] || listing.status}</span>{listing.status === "rejected" && <><p className="inline-error">Исправьте замечания и отправьте объявление повторно.</p>{listing.moderation_reason?.trim() && <p className="inline-error" role="alert">Причина отклонения: {listing.moderation_reason}</p>}</>}<div className="form-actions listing-owner-links"><Link className="button button-secondary button-small" href={`/account/listings/analytics?listing_id=${encodeURIComponent(listing.id)}`}>Статистика</Link>{listing.status === "active" && <Link className="button button-secondary button-small" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}</div></div>
+          <div><h2><Link href={`/sell?listing=${encodeURIComponent(listing.id)}`}>{title}</Link></h2><p className="muted">{formatMoney(listing.price)} · ревизия {listing.revision}</p><span className={`status-pill status-${listing.status}`}>{statusLabels[listing.status] || listing.status}</span>{listing.status === "rejected" && <><p className="inline-error">Исправьте замечания и отправьте объявление повторно.</p>{listing.moderation_reason?.trim() && <p className="inline-error" role="alert">Причина отклонения: {listing.moderation_reason}</p>}</>}<div className="form-actions listing-owner-links"><Link className="button button-secondary button-small" href={`/account/listings/analytics?listing_id=${encodeURIComponent(listing.id)}`}>Статистика</Link>{promotableListingIds.has(listing.id) && <Link className="button button-secondary button-small" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}</div></div>
           <ListingStatusActions listing={listing} />
         </article>;
         })}

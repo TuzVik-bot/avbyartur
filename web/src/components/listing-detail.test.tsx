@@ -3,10 +3,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ListingDetail } from "@/components/listing-detail";
 import { api, ApiClientError } from "@/lib/api";
-import type { Listing } from "@/lib/types";
+import type { Listing, User } from "@/lib/types";
 
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
-const authMocks = vi.hoisted(() => ({ user: null as { id: string } | null }));
+const authMocks = vi.hoisted(() => ({ user: null as User | null }));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>
@@ -161,17 +161,43 @@ describe("contact reveal", () => {
 });
 
 describe("owner promotion entry", () => {
-  it("shows the listing promotion entry only to its owner", async () => {
-    await act(async () => root.render(createElement(ListingDetail, { listing })));
-    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
+  async function renderWithEligibility(promotable: boolean, targetListing = listing) {
+    vi.spyOn(api, "listingPromotionEligibility").mockResolvedValueOnce({ promotable });
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing: targetListing }));
+      await Promise.resolve();
+    });
+  }
 
-    authMocks.user = { id: "another-user" };
-    await act(async () => root.render(createElement(ListingDetail, { listing })));
-    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
-
-    authMocks.user = { id: listing.seller.id };
-    await act(async () => root.render(createElement(ListingDetail, { listing })));
+  it("shows the CTA when the protected listing-specific eligibility check permits it", async () => {
+    authMocks.user = { id: "seller-1" } as User;
+    await renderWithEligibility(true);
+    expect(api.listingPromotionEligibility).toHaveBeenCalledWith("listing-1");
     expect(container.querySelector<HTMLAnchorElement>('a[href="/account/billing?listing_id=listing-1"]')?.textContent).toContain("Услуги продвижения");
+  });
+
+  it("uses the server result for a company listing rather than user company summary fields", async () => {
+    const companyListing = { ...listing, seller: { id: "company-1", type: "company" as const, name: "Автосалон" } };
+    authMocks.user = { id: "seller-user", company_id: "company-1", company_role: "viewer" } as User;
+    await renderWithEligibility(false, companyListing);
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
+  });
+
+  it("hides the CTA for a viewer or a user from another company when the server denies access", async () => {
+    const companyListing = { ...listing, seller: { id: "company-1", type: "company" as const, name: "Автосалон" } };
+    authMocks.user = { id: "viewer-user", company_id: "company-1", company_role: "viewer" } as User;
+    await renderWithEligibility(false, companyListing);
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
+
+    authMocks.user = { id: "foreign-user", company_id: "company-2", company_role: "admin" } as User;
+    await renderWithEligibility(false, companyListing);
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
+  });
+
+  it("does not expose promotion for a listing outside the active state", async () => {
+    authMocks.user = { id: "seller-1" } as User;
+    await renderWithEligibility(false, { ...listing, status: "paused" });
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
   });
 });
 

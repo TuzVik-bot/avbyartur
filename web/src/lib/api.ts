@@ -269,6 +269,7 @@ export const api = {
   listingOptions: () => apiRequest<ListingOptions>("listing-options"),
   listingValidationPolicy: () => apiRequest<ListingValidationPolicy>("listing-validation-policy"),
   createBillingOrder: (data: components["schemas"]["BillingOrderCreate"], idempotencyKey?: string) => apiRequest<components["schemas"]["BillingCheckoutOut"]>("billing/orders", { method: "POST", body: JSON.stringify(data), headers: idempotencyHeaders(idempotencyKey) }),
+  listingPromotionEligibility: (listingId: string) => apiRequest<{ promotable: boolean }>(`billing/listings/${encodeURIComponent(listingId)}/eligibility`),
   regions: () => apiRequest<{ items: CatalogItem[] }>("locations/regions"),
   cities: (regionId: string) => apiRequest<{ items: CatalogItem[] }>(`locations/cities?region_id=${encodeURIComponent(regionId)}`),
   myListings: () => apiRequest<ListResponse<Listing>>("me/listings"),

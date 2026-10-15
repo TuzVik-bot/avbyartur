@@ -238,6 +238,8 @@ const fieldErrorLabels: Partial<Record<FieldErrorKey, string>> = {
   city_id: "населённый пункт",
   manual_city: "населённый пункт",
   contact_phone: "контактный телефон",
+  telegram_contact_url: "ссылку Telegram",
+  viber_contact_url: "ссылку Viber",
   photos: "фотографии"
 };
 
@@ -259,6 +261,8 @@ const localFieldMessages: Partial<Record<FieldErrorKey, string>> = {
   city_id: "Выберите населённый пункт из списка.",
   manual_city: "Укажите населённый пункт.",
   contact_phone: "Укажите контактный телефон.",
+  telegram_contact_url: "Укажите ссылку Telegram вида https://t.me/имя пользователя.",
+  viber_contact_url: "Укажите ссылку Viber вида https://viber.me/имя пользователя.",
   photos: "Добавьте хотя бы одну обработанную фотографию."
 };
 
@@ -287,6 +291,8 @@ const fieldSteps: Partial<Record<FieldErrorKey, number>> = {
   city_id: 4,
   manual_city: 4,
   contact_phone: 4,
+  telegram_contact_url: 4,
+  viber_contact_url: 4,
   photos: 5
 };
 
@@ -307,6 +313,24 @@ function mileageErrorFor(value: string) {
   return Number.isInteger(mileage) && mileage >= 0 && mileage <= 5_000_000
     ? ""
     : "Укажите целое число от 0 до 5 000 000 км.";
+}
+
+function contactChannelError(value: string, channel: "telegram" | "viber") {
+  if (!value.trim()) return "";
+  let url: URL;
+  try { url = new URL(value.trim()); } catch { return "Укажите корректную HTTPS-ссылку на контакт."; }
+  const segments = url.pathname.split("/").filter(Boolean);
+  const host = url.hostname.toLowerCase();
+  const validBase = url.protocol === "https:" && !url.port && !url.username && !url.password && !url.search && !url.hash && segments.length === 1;
+  if (!validBase) return "Укажите корректную HTTPS-ссылку на контакт.";
+  if (channel === "telegram") {
+    return ["t.me", "telegram.me"].includes(host) && /^[A-Za-z0-9_]{5,32}$/.test(segments[0])
+      ? ""
+      : "Укажите публичную ссылку Telegram с t.me или telegram.me.";
+  }
+  return ["viber.me", "viber.com", "www.viber.com"].includes(host) && /^[A-Za-z0-9_.+-]{1,160}$/.test(segments[0])
+    ? ""
+    : "Укажите ссылку Viber с viber.me или viber.com.";
 }
 
 function pause(ms: number) {
@@ -854,6 +878,10 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
         return { message: "Выберите населённый пункт из списка или укажите вручную.", fields: [cityField], focusField: cityField };
       }
       if (!fields.contact_phone.trim()) return { message: "Укажите контактный телефон.", fields: ["contact_phone"], focusField: "contact_phone" };
+      for (const [field, channel] of [["telegram_contact_url", "telegram"], ["viber_contact_url", "viber"]] as const) {
+        const channelError = contactChannelError(fields[field], channel);
+        if (channelError) return { message: channelError, fields: [field], focusField: field, messages: { [field]: channelError } };
+      }
     }
     if (target === 5) {
       if (!validationPolicy) {
@@ -1174,8 +1202,8 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
         <label className="field"><span>Способ выбора населённого пункта</span><select aria-label="Источник населённого пункта" value={fields.city_mode} onChange={(event) => changeCityMode(event.target.value as FormFields["city_mode"])} disabled={!fields.region_id}><option value="catalog">Из справочника</option><option value="manual">Нет в справочнике</option></select></label>
         {fields.city_mode === "manual" ? <label className="field"><span>Населённый пункт</span><input {...fieldProps("manual_city")} aria-label="Населённый пункт вручную" value={fields.manual_city} onChange={(event) => update("manual_city", event.target.value)} maxLength={160} required disabled={!fields.region_id} />{fieldError("manual_city")}</label> : <label className="field"><span>Населённый пункт</span><select {...fieldProps("city_id")} value={fields.city_id} onChange={(event) => update("city_id", event.target.value)} disabled={!fields.region_id || !cities.length} required><option value="">Выберите населённый пункт</option>{cities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("city_id")}</label>}
         <label className="field wide"><span>Телефон для связи</span><input {...fieldProps("contact_phone")} type="tel" autoComplete="tel" value={fields.contact_phone} onChange={(event) => update("contact_phone", event.target.value)} required maxLength={32} /><small className="muted">Номер не появится в выдаче. Покупатель откроет его отдельной кнопкой.</small>{fieldError("contact_phone")}</label>
-        <label className="field"><span>Telegram для связи <small className="muted">необязательно</small></span><input id="telegram_contact_url" type="url" inputMode="url" autoComplete="url" placeholder="https://t.me/имя" maxLength={240} value={fields.telegram_contact_url} onChange={(event) => update("telegram_contact_url", event.target.value)} /></label>
-        <label className="field"><span>Viber для связи <small className="muted">необязательно</small></span><input id="viber_contact_url" type="url" inputMode="url" autoComplete="url" placeholder="https://viber.me/имя" maxLength={240} value={fields.viber_contact_url} onChange={(event) => update("viber_contact_url", event.target.value)} /></label>
+        <label className="field"><span>Telegram для связи <small className="muted">необязательно</small></span><input {...fieldProps("telegram_contact_url")} type="url" inputMode="url" autoComplete="url" placeholder="https://t.me/имя" maxLength={320} value={fields.telegram_contact_url} onChange={(event) => update("telegram_contact_url", event.target.value)} />{fieldError("telegram_contact_url")}</label>
+        <label className="field"><span>Viber для связи <small className="muted">необязательно</small></span><input {...fieldProps("viber_contact_url")} type="url" inputMode="url" autoComplete="url" placeholder="https://viber.me/имя" maxLength={320} value={fields.viber_contact_url} onChange={(event) => update("viber_contact_url", event.target.value)} />{fieldError("viber_contact_url")}</label>
         <p className="muted wide">Ссылки на мессенджеры будут доступны покупателю вместе с телефоном только после его явного запроса контактов.</p>
       </div></section>}
 

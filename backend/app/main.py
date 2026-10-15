@@ -106,6 +106,7 @@ ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
     ("/api/v1/dealer/feed-imports/{run_id}/rows", "get"): (401, 403, 404),
     ("/api/v1/auth/login", "post"): (401, 429),
     ("/api/v1/billing/orders", "post"): (401, 403, 404, 409, 422, 503),
+    ("/api/v1/billing/listings/{listing_id}/eligibility", "get"): (401, 403, 404, 422),
     ("/api/v1/billing/orders", "get"): (401, 403, 422),
     ("/api/v1/billing/orders/{order_id}", "get"): (401, 403, 404),
     ("/api/v1/billing/callbacks/{provider_name}", "post"): (401, 404, 409, 413, 422, 503),

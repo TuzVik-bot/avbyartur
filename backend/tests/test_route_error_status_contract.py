@@ -55,6 +55,7 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     ("/api/v1/listings/{listing_id}/analytics", "get"): {"401", "403", "404", "422"},
     ("/api/v1/billing/tariffs", "get"): set(),
     ("/api/v1/billing/orders", "post"): {"401", "403", "404", "409", "422", "503"},
+    ("/api/v1/billing/listings/{listing_id}/eligibility", "get"): {"401", "403", "404", "422"},
     ("/api/v1/billing/orders", "get"): {"401", "403", "422"},
     ("/api/v1/billing/orders/{order_id}", "get"): {"401", "403", "404"},
     ("/api/v1/billing/callbacks/{provider_name}", "post"): {"401", "404", "409", "413", "422", "503"},

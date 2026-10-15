@@ -36,6 +36,7 @@ export const serverApi = {
     return serverApiRequest<components["schemas"]["ListingAnalyticsOut"]>(`listings/${encodeURIComponent(id)}/analytics${query ? `?${query}` : ""}`);
   },
   billingTariffs: () => serverApiRequest<components["schemas"]["BillingTariffOut"][]>("billing/tariffs"),
+  listingPromotionEligibility: (listingId: string) => serverApiRequest<{ promotable: boolean }>(`billing/listings/${encodeURIComponent(listingId)}/eligibility`),
   billingOrders: (page = 1, pageSize = 25) => serverApiRequest<components["schemas"]["BillingOrderListOut"]>(`billing/orders?page=${page}&page_size=${pageSize}`),
   billingOrder: (id: string) => serverApiRequest<components["schemas"]["BillingOrderOut"]>(`billing/orders/${encodeURIComponent(id)}`),
   catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: Record<string, string> = {}) => {

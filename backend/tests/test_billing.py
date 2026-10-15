@@ -232,10 +232,30 @@ def test_billing_routes_scope_orders_and_expose_only_owner_configured_prices(int
     user = add_user(factory, "billing-route-owner")
     other = add_user(factory, "billing-route-other")
     listing = add_listing(factory, user.id)
+    company = add_company(factory, user.id)
+    company_listing = models.Listing(
+        owner_id=user.id,
+        company_id=company.id,
+        slug=f"billing-company-{uuid.uuid4().hex}",
+        title="Billing company listing",
+        description="Billing company listing",
+        contact_phone="+375291234567",
+        status="active",
+        revision=1,
+    )
+    viewer = add_user(factory, "billing-route-viewer")
+    seller = add_user(factory, "billing-route-seller")
+    with factory() as db:
+        db.add(company_listing)
+        db.add(models.DealerTeamMember(company_id=company.id, user_id=viewer.id, role="viewer", status="active", granted_by=user.id))
+        db.add(models.DealerTeamMember(company_id=company.id, user_id=seller.id, role="seller", status="active", granted_by=user.id))
+        db.commit()
     tariff = add_tariff(factory)
     provider = FakePaymentProvider()
     client = billing_client(integration, provider)
     other_client = billing_client(integration, provider)
+    viewer_client = billing_client(integration, provider)
+    seller_client = billing_client(integration, provider)
 
     tariffs = client.get("/api/v1/billing/tariffs")
     assert tariffs.status_code == 200, tariffs.text
@@ -243,6 +263,16 @@ def test_billing_routes_scope_orders_and_expose_only_owner_configured_prices(int
 
     csrf = login(client, user.email)
     login(other_client, other.email)
+    login(viewer_client, viewer.email)
+    login(seller_client, seller.email)
+    eligibility = client.get(f"/api/v1/billing/listings/{listing.id}/eligibility")
+    assert eligibility.status_code == 200, eligibility.text
+    assert eligibility.json() == {"promotable": True}
+    assert other_client.get(f"/api/v1/billing/listings/{listing.id}/eligibility").status_code == 404
+    assert client.get(f"/api/v1/billing/listings/{company_listing.id}/eligibility").json() == {"promotable": True}
+    assert seller_client.get(f"/api/v1/billing/listings/{company_listing.id}/eligibility").json() == {"promotable": True}
+    assert viewer_client.get(f"/api/v1/billing/listings/{company_listing.id}/eligibility").status_code == 403
+    assert other_client.get(f"/api/v1/billing/listings/{company_listing.id}/eligibility").status_code == 404
     payload = {"listing_id": str(listing.id), "tariff_id": str(tariff.id)}
     missing_csrf = client.post(
         "/api/v1/billing/orders", json=payload, headers={"Idempotency-Key": "route-no-csrf"},

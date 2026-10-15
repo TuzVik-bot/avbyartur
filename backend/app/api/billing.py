@@ -23,6 +23,7 @@ from app.billing_services import (
     list_user_orders,
     process_payment_callback,
 )
+from app.services import require_owned_listing
 from app.db import get_db
 from app.models import User, UserSession
 from app.services import fail
@@ -37,6 +38,17 @@ def active_tariffs(db: Annotated[Session, Depends(get_db)]) -> list:
     """Return only explicitly active, owner-provided price rows."""
 
     return list_active_tariffs(db)
+
+
+@router.get("/listings/{listing_id}/eligibility")
+def listing_promotion_eligibility(
+    listing_id: UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, bool]:
+    """Expose promotion availability only to a user authorized for this listing."""
+    listing = require_owned_listing(db, listing_id, user)
+    return {"promotable": listing.status == "active"}
 
 
 @router.post("/orders", response_model=BillingCheckoutOut)
