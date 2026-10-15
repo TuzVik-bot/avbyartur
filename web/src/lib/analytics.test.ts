@@ -31,3 +31,26 @@ describe("contact click analytics", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 });
+
+describe("frontend error reports", () => {
+  it("sends only error type, release, and allowlisted breadcrumbs", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetcher);
+    const { reportFrontendError } = await import("./analytics");
+    await expect(reportFrontendError({ errorType: "TypeError", releaseId: "abc123", breadcrumbs: ["contact_click"] })).resolves.toBe(true);
+    expect(fetcher).toHaveBeenCalledWith("/api/v1/analytics/errors", expect.objectContaining({ method: "POST" }));
+    const body = JSON.parse(String(fetcher.mock.calls[0][1].body));
+    expect(body).toEqual({ error_type: "TypeError", release_id: "abc123", breadcrumbs: ["contact_click"] });
+    expect(JSON.stringify(body)).not.toMatch(/url|stack|message|private/i);
+  });
+
+  it("fails closed for unapproved release IDs and fails open on transport errors", async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error("network failure"));
+    vi.stubGlobal("fetch", fetcher);
+    const { reportFrontendError } = await import("./analytics");
+    await expect(reportFrontendError({ errorType: "TypeError", releaseId: "https://secret.example", breadcrumbs: [] })).resolves.toBe(false);
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(reportFrontendError({ errorType: "TypeError", releaseId: "abc123", breadcrumbs: ["https://private.example"] as never })).resolves.toBe(false);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+});
