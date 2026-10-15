@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { ApiClientError, internalApiBase, searchPath } from "@/lib/api";
 import type { components } from "@/lib/types.generated";
-import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, Report, UserNotificationList } from "@/lib/types";
+import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, DealerReviews, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, Report, UserNotificationList } from "@/lib/types";
 import type { NotificationPreferences } from "@/lib/api";
 
 export async function serverApiRequest<T>(path: string): Promise<T> {
@@ -44,7 +44,8 @@ export const serverApi = {
     return serverApiRequest<{ items: CatalogItem[] }>(`catalog/${kind}${query ? `?${query}` : ""}`);
   },
   dealers: (page = 1) => serverApiRequest<ListResponse<CompanySummary>>(`dealers?${new URLSearchParams({ page: String(page) })}`),
-  dealer: (slug: string, page = 1) => serverApiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary> }>(`dealers/${encodeURIComponent(slug)}?${new URLSearchParams({ page: String(page) })}`),
+  publicStats: () => serverApiRequest<{ active_listings: number; approved_companies: number }>("public-stats"),
+  dealer: (slug: string, page = 1) => serverApiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary>; reviews: DealerReviews }>(`dealers/${encodeURIComponent(slug)}?${new URLSearchParams({ page: String(page) })}`),
   meListings: (page = 1, pageSize = 25) => {
     const query = new URLSearchParams({ page: String(page), page_size: String(pageSize) }).toString();
     return serverApiRequest<ListResponse<Listing>>(`me/listings?${query}`);

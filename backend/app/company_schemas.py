@@ -15,6 +15,7 @@ class PrivateCompanyOut(BaseModel):
     revision: int
     address: str
     business_hours: CompanyBusinessHours | None
+    logo_url: str | None = None
     moderation_reason: str | None
     unp: str
     phone: str
@@ -28,6 +29,31 @@ class PublicCompanyOut(BaseModel):
     revision: int
     address: str
     business_hours: CompanyBusinessHours | None
+    logo_url: str | None = None
+
+
+class DealerReviewOut(BaseModel):
+    id: UUID
+    rating: int
+    text: str
+    created_at: datetime
+
+
+class DealerReviewPrivateOut(DealerReviewOut):
+    status: Literal["pending", "published", "rejected", "hidden"]
+    revision: int
+    moderation_reason: str | None
+
+
+class DealerReviewsOut(BaseModel):
+    items: list[DealerReviewOut]
+    count: int
+    average_rating: float | None
+
+
+class DealerReviewListOut(BaseModel):
+    reviews: DealerReviewsOut
+    my_review: DealerReviewPrivateOut | None = None
 
 
 class MyCompanyResponse(BaseModel):
@@ -48,6 +74,11 @@ class CompanyPaginationOut(BaseModel):
 class DealerDirectoryResponse(BaseModel):
     items: list[PublicCompanyOut]
     pagination: CompanyPaginationOut
+
+
+class PublicMarketStatsOut(BaseModel):
+    active_listings: int
+    approved_companies: int
 
 
 class DealerCatalogItemOut(BaseModel):
@@ -145,3 +176,4 @@ class DealerListingsPageOut(BaseModel):
 class DealerDetailResponse(BaseModel):
     company: PublicCompanyOut
     listings: DealerListingsPageOut
+    reviews: DealerReviewsOut

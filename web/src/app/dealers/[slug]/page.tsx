@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ListingCard } from "@/components/listing-card";
+import { DealerReviews } from "@/components/dealer-reviews";
 import { ApiClientError } from "@/lib/api";
 import { getSavedListingIds, serverApi } from "@/lib/server-api";
 import { SITE_ORIGIN } from "@/lib/site-config";
+import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +65,7 @@ export default async function DealerPage({ params, searchParams }: { params: Pro
       <nav className="breadcrumb" aria-label="Хлебные крошки"><Link href="/">Главная</Link><span aria-hidden="true">›</span><Link href="/dealers">Компании</Link><span aria-hidden="true">›</span><span>{company.name}</span></nav>
       <header className="page-head">
         <p className="eyebrow">Автокомпания</p>
+        {company.logo_url && <img className={styles.companyLogo} src={company.logo_url} alt={`Логотип компании «${company.name}»`} width={128} height={128} />}
         <h1>{company.name}</h1>
         {company.status === "approved" && <p className="verified-state" role="status">Допущена к пилоту</p>}
         <address className="dealer-address">{company.address || "Адрес не указан"}</address>
@@ -79,6 +82,7 @@ export default async function DealerPage({ params, searchParams }: { params: Pro
           </table>
         </div> : <p className="muted" role="status">Режим работы не указан.</p>}
       </section>
+      <DealerReviews slug={company.slug} reviews={result.reviews} />
       <section className="section dealer-listings" aria-labelledby="dealer-listings-title">
         <div className="section-heading"><h2 id="dealer-listings-title">Автомобили компании</h2><span className="muted">{listings.pagination?.total ?? listings.items.length} объявлений</span></div>
         {listings.items.length ? <div className="listing-grid">{listings.items.map((listing) => <ListingCard key={listing.id} listing={listing} saved={savedIds.has(listing.id)} />)}</div> : <div className="empty-state"><h2>Активных автомобилей пока нет</h2><p className="muted">Новые объявления компании появятся после проверки.</p></div>}

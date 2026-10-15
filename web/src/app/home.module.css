@@ -4,6 +4,10 @@
   background: var(--surface);
   padding-bottom: 36px;
 }
+.marketStats { display: flex; align-items: center; justify-content: space-between; gap: 14px 24px; padding-block: 20px; color: var(--muted); }
+.marketStats p { margin: 0; }
+.marketStats strong { color: var(--ink); font-size: 20px; }
+.moderationNote { max-width: 300px; font-size: 13px; }
 .intro { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 48px; padding-block: 42px 32px; }
 .searchColumn { min-width: 0; }
 .eyebrow { margin-bottom: 12px; color: var(--muted); font-size: 13px; }
@@ -53,6 +57,8 @@
   .adSide { min-height: 430px; }
 }
 @media (max-width: 850px) {
+  .marketStats { flex-wrap: wrap; }
+  .moderationNote { flex-basis: 100%; max-width: none; }
   .intro { grid-template-columns: 1fr; gap: 28px; padding-top: 28px; }
   .adSide { min-height: 160px; margin: 0; padding: 18px 24px; }
   .adContent { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; padding: 14px 0 0; }

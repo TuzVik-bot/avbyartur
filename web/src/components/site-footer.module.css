@@ -1,0 +1,19 @@
+.inner { grid-template-columns: minmax(170px, auto) minmax(0, 1fr); }
+.links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px 24px; }
+.group, .legal { min-width: 0; color: var(--muted); font-size: 13px; }
+.group ul, .legal ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.group a, .legal a { min-height: 36px; display: inline-flex; align-items: center; overflow-wrap: anywhere; }
+.legal summary { cursor: pointer; list-style: none; }
+.legal summary::-webkit-details-marker { display: none; }
+.legal summary::after { content: "＋"; display: inline-block; margin-left: 8px; font-size: 14px; }
+.legal[open] summary::after { content: "−"; }
+.inner :global(.channels) { grid-column: 1 / -1; }
+
+@media (max-width: 800px) {
+  .inner { grid-template-columns: 1fr; }
+  .links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+  .links { grid-template-columns: 1fr; }
+}

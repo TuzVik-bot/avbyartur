@@ -190,12 +190,18 @@ export type ListResponse<T> = {
 
 export type Company = Omit<components["schemas"]["PrivateCompanyOut"], "status"> & {
   status: "pending" | "approved" | "rejected" | "blocked";
+  logo_url?: string | null;
 };
 
 export type CompanySummary = Omit<components["schemas"]["PublicCompanyOut"], "status"> & {
   status: "pending" | "approved" | "rejected" | "blocked";
   listing_count?: number;
+  logo_url?: string | null;
 };
+
+export type DealerReview = { id: string; rating: number; text: string; created_at: string };
+export type DealerReviewPrivate = DealerReview & { status: "pending" | "published" | "rejected" | "hidden"; revision: number; moderation_reason: string | null };
+export type DealerReviews = { items: DealerReview[]; count: number; average_rating: number | null };
 
 export type Report = {
   id: string;

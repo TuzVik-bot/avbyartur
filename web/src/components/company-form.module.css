@@ -1,0 +1,5 @@
+.logoControl { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; }
+.logoControl h3 { margin: 0 0 4px; }
+.logoControl p { margin: 0; }
+.logoPreview { width: 96px; height: 96px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.logoControl label { cursor: pointer; }

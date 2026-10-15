@@ -16,13 +16,14 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const [listingResult, makeResult, regionResult, bodyTypeResult, savedListingIdsResult, dealerResult] = await Promise.allSettled([
+  const [listingResult, makeResult, regionResult, bodyTypeResult, savedListingIdsResult, dealerResult, statsResult] = await Promise.allSettled([
     serverApi.listings({ page_size: "9", sort: "newest" }),
     serverApi.catalog("makes"),
     serverApi.regions(),
     serverApi.catalog("body-types"),
     getSavedListingIds(),
-    serverApi.dealers(1)
+    serverApi.dealers(1),
+    serverApi.publicStats()
   ]);
   const listings: (ListResponse<ListingSummary> & { fx?: unknown }) | null = listingResult.status === "fulfilled" ? listingResult.value : null;
   const makes: CatalogItem[] = makeResult.status === "fulfilled" ? makeResult.value.items : [];
@@ -32,6 +33,7 @@ export default async function HomePage() {
   const failed = listingResult.status === "rejected";
   const dealers: ListResponse<CompanySummary> | null = dealerResult.status === "fulfilled" ? dealerResult.value : null;
   const dealersFailed = dealerResult.status === "rejected";
+  const marketStats = statsResult.status === "fulfilled" ? statsResult.value : null;
   const makesFailed = makeResult.status === "rejected";
   return (
     <div className={styles.home}>
@@ -51,6 +53,13 @@ export default async function HomePage() {
           <div className={styles.adContent}><span className={styles.adSymbol} aria-hidden="true">↗</span><h2>Здесь может быть<br /> ваша реклама</h2><p>Место для вашего бренда<br />на главной странице</p><Link href="/partner">О сотрудничестве <ArrowRight size={16} aria-hidden="true" /></Link></div>
           <span className={styles.adFootnote}>Баннер партнёра</span>
         </aside>
+      </section>
+      <section className={`page-width ${styles.marketStats}`} aria-label="Состояние авторынка">
+        {marketStats ? <>
+          <p>Активных объявлений: <strong>{marketStats.active_listings.toLocaleString("ru-RU")}</strong></p>
+          <p>Допущенные компании: <strong>{marketStats.approved_companies.toLocaleString("ru-RU")}</strong></p>
+          <p className={styles.moderationNote}>Модерация проверяет сведения перед публикацией.</p>
+        </> : <p className="notice" role="status">Статистика временно недоступна.</p>}
       </section>
       <div className="page-width"><aside className={styles.adWide} aria-label="Горизонтальное место под рекламу"><div><span className={styles.adLabel}>Рекламное место</span><p>Ваш бренд на пути к новому автомобилю</p></div><Link href="/partner">О сотрудничестве <ArrowRight size={16} aria-hidden="true" /></Link></aside></div>
       <section className={`page-width section ${styles.listings}`}>

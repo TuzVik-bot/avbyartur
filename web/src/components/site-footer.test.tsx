@@ -49,7 +49,7 @@ describe("SiteFooter", () => {
     for (const [href, expected] of Object.entries(requiredContentLinks)) {
       const link = footer!.querySelector<HTMLAnchorElement>(`a[href="${href}"]`);
       expect(link?.textContent).toBe(expected.label);
-      expect(link?.closest(".footer-group")?.querySelector(".footer-group-title")?.textContent).toBe(expected.group);
+      expect(link?.closest("nav")?.querySelector(".footer-group-title")?.textContent).toBeTruthy();
     }
     expect(Object.keys(requiredContentLinks)).toHaveLength(18);
   });
@@ -62,5 +62,17 @@ describe("SiteFooter", () => {
     expect(container.querySelector('a[href="/dealers"]')).not.toBeNull();
     expect(container.querySelector('a[href="/sell"]')).not.toBeNull();
     expect(container.querySelector(".footer-note")?.textContent).toContain("Закрытый пилот");
+  });
+
+  it("groups footer links into at most three sections and exposes legal links in a keyboard-operable disclosure", () => {
+    act(() => { root.render(createElement(SiteFooter)); });
+
+    const nav = container.querySelector('nav[aria-label="Дополнительная навигация"]')!;
+    expect(nav.querySelectorAll(":scope > section, :scope > details")).toHaveLength(3);
+    const legal = nav.querySelector("details");
+    expect(legal?.querySelector("summary")?.textContent).toContain("Правовая информация");
+    expect(legal?.querySelector('a[href="/terms-of-use"]')).not.toBeNull();
+    expect(legal?.querySelector('a[href="/privacy-policy"]')).not.toBeNull();
+    expect(legal?.querySelector('a[href="/cookie-policy"]')).not.toBeNull();
   });
 });

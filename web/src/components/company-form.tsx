@@ -5,6 +5,7 @@ import { ArrowRight, Clock3, RefreshCw, Save, ShieldCheck, TriangleAlert } from 
 import { useState } from "react";
 import { api, ApiClientError } from "@/lib/api";
 import type { Company, User } from "@/lib/types";
+import styles from "./company-form.module.css";
 
 type CompanyRole = NonNullable<User["company_role"]>;
 type CompanyHours = NonNullable<Company["business_hours"]>;
@@ -108,6 +109,7 @@ export function CompanyForm({ initialCompany, companyRole }: { initialCompany: C
   const [scheduleEnabled, setScheduleEnabled] = useState(Boolean(initialCompany?.business_hours));
   const [createdInThisForm, setCreatedInThisForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<FormError | null>(null);
   const [success, setSuccess] = useState("");
@@ -186,6 +188,25 @@ export function CompanyForm({ initialCompany, companyRole }: { initialCompany: C
     }
   }
 
+  async function uploadLogo(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file || !company) return;
+    setError(null);
+    setSuccess("");
+    setLogoBusy(true);
+    try {
+      const result = await api.uploadCompanyLogo(company.id, company.revision, file);
+      setCompany({ ...company, logo_url: result.logo_url, revision: result.revision });
+      setSuccess("Логотип обновлён.");
+    } catch (issue) {
+      setError(describeError(issue));
+    } finally {
+      setLogoBusy(false);
+      input.value = "";
+    }
+  }
+
   const status = company ? statusCopy[company.status] : null;
   const fieldError = (field: string) => error?.fieldErrors[field];
   const formKey = company ? `${company.id}-${company.revision}` : "new-company";
@@ -221,6 +242,13 @@ export function CompanyForm({ initialCompany, companyRole }: { initialCompany: C
       </div>}
 
       <form key={formKey} className="form-grid" onSubmit={submit}>
+        {company && <div className={`wide ${styles.logoControl}`}>
+          <div><h3>Логотип компании</h3><p className="muted">Загрузите JPEG, PNG или WebP. Изображение будет очищено от метаданных.</p></div>
+          {company.logo_url && <img className={styles.logoPreview} src={company.logo_url} alt={`Текущий логотип компании «${company.name}»`} width={96} height={96} />}
+          <label className="button button-secondary button-small">{logoBusy ? "Загружаем…" : company.logo_url ? "Заменить логотип" : "Загрузить логотип"}
+            <input name="company_logo" type="file" accept="image/jpeg,image/png,image/webp" disabled={!canEdit || logoBusy} onChange={uploadLogo} hidden />
+          </label>
+        </div>}
         <label className="field" htmlFor="company-name"><span>Название компании</span><input id="company-name" name="name" required maxLength={180} defaultValue={company?.name || ""} disabled={!canEdit} aria-invalid={Boolean(fieldError("name"))} aria-describedby={fieldError("name") ? "company-name-error" : undefined} />{fieldError("name") && <small id="company-name-error" className="inline-error">{fieldError("name")}</small>}</label>
         <label className="field" htmlFor="company-unp"><span>УНП</span><input id="company-unp" name="unp" required inputMode="numeric" pattern="[0-9]{9}" minLength={9} maxLength={9} defaultValue={company?.unp || ""} disabled={!canEdit} aria-invalid={Boolean(fieldError("unp"))} aria-describedby={fieldError("unp") ? "company-unp-error" : "company-unp-hint"} /><small id="company-unp-hint" className="muted">9 цифр; подлинность подтверждает модератор.</small>{fieldError("unp") && <small id="company-unp-error" className="inline-error">{fieldError("unp")}</small>}</label>
         <label className="field wide" htmlFor="company-address"><span>Юридический адрес</span><input id="company-address" name="address" required maxLength={300} defaultValue={company?.address || ""} disabled={!canEdit} aria-invalid={Boolean(fieldError("address"))} aria-describedby={fieldError("address") ? "company-address-error" : undefined} />{fieldError("address") && <small id="company-address-error" className="inline-error">{fieldError("address")}</small>}</label>

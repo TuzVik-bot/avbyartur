@@ -298,6 +298,16 @@ export const api = {
   updateCompany: (id: string, revision: number, data: components["schemas"]["CompanyInput"]) => apiRequest<{ company: Company }>(`companies/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ ...data, expected_revision: revision }) }),
   dealers: () => apiRequest<ListResponse<CompanySummary>>("dealers"),
   dealer: (slug: string) => apiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary> }>(`dealers/${encodeURIComponent(slug)}`),
+  myDealerReview: (slug: string) => apiRequest<{ review: import("@/lib/types").DealerReviewPrivate | null }>(`dealers/${encodeURIComponent(slug)}/reviews/mine`),
+  createDealerReview: (slug: string, data: { rating: number; text: string }) => apiRequest<{ review: import("@/lib/types").DealerReviewPrivate }>(`dealers/${encodeURIComponent(slug)}/reviews`, { method: "POST", body: JSON.stringify(data) }),
+  updateDealerReview: (id: string, data: { expected_revision: number; rating: number; text: string }) => apiRequest<{ review: import("@/lib/types").DealerReviewPrivate }>(`dealer-reviews/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(data) }),
+  reportDealerReview: (id: string, reason: string) => apiRequest<{ id: string; status: "open" | "resolved" }>(`dealer-reviews/${encodeURIComponent(id)}/reports`, { method: "POST", body: JSON.stringify({ reason }) }),
+  uploadCompanyLogo: (companyId: string, expectedRevision: number, file: File) => {
+    const data = new FormData();
+    data.set("expected_revision", String(expectedRevision));
+    data.set("file", file);
+    return apiRequest<{ logo_url: string; revision: number }>(`companies/${encodeURIComponent(companyId)}/logo`, { method: "PUT", body: data });
+  },
   trackDealerClick: (listingId: string) => apiRequest<{ accepted: true }>("dealer/clicks", { method: "POST", body: JSON.stringify({ listing_id: listingId, source: "listing_detail" }) }),
   moderationListings: () => apiRequest<{ items: Listing[] }>("moderation/listings"),
   moderateListing: (id: string, action: "approve" | "reject" | "block", revision: number, reason?: string) => apiRequest<{ listing: Listing }>(`moderation/listings/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify({ expected_revision: revision, ...(reason ? { reason } : {}) }) }),

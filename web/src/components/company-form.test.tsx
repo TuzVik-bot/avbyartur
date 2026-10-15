@@ -98,6 +98,22 @@ describe("company pilot status", () => {
     expect(container.querySelector('.form-actions [aria-live="polite"]')?.textContent).toContain("Изменения сохранены.");
   });
 
+  it("uploads a real logo with the current company revision", async () => {
+    const upload = vi.spyOn(api, "uploadCompanyLogo").mockResolvedValue({ logo_url: "/api/v1/company-logos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp", revision: 2 });
+    render({ ...pendingCompany, status: "approved" });
+    const input = container.querySelector<HTMLInputElement>('input[name="company_logo"]');
+    expect(input?.accept).toBe("image/jpeg,image/png,image/webp");
+    const file = new File([new Uint8Array([1, 2, 3])], "brand.png", { type: "image/png" });
+    await act(async () => {
+      Object.defineProperty(input, "files", { configurable: true, value: [file] });
+      input!.dispatchEvent(new Event("change", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(upload).toHaveBeenCalledWith("company-1", 1, file);
+    expect(container.querySelector('.form-actions [aria-live="polite"]')?.textContent).toContain("Логотип обновлён");
+  });
+
   it("creates a company and immediately presents the pending review state", async () => {
     const create = vi.spyOn(api, "createCompany").mockResolvedValue({ company: pendingCompany });
     render(null);

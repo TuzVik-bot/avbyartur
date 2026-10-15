@@ -1,9 +1,14 @@
 import hashlib
+import io
 import re
+import uuid
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi.responses import FileResponse
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -14,7 +19,10 @@ from app.company_schemas import (
     DealerDetailResponse,
     DealerDirectoryResponse,
     MyCompanyResponse,
+    PublicMarketStatsOut,
 )
+from app.config import get_settings
+from app.dealer_review_service import public_reviews
 from app.dealer_services import MANAGER_ROLES, require_company_role
 from app.db import get_db
 from app.models import AuditEvent, Company, DealerTeamMember, Listing, User, UserSession
@@ -22,6 +30,22 @@ from app.schemas import CompanyInput, CompanyPatchInput
 from app.services import check_revision, fail, lock_owner, serialize_listings
 
 router = APIRouter(prefix="/api/v1", tags=["companies"])
+
+
+@router.get("/public-stats", response_model=PublicMarketStatsOut)
+def public_stats(db: Annotated[Session, Depends(get_db)]) -> dict[str, int]:
+    active_listings = db.scalar(
+        select(func.count(Listing.id))
+        .join(User, Listing.owner_id == User.id)
+        .outerjoin(Company, Listing.company_id == Company.id)
+        .where(
+            Listing.status == "active",
+            User.status == "active",
+            (Listing.company_id.is_(None) | (Company.status == "approved")),
+        )
+    )
+    approved_companies = db.scalar(select(func.count(Company.id)).where(Company.status == "approved"))
+    return {"active_listings": int(active_listings or 0), "approved_companies": int(approved_companies or 0)}
 
 
 def _slug(name: str) -> str:
@@ -34,10 +58,91 @@ def _company_out(company: Company, *, private: bool) -> dict:
         "id": str(company.id), "name": company.name, "slug": company.slug,
         "status": company.status, "revision": getattr(company, "revision", 1), "address": company.address,
         "business_hours": company.business_hours,
+        "logo_url": f"/api/v1/company-logos/{company.logo_storage_name}" if company.logo_storage_name else None,
     }
     if private:
         result.update(unp=company.unp, phone=company.phone, moderation_reason=company.moderation_reason)
     return result
+
+
+def _logo_path(root: Path, filename: str) -> Path | None:
+    if not re.fullmatch(r"[a-f0-9]{32}\.webp", filename):
+        return None
+    base = root.resolve()
+    path = (base / "company-logos" / filename).resolve()
+    return path if path.is_relative_to(base) else None
+
+
+@router.put("/companies/{company_id}/logo")
+def upload_company_logo(
+    company_id: UUID,
+    file: Annotated[UploadFile, File()],
+    expected_revision: Annotated[int, Form(ge=1)],
+    user: Annotated[User, Depends(get_current_user)],
+    csrf: Annotated[UserSession, Depends(require_csrf)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    company, _role = require_company_role(db, company_id, user, MANAGER_ROLES, lock=True)
+    check_revision(company, expected_revision, "Company")
+    settings = get_settings()
+    raw = file.file.read(settings.upload_max_bytes + 1)
+    if len(raw) > settings.upload_max_bytes:
+        fail(413, "photo_too_large", "Logo exceeds the 20 MiB limit")
+    try:
+        with Image.open(io.BytesIO(raw)) as image:
+            if image.format not in {"JPEG", "PNG", "WEBP"}:
+                fail(415, "unsupported_photo", "Upload a JPEG, PNG, or WebP logo")
+            declared = (file.content_type or "").split(";", 1)[0].strip().lower()
+            allowed = {"JPEG": {"image/jpeg", "image/jpg"}, "PNG": {"image/png"}, "WEBP": {"image/webp"}}
+            if declared and declared != "application/octet-stream" and declared not in allowed[image.format]:
+                fail(415, "photo_mime_mismatch", "Logo content type does not match image data")
+            if image.width * image.height > 16_000_000:
+                fail(413, "photo_pixel_limit", "Logo exceeds the pixel limit")
+            image.verify()
+        with Image.open(io.BytesIO(raw)) as image:
+            clean = ImageOps.exif_transpose(image).convert("RGBA" if "A" in image.getbands() else "RGB")
+            clean.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+            output = io.BytesIO()
+            clean.save(output, format="WEBP", quality=88, method=5)
+            sanitized = output.getvalue()
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
+        fail(415, "invalid_photo", "Logo data is invalid")
+
+    storage_name = f"{uuid.uuid4().hex}.webp"
+    target = _logo_path(settings.media_root, storage_name)
+    if target is None:
+        fail(500, "media_storage_unavailable", "Logo storage is unavailable")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        target.parent.chmod(0o700)
+        target.write_bytes(sanitized)
+        target.chmod(0o600)
+    except OSError:
+        target.unlink(missing_ok=True)
+        fail(500, "media_storage_unavailable", "Logo storage is unavailable")
+    previous = company.logo_storage_name
+    company.logo_storage_name = storage_name
+    company.revision += 1
+    db.add(AuditEvent(actor_id=user.id, entity_type="company", entity_id=company.id, action="logo_updated", details={"revision": company.revision}))
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        target.unlink(missing_ok=True)
+        raise
+    if previous:
+        old_path = _logo_path(settings.media_root, previous)
+        if old_path:
+            old_path.unlink(missing_ok=True)
+    return {"logo_url": f"/api/v1/company-logos/{storage_name}", "revision": company.revision}
+
+
+@router.get("/company-logos/{storage_name}")
+def company_logo(storage_name: str) -> FileResponse:
+    path = _logo_path(get_settings().media_root, storage_name)
+    if path is None or not path.is_file():
+        fail(404, "not_found", "Company logo not found")
+    return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=3600"})
 
 
 def _is_duplicate_company_unp(error: IntegrityError) -> bool:
@@ -190,6 +295,7 @@ def dealer_detail(
     rows = db.scalars(query.offset((page - 1) * page_size).limit(page_size)).all()
     return {
         "company": _company_out(company, private=False),
+        **public_reviews(db, company.id),
         "listings": {
             "items": serialize_listings(db, rows),
             "pagination": {
