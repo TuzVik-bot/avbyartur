@@ -452,6 +452,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   const [marketEstimate, setMarketEstimate] = useState<MarketEstimate | null>(null);
   const [marketEstimateBusy, setMarketEstimateBusy] = useState(false);
   const [marketEstimateError, setMarketEstimateError] = useState("");
+  const marketEstimateRequestId = useRef(0);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const lastFocusedStep = useRef(step);
   const mileageInputRef = useRef<HTMLInputElement>(null);
@@ -686,39 +687,51 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
     return () => clearTimeout(timer);
   }, [currentSnapshot]);
 
+  function invalidateMarketEstimate() {
+    marketEstimateRequestId.current += 1;
+    setMarketEstimate(null);
+    setMarketEstimateError("");
+    setMarketEstimateBusy(false);
+  }
+
   function update<K extends keyof FormFields>(key: K, value: FormFields[K]) {
     setError("");
     clearFieldErrors(key);
     setFields((current) => ({ ...current, [key]: value }));
-    if (["make_id", "model_id", "generation_id", "body_type_id", "year", "mileage_km", "fuel", "transmission", "condition", "damaged", "parts_only", "seller_type"].includes(key)) setMarketEstimate(null);
+    if (["make_id", "model_id", "generation_id", "body_type_id", "year", "mileage_km", "fuel", "transmission", "condition", "damaged", "parts_only", "seller_type"].includes(key)) invalidateMarketEstimate();
   }
 
   async function estimateDraftPrice() {
-    if (fields.make_mode !== "catalog" || fields.model_mode !== "catalog" || !fields.make_id || !fields.model_id || !fields.body_type_id || !fields.year || !fields.mileage_km || !fields.fuel || !fields.transmission || !fields.condition) {
-      setMarketEstimateError("Заполните марку, модель, кузов, год, пробег, топливо, коробку передач и состояние.");
+    const mileage = Number(fields.mileage_km);
+    if (fields.make_mode !== "catalog" || fields.model_mode !== "catalog" || !fields.make_id || !fields.model_id || !fields.body_type_id || !fields.year.trim() || fields.mileage_km.trim() === "" || !Number.isInteger(mileage) || mileage < 0 || mileage > 5_000_000 || !fields.fuel || !fields.transmission || !fields.condition) {
+      invalidateMarketEstimate();
+      setMarketEstimateError("Укажите марку, модель, кузов, год, целый пробег от 0 до 5 000 000 км, топливо, коробку передач и состояние.");
       setMarketEstimate(null);
       return;
     }
+    const requestId = ++marketEstimateRequestId.current;
     setMarketEstimateBusy(true);
     setMarketEstimateError("");
     try {
       const estimate = await api.listingMarketEstimate({
         seller_type: fields.seller_type, make_id: fields.make_id, model_id: fields.model_id,
         generation_id: fields.generation_id || null, body_type_id: fields.body_type_id,
-        year: Number(fields.year), mileage_km: Number(fields.mileage_km), condition: fields.condition,
+        year: Number(fields.year), mileage_km: mileage, condition: fields.condition,
         fuel: fields.fuel, transmission: fields.transmission, damaged: fields.damaged, parts_only: fields.parts_only
       });
-      setMarketEstimate(estimate);
+      if (marketEstimateRequestId.current === requestId) setMarketEstimate(estimate);
     } catch {
-      setMarketEstimate(null);
-      setMarketEstimateError("Не удалось получить оценку. Повторите попытку позже.");
+      if (marketEstimateRequestId.current === requestId) {
+        setMarketEstimate(null);
+        setMarketEstimateError("Не удалось получить оценку. Повторите попытку позже.");
+      }
     } finally {
-      setMarketEstimateBusy(false);
+      if (marketEstimateRequestId.current === requestId) setMarketEstimateBusy(false);
     }
   }
 
   function changeMake(makeId: string) {
-    setMarketEstimate(null);
+    invalidateMarketEstimate();
     setError("");
     clearFieldErrors("make_id", "model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -734,7 +747,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeModel(modelId: string) {
-    setMarketEstimate(null);
+    invalidateMarketEstimate();
     setError("");
     clearFieldErrors("model_id", "generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -742,7 +755,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeMakeMode(mode: FormFields["make_mode"]) {
-    setMarketEstimate(null);
+    invalidateMarketEstimate();
     setError("");
     clearFieldErrors("make_id", "manual_make", "model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -762,7 +775,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeModelMode(mode: FormFields["model_mode"]) {
-    setMarketEstimate(null);
+    invalidateMarketEstimate();
     setError("");
     clearFieldErrors("model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -791,7 +804,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeGeneration(generationId: string) {
-    setMarketEstimate(null);
+    invalidateMarketEstimate();
     setError("");
     clearFieldErrors("generation_id", "modification_id", "body_variant_id");
     setBodyVariants([]);
@@ -800,7 +813,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
   }
 
   function changeModification(modificationId: string) {
-    setMarketEstimate(null);
+    invalidateMarketEstimate();
     const modification = modifications.find((item) => item.id === modificationId)
       || (initialListing?.modification?.id === modificationId ? initialListing.modification : undefined);
     setError("");
@@ -1263,7 +1276,7 @@ export function SellForm({ initialListing = null, makes, models: initialModels, 
         <dl className="review-list">
           <div><dt>Автомобиль</dt><dd>{title || "Выберите автомобиль"}{generation && ` · ${generation.name}`}{bodyType && ` · ${bodyType.name}`}</dd></div>
           {selectedBodyVariant && <div><dt>Вариант кузова</dt><dd>{selectedBodyVariant.name}</dd></div>}
-          <div><dt>Год и пробег</dt><dd>{fields.year || "—"} · {fields.mileage_km ? `${Number(fields.mileage_km).toLocaleString("ru-BY")} км` : "—"}</dd></div>
+          <div><dt>Год и пробег</dt><dd>{fields.year || "—"} · {fields.mileage_km.trim() ? `${Number(fields.mileage_km).toLocaleString("ru-BY")} км` : "—"}</dd></div>
           <div><dt>Топливо</dt><dd>{reviewFuelLabels[fields.fuel] || fields.fuel || "—"}</dd></div>
           <div><dt>Коробка передач</dt><dd>{reviewTransmissionLabels[fields.transmission] || fields.transmission || "—"}</dd></div>
           <div><dt>Привод</dt><dd>{reviewDriveLabels[fields.drive] || fields.drive || "—"}</dd></div>

@@ -177,7 +177,8 @@ function stubListingValidationPolicy(result: TestListingValidationPolicy | Error
 
 async function renderWithValidationPolicy(
   listing: Listing,
-  result: TestListingValidationPolicy | Error | Array<TestListingValidationPolicy | Error> = defaultValidationPolicy
+  result: TestListingValidationPolicy | Error | Array<TestListingValidationPolicy | Error> = defaultValidationPolicy,
+  bodyTypes: CatalogItem[] = []
 ) {
   const policyRequest = stubListingValidationPolicy(result);
   vi.spyOn(api, "listingOptions").mockResolvedValue({
@@ -192,7 +193,7 @@ async function renderWithValidationPolicy(
     root.render(createElement(SellForm, {
       initialListing: listing,
       makes: [listing.make!], models: [listing.model!], generations: [],
-      bodyTypes: [], regions: [listing.region!], cities: [listing.city!], company: null
+      bodyTypes, regions: [listing.region!], cities: [listing.city!], company: null
     }));
     await Promise.resolve();
     await Promise.resolve();
@@ -360,6 +361,61 @@ describe("listing validation policy", () => {
     expect(submitListing).not.toHaveBeenCalled();
     expect(container.querySelector("h2")?.textContent).toBe("Фотографии");
     expect(container.querySelector("#photos-error")?.textContent).toBe("Удалите фотографии с ошибкой обработки и загрузите их снова.");
+  });
+});
+
+describe("market price estimate", () => {
+  const bodyType: CatalogItem = { id: "body-sedan", slug: "sedan", name: "Седан" };
+  const estimate = {
+    available: true, median_byn: "12345.00", sample_size: 12, seller_count: 7,
+    as_of: "2026-10-15T00:00:00Z", rate_date: null
+  };
+
+  it("accepts zero mileage and submits it as a valid estimate characteristic", async () => {
+    const listing = draft({ body_type: bodyType.name, mileage_km: 0, contact_phone: "+375291234567" });
+    const request = vi.spyOn(api, "listingMarketEstimate").mockResolvedValue(estimate);
+    await renderWithValidationPolicy(listing, defaultValidationPolicy, [bodyType]);
+    for (let step = 0; step < 3; step += 1) await clickContinue();
+
+    await clickButton("Оценить по рынку");
+
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ mileage_km: 0 }));
+    expect(container.textContent).toMatch(/12\s345 BYN/);
+  });
+
+  it("ignores an estimate response after the seller changes vehicle characteristics", async () => {
+    const listing = draft({ body_type: bodyType.name, contact_phone: "+375291234567" });
+    let resolveEstimate!: (value: Awaited<ReturnType<typeof api.listingMarketEstimate>>) => void;
+    const pendingEstimate = new Promise<Awaited<ReturnType<typeof api.listingMarketEstimate>>>((resolve) => { resolveEstimate = resolve; });
+    vi.spyOn(api, "listingMarketEstimate").mockReturnValue(pendingEstimate);
+    await renderWithValidationPolicy(listing, defaultValidationPolicy, [bodyType]);
+    for (let step = 0; step < 3; step += 1) await clickContinue();
+
+    await clickButton("Оценить по рынку");
+    expect(container.textContent).toContain("Оцениваем…");
+    await clickButton("Назад");
+    await clickButton("Назад");
+    await act(async () => { inputValue("Пробег, км", "60000"); });
+    await act(async () => {
+      resolveEstimate({ ...estimate, median_byn: "888888.00" });
+      await pendingEstimate;
+    });
+
+    expect(container.textContent).not.toContain("888888");
+  });
+});
+
+describe("zero mileage preview", () => {
+  it("shows 0 km in the final review instead of treating it as missing", async () => {
+    const readyPhoto = { id: "ready-zero-mileage", status: "ready", position: 0, is_cover: true } as const;
+    const listing = draft({ mileage_km: 0, contact_phone: "+375291234567", photos: [readyPhoto] });
+    await renderWithValidationPolicy(listing);
+    for (let step = 0; step < 5; step += 1) await clickContinue();
+
+    const mileage = [...container.querySelectorAll<HTMLElement>(".review-list > div")]
+      .find((row) => row.querySelector("dt")?.textContent === "Год и пробег")
+      ?.querySelector("dd")?.textContent;
+    expect(mileage).toBe("2020 · 0 км");
   });
 });
 
