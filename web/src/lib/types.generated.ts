@@ -3841,6 +3841,8 @@ export interface components {
             views: number;
             /** Company Clicks */
             company_clicks: number;
+            /** Contact Clicks */
+            contact_clicks: number;
         };
         /** DealerAnalyticsOut */
         DealerAnalyticsOut: {
@@ -3870,6 +3872,8 @@ export interface components {
             views: number;
             /** Company Clicks */
             company_clicks: number;
+            /** Contact Clicks */
+            contact_clicks: number;
         };
         /** DealerCatalogItemOut */
         DealerCatalogItemOut: {
@@ -4625,6 +4629,8 @@ export interface components {
             contact_reveals: number;
             /** Chats */
             chats: number;
+            /** Contact Clicks */
+            contact_clicks: number;
         };
         /** ListingAnalyticsPeriodOut */
         ListingAnalyticsPeriodOut: {

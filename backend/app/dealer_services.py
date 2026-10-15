@@ -1,8 +1,9 @@
 from datetime import date, datetime, time, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect as sa_inspect, select
 from sqlalchemy.orm import Session
+from app.analytics_models import ContactClickEvent
 
 from app.models import (
     Company,
@@ -152,6 +153,7 @@ def dealer_analytics(
     chat_counts: dict[UUID, int] = {}
     view_counts: dict[UUID, int] = {}
     click_counts: dict[UUID, int] = {}
+    contact_click_counts: dict[UUID, int] = {}
     if listing_ids:
         reveal_counts = dict(db.execute(
             select(ContactReveal.listing_id, func.count(ContactReveal.id))
@@ -189,6 +191,12 @@ def dealer_analytics(
             )
             .group_by(DealerClickEvent.listing_id)
         ).all())
+        if sa_inspect(db.get_bind()).has_table("contact_click_events"):
+            contact_click_counts = dict(db.execute(
+                select(ContactClickEvent.listing_id, func.count(ContactClickEvent.id))
+                .where(ContactClickEvent.listing_id.in_(listing_ids), ContactClickEvent.created_at >= start, ContactClickEvent.created_at < end)
+                .group_by(ContactClickEvent.listing_id)
+            ).all())
 
     return {
         "period": {"start": date_from.isoformat(), "end": date_to.isoformat()},
@@ -199,6 +207,7 @@ def dealer_analytics(
             "chats": sum(chat_counts.values()),
             "views": sum(view_counts.values()),
             "company_clicks": sum(click_counts.values()),
+            "contact_clicks": sum(contact_click_counts.values()),
         },
         "items": [
             {
@@ -209,6 +218,7 @@ def dealer_analytics(
                 "chats": chat_counts.get(row.id, 0),
                 "views": view_counts.get(row.id, 0),
                 "company_clicks": click_counts.get(row.id, 0),
+                "contact_clicks": contact_click_counts.get(row.id, 0),
             }
             for row in listing_rows
         ],

@@ -26,8 +26,8 @@ describe("dealer analytics page", () => {
       .mockResolvedValueOnce({ items: [{ user_id: "owner-user", status: "active", role: "owner" }] })
       .mockResolvedValueOnce({
         period: { start: "2026-09-01", end: "2026-09-30" },
-        totals: { listings: 8, active_listings: 5, contact_reveals: 11, chats: 4, views: 230, company_clicks: 17 },
-        items: [{ listing_id: "listing-1", title: "Toyota Camry", status: "active", contact_reveals: 3, chats: 2, views: 70, company_clicks: 5 }]
+        totals: { listings: 8, active_listings: 5, contact_reveals: 11, chats: 4, views: 230, company_clicks: 17, contact_clicks: 9 },
+        items: [{ listing_id: "listing-1", title: "Toyota Camry", status: "active", contact_reveals: 3, chats: 2, views: 70, company_clicks: 5, contact_clicks: 2 }]
       });
     const html = renderToStaticMarkup(await DealerAnalyticsPage({ searchParams: Promise.resolve({ from: "2026-09-01", to: "2026-09-30" }) }));
     expect(mocks.requireSession).toHaveBeenCalledWith("/account/company/analytics");
@@ -37,6 +37,7 @@ describe("dealer analytics page", () => {
     expect(html).toContain("Переходов к компании");
     expect(html).toContain(">17<");
     expect(html).toContain("230");
+    expect(html).toContain(">9<");
     expect(html).toContain("Toyota Camry");
   });
 

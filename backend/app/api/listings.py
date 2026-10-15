@@ -63,6 +63,7 @@ from app.models import (
     User,
     UserSession,
 )
+from app.analytics_models import ContactClickEvent
 from app.schemas import (
     ApiErrorOut,
     ListingForm,
@@ -842,6 +843,11 @@ def listing_analytics(
             Conversation.created_at >= start,
             Conversation.created_at < end,
         )) or 0),
+        "contact_clicks": int(db.scalar(select(func.count(ContactClickEvent.id)).where(
+            ContactClickEvent.listing_id == listing.id,
+            ContactClickEvent.created_at >= start,
+            ContactClickEvent.created_at < end,
+        )) or 0) if sa_inspect(db.get_bind()).has_table("contact_click_events") else 0,
     }
     return {
         "listing_id": listing.id,

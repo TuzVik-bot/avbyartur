@@ -58,6 +58,7 @@ class DealerAnalyticsTotalsOut(BaseModel):
     chats: int
     views: int
     company_clicks: int
+    contact_clicks: int
 
 
 class DealerAnalyticsItemOut(BaseModel):
@@ -68,6 +69,7 @@ class DealerAnalyticsItemOut(BaseModel):
     chats: int
     views: int
     company_clicks: int
+    contact_clicks: int
 
 
 class DealerAnalyticsOut(BaseModel):

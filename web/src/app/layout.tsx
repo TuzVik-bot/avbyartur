@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/auth-provider";
 import { CompareProvider } from "@/components/compare-provider";
+import { ContactClickConsent, ContactClickConsentProvider } from "@/components/contact-click-consent";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SiteAssistant } from "@/components/site-assistant";
@@ -32,13 +33,14 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
       <body>
         <AuthProvider initialSession={initialSession}>
-          <CompareProvider>
+          <ContactClickConsentProvider><CompareProvider>
             <a className="skip-link" href="#main-content">{getMessage("layout.skipToMainContent", DEFAULT_LOCALE)}</a>
             <SiteHeader />
             <main id="main-content">{children}</main>
             <SiteFooter />
             <SiteAssistant />
-          </CompareProvider>
+            <ContactClickConsent />
+          </CompareProvider></ContactClickConsentProvider>
         </AuthProvider>
       </body>
     </html>

@@ -345,6 +345,7 @@ class ListingAnalyticsOut(BaseModel):
     views: int
     contact_reveals: int
     chats: int
+    contact_clicks: int
 
 
 class ListingOwnerDetailOut(BaseModel):

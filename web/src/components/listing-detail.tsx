@@ -8,6 +8,7 @@ import { AlertTriangle, Building2, ChevronRight, CircleUserRound, MapPin, Messag
 import { useAuth } from "@/components/auth-provider";
 import { FavoriteButton, ListingCard } from "@/components/listing-card";
 import { ListingContactActions } from "@/components/listing-contact-actions";
+import { useContactClickConsent } from "@/components/contact-click-consent";
 import { ListingTrust } from "@/components/listing-trust";
 import { SellerListings, type PublicSellerListing } from "@/components/seller-listings";
 import { CompareButton } from "@/components/compare-button";
@@ -15,6 +16,7 @@ import { ShareButton } from "@/components/share-button";
 import { api, ApiClientError } from "@/lib/api";
 import type { ListingMessengerChannel } from "@/lib/api";
 import { formatDate, formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
+import { trackContactClick, type ContactChannel } from "@/lib/analytics";
 import type { Listing, ReportCategory } from "@/lib/types";
 
 const fallbackPhoto = "/vehicles/silver-wagon.png";
@@ -36,6 +38,7 @@ const optionLabels: Record<string, string> = {
 export function ListingDetail({ listing, initialSaved = false, relatedListings = [], sellerListings = [] }: { listing: Listing; initialSaved?: boolean; relatedListings?: import("@/lib/types").ListingSummary[]; sellerListings?: PublicSellerListing[] }) {
   const router = useRouter();
   const { user } = useAuth();
+  const { consent } = useContactClickConsent();
   const [phone, setPhone] = useState("");
   const [messengers, setMessengers] = useState<ListingMessengerChannel[]>([]);
   const [phoneError, setPhoneError] = useState("");
@@ -145,6 +148,10 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
     }
   }
 
+  function recordContactClick(channel: ContactChannel) {
+    void trackContactClick({ listingId: listing.id, channel, consent });
+  }
+
   return (
     <div className="page-width detail-page">
       <nav className="breadcrumb" aria-label="Хлебные крошки">
@@ -180,8 +187,8 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           <p className="detail-price">{formatMoney(listing.price)}</p>
           {listing.price?.currency === "USD" && listing.price.display_byn && listing.price.rate_date && <p className="muted">В BYN по курсу на {formatDate(listing.price.rate_date)}</p>}
           {listing.status === "active" ? <>
-            <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} messengers={messengers} />
-            {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
+            <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} messengers={messengers} onContactClick={recordContactClick} />
+            {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref} onClick={() => recordContactClick("internal_chat")}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
           </> : <ListingContactActions active={false} guestContactRevealEnabled={false} phone="" busy={false} error="" onReveal={() => undefined} />}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
           {canManageActiveListing && <Link className="button button-secondary contact-chat" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}
