@@ -132,7 +132,7 @@ def test_guest_can_reveal_only_by_post_and_contact_event_has_no_user_or_raw_ip(i
         headers={"X-Guest-Contact-Token": token},
     )
     assert reveal.status_code == 200, reveal.text
-    assert reveal.json() == {"phone": PHONE}
+    assert reveal.json() == {"phone": PHONE, "messengers": []}
     assert reveal.headers["cache-control"] == "no-store, private, max-age=0"
     assert reveal.headers["pragma"] == "no-cache"
 
@@ -289,7 +289,7 @@ def test_authenticated_reveals_still_require_csrf_when_guest_mode_is_enabled(int
     assert without_csrf.status_code == 403, without_csrf.text
     with_csrf = client.post(path, headers={"X-CSRF-Token": login.json()["csrf_token"]})
     assert with_csrf.status_code == 200, with_csrf.text
-    assert with_csrf.json() == {"phone": PHONE}
+    assert with_csrf.json() == {"phone": PHONE, "messengers": []}
     with factory() as db:
         event = db.scalar(select(ContactReveal))
         assert event is not None

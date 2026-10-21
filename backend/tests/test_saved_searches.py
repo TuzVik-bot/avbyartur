@@ -54,10 +54,7 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
         json={
             "name": "  BMW   under 20k ",
             "url": "/cars?q=bmw&price_max=20000",
-            "filters": {"q": "bmw", "price_max": "20000", "currency": "USD"},
-            "notifications_enabled": True,
-            "notification_channel": "email",
-            "notification_frequency": "daily",
+            "filters": {"q": "bmw", "price_max": "20000"},
         },
         headers={"X-CSRF-Token": owner_csrf, "Idempotency-Key": "saved-search-1"},
     )
@@ -66,7 +63,7 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
     assert saved["name"] == "BMW under 20k"
     assert saved["status"] == "active"
     assert saved["revision"] == 1
-    assert saved["notification"] == {"enabled": True, "channel": "email", "frequency": "daily"}
+    assert saved["notification"] == {"enabled": False, "channel": None, "frequency": "daily"}
 
     replay = owner_client.post(
         "/api/v1/me/saved-searches",
@@ -91,18 +88,36 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
     assert no_csrf.status_code == 403
     assert no_csrf.json()["code"] == "csrf_failed"
 
+    subscribed = owner_client.patch(
+        f"/api/v1/me/saved-searches/{saved['id']}",
+        json={
+            "notifications_enabled": True,
+            "notification_channel": "web",
+            "notification_frequency": "daily",
+            "expected_revision": 1,
+        },
+        headers={"X-CSRF-Token": owner_csrf},
+    )
+    assert subscribed.status_code == 200, subscribed.text
+    assert subscribed.json()["saved_search"]["notification"] == {
+        "enabled": True,
+        "channel": "web",
+        "frequency": "daily",
+    }
+    assert subscribed.json()["saved_search"]["revision"] == 2
+
     paused = owner_client.post(
         f"/api/v1/me/saved-searches/{saved['id']}/pause",
-        json={"expected_revision": 1},
+        json={"expected_revision": 2},
         headers={"X-CSRF-Token": owner_csrf},
     )
     assert paused.status_code == 200, paused.text
     assert paused.json()["saved_search"]["status"] == "paused"
-    assert paused.json()["saved_search"]["revision"] == 2
+    assert paused.json()["saved_search"]["revision"] == 3
 
     stale_resume = owner_client.post(
         f"/api/v1/me/saved-searches/{saved['id']}/resume",
-        json={"expected_revision": 1},
+        json={"expected_revision": 2},
         headers={"X-CSRF-Token": owner_csrf},
     )
     assert stale_resume.status_code == 409
@@ -114,7 +129,7 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
     )
     assert resumed.status_code == 200, resumed.text
     assert resumed.json()["saved_search"]["status"] == "active"
-    assert resumed.json()["saved_search"]["revision"] == 3
+    assert resumed.json()["saved_search"]["revision"] == 4
 
     updated = owner_client.patch(
         f"/api/v1/me/saved-searches/{saved['id']}",
@@ -123,12 +138,12 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
             "filters": {"make_id": "1"},
             "notifications_enabled": False,
             "notification_channel": None,
-            "expected_revision": 3,
+            "expected_revision": 4,
         },
         headers={"X-CSRF-Token": owner_csrf},
     )
     assert updated.status_code == 200, updated.text
-    assert updated.json()["saved_search"]["revision"] == 4
+    assert updated.json()["saved_search"]["revision"] == 5
     assert updated.json()["saved_search"]["notifications_enabled"] is False
 
     listed = owner_client.get("/api/v1/me/saved-searches")

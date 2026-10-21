@@ -20,6 +20,8 @@ from app.models import (
     Listing,
     ListingCategoryDetails,
     ListingPhoto,
+    ListingStatusEvent,
+    ListingTrustEvidence,
     User,
 )
 
@@ -33,7 +35,7 @@ def currency_api():
     )
     Base.metadata.create_all(
         engine,
-        tables=[User.__table__, Company.__table__, Listing.__table__, ListingCategoryDetails.__table__, ListingPhoto.__table__, ExchangeRate.__table__],
+        tables=[User.__table__, Company.__table__, Listing.__table__, ListingCategoryDetails.__table__, ListingPhoto.__table__, ListingStatusEvent.__table__, ListingTrustEvidence.__table__, ExchangeRate.__table__],
     )
     with engine.begin() as connection:
         connection.exec_driver_sql(
@@ -401,6 +403,7 @@ def test_postgres_detail_displays_fresh_byn_equivalent(integration):
         "rate_date": today,
         "display_amount": "15000.00",
         "display_currency": "BYN",
+        "market_comparison": None,
     }
 
 

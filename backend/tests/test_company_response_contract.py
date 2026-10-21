@@ -48,10 +48,11 @@ def test_company_openapi_shapes_keep_private_and_public_fields_separate() -> Non
     assert {"type": "null"} in my_company["anyOf"]
     assert set(components["PrivateCompanyOut"]["properties"]) == {
         "id", "name", "slug", "status", "revision", "address", "business_hours",
-        "moderation_reason", "unp", "phone",
+        "moderation_reason", "unp", "phone", "logo_url",
     }
     assert set(components["PublicCompanyOut"]["properties"]) == {
         "id", "name", "slug", "status", "revision", "address", "business_hours",
+        "logo_url",
     }
 
     directory = components["DealerDirectoryResponse"]["properties"]
@@ -85,6 +86,7 @@ def test_company_moderation_reason_is_private_to_the_owner() -> None:
         unp="123456789",
         phone="+375291234567",
         business_hours={"mon": {"open": "09:00", "close": "18:00"}},
+        logo_storage_name=None,
     )
 
     public = _company_out(company, private=False)

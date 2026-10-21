@@ -157,15 +157,15 @@ def test_listing_detail_documents_public_and_private_variants_and_preserves_410(
     variants = listing_schema.get("anyOf", listing_schema.get("oneOf", []))
     variant_refs = {variant["$ref"] for variant in variants}
     assert variant_refs == {
-        "#/components/schemas/ListingPublicOut",
-        "#/components/schemas/ListingOwnerOut",
+        "#/components/schemas/ListingDetailPublicOut",
+        "#/components/schemas/ListingDetailOwnerOut",
     }
 
     public_variant = next(
-        ref for ref in variant_refs if ref.endswith("/ListingPublicOut")
+        ref for ref in variant_refs if ref.endswith("/ListingDetailPublicOut")
     )
     owner_variant = next(
-        ref for ref in variant_refs if ref.endswith("/ListingOwnerOut")
+        ref for ref in variant_refs if ref.endswith("/ListingDetailOwnerOut")
     )
     assert UNSAFE_PUBLIC_PROPERTIES.isdisjoint(
         _all_property_names(openapi, {"$ref": public_variant})
@@ -241,7 +241,7 @@ def test_favorites_collection_documents_public_listing_items() -> None:
     assert response_schema["$ref"] == "#/components/schemas/ListingFavoritesOut"
     favorites_schema = _component(openapi, response_schema["$ref"])
     item_schema = favorites_schema["properties"]["items"]["items"]
-    assert item_schema["$ref"] == "#/components/schemas/ListingPublicOut"
+    assert item_schema["$ref"] == "#/components/schemas/FavoriteListingOut"
     assert UNSAFE_PUBLIC_PROPERTIES.isdisjoint(
         _all_property_names(openapi, item_schema)
     )
@@ -256,7 +256,7 @@ def test_phone_reveal_documents_only_its_authenticated_phone_response() -> None:
 
     assert response_schema["$ref"] == "#/components/schemas/PhoneRevealOut"
     phone_schema = _component(openapi, response_schema["$ref"])
-    assert set(phone_schema["properties"]) == {"phone"}
+    assert set(phone_schema["properties"]) == {"phone", "messengers"}
     assert phone_schema["properties"]["phone"]["type"] == "string"
 
 

@@ -210,6 +210,7 @@ def test_global_notification_preferences_are_explicitly_opted_out_and_versioned(
             "email_enabled": True,
             "revision": 0,
             "email_verified": False,
+            "email_delivery_configured": False,
         }
     }
     from app import profile_identity_service as service
@@ -239,6 +240,7 @@ def test_global_notification_preferences_are_explicitly_opted_out_and_versioned(
         "email_enabled": True,
         "revision": 2,
         "email_verified": True,
+        "email_delivery_configured": False,
     }
 
     stale = client.put(

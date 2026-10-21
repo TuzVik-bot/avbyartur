@@ -84,6 +84,16 @@ def add_listing(factory, owner_id: uuid.UUID, *, title: str = "BMW 320d") -> mod
     )
     with factory() as db:
         db.add(listing)
+        db.flush()
+        db.add(
+            models.ListingStatusEvent(
+                listing_id=listing.id,
+                actor_id=owner_id,
+                from_status="draft",
+                to_status="active",
+                revision=listing.revision,
+            )
+        )
         db.commit()
         db.refresh(listing)
         db.expunge(listing)
@@ -116,6 +126,9 @@ def test_web_saved_search_match_is_delivered_idempotently(integration):
         notification_frequency="instant",
     )
     with factory() as db:
+        today = datetime.now(timezone.utc).date().isoformat()
+        if db.scalar(select(models.ExchangeRate.id).where(models.ExchangeRate.currency == "USD", models.ExchangeRate.rate_date == today)) is None:
+            db.add(models.ExchangeRate(currency="USD", rate_date=today, official_rate=Decimal("3.000000"), scale=1, source="test", fetched_at=datetime.now(timezone.utc)))
         db.add(saved_search)
         db.flush()
         enqueue_saved_search_match(db, listing)

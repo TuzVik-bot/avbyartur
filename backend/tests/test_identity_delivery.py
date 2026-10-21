@@ -78,6 +78,9 @@ def test_auth_capabilities_endpoint_reports_safe_defaults():
         "email_notifications": False,
         "email_verification": False,
         "password_recovery": False,
+        "email_registration": False,
+        "email_registration_pilot": False,
+        "test_mail": False,
     }
 
 
@@ -112,6 +115,9 @@ def test_auth_capabilities_enable_email_only_for_a_complete_smtp_configuration(m
         "email_notifications": True,
         "email_verification": True,
         "password_recovery": True,
+        "email_registration": False,
+        "email_registration_pilot": False,
+        "test_mail": False,
     }
 
 

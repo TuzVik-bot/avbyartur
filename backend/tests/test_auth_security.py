@@ -382,7 +382,7 @@ def test_phone_reveal_rate_limit_uses_account_id(monkeypatch):
     from starlette.responses import Response
 
     rate_limits = []
-    listing = SimpleNamespace(id=uuid.uuid4(), owner_id=uuid.uuid4(), company_id=None, status="active", contact_phone="+375291234567")
+    listing = SimpleNamespace(id=uuid.uuid4(), owner_id=uuid.uuid4(), company_id=None, status="active", contact_phone="+375291234567", telegram_contact_url=None, viber_contact_url=None)
     user = SimpleNamespace(id=uuid.uuid4())
 
     class StubDb:
@@ -409,5 +409,5 @@ def test_phone_reveal_rate_limit_uses_account_id(monkeypatch):
         user=user, csrf=SimpleNamespace(token_hash="opaque-test-session"), db=StubDb(),
     )
 
-    assert result == {"phone": listing.contact_phone}
+    assert result == {"phone": listing.contact_phone, "messengers": []}
     assert rate_limits == [("phone-reveal", str(user.id), 30, timedelta(hours=1))]

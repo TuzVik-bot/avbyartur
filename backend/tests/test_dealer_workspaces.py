@@ -386,6 +386,8 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
         "contact_reveals": 1,
         "chats": 1,
         "views": 1,
+        "company_clicks": 0,
+        "contact_clicks": 0,
     }
     assert response.json()["items"][0]["views"] == 1
 
