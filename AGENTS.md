@@ -3,6 +3,7 @@
 ## Структура и проверенные команды
 
 - Корень проекта: `/Users/home/Downloads/avbyartur`. Git инициализирован 4 октября 2026; ветка `main`, `origin` — `https://github.com/TuzVik-bot/avbyartur.git`, репозиторий приватный. Перед изменениями проверяй `git status --short` и актуальный remote. Секреты, runtime-данные, лицензионные источники `data/licensed/` и локальные `.superpowers/` артефакты исключены из Git.
+- Источник истины для кода production на 22 октября 2026 — ветка `integrate/20261022` (реконструирована из production-архивов релизов, коммит `dc41a9e`); `main` и `origin/main` (UX-редизайн до `0753afa`) на проде не развёрнуты. Архивы релизов: `/Users/home/backups/avbyartur-20261022/tmp-rescue` (вне git).
 - FastAPI и интеграционные тесты: `backend/`; Next.js: `web/`; эксплуатационные сведения: `docs/runtime/runbook.md`, `DEPLOYMENT.md`, `SERVER.md`, `docs/IMPLEMENTATION_STATUS.md`.
 - Backend tests: `cd backend && uv run pytest`. Перед запуском явно задай `TEST_DATABASE_URL` для выделенной одноразовой PostgreSQL БД с именем, оканчивающимся на `_test`, и `TEST_DATABASE_DISPOSABLE_CONFIRMATION`, равный точному имени этой БД. Фикстура до подключения проверяет PostgreSQL URL, известную preview-БД и совпадение с runtime-БД; затем создаёт и удаляет все таблицы.
 - Не направляй тесты на preview-БД: документированная `avtorinok_preview_20260927_00aa22_test` также оканчивается на `_test` и содержит preview-данные.
@@ -17,6 +18,7 @@
 
 ## Данные и production
 
+- Канонический домен: `https://xn--80aeylebmo7f.xn--90ais` (авторынок.бел); `suite-s1.denjik.by` выведен из эксплуатации. Релизы по документам на 22.10.2026: web `product-wave-articles-20261022-r1`, API и worker `product-wave-20261021-r1`, схема БД `0032_listing_price_hist` (прод выведен из скрипта релиза; подтверждено `0031` на 21.10.2026). Актуальное состояние: `README.md`, `DEPLOYMENT.md`.
 - По явному запросу пользователя 4 октября 2026 общий HTTP Basic Auth на VPS отключён для проверки портала. Не включай его повторно без нового запроса; сохраняй `noindex` и авторизацию личного кабинета. API и PostgreSQL не должны публиковаться напрямую. По `docker-compose.yml` именованные тома называются `avtorinok_postgres` и `avtorinok_private_media`.
 - Не удаляй, не пересоздавай и не очищай именованные тома; никогда не используй `docker compose down -v` для штатной остановки.
 - Не импортируй и не добавляй синтетические данные на VPS. Не превращай локальные demo/test fixtures в реальные объявления. `DEPLOYMENT.md` сообщает об уже существующем приостановленном smoke-объявлении; не возобновляй и не дублируй его без отдельной задачи.

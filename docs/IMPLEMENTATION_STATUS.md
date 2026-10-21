@@ -1,5 +1,7 @@
 # Implementation Status
 
+Статус: исторический документ; актуальное состояние — README.md / DEPLOYMENT.md (22.10.2026).
+
 Objective: deliver the complete closed marketplace pilot described in `docs/superpowers/plans/2026-09-26-avtorinok-pilot.md` and deploy the verified release to `suite-s1.denjik.by`.
 
 ## GitHub — 4 October 2026
