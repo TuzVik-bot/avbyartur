@@ -12,7 +12,7 @@
   padding: 16px 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: linear-gradient(120deg, var(--surface) 0%, var(--surface-muted) 100%);
+  background: linear-gradient(120deg, #fff 0%, #F6F7F9 100%);
 }
 
 .toolbar h2,
@@ -39,8 +39,8 @@
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: 0 3px 12px rgba(27, 45, 39, .035);
+  background: white;
+  box-shadow: 0 3px 12px rgba(24, 33, 47, .035);
 }
 
 .cardHeading {
@@ -63,7 +63,7 @@
 
 .identity code,
 .identityBlock code {
-  color: var(--muted);
+  color: #40504a;
 }
 
 .price {
@@ -92,8 +92,8 @@
   gap: 8px 26px;
   margin: 14px 0 0;
   padding: 12px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border-top: 1px solid #edf0ef;
+  border-bottom: 1px solid #edf0ef;
 }
 
 .details div {
@@ -124,13 +124,13 @@
 }
 
 .active {
-  color: var(--green);
-  background: var(--soft-green);
+  color: #215d39;
+  background: #e7f4e9;
 }
 
 .disabled {
-  color: var(--muted);
-  background: var(--line);
+  color: #58625e;
+  background: #edf0ef;
 }
 
 .actions {
@@ -146,7 +146,7 @@
   gap: 12px;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid #edf0ef;
 }
 
 .wide {
@@ -163,9 +163,9 @@
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--surface-muted);
+  border: 1px solid #E2E6ED;
+  border-radius: 8px;
+  background: #F6F7F9;
 }
 
 .identityBlock > span,
@@ -182,10 +182,10 @@
   grid-column: 1 / -1;
   margin: 0;
   padding: 11px 12px;
-  border: 1px solid var(--amber-line);
+  border: 1px solid #efd8c2;
   border-radius: 5px;
-  background: var(--soft-amber);
-  color: var(--amber);
+  background: #fff8f0;
+  color: #65451f;
   font-size: 13px;
   line-height: 1.5;
 }

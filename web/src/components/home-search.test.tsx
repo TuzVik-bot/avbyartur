@@ -58,8 +58,7 @@ describe("home search", () => {
     change("region_id", region.id);
 
     await act(async () => { vi.advanceTimersByTime(299); });
-    expect(count).toHaveBeenCalledTimes(1);
-    expect(count).toHaveBeenCalledWith({});
+    expect(count).not.toHaveBeenCalled();
     await act(async () => { vi.advanceTimersByTime(1); await Promise.resolve(); });
 
     expect(count).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -69,7 +68,6 @@ describe("home search", () => {
     }));
     expect(container.textContent).toContain("42");
     expect(container.querySelector(".home-search-button")?.textContent).toContain("Показать 42 предложения");
-    expect(count).toHaveBeenCalledTimes(2);
     const form = container.querySelector<HTMLFormElement>("form")!;
     expect(form.action).toContain("/cars");
     expect(new FormData(form).get("model_id")).toBe(model.id);
@@ -81,12 +79,10 @@ describe("home search", () => {
     let resolveFirst!: (value: { total: number }) => void;
     let resolveSecond!: (value: { total: number }) => void;
     const count = vi.spyOn(api, "listingCount")
-      .mockResolvedValueOnce({ total: 1234 })
       .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
       .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }))
       .mockRejectedValueOnce(new Error("offline"));
     await act(async () => root.render(createElement(HomeSearch, { makes: [], regions: [], bodyTypes: [] })));
-    await act(async () => { await Promise.resolve(); });
 
     change("q", "BMW");
     await act(async () => { vi.advanceTimersByTime(300); });
@@ -100,7 +96,7 @@ describe("home search", () => {
     change("q", "Volvo");
     await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
     expect(container.querySelector('[data-count-state="generic"]')).not.toBeNull();
-    expect(count).toHaveBeenCalledTimes(4);
+    expect(count).toHaveBeenCalledTimes(3);
   });
 
   it("loads models only for the selected make and clears the dependent model", async () => {
@@ -137,10 +133,7 @@ describe("home search", () => {
   });
 
   it("uses Russian plural forms for zero and one result", async () => {
-    const count = vi.spyOn(api, "listingCount")
-      .mockResolvedValueOnce({ total: 1234 })
-      .mockResolvedValueOnce({ total: 1 })
-      .mockResolvedValueOnce({ total: 0 });
+    const count = vi.spyOn(api, "listingCount").mockResolvedValueOnce({ total: 1 }).mockResolvedValueOnce({ total: 0 });
     await act(async () => root.render(createElement(HomeSearch, { makes: [], regions: [], bodyTypes: [] })));
     change("q", "Volvo");
     await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
@@ -148,17 +141,6 @@ describe("home search", () => {
     change("q", "Fiat");
     await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
     expect(container.querySelector(".home-search-button")?.textContent).toContain("Показать 0 предложений");
-    expect(count).toHaveBeenCalledTimes(3);
-  });
-
-  it.each([0, 1, 2, 5, 1234])("loads the initial homepage total %i", async (total) => {
-    vi.spyOn(api, "listingCount").mockResolvedValue({ total });
-    await act(async () => {
-      root.render(createElement(HomeSearch, { makes: [], regions: [], bodyTypes: [] }));
-      await Promise.resolve();
-    });
-
-    expect(container.querySelector(".home-search-button")?.textContent).toContain(`Показать ${total.toLocaleString("ru-BY")} `);
-    expect(container.textContent).toContain(`${total.toLocaleString("ru-BY")} `);
+    expect(count).toHaveBeenCalledTimes(2);
   });
 });

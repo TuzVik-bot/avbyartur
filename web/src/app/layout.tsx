@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import { AuthProvider } from "@/components/auth-provider";
 import { CompareProvider } from "@/components/compare-provider";
 import { ContactClickConsent, ContactClickConsentProvider } from "@/components/contact-click-consent";
@@ -11,6 +12,18 @@ import { getSessionServer } from "@/lib/server-api";
 import { SITE_NAME, SITE_ORIGIN } from "@/lib/site-config";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
+import "./site-theme.css";
+import "./home.css";
+import "./catalog.css";
+import "./auth.css";
+import "./workspace.css";
+
+const inter = localFont({
+  src: "../../public/fonts/Inter-Variable.ttf",
+  variable: "--font-inter",
+  weight: "100 900",
+  display: "swap"
+});
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +37,7 @@ export const metadata: Metadata = {
   referrer: "strict-origin-when-cross-origin"
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#F6F7F9", width: "device-width", initialScale: 1 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Keep public pages available if the API is temporarily offline. Protected
@@ -33,7 +46,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={DEFAULT_LOCALE} suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
-      <body>
+      <body className={inter.variable}>
         <AuthProvider initialSession={initialSession}>
           <ContactClickConsentProvider><CompareProvider>
             <a className="skip-link" href="#main-content">{getMessage("layout.skipToMainContent", DEFAULT_LOCALE)}</a>

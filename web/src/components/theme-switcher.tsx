@@ -43,7 +43,7 @@ export function ThemeSwitcher() {
       <svg className={styles.headlights} width="34" height="26" viewBox="0 0 40 30" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path className={styles.lamp} d="M21 6c8 0 13 4 13 9s-5 9-13 9V6Z" />
         <path d="M24 9v12" />
-        <g className={styles.beams}><path d={dark ? "M15 7L5 11M15 12L3 16M15 18L3 22M15 23L5 27" : "M15 7L5 3M15 12L3 8M15 18L3 14M15 23L5 19"} /></g>
+        <g className={styles.beams}><path d="M5 7h10M3 12h12M3 18h12M5 23h10" /></g>
       </svg>
       <span className={styles.copy}><span className={styles.label}>Цвет сайта</span><span className={styles.state}>{dark ? "Тёмный" : "Светлый"}</span></span>
     </button>

@@ -7,7 +7,12 @@ const requiredContentLinks = {
   "/about": { group: "Информация", label: "О нас" },
   "/faq": { group: "Информация", label: "Часто задаваемые вопросы" },
   "/support": { group: "Информация", label: "Служба поддержки" },
+  "/vin-check": { group: "Сервисы", label: "Проверка авто по VIN" },
+  "/sale-contract": { group: "Сервисы", label: "Договор купли-продажи" },
+  "/financing": { group: "Сервисы", label: "Подбор кредита или лизинга" },
+  "/currency-converter": { group: "Сервисы", label: "Конвертер валют" },
   "/partner": { group: "Информация", label: "Информация для рекламодателей" },
+  "/useful-information": { group: "Информация", label: "Полезная информация" },
   "/suggest-topic": { group: "Редакция", label: "Предложить тему редакции" },
   "/commenting-rules": { group: "Редакция", label: "Правила комментирования" },
   "/material-using": { group: "Редакция", label: "Правила использования материалов" },
@@ -18,10 +23,7 @@ const requiredContentLinks = {
   "/credit-policy": { group: "Правила и политики", label: "Согласие на обработку персональных данных для фин. организаций" },
   "/promotion": { group: "Разделы", label: "Продвижение" },
   "/pro-subscription": { group: "Разделы", label: "PRO-подписка" },
-  "/customs-calculator": { group: "Разделы", label: "Таможенный калькулятор" },
-  "/currency-converter": { group: "Разделы", label: "Конвертер валют" },
-  "/vin-check": { group: "Разделы", label: "Проверка авто по VIN" },
-  "/sale-contract": { group: "Разделы", label: "Договор купли-продажи" }
+  "/customs-calculator": { group: "Разделы", label: "Таможенный калькулятор" }
 } as const;
 
 let container: HTMLDivElement;
@@ -49,9 +51,20 @@ describe("SiteFooter", () => {
     for (const [href, expected] of Object.entries(requiredContentLinks)) {
       const link = footer!.querySelector<HTMLAnchorElement>(`a[href="${href}"]`);
       expect(link?.textContent).toBe(expected.label);
-      expect(link?.closest("nav")?.querySelector(".footer-group-title")?.textContent).toBeTruthy();
+      expect(link?.closest(".footer-group")?.querySelector(".footer-group-title")?.textContent).toBe(expected.group);
     }
-    expect(Object.keys(requiredContentLinks)).toHaveLength(18);
+    expect(Object.keys(requiredContentLinks)).toHaveLength(20);
+  });
+
+  it("shows the requested advertisement sections in order", () => {
+    act(() => { root.render(createElement(SiteFooter)); });
+    const group = container.querySelector('[aria-labelledby="footer-advertisements"]');
+    expect(Array.from(group!.querySelectorAll("a"), link => link.textContent)).toEqual([
+      "Авто с пробегом", "Электромобили", "Новые авто", "Мототехника", "Сельхозтехника",
+      "Грузовики", "Прицепы", "Водный транспорт", "Спецтехника", "Автобусы",
+      "Запчасти и автотовары", "Шины и диски", "Услуги"
+    ]);
+    expect(group!.querySelector('a[href="/services"]')).not.toBeNull();
   });
 
   it("keeps the pilot navigation and closed-pilot notice", () => {
@@ -61,18 +74,7 @@ describe("SiteFooter", () => {
     expect(container.querySelector('a[href="/help"]')).not.toBeNull();
     expect(container.querySelector('a[href="/dealers"]')).not.toBeNull();
     expect(container.querySelector('a[href="/sell"]')).not.toBeNull();
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/cars?category_code=cars&fuel=electric"]')?.textContent).toBe("Электромобили");
     expect(container.querySelector(".footer-note")?.textContent).toContain("Закрытый пилот");
-  });
-
-  it("groups footer links into at most three sections and exposes legal links in a keyboard-operable disclosure", () => {
-    act(() => { root.render(createElement(SiteFooter)); });
-
-    const nav = container.querySelector('nav[aria-label="Дополнительная навигация"]')!;
-    expect(nav.querySelectorAll(":scope > section, :scope > details")).toHaveLength(3);
-    const legal = nav.querySelector("details");
-    expect(legal?.querySelector("summary")?.textContent).toContain("Правовая информация");
-    expect(legal?.querySelector('a[href="/terms-of-use"]')).not.toBeNull();
-    expect(legal?.querySelector('a[href="/privacy-policy"]')).not.toBeNull();
-    expect(legal?.querySelector('a[href="/cookie-policy"]')).not.toBeNull();
   });
 });

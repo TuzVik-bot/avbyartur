@@ -43,18 +43,6 @@ function changeSystem(dark: boolean) {
 }
 
 describe("theme preference", () => {
-  it("aims the light rays upward in light theme and downward in dark theme", () => {
-    render();
-    function verticalDirections() {
-      const path = container.querySelector('svg g path')?.getAttribute('d') ?? "";
-      return [...path.matchAll(/M(\d+) (\d+)L(\d+) (\d+)/g)].map(match => Number(match[4]) - Number(match[2]));
-    }
-    expect(verticalDirections()).toHaveLength(4);
-    expect(verticalDirections().every(delta => delta < 0)).toBe(true);
-    toggle();
-    expect(verticalDirections()).toHaveLength(4);
-    expect(verticalDirections().every(delta => delta > 0)).toBe(true);
-  });
   it("follows system theme until the user clicks the headlights", () => {
     render();
     expect(document.documentElement.dataset.theme).toBe("light");

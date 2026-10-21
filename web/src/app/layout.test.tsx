@@ -10,6 +10,7 @@ vi.mock("@/components/site-footer", () => ({ SiteFooter: () => null }));
 vi.mock("@/components/install-prompt", () => ({ InstallPrompt: () => <div data-install-prompt /> }));
 vi.mock("@/components/compare-provider", () => ({ CompareProvider: ({ children }: { children: React.ReactNode }) => <div data-compare-provider>{children}</div> }));
 vi.mock("@/lib/server-api", () => ({ getSessionServer: mocks.getSessionServer }));
+vi.mock("next/font/local", () => ({ default: () => ({ className: "mock-font", variable: "--font-inter" }) }));
 
 import RootLayout, { metadata } from "./layout";
 import { SITE_NAME, SITE_ORIGIN } from "@/lib/site-config";

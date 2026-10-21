@@ -54,30 +54,22 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "", priceOpe
     if (!form) return;
     let active = true;
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    const initialRequestId = ++requestId.current;
-    setCountLoading(true);
-    void api.listingCount({})
-      .then((response) => {
-        if (active && requestId.current === initialRequestId) setCount(response.total);
-      })
-      .catch(() => {
-        if (active && requestId.current === initialRequestId) setCount(null);
-      })
-      .finally(() => {
-        if (active && requestId.current === initialRequestId) setCountLoading(false);
-      });
     const updateCount = () => {
       if (timeout) clearTimeout(timeout);
+      const search = searchFromForm(form);
       const currentId = ++requestId.current;
-      const currentSearch = searchFromForm(form);
-      setHasPrice(Boolean(currentSearch.price_min || currentSearch.price_max));
+      setHasPrice(Boolean(search.price_min || search.price_max));
       setCount(null);
       setCountLoading(false);
+      if (!Object.keys(search).length) {
+        setCount(null);
+        setCountLoading(false);
+        return;
+      }
       timeout = setTimeout(async () => {
         setCountLoading(true);
         try {
-          // Read after React has applied dependent-field resets from this event.
-          const response = await api.listingCount(searchFromForm(form));
+          const response = await api.listingCount(search);
           if (active && requestId.current === currentId) setCount(response.total);
         } catch {
           if (active && requestId.current === currentId) setCount(null);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { ApiClientError } from "@/lib/api";
 import {
   calculateCustoms,
@@ -245,10 +246,12 @@ export function CustomsCalculator() {
 
   return (
     <div className={`page-width ${styles.page}`}>
-      <header className="page-head">
-        <p className="eyebrow">Справка и расчёт</p>
-        <h1>Таможенный калькулятор</h1>
-        <p>Предварительная оценка таможенных платежей при ввозе автомобиля в Беларусь.</p>
+      <header className="page-head page-head-with-visual">
+        <div><p className="eyebrow">Справка и расчёт</p>
+          <h1>Таможенный калькулятор</h1>
+          <p>Предварительная оценка таможенных платежей при ввозе автомобиля в Беларусь.</p>
+        </div>
+        <Image src="/design/customs.webp" alt="Модель автомобиля, маршрут и документы" width={1200} height={800} sizes="(max-width: 640px) 100vw, 42vw" />
       </header>
 
       <div className={styles.layout}>
