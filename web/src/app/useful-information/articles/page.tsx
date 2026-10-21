@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { InformationalPage } from "@/components/informational-page";
-import { editorialArticles } from "@/lib/editorial-articles";
+import { loadArticleCards } from "@/lib/public-articles";
 import { siteUrl } from "@/lib/site-config";
 import styles from "./articles.module.css";
 
@@ -12,7 +12,10 @@ export const metadata: Metadata = {
   alternates: { canonical: siteUrl("/useful-information/articles") },
 };
 
-export default function ArticlesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ArticlesPage() {
+  const articles = await loadArticleCards();
   return (
     <InformationalPage
       eyebrow="Полезная информация"
@@ -25,7 +28,7 @@ export default function ArticlesPage() {
 
       <section className="info-section" aria-label="Список статей">
         <div className={styles.articleGrid}>
-          {editorialArticles.map((article) => (
+          {articles.map((article) => (
             <article className={`info-card ${styles.articleCard}`} key={article.slug}>
               <p className={styles.articleSection}>{article.section}</p>
               <h2><Link href={`/useful-information/articles/${article.slug}`}>{article.title}</Link></h2>

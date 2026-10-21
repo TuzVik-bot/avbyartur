@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { editorialArticlePaths } from "@/lib/editorial-articles";
 import { buildSitemapEntries, type SitemapListing } from "@/lib/seo";
+import { loadManagedArticleSummaries } from "@/lib/public-articles";
 import { serverApi } from "@/lib/server-api";
 import type { CompanySummary, ListResponse } from "@/lib/types";
 import { siteUrl } from "@/lib/site-config";
@@ -41,10 +42,16 @@ async function loadApprovedDealers() {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [listingsResult, dealersResult] = await Promise.allSettled([
+  const [listingsResult, dealersResult, managedResult] = await Promise.allSettled([
     loadActiveListings(),
     loadApprovedDealers(),
+    loadManagedArticleSummaries(),
   ]);
+  const managedArticles = managedResult.status === "fulfilled" ? managedResult.value : [];
+  const staticPaths = new Set<string>(editorialArticlePaths);
+  const managedPaths = managedArticles
+    .map((article) => `/useful-information/articles/${article.slug}`)
+    .filter((path) => !staticPaths.has(path));
 
   const entries = buildSitemapEntries(
     listingsResult.status === "fulfilled" ? listingsResult.value : [],
@@ -54,5 +61,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     ...entries,
     ...editorialArticlePaths.map((path) => ({ url: siteUrl(path) })),
+    ...managedPaths.map((path) => ({ url: siteUrl(path) })),
   ];
 }

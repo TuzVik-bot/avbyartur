@@ -56,6 +56,7 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     ("/api/v1/admin/content/{kind}/{key}", "put"): {"401", "403", "409", "422", "429"},
     ("/api/v1/admin/content/{kind}/{key}/versions", "get"): {"401", "403", "404", "422"},
     ("/api/v1/content/{kind}/{key}", "get"): {"404", "422"},
+    ("/api/v1/content/articles", "get"): {"422"},
     ("/api/v1/me/profile", "get"): {"401", "403"},
     ("/api/v1/me/notification-preferences", "get"): {"401", "403"},
     ("/api/v1/me/notification-preferences", "put"): {"401", "403", "409", "422"},
