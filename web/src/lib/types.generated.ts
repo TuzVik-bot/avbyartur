@@ -7864,6 +7864,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 limit?: number;
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             };
             header?: never;
             path?: never;
@@ -7906,6 +7907,7 @@ export interface operations {
                 make_id?: string | null;
                 q?: string | null;
                 limit?: number;
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
             };
             header?: never;
             path?: never;
