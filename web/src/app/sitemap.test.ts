@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SITE_ORIGIN } from "@/lib/site-config";
 import { editorialArticlePaths } from "@/lib/editorial-articles";
 
-const mocks = vi.hoisted(() => ({ listings: vi.fn(), dealers: vi.fn() }));
+const mocks = vi.hoisted(() => ({ listings: vi.fn(), dealers: vi.fn(), articles: vi.fn() }));
+
+vi.mock("@/lib/content-server", () => ({ contentServerApi: { articles: mocks.articles } }));
 
 vi.mock("@/lib/server-api", () => ({
   serverApi: { listings: mocks.listings, dealers: mocks.dealers },
@@ -14,6 +16,7 @@ import robots from "@/app/robots";
 beforeEach(() => {
   mocks.listings.mockReset();
   mocks.dealers.mockReset();
+  mocks.articles.mockReset().mockRejectedValue(new Error("api down"));
 });
 
 function listing(id: string, overrides: Record<string, unknown> = {}) {
@@ -134,6 +137,18 @@ describe("closed pilot sitemap", () => {
       ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
     ]);
     expect(entries.every((entry) => !("lastModified" in entry))).toBe(true);
+  });
+
+  it("adds published managed article slugs without duplicating static ones", async () => {
+    mocks.listings.mockResolvedValue({ items: [], pagination: { pages: 1 } });
+    mocks.dealers.mockResolvedValue({ items: [], pagination: { pages: 1 } });
+    mocks.articles.mockResolvedValue({
+      items: [{ slug: "novaya-statya" }, { slug: "pokupka-avtomobilya-s-probegom" }], total: 2, page: 1, page_size: 100,
+    });
+
+    const urls = (await sitemap()).map(({ url }) => url);
+    expect(urls).toContain(`${SITE_ORIGIN}/useful-information/articles/novaya-statya`);
+    expect(urls.filter((url) => url.endsWith("/pokupka-avtomobilya-s-probegom"))).toHaveLength(1);
   });
 
   it("advertises the sitemap without weakening the API disallow rule", () => {

@@ -102,3 +102,26 @@ def test_publishing_article_exposes_safe_detail_and_topic_filtered_summary_with_
     assert unpublished.status_code == 200, unpublished.text
     assert client.get("/api/v1/content/article/inspection-before-buying").status_code == 404
     assert client.get("/api/v1/content/articles").json()["items"] == []
+
+
+def test_public_list_orders_by_publication_date_desc_hides_drafts_and_private_fields(integration):
+    client, headers = admin(integration)
+    specs = [("older-article", "2026-09-01", "published"), ("newer-article", "2026-10-10", "published"),
+             ("hidden-draft", "2026-10-20", "draft")]
+    for slug, day, status in specs:
+        saved = client.put(f"/api/v1/admin/content/article/{slug}",
+                           json=content_body(article_payload(slug=slug, published_at=day), status=status), headers=headers)
+        assert saved.status_code == 200, saved.text
+
+    listing = client.get("/api/v1/content/articles")
+    assert listing.status_code == 200, listing.text
+    assert [item["slug"] for item in listing.json()["items"]] == ["newer-article", "older-article"]
+    assert set(listing.json()["items"][0]) == {"slug", "title", "summary", "topic", "published_at", "updated_at"}
+    assert client.get("/api/v1/content/article/hidden-draft").status_code == 404
+
+    second_page = client.get("/api/v1/content/articles", params={"page": 2, "page_size": 1})
+    assert [item["slug"] for item in second_page.json()["items"]] == ["older-article"]
+    assert second_page.json()["total"] == 2
+
+    detail = client.get("/api/v1/content/article/newer-article").json()["content"]
+    assert "updated_by" not in detail

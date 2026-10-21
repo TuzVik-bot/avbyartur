@@ -4,13 +4,20 @@ import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { InformationalPage } from "@/components/informational-page";
 import { editorialArticles, getEditorialArticle } from "@/lib/editorial-articles";
+import { type ArticleCard, loadArticleCards, loadManagedArticle, splitArticleParagraphs } from "@/lib/public-articles";
+import { ARTICLE_TOPIC_LABELS, type ArticlePublicItem } from "@/lib/content";
 import { editorialContentUpdated, editorialGuideActions } from "@/lib/editorial-guide-actions";
 import { siteUrl } from "@/lib/site-config";
 import styles from "../articles.module.css";
 
 type ArticlePageProps = { params: Promise<{ slug: string }> };
 
-export const dynamicParams = false;
+const dateFormatter = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Minsk" });
+
+function formatUpdated(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : dateFormatter.format(date);
+}
 
 export function generateStaticParams() {
   return editorialArticles.map(({ slug }) => ({ slug }));
@@ -19,7 +26,15 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
   const { slug } = await params;
   const article = getEditorialArticle(slug);
-  if (!article) return { title: "Статья не найдена", robots: { index: false, follow: false } };
+  if (!article) {
+    const managed = await loadManagedArticle(slug);
+    if (!managed) return { title: "Статья не найдена", robots: { index: false, follow: false } };
+    return {
+      title: managed.payload.title,
+      description: managed.payload.summary,
+      alternates: { canonical: siteUrl(`/useful-information/articles/${managed.key}`) },
+    };
+  }
 
   return {
     title: article.title,
@@ -31,7 +46,12 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
 export default async function ArticleDetailPage({ params }: ArticlePageProps) {
   const { slug } = await params;
   const article = getEditorialArticle(slug);
-  if (!article) notFound();
+  if (!article) {
+    const managed = await loadManagedArticle(slug);
+    if (!managed) notFound();
+    const cards = await loadArticleCards();
+    return <ManagedArticleView article={managed} related={cards.filter((item) => item.slug !== managed.key)} />;
+  }
 
   const relatedArticles = editorialArticles.filter((item) => item.slug !== article.slug);
 
@@ -77,6 +97,49 @@ export default async function ArticleDetailPage({ params }: ArticlePageProps) {
           </li>)}
         </ul>
       </section>
+    </InformationalPage>
+  );
+}
+
+function ManagedArticleView({ article, related }: { article: ArticlePublicItem; related: readonly ArticleCard[] }) {
+  const { payload } = article;
+  const updated = formatUpdated(article.updated_at);
+  const sources = payload.sources.filter((source) => /^https:\/\//i.test(source.url));
+
+  return (
+    <InformationalPage eyebrow={ARTICLE_TOPIC_LABELS[payload.topic] ?? "Полезная информация"} title={payload.title} description={payload.summary}>
+      <nav className={styles.breadcrumbs} aria-label="Хлебные крошки">
+        <Link href="/useful-information/articles"><ArrowLeft size={15} aria-hidden="true" /> Все статьи</Link>
+      </nav>
+
+      <p className={styles.articleByline}>Редакционный материал{updated ? ` · Обновлено ${updated}` : ""}</p>
+
+      <article className={styles.articleBody}>
+        {splitArticleParagraphs(payload.body).map((paragraph, index) => (
+          <p className={styles.plainParagraph} key={`paragraph-${index}`}>{paragraph}</p>
+        ))}
+        {sources.length > 0 && (
+          <section aria-labelledby="article-sources-title">
+            <h2 id="article-sources-title">Источники</h2>
+            <ul>
+              {sources.map((source) => (
+                <li key={source.url}><a href={source.url} rel="noopener noreferrer nofollow" target="_blank">{source.title}</a></li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </article>
+
+      {related.length > 0 && (
+        <section className={`info-section ${styles.relatedArticles}`} aria-labelledby="related-articles-title">
+          <h2 id="related-articles-title">Другие инструкции</h2>
+          <ul>
+            {related.map((item) => <li key={item.slug}>
+              <Link href={`/useful-information/articles/${item.slug}`}>{item.title}</Link>
+            </li>)}
+          </ul>
+        </section>
+      )}
     </InformationalPage>
   );
 }

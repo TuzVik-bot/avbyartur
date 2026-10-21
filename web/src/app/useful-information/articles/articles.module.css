@@ -150,6 +150,10 @@
   padding-bottom: 0;
 }
 
+.plainParagraph {
+  white-space: pre-line;
+}
+
 .relatedArticles ul {
   display: grid;
   gap: 4px;
