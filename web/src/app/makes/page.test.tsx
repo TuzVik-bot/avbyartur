@@ -25,6 +25,21 @@ describe("make directory", () => {
     expect(mocks.catalog).toHaveBeenCalledWith("makes");
   });
 
+  it("shows the public listing count next to each make, including zero", async () => {
+    mocks.catalog.mockResolvedValue({ items: [
+      { id: "a", slug: "audi", name: "Audi", listing_count: 12 },
+      { id: "b", slug: "bmw", name: "BMW", listing_count: 0 },
+      { id: "c", slug: "kia", name: "Kia" }
+    ] });
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(await MakesPage());
+    const text = (slug: string) => container.querySelector(`a[href="/cars/${slug}"]`)?.textContent;
+    expect(text("audi")).toBe("Audi12");
+    expect(text("bmw")).toBe("BMW0");
+    expect(text("kia")).toBe("Kia");
+    expect(container.querySelector('a[href="/cars/audi"] span')?.getAttribute("aria-label")).toBe("12 объявлений");
+  });
+
   it("shows an empty state when no makes exist", async () => {
     mocks.catalog.mockResolvedValue({ items: [] });
     expect(renderToStaticMarkup(await MakesPage())).toContain("В справочнике пока нет марок.");

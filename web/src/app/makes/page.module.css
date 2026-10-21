@@ -12,6 +12,8 @@
 .list a {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   min-height: 44px;
   padding: 8px 12px;
   border-radius: 8px;
@@ -22,4 +24,10 @@
 .list a:focus-visible {
   background: var(--soft-accent);
   color: var(--accent-dark);
+}
+
+.count {
+  color: var(--muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
 }

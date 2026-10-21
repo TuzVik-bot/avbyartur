@@ -32,7 +32,7 @@ export default async function MakesPage() {
         </div>
       ) : makes.length ? (
         <ul className={styles.list} aria-label="Марки автомобилей">
-          {makes.map((make) => <li key={make.id}><Link href={`/cars/${encodeURIComponent(make.slug)}`}>{make.name}</Link></li>)}
+          {makes.map((make) => <li key={make.id}><Link href={`/cars/${encodeURIComponent(make.slug)}`}>{make.name}{typeof make.listing_count === "number" ? <span className={styles.count} aria-label={`${make.listing_count} объявлений`}>{make.listing_count}</span> : null}</Link></li>)}
         </ul>
       ) : <p className="muted" role="status">В справочнике пока нет марок.</p>}
     </section>
