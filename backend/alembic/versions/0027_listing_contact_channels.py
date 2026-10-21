@@ -14,11 +14,24 @@ branch_labels = None
 depends_on = None
 
 
+def _columns(table: str) -> set[str]:
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table(table):
+        return set()
+    return {column["name"] for column in inspector.get_columns(table)}
+
+
 def upgrade() -> None:
-    op.add_column("listings", sa.Column("telegram_contact_url", sa.String(length=320), nullable=True))
-    op.add_column("listings", sa.Column("viber_contact_url", sa.String(length=320), nullable=True))
+    existing = _columns("listings")
+    if "telegram_contact_url" not in existing:
+        op.add_column("listings", sa.Column("telegram_contact_url", sa.String(length=320), nullable=True))
+    if "viber_contact_url" not in existing:
+        op.add_column("listings", sa.Column("viber_contact_url", sa.String(length=320), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("listings", "viber_contact_url")
-    op.drop_column("listings", "telegram_contact_url")
+    existing = _columns("listings")
+    if "viber_contact_url" in existing:
+        op.drop_column("listings", "viber_contact_url")
+    if "telegram_contact_url" in existing:
+        op.drop_column("listings", "telegram_contact_url")

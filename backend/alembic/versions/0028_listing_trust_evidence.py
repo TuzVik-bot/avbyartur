@@ -14,7 +14,25 @@ branch_labels = None
 depends_on = None
 
 
+def _indexes(table: str) -> set[str]:
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table(table):
+        return set()
+    return {item["name"] for item in inspector.get_indexes(table) if item.get("name")}
+
+
+def _create_missing_indexes() -> None:
+    existing = _indexes("listing_trust_evidence")
+    if "ix_listing_trust_evidence_listing_id" not in existing:
+        op.create_index("ix_listing_trust_evidence_listing_id", "listing_trust_evidence", ["listing_id"])
+    if "ix_listing_trust_listing_revision" not in existing:
+        op.create_index("ix_listing_trust_listing_revision", "listing_trust_evidence", ["listing_id", "checked_revision", "removed_at"])
+
+
 def upgrade() -> None:
+    if sa.inspect(op.get_bind()).has_table("listing_trust_evidence"):
+        _create_missing_indexes()
+        return
     op.create_table(
         "listing_trust_evidence",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -38,11 +56,15 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["removed_by_id"], ["users.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_listing_trust_evidence_listing_id", "listing_trust_evidence", ["listing_id"])
-    op.create_index("ix_listing_trust_listing_revision", "listing_trust_evidence", ["listing_id", "checked_revision", "removed_at"])
+    _create_missing_indexes()
 
 
 def downgrade() -> None:
-    op.drop_index("ix_listing_trust_listing_revision", table_name="listing_trust_evidence")
-    op.drop_index("ix_listing_trust_evidence_listing_id", table_name="listing_trust_evidence")
+    if not sa.inspect(op.get_bind()).has_table("listing_trust_evidence"):
+        return
+    existing = _indexes("listing_trust_evidence")
+    if "ix_listing_trust_listing_revision" in existing:
+        op.drop_index("ix_listing_trust_listing_revision", table_name="listing_trust_evidence")
+    if "ix_listing_trust_evidence_listing_id" in existing:
+        op.drop_index("ix_listing_trust_evidence_listing_id", table_name="listing_trust_evidence")
     op.drop_table("listing_trust_evidence")
