@@ -57,3 +57,10 @@ data/abw_import_*.json
 .htpasswd*
 pilot-password*
 .DS_Store
+
+# Local test artifacts and runtime screenshots
+backend/.codex-test-deps-*/
+backend/Dockerfile.codex-test
+docs/runtime/*.png
+docs/runtime/*.jpg
+docs/runtime/*/*.png

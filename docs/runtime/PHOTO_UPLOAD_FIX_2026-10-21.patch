@@ -1,0 +1,61 @@
+--- a/web/src/components/sell-form.tsx
++++ b/web/src/components/sell-form.tsx
+@@ -421,4 +421,22 @@
+   const lastFocusedStep = useRef(step);
+   const mileageInputRef = useRef<HTMLInputElement>(null);
++  const pendingPhotos = photos.some((photo) => photo.status === "queued" || photo.status === "processing");
++
++  useEffect(() => {
++    if (step !== 5 || busy || !draft?.id || !pendingPhotos) return;
++    let active = true;
++    let timer: ReturnType<typeof setTimeout>;
++    async function checkPhotos() {
++      try {
++        const response = await api.photos(draft!.id);
++        if (!active) return;
++        setPhotos(response.items);
++        if (!response.items.some((photo) => photo.status === "queued" || photo.status === "processing")) return;
++      } catch { /* Retry transient network errors without losing uploaded photos. */ }
++      if (active) timer = setTimeout(checkPhotos, 2000);
++    }
++    timer = setTimeout(checkPhotos, 2000);
++    return () => { active = false; clearTimeout(timer); };
++  }, [step, busy, draft?.id, pendingPhotos]);
+ 
+   useEffect(() => {
+@@ -1086,11 +1104,9 @@
+ 
+       {step === 2 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Автомобиль и характеристики</h2><div className="form-grid">
+-        <label className="field"><span>Способ выбора марки</span><select aria-label="Источник марки" value={fields.make_mode} onChange={(event) => changeMakeMode(event.target.value as FormFields["make_mode"])}><option value="catalog">Из каталога</option><option value="manual">Марки нет в каталоге</option></select></label>
+-        {fields.make_mode === "manual" ? <label className="field"><span>Марка</span><input {...fieldProps("manual_make")} aria-label="Марка вручную" value={fields.manual_make} onChange={(event) => update("manual_make", event.target.value)} maxLength={180} required />{fieldError("manual_make")}</label> : <label className="field"><span>Марка</span><select {...fieldProps("make_id")} value={fields.make_id} onChange={(event) => changeMake(event.target.value)} required><option value="">Выберите марку</option>{makes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("make_id")}</label>}
+-        {fields.make_mode === "catalog" && <label className="field"><span>Способ выбора модели</span><select aria-label="Источник модели" value={fields.model_mode} onChange={(event) => changeModelMode(event.target.value as FormFields["model_mode"])} disabled={!fields.make_id}><option value="catalog">Из каталога</option><option value="manual">Модели нет в каталоге</option></select></label>}
+-        {fields.model_mode === "manual" ? <label className="field"><span>Модель</span><input {...fieldProps("manual_model")} aria-label="Модель вручную" value={fields.manual_model} onChange={(event) => update("manual_model", event.target.value)} maxLength={180} required />{fieldError("manual_model")}</label> : <label className="field"><span>Модель</span><select {...fieldProps("model_id")} value={fields.model_id} onChange={(event) => changeModel(event.target.value)} disabled={!models.length} required><option value="">Выберите модель</option>{models.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("model_id")}</label>}
++        {fields.make_mode === "manual" ? <label className="field"><span>Марка</span><input {...fieldProps("manual_make")} aria-label="Марка вручную" value={fields.manual_make} onChange={(event) => update("manual_make", event.target.value)} maxLength={180} required /><button type="button" className="text-button" onClick={() => changeMakeMode("catalog")}>Выбрать марку из списка</button>{fieldError("manual_make")}</label> : <label className="field"><span>Марка</span><select {...fieldProps("make_id")} value={fields.make_id} onChange={(event) => event.target.value === "__manual__" ? changeMakeMode("manual") : changeMake(event.target.value)} required><option value="">Выберите марку</option>{makes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__manual__">Марки нет в списке — указать вручную</option></select>{fieldError("make_id")}</label>}
++        {fields.model_mode === "manual" ? <label className="field"><span>Модель</span><input {...fieldProps("manual_model")} aria-label="Модель вручную" value={fields.manual_model} onChange={(event) => update("manual_model", event.target.value)} maxLength={180} required />{fields.make_mode === "catalog" && <button type="button" className="text-button" onClick={() => changeModelMode("catalog")}>Выбрать модель из списка</button>}{fieldError("manual_model")}</label> : <label className="field"><span>Модель</span><select {...fieldProps("model_id")} value={fields.model_id} onChange={(event) => event.target.value === "__manual__" ? changeModelMode("manual") : changeModel(event.target.value)} disabled={!fields.make_id} required><option value="">Выберите модель</option>{models.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__manual__">Модели нет в списке — указать вручную</option></select>{fieldError("model_id")}</label>}
+         {fields.model_mode === "catalog" && <label className="field"><span>Поколение <small className="muted">необязательно</small></span><select {...fieldProps("generation_id")} value={fields.generation_id} onChange={(event) => changeGeneration(event.target.value)} disabled={!generations.length}><option value="">Не выбрано</option>{generations.map((item) => <option key={item.id} value={item.id}>{item.name}{item.year_from ? ` · ${item.year_from}${item.year_to ? `–${item.year_to}` : ""}` : ""}</option>)}</select>{fieldError("generation_id")}</label>}
+         {fields.model_mode === "catalog" && <>
+-          <label className="field"><span>Вариант кузова <small className="muted">необязательно</small></span><select {...fieldProps("body_variant_id")} aria-label="Вариант кузова" value={fields.body_variant_id} onChange={(event) => update("body_variant_id", event.target.value)} disabled={!fields.generation_id || bodyVariantsLoading || (!bodyVariants.length && !selectedBodyVariant)} aria-busy={bodyVariantsLoading}><option value="">{!fields.generation_id ? "Сначала выберите поколение" : bodyVariantsLoading ? "Загрузка вариантов…" : bodyVariantsError ? "Список временно недоступен" : bodyVariants.length ? "Не выбрано" : "Нет в каталоге"}</option>{fields.body_variant_id && !selectedBodyVariant && <option value={fields.body_variant_id}>Сохранённый вариант</option>}{selectedBodyVariant && !bodyVariants.some((item) => item.id === selectedBodyVariant.id) && <option value={selectedBodyVariant.id}>{selectedBodyVariant.name}</option>}{bodyVariants.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("body_variant_id")}</label>
++          <label className="field"><span>Вариант кузова <small className="muted">необязательно</small></span><select {...fieldProps("body_variant_id")} aria-label="Вариант кузова" value={fields.body_variant_id} onChange={(event) => update("body_variant_id", event.target.value)} disabled={!fields.generation_id || bodyVariantsLoading || (!bodyVariants.length && !selectedBodyVariant)} aria-busy={bodyVariantsLoading}><option value="">{!fields.generation_id ? "Тип кузова можно выбрать ниже" : bodyVariantsLoading ? "Загрузка вариантов…" : bodyVariantsError ? "Список временно недоступен" : bodyVariants.length ? "Не выбрано" : "Нет в каталоге"}</option>{fields.body_variant_id && !selectedBodyVariant && <option value={fields.body_variant_id}>Сохранённый вариант</option>}{selectedBodyVariant && !bodyVariants.some((item) => item.id === selectedBodyVariant.id) && <option value={selectedBodyVariant.id}>{selectedBodyVariant.name}</option>}{bodyVariants.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("body_variant_id")}</label>
+           <label className="field"><span>Модификация <small className="muted">необязательно</small></span><select {...fieldProps("modification_id")} aria-label="Модификация" value={missingModificationSelected ? "__missing_modification__" : fields.modification_id} onChange={(event) => {
+             if (event.target.value === "__missing_modification__") {
+--- a/backend/app/api/media.py
++++ b/backend/app/api/media.py
+@@ -103,5 +103,7 @@
+             if declared_type not in {"", "application/octet-stream"} and declared_type not in FORMAT_MIME_TYPES[image.format]:
+                 fail(415, "photo_mime_mismatch", "Photo content type does not match image data")
+-            if getattr(image, "is_animated", False) or getattr(image, "n_frames", 1) > 1:
++            # HEIF is a still-image collection; Pillow opens its primary image.
++            # Extra images (e.g. spatial photos) do not make it an animation.
++            if image.format not in {"HEIF", "HEIC"} and (getattr(image, "is_animated", False) or getattr(image, "n_frames", 1) > 1):
+                 fail(415, "animated_photo", "Animated images are not supported")
+             if image.width * image.height > max_pixels:
+--- a/backend/app/worker.py
++++ b/backend/app/worker.py
+@@ -182,5 +182,6 @@
+                 if raw.format not in {"JPEG", "PNG", "WEBP", "HEIF", "HEIC"}:
+                     raise PermanentJobError("Unsupported image format")
+-                if getattr(raw, "is_animated", False) or getattr(raw, "n_frames", 1) > 1:
++                # Decode only the primary still from HEIF collections, as at upload.
++                if raw.format not in {"HEIF", "HEIC"} and (getattr(raw, "is_animated", False) or getattr(raw, "n_frames", 1) > 1):
+                     raise PermanentJobError("Animated images are not supported")
+                 if raw.width * raw.height > settings.upload_max_pixels:

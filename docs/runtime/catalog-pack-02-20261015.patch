@@ -1,0 +1,49 @@
+--- a/backend/app/api/catalog.py
++++ b/backend/app/api/catalog.py
+@@ -32,7 +32,7 @@
+ def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: Annotated[int, Query(ge=1, le=200)] = 200, category_code: CategoryCode = "cars") -> dict:
+     query = select(CatalogMake).order_by(CatalogMake.sort_order, CatalogMake.name).limit(limit)
+     if category_code == "cars":
+-        query = query.where(or_(CatalogMake.source_name.is_(None), CatalogMake.source_name != "NHTSA vPIC catalog pack 01"))
++        query = query.where(or_(CatalogMake.source_name.is_(None), CatalogMake.source_name.not_in(["NHTSA vPIC catalog pack 01", "Autorinok catalog pack 02"])))
+     else:
+         query = query.where(CatalogMake.source_metadata.contains({"category_codes": [category_code]}))
+     if q:
+@@ -45,7 +45,7 @@
+ def models(db: Annotated[Session, Depends(get_db)], make_id: UUID | None = None, q: str | None = None, limit: Annotated[int, Query(ge=1, le=300)] = 300, category_code: CategoryCode = "cars") -> dict:
+     query = select(CatalogModel).order_by(CatalogModel.name).limit(limit)
+     if category_code == "cars":
+-        query = query.where(or_(CatalogModel.source_name.is_(None), CatalogModel.source_name != "NHTSA vPIC catalog pack 01"))
++        query = query.where(or_(CatalogModel.source_name.is_(None), CatalogModel.source_name.not_in(["NHTSA vPIC catalog pack 01", "Autorinok catalog pack 02"])))
+     else:
+         query = query.where(CatalogModel.source_metadata.contains({"category_codes": [category_code]}))
+     if make_id:
+--- a/web/src/components/sell-form.tsx
++++ b/web/src/components/sell-form.tsx
+@@ -410,7 +410,7 @@
+   const category = fields.category_code || "cars";
+   const [categoryMakes, setCategoryMakes] = useState<CatalogItem[]>([]);
+   const [categoryModels, setCategoryModels] = useState<CatalogItem[]>([]);
+-  const hasCategoryCatalog = category === "trucks" || category === "motorcycles";
++  const hasCategoryCatalog = ["trucks", "motorcycles", "buses", "special_equipment", "agricultural_equipment", "trailers", "watercraft"].includes(category);
+   useEffect(() => {
+     let active = true;
+     setCategoryMakes([]);
+@@ -422,7 +422,7 @@
+   useEffect(() => {
+     let active = true;
+     setCategoryModels([]);
+-    const make = categoryMakes.find(item => item.name.toLocaleLowerCase() === fields.manual_make.trim().toLocaleLowerCase());
++    const make = categoryMakes.find(item => [item.name, ...(item.aliases || [])].some(name => name.toLocaleLowerCase() === fields.manual_make.trim().toLocaleLowerCase()));
+     if (hasCategoryCatalog && make) api.catalog("models", { category_code: category, make_id: make.id }).then(result => {
+       if (active) setCategoryModels(result.items);
+     }).catch(() => { if (active) setCategoryModels([]); });
+@@ -1185,7 +1185,7 @@
+             {hasCategoryCatalog && <>
+               <datalist id="category-pack-makes">{categoryMakes.map(item => <option key={item.id} value={item.name} />)}</datalist>
+               <datalist id="category-pack-models">{categoryModels.map(item => <option key={item.id} value={item.name} />)}</datalist>
+-              <p className="muted wide">Выберите марку и модель из подсказок или введите вручную. Каталог NHTSA неполный; классификацию модели проверьте перед подачей.</p>
++              <p className="muted wide">Выберите марку и модель из подсказок или введите вручную. Каталог неполный; классификацию модели и характеристики проверьте перед подачей.</p>
+             </>}
+             <label className="field"><span>Марка</span><input list={hasCategoryCatalog ? "category-pack-makes" : undefined} aria-label="Марка вручную" value={fields.manual_make} onChange={event => { update("manual_make", event.target.value); update("manual_model", ""); }} maxLength={180} required /></label>
+             <label className="field"><span>Модель</span><input list={hasCategoryCatalog ? "category-pack-models" : undefined} aria-label="Модель вручную" value={fields.manual_model} onChange={event => update("manual_model", event.target.value)} maxLength={180} required /></label>

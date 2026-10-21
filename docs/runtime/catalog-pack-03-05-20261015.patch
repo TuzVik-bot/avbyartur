@@ -1,0 +1,20 @@
+--- a/backend/app/api/catalog.py
++++ b/backend/app/api/catalog.py
+@@ -32,7 +32,7 @@
+ def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: Annotated[int, Query(ge=1, le=200)] = 200, category_code: CategoryCode = "cars") -> dict:
+     query = select(CatalogMake).order_by(CatalogMake.sort_order, CatalogMake.name).limit(limit)
+     if category_code == "cars":
+-        query = query.where(or_(CatalogMake.source_name.is_(None), CatalogMake.source_name.not_in(["NHTSA vPIC catalog pack 01", "Autorinok catalog pack 02"])))
++        query = query.where(or_(CatalogMake.source_name.is_(None), CatalogMake.source_name.not_in(["NHTSA vPIC catalog pack 01", "Autorinok catalog pack 02", "Autorinok catalog pack 03", "Autorinok catalog pack 04", "Autorinok catalog pack 05"])))
+     else:
+         query = query.where(CatalogMake.source_metadata.contains({"category_codes": [category_code]}))
+     if q:
+@@ -45,7 +45,7 @@
+ def models(db: Annotated[Session, Depends(get_db)], make_id: UUID | None = None, q: str | None = None, limit: Annotated[int, Query(ge=1, le=300)] = 300, category_code: CategoryCode = "cars") -> dict:
+     query = select(CatalogModel).order_by(CatalogModel.name).limit(limit)
+     if category_code == "cars":
+-        query = query.where(or_(CatalogModel.source_name.is_(None), CatalogModel.source_name.not_in(["NHTSA vPIC catalog pack 01", "Autorinok catalog pack 02"])))
++        query = query.where(or_(CatalogModel.source_name.is_(None), CatalogModel.source_name.not_in(["NHTSA vPIC catalog pack 01", "Autorinok catalog pack 02", "Autorinok catalog pack 03", "Autorinok catalog pack 04", "Autorinok catalog pack 05"])))
+     else:
+         query = query.where(CatalogModel.source_metadata.contains({"category_codes": [category_code]}))
+     if make_id:
