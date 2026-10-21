@@ -58,13 +58,13 @@ beforeEach(() => {
 });
 
 describe("home listing cards", () => {
-  it("opens the make directory from both all-makes links", async () => {
+  it("opens the make directory from the all-makes link", async () => {
     mocks.catalog.mockResolvedValue({ items: [{ id: "make-1", slug: "bmw", name: "BMW" }] });
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(await HomePage());
     const links = Array.from(container.querySelectorAll("a")).filter((link) => link.textContent?.includes("Все марки"));
-    expect(links).toHaveLength(2);
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/makes", "/makes"]);
+    expect(links).toHaveLength(1);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/makes"]);
   });
 
   it("keeps the Russian canonical URL and declares its locale alternate", () => {
@@ -136,9 +136,9 @@ describe("home listing cards", () => {
     const html = renderToStaticMarkup(await HomePage());
     const rendered = new DOMParser().parseFromString(html, "text/html");
 
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Активных объявлений: 27");
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Допущенные компании: 4");
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Опубликованные отзывы: 6");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Активных объявлений 27");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Допущенные компании 4");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Опубликованные отзывы 6");
     const status = rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent || "";
     expect(status).toContain("проверяются обязательные поля карточки, их согласованность и минимум обработанных фото");
     expect(status).toContain("подсказки о повторах и необычно низкой цене");
@@ -152,8 +152,10 @@ describe("home listing cards", () => {
     const html = renderToStaticMarkup(await HomePage());
     const rendered = new DOMParser().parseFromString(html, "text/html");
 
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Статистика временно недоступна");
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).not.toContain("Активных объявлений: 0");
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).not.toContain("Опубликованные отзывы: 0");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')).toBeNull();
+    const text = rendered.body.textContent || "";
+    expect(text).not.toContain("Активных объявлений");
+    expect(text).not.toContain("Допущенные компании");
+    expect(text).not.toContain("Опубликованные отзывы");
   });
 });

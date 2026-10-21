@@ -4,22 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompareButton } from "@/components/compare-button";
 import { COMPARE_STORAGE_KEY, CompareProvider, MAX_COMPARE_LISTINGS, parseCompareIds } from "@/components/compare-provider";
 import { ShareButton } from "@/components/share-button";
-import { ListingCard } from "@/components/listing-card";
-import type { ListingSummary } from "@/lib/types";
 
 vi.mock("next/link", () => ({ default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a> }));
 vi.mock("next/image", () => ({ default: ({ unoptimized: _unoptimized, priority: _priority, ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { unoptimized?: boolean; priority?: boolean }) => <img {...props} /> }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: null }) }));
-
-const listing: ListingSummary = {
-  id: "listing-card-1", slug: "listing-card-1", title: "Марка Модель",
-  make: { id: "make-1", slug: "marka", name: "Марка" }, model: { id: "model-1", slug: "model", name: "Модель" },
-  year: 2020, mileage_km: 50_000, fuel: "petrol", transmission: "manual", drive: "front",
-  price: { amount: "10000", currency: "BYN" }, region: null, city: null,
-  seller: { id: "seller-1", type: "private", name: "Продавец" }, created_at: "2026-10-01T00:00:00Z",
-  updated_at: "2026-10-01T00:00:00Z", damaged: false, parts_only: false
-};
 
 let root: Root;
 let container: HTMLDivElement;
@@ -47,19 +36,6 @@ function renderButtons(ids: string[]) {
 function buttons() { return [...container.querySelectorAll<HTMLButtonElement>("button")]; }
 
 describe("compare list", () => {
-  it("integrates the compare control into a listing card", async () => {
-    act(() => root.render(<CompareProvider><ListingCard listing={listing} /></CompareProvider>));
-    await act(async () => { await Promise.resolve(); });
-
-    const button = container.querySelector<HTMLButtonElement>(".compare-action button")!;
-    expect(button.getAttribute("aria-pressed")).toBe("false");
-    await act(async () => { button.click(); await Promise.resolve(); });
-
-    expect(button.getAttribute("aria-pressed")).toBe("true");
-    expect(localStorage.getItem(COMPARE_STORAGE_KEY)).toBe(JSON.stringify([listing.id]));
-    expect(container.querySelector('.compare-action a[href="/compare"]')?.textContent).toContain("Сравнение (1)");
-  });
-
   it("parses only unique non-empty ids and tolerates corrupt storage", () => {
     expect(parseCompareIds("not-json")).toEqual([]);
     expect(parseCompareIds(JSON.stringify(["a", "", 2, "a", "b", "c", "d", "e"]))).toEqual(["a", "b", "c", "d"]);

@@ -19,7 +19,7 @@ vi.mock("next/image", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }));
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: mocks.user }) }));
-vi.mock("@/components/compare-button", () => ({ CompareButton: ({ listingId }: { listingId: string }) => <button data-compare-listing={listingId}>Сравнить</button> }));
+vi.mock("@/components/comparison/comparison-action", () => ({ ComparisonAction: ({ listingId }: { listingId: string }) => <button data-compare-listing={listingId}>Добавить к сравнению</button> }));
 
 let container: HTMLDivElement;
 let root: Root;
@@ -68,7 +68,7 @@ function listing(overrides: Partial<ListingSummary & { published_at?: string | n
 describe("listing card city navigation", () => {
   it("offers comparison for the current listing", () => {
     act(() => root.render(createElement(ListingCard, { listing: listing() })));
-    expect(container.querySelector('[data-compare-listing="listing-1"]')?.textContent).toBe("Сравнить");
+    expect(container.querySelector('[data-compare-listing="listing-1"]')?.textContent).toBe("Добавить к сравнению");
   });
 
   it("links catalog locations to the planned city route", () => {

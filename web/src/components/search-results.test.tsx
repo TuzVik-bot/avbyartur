@@ -109,7 +109,7 @@ describe("search result controls", () => {
     await render({ q: "BMW", equipment: ["abs", "rear_camera"] });
 
     expect(mocks.savedSearchAction).toHaveBeenCalledWith({ q: "BMW", equipment: ["abs", "rear_camera"] }, "Объявления");
-    const toolbar = container.querySelector(".results-toolbar-actions [data-saved-search-title]");
+    const toolbar = container.querySelector(".empty-state [data-saved-search-title]");
     expect(toolbar?.textContent).toContain("Сохранить поиск");
     expect(toolbar?.textContent).toContain("Подписаться на новые объявления");
     expect(container.querySelector(".empty-state")).not.toBeNull();

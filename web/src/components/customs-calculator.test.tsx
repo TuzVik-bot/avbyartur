@@ -112,8 +112,6 @@ async function fillForm() {
   setValue(container.querySelector<HTMLInputElement>('input[name="manufacture_date"]')!, "2020-04-12");
   chooseRadio("engine_type", "diesel");
   setValue(container.querySelector<HTMLInputElement>('input[name="engine_volume_cc"]')!, "1998");
-  container.querySelector<HTMLInputElement>('input[name="personal_use"]')!.click();
-  container.querySelector<HTMLInputElement>('input[name="origin_outside_eaeu"]')!.click();
     await Promise.resolve();
   });
 }
@@ -158,6 +156,7 @@ describe("customs calculator form", () => {
       manufacture_date: "2020-04-12",
       engine_type: "diesel",
       engine_volume_cc: 1998,
+      benefit_140: false,
       personal_use: true,
       origin_outside_eaeu: true
     });
