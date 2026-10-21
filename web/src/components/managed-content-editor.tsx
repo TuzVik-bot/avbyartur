@@ -2,15 +2,21 @@
 
 import { useState, type FormEvent } from "react";
 import { History, RefreshCw, Save } from "lucide-react";
+import { ARTICLE_TOPIC_LABELS } from "@/lib/content";
 import { contentApi, type ContentItem, type ContentKind, type ContentVersion } from "@/lib/content";
 
-const labels: Record<ContentKind, string> = { notification_template: "Шаблоны уведомлений", seo_page: "SEO-страницы", legal_document: "Юридические документы" };
+const labels: Record<ContentKind, string> = { notification_template: "Шаблоны уведомлений", seo_page: "SEO-страницы", legal_document: "Юридические документы", article: "Полезная информация" };
 const predefined: Partial<Record<ContentKind, [string, string][]>> = {
   notification_template: [["saved_search_email", "Сохранённый поиск"], ["email_verification", "Подтверждение почты"], ["password_recovery", "Восстановление доступа"]],
   legal_document: [["terms_of_use", "Условия использования"], ["privacy_policy", "Политика конфиденциальности"], ["cookie_policy", "Политика cookie"], ["listing_rules", "Правила объявлений"], ["commercial_offer", "Оферта"], ["complaints_policy", "Обращения и блокировки"]]
 };
 
 function text(data: Record<string, unknown>, key: string) { return typeof data[key] === "string" ? data[key] as string : ""; }
+function sourceText(value: unknown) {
+  if (!Array.isArray(value)) return "";
+  return value.flatMap(item => typeof item === "object" && item !== null && "title" in item && "url" in item
+    && typeof item.title === "string" && typeof item.url === "string" ? [`${item.title} | ${item.url}`] : []).join("\n");
+}
 
 export function ManagedContentEditor({ initialItems, initialError }: { initialItems: ContentItem[]; initialError: boolean }) {
   const [items, setItems] = useState(initialItems);
@@ -39,6 +45,7 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
     if (!get("current_password")) { setError("Введите пароль администратора."); return; }
     if (!get("reason").trim()) { setError("Укажите причину изменения."); return; }
     if (values.get("confirmation") !== "on") { setError("Подтвердите сохранение материала."); return; }
+    const status = get("status") as "draft" | "published";
     const data: Record<string, unknown> = kind === "notification_template" ? { subject: get("subject"), body: get("body") } : {
       title: get("title"), body: get("body")
     };
@@ -47,6 +54,17 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
     if (kind === "legal_document") Object.assign(data, { document_version: get("document_version"), approved: values.get("approved") === "on", operator: {
       legal_name: get("legal_name"), unp: get("unp"), address: get("address"), contact_email: get("contact_email")
     } });
+    if (kind === "article") {
+      const publishedAt = get("published_at");
+      const sources = get("sources").split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
+        const separator = line.indexOf("|");
+        return separator < 0 ? null : { title: line.slice(0, separator).trim(), url: line.slice(separator + 1).trim() };
+      });
+      if (sources.some(source => !source?.title || !source.url)) { setError("Укажите источник в формате «название | https://адрес»."); return; }
+      if (status === "published" && !publishedAt) { setError("Для публикации укажите дату публикации."); return; }
+      Object.assign(data, { slug: key.trim(), summary: get("summary"), topic: get("topic"),
+        published_at: publishedAt || null, sources });
+    }
     setPending(true); setError(null); setSuccess(null);
     try {
       const result = await contentApi.save(kind, key, { payload: data, status: get("status") as "draft" | "published", expected_revision: current?.revision || 0,
@@ -65,7 +83,7 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
     <div className="admin-filter-form">
       <label className="field"><span>Раздел</span><select value={kind} onChange={event => { const next = event.target.value as ContentKind; setKind(next); setKey(predefined[next]?.[0][0] || ""); setVersionList(null); setError(null); }}>
         {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <label className="field"><span>Материал</span>{predefined[kind] ? <select value={key} onChange={event => { setKey(event.target.value); setVersionList(null); }}>{predefined[kind]!.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <input value={key} maxLength={100} pattern="[a-z0-9_-]+" onChange={event => setKey(event.target.value)} />}</label>
+      <label className="field"><span>{kind === "article" ? "Slug статьи" : "Материал"}</span>{predefined[kind] ? <select value={key} onChange={event => { setKey(event.target.value); setVersionList(null); }}>{predefined[kind]!.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <><input name="content_key" list={kind === "article" ? "article-keys" : undefined} value={key} maxLength={100} pattern={kind === "article" ? "[a-z0-9]+(-[a-z0-9]+)*" : "[a-z0-9_-]+"} required={kind === "article"} disabled={kind === "article" && Boolean(current)} onChange={event => setKey(event.target.value)} />{kind === "article" && <datalist id="article-keys">{items.filter(item => item.kind === "article").map(item => <option key={item.key} value={item.key} />)}</datalist>}</>}</label>
       <button type="button" className="button button-secondary" disabled={pending} onClick={refresh}><RefreshCw size={16} />Обновить</button>
     </div>
     <p className="muted">{current ? `Редакция ${current.revision} · ${current.status === "published" ? "Опубликован" : "Черновик"}` : "Новый материал"}</p>
@@ -88,7 +106,13 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
         <label className="field"><span>Почта для обращений</span><input name="contact_email" type="email" required defaultValue={text(operator, "contact_email")} /></label>
         <label><input name="approved" type="checkbox" defaultChecked={payload.approved === true} /> Документ утверждён владельцем и юридически проверен</label>
       </>}
-      <label className="field wide"><span>Текст</span><textarea name="body" rows={12} required maxLength={kind === "legal_document" ? 100000 : 20000} defaultValue={text(payload, "body")} /></label>
+      {kind === "article" && <>
+        <label className="field wide"><span>Краткое описание</span><textarea name="summary" rows={3} required minLength={20} maxLength={600} defaultValue={text(payload, "summary")} /></label>
+        <label className="field"><span>Тематический раздел</span><select name="topic" required defaultValue={text(payload, "topic") || "vehicle_selection"}>{Object.entries(ARTICLE_TOPIC_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label className="field"><span>Дата публикации</span><input name="published_at" type="date" defaultValue={text(payload, "published_at")} /></label>
+        <label className="field wide"><span>Проверенные источники</span><textarea name="sources" rows={4} placeholder="Название источника | https://адрес (по одному на строку)" defaultValue={sourceText(payload.sources)} /></label>
+      </>}
+      <label className="field wide"><span>Текст</span><textarea name="body" rows={12} required minLength={kind === "article" ? 40 : undefined} maxLength={kind === "legal_document" ? 100000 : kind === "article" ? 50000 : 20000} defaultValue={text(payload, "body")} /></label>
       <label className="field"><span>Статус</span><select name="status" defaultValue={current?.status || "draft"}><option value="draft">Черновик</option><option value="published">Опубликован</option></select></label>
       <label className="field wide"><span>Причина изменения</span><textarea name="reason" required maxLength={1000} /></label>
       <label className="field"><span>Пароль администратора</span><input name="current_password" type="password" required autoComplete="current-password" /></label>
