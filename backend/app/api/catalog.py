@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import String, cast, select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.api.catalog_schemas import CatalogItemsOut, CatalogModificationsOut
@@ -14,10 +14,11 @@ from app.models import (
     CatalogMake,
     CatalogModel,
     CatalogModification,
+    Listing,
     LocationCity,
     LocationRegion,
 )
-from app.services import catalog_item, catalog_modification_item
+from app.services import catalog_item, catalog_modification_item, public_listings_query
 
 router = APIRouter(prefix="/api/v1", tags=["catalog"])
 
@@ -32,7 +33,20 @@ def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: 
     if q:
         term = f"%{q[:80]}%"
         query = query.where(CatalogMake.name.ilike(term) | CatalogMake.slug.ilike(term) | cast(CatalogMake.aliases, String).ilike(term))
-    return items(db.scalars(query).all())
+    rows = db.scalars(query).all()
+    payload = items(rows)
+    if not rows:
+        return payload
+    # Same visibility rules as the public /listings search (cars), in one grouped query.
+    counts = dict(db.execute(
+        public_listings_query()
+        .where(Listing.category_code == "cars", Listing.make_id.in_([row.id for row in rows]))
+        .with_only_columns(Listing.make_id, func.count(Listing.id))
+        .group_by(Listing.make_id)
+    ).all())
+    for item, row in zip(payload["items"], rows):
+        item["listing_count"] = int(counts.get(row.id, 0))
+    return payload
 
 
 @router.get("/catalog/models", response_model=CatalogItemsOut, response_model_exclude_unset=True)
