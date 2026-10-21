@@ -179,6 +179,7 @@ class DealerExternalListingKey(Base):
     __table_args__ = (
         UniqueConstraint("feed_id", "dealer_external_id", name="uq_dealer_feed_external_id"),
         CheckConstraint("length(dealer_external_id) > 0", name="ck_dealer_external_id_nonempty"),
+        Index("ix_dealer_external_listing_keys_missing_since", "feed_id", "missing_since"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
@@ -506,7 +507,13 @@ class ConversationParticipantState(Base):
 
 class ListingPhoto(Base):
     __tablename__ = "listing_photos"
-    __table_args__ = (UniqueConstraint("listing_id", "idempotency_key", name="uq_photo_idempotency"),)
+    __table_args__ = (
+        UniqueConstraint("listing_id", "idempotency_key", name="uq_photo_idempotency"),
+        *(
+            Index(f"ix_listing_photo_phash_band_{start:02d}", text(f"substr(perceptual_hash, {start}, 2)"))
+            for start in range(1, 17, 2)
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
     listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
