@@ -18,7 +18,6 @@ vi.mock("next/image", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: authMocks.user }) }));
-vi.mock("@/components/compare-button", () => ({ CompareButton: ({ listingId }: { listingId: string }) => <button data-compare-listing={listingId}>Сравнить</button> }));
 vi.mock("@/components/share-button", () => ({ ShareButton: ({ title }: { href: string; title: string }) => <button>Поделиться {title}</button> }));
 
 let container: HTMLDivElement;
