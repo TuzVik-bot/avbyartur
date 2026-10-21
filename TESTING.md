@@ -2,6 +2,41 @@
 
 Бегущий лог: «как мы знаем, что это работает». Новые разделы добавляются сверху.
 
+## 2026-10-22 — ветка next/20261022 (фичи поверх прод-паритета)
+
+### Состав
+
+`integrate/20261022` плюс слияния:
+
+- `chore/drift-deadcode`: индексы phash/missing_since объявлены в моделях, поэтому `alembic check` без дрейфа; удалён мёртвый CompareButton.
+- `test/migration-0032-data`: тест миграции 0032 на синтетической БД уровня 0031: upgrade, сохранность данных, check-ограничения, downgrade без данных, guard RuntimeError при наличии событий/opt-in/outbox.
+- `feat/makes-listing-counts`: listing_count на /catalog/makes одним запросом, счётчики на /makes.
+- `feat/catalog-packs`: category_code для makes/models; для cars скрыты строки пакетов NHTSA/Autorinok 01–05 (ИЗМЕНЕНИЕ ПОВЕДЕНИЯ относительно прода); подсказки марок/моделей в форме для не-легковых категорий при редактировании.
+- `feat/managed-articles-public`: публичный API статей и вывод опубликованных статей из /admin/content на /useful-information/articles и в sitemap; fail-soft; /articles/[slug] теперь динамический.
+- Исправление f1b86fe: SQL-пагинация списка статей, публичные серверные запросы без cookie, валидация slug, кэш загрузчика.
+
+### Проверки
+
+- backend: 720 passed, exit 0 (одноразовый PostgreSQL 17.11, отдельная БД для теста миграции);
+- web: 667 passed / 6 skipped;
+- typecheck: 0;
+- `next build --webpack`: 0;
+- `generate:api-types`: без diff;
+- `alembic heads` = 0032;
+- `alembic check`: без дрейфа.
+
+### Ревью безопасности
+
+CRITICAL/HIGH нет. Два MEDIUM (неограниченная загрузка статей, проброс cookie) исправлены в f1b86fe. Cache-Control статей оставлен no-store по конвенции проекта.
+
+### Не проверено
+
+Браузерный smoke, визуальная проверка, деплой. Новая ветка не на проде.
+
+### Отдельно
+
+`trial/redesign-on-prod-20261022`: пробное слияние редизайна origin/main поверх прода (typecheck/test 637+6 skip/build OK, визуально не проверено, удалены страницы категорий/financing из origin/main). Не входит в next.
+
 ## 2026-10-22 — интеграция integrate/20261022 (реконструкция прод-исходника)
 
 ### 1. Что проверялось и источник истины
