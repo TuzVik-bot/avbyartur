@@ -63,6 +63,32 @@ def test_make_listing_count_includes_only_publicly_visible_cars(integration):
     assert len(search.json()["items"]) == _count(client, make_id)
 
 
+def test_make_listing_count_is_scoped_to_requested_category(integration):
+    factory = integration["SessionLocal"]
+    client = integration["client"]
+    suffix = uuid.uuid4().hex[:8]
+    owner = add_user(factory, f"make-count-cat-{suffix}@example.com")
+    with factory() as db:
+        make = CatalogMake(
+            slug=f"truck-count-{suffix}", name=f"Truck Count {suffix}", aliases=[],
+            source_name="NHTSA vPIC catalog pack 01", source_metadata={"category_codes": ["trucks"]},
+        )
+        db.add(make)
+        db.flush()
+        make_id = make.id
+        db.add_all([
+            _listing(owner.id, make_id, category_code="trucks"),
+            _listing(owner.id, make_id, category_code="trucks"),
+            _listing(owner.id, make_id, category_code="cars"),
+        ])
+        db.commit()
+
+    response = client.get("/api/v1/catalog/makes", params={"limit": 200, "category_code": "trucks"})
+    assert response.status_code == 200, response.text
+    count = next(item["listing_count"] for item in response.json()["items"] if item["id"] == str(make_id))
+    assert count == 2
+
+
 def test_make_listing_count_is_zero_without_listings(integration):
     factory = integration["SessionLocal"]
     with factory() as db:

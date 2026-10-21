@@ -401,6 +401,64 @@ describe("listing quality checklist", () => {
   });
 });
 
+describe("category catalog hints", () => {
+  const truckMakes: CatalogItem[] = [{ id: "truck-make", slug: "man", name: "MAN", aliases: ["МАН"] }];
+  const truckModels: CatalogItem[] = [{ id: "truck-model", slug: "tgx", name: "TGX" }];
+
+  async function renderCategoryForm(category: string | undefined, catalog: ReturnType<typeof vi.spyOn>) {
+    stubListingValidationPolicy(defaultValidationPolicy);
+    vi.spyOn(api, "listingOptions").mockResolvedValue({ colors: [], customs_statuses: [], technical_conditions: [], body_conditions: [], equipment: [] });
+    vi.spyOn(api, "cities").mockResolvedValue({ items: [] });
+    vi.spyOn(api, "photos").mockResolvedValue({ items: [] });
+    const make = { id: "manual-make", slug: "manual-make", name: "" };
+    const listing = Object.assign(draft({ make, model: { id: "manual-model", slug: "manual-model", name: "" } }), category ? { category_code: category } : {});
+    vi.spyOn(api, "listing").mockResolvedValue({ listing });
+    await act(async () => {
+      root.render(createElement(SellForm, { initialListing: listing, makes: [], models: [], generations: [], bodyTypes: [], regions: [listing.region!], cities: [], company: null }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    for (let step = 0; step < 2 && !container.querySelector('input[aria-label="Марка вручную"]'); step += 1) await clickContinue();
+    return catalog;
+  }
+
+  function datalistValues(id: string) {
+    return [...container.querySelectorAll<HTMLOptionElement>(`datalist#${id} option`)].map((item) => item.value);
+  }
+
+  it("suggests category makes and models while keeping manual entry", async () => {
+    const catalog = vi.spyOn(api, "catalog").mockImplementation(async (kind) => ({ items: kind === "makes" ? truckMakes : truckModels }));
+    await renderCategoryForm("trucks", catalog);
+
+    expect(catalog).toHaveBeenCalledWith("makes", { category_code: "trucks" });
+    expect(datalistValues("category-pack-makes")).toEqual(["MAN"]);
+    const makeInput = container.querySelector<HTMLInputElement>('input[aria-label="Марка вручную"]');
+    expect(makeInput?.getAttribute("list")).toBe("category-pack-makes");
+    expect(container.querySelector('input[aria-label="Модель вручную"]')?.getAttribute("list")).toBe("category-pack-models");
+
+    await act(async () => { inputValue("Марка вручную", "мАн"); });
+    expect(catalog).toHaveBeenCalledWith("models", { category_code: "trucks", make_id: "truck-make" });
+    expect(datalistValues("category-pack-models")).toEqual(["TGX"]);
+
+    await act(async () => { inputValue("Марка вручную", "Своя марка"); });
+    expect(datalistValues("category-pack-models")).toEqual([]);
+    expect(inputText("Модель")).toBe("");
+  });
+
+  it("does not request category hints for cars or categories without a catalog", async () => {
+    for (const category of [undefined, "parts"]) {
+      const catalog = vi.spyOn(api, "catalog").mockResolvedValue({ items: truckMakes });
+      await renderCategoryForm(category, catalog);
+      expect(catalog).not.toHaveBeenCalledWith("makes", expect.objectContaining({ category_code: expect.anything() }));
+      expect(container.querySelector("datalist#category-pack-makes")).toBeNull();
+      expect(container.querySelector('input[aria-label="Марка вручную"]')?.hasAttribute("list")).toBe(false);
+      act(() => root.unmount());
+      act(() => { root = createRoot(container); });
+      vi.restoreAllMocks();
+    }
+  });
+});
+
 describe("market price estimate", () => {
   const bodyType: CatalogItem = { id: "body-sedan", slug: "sedan", name: "Седан" };
   const estimate = {
