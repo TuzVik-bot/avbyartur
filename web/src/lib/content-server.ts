@@ -1,4 +1,4 @@
-import { serverApiRequest } from "@/lib/server-api";
+import { publicServerApiRequest, serverApiRequest } from "@/lib/server-api";
 import type { components } from "@/lib/types.generated";
 import type { ArticlePublicEnvelope, ArticleTopic, ContentKind } from "@/lib/content";
 
@@ -13,7 +13,7 @@ export const contentServerApi = {
       ...(page ? { page: String(page) } : {}),
       ...(pageSize ? { page_size: String(pageSize) } : {}),
     }).toString();
-    return serverApiRequest<ArticleList>(`content/articles${query ? `?${query}` : ""}`);
+    return publicServerApiRequest<ArticleList>(`content/articles${query ? `?${query}` : ""}`);
   },
-  article: (slug: string) => serverApiRequest<ArticlePublicEnvelope>(`content/article/${encodeURIComponent(slug)}`)
+  article: (slug: string) => publicServerApiRequest<ArticlePublicEnvelope>(`content/article/${encodeURIComponent(slug)}`)
 };

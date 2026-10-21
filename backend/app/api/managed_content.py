@@ -127,26 +127,22 @@ def public_articles(
     page: int = Query(default=1, ge=1), page_size: int = Query(default=20, ge=1, le=100),
 ) -> dict:
     response.headers["Cache-Control"] = "no-store"
-    rows = db.scalars(select(ManagedContent).where(
-        ManagedContent.kind == "article", ManagedContent.status == "published",
-    )).all()
-    items = []
-    for row in rows:
-        try:
-            payload = validate_content(row.kind, row.key, row.payload, row.status)
-        except (ValidationError, ValueError):
-            continue
-        if topic is not None and payload["topic"] != topic:
-            continue
-        items.append({
-            "slug": row.key,
-            "title": payload["title"],
-            "summary": payload["summary"],
-            "topic": payload["topic"],
-            "published_at": payload["published_at"],
-            "updated_at": row.updated_at,
-        })
-    items.sort(key=lambda item: (item["published_at"], item["updated_at"]), reverse=True)
-    total = len(items)
-    offset = (page - 1) * page_size
-    return {"items": items[offset:offset + page_size], "total": total, "page": page, "page_size": page_size}
+    payload = ManagedContent.payload
+    published_at = payload["published_at"].as_string()
+    conditions = [ManagedContent.kind == "article", ManagedContent.status == "published", published_at.is_not(None)]
+    if topic is not None:
+        conditions.append(payload["topic"].as_string() == topic)
+    total = db.scalar(select(func.count()).select_from(ManagedContent).where(*conditions)) or 0
+    rows = db.execute(
+        select(
+            ManagedContent.key, ManagedContent.updated_at, payload["title"].as_string(), payload["summary"].as_string(),
+            payload["topic"].as_string(), published_at,
+        ).where(*conditions)
+        .order_by(published_at.desc(), ManagedContent.updated_at.desc(), ManagedContent.id)
+        .limit(page_size).offset((page - 1) * page_size)
+    ).all()
+    items = [
+        {"slug": key, "title": title, "summary": summary, "topic": row_topic, "published_at": published, "updated_at": updated_at}
+        for key, updated_at, title, summary, row_topic, published in rows
+    ]
+    return {"items": items, "total": total, "page": page, "page_size": page_size}

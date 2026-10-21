@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { requireSession } from "@/lib/server";
-import { getSavedListingIds, getSessionServer, serverApi } from "@/lib/server-api";
+import { contentServerApi } from "@/lib/content-server";
+import { getSavedListingIds, getSessionServer, publicServerApiRequest, serverApi } from "@/lib/server-api";
 
 const mocks = vi.hoisted(() => ({
   redirect: vi.fn((url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); })
@@ -104,5 +105,26 @@ describe("server session lookup", () => {
 
     await expect(requireSession("/account/notifications")).rejects.toThrow("NEXT_REDIRECT:/login?next=%2Faccount%2Fnotifications");
     expect(mocks.redirect).toHaveBeenCalledWith("/login?next=%2Faccount%2Fnotifications");
+  });
+});
+
+describe("public server requests", () => {
+  it("never forward the visitor cookie for public article fetches", async () => {
+    const request = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ items: [], total: 0, page: 1, page_size: 20 }), { status: 200 }));
+    vi.stubGlobal("fetch", request);
+
+    await contentServerApi.articles();
+    await contentServerApi.article("some-article");
+    await publicServerApiRequest("content/articles");
+
+    expect(request).toHaveBeenCalledTimes(3);
+    for (const call of request.mock.calls) expect(new Headers(call[1].headers).has("cookie")).toBe(false);
+  });
+
+  it("still forwards the cookie for session-bound requests", async () => {
+    const request = vi.fn().mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", request);
+    await getSessionServer();
+    expect(new Headers(request.mock.calls[0][1].headers).get("cookie")).toBe("pilot_session=test-session");
   });
 });

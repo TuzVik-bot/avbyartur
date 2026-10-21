@@ -125,3 +125,35 @@ def test_public_list_orders_by_publication_date_desc_hides_drafts_and_private_fi
 
     detail = client.get("/api/v1/content/article/newer-article").json()["content"]
     assert "updated_by" not in detail
+
+
+def test_article_key_rejects_uppercase_characters():
+    try:
+        validate_content("article", "Inspection-Before-Buying", article_payload(slug="Inspection-Before-Buying"), "draft")
+    except ValueError:
+        return
+    raise AssertionError("Uppercase article key was accepted")
+
+
+def test_public_article_list_is_ordered_filtered_and_paginated_in_sql(integration):
+    client, headers = admin(integration)
+    specs = [("alpha-one", "2026-10-01", "vin"), ("bravo-two", "2026-10-05", "inspection"), ("charlie-three", "2026-10-03", "vin"),
+             ("delta-four", "2026-10-04", "vin"), ("echo-five", "2026-10-02", "inspection")]
+    for slug, published_at, topic in specs:
+        payload = article_payload(slug=slug, published_at=published_at, topic=topic)
+        saved = client.put(f"/api/v1/admin/content/article/{slug}", json=content_body(payload), headers=headers)
+        assert saved.status_code == 200, saved.text
+
+    def slugs(**params):
+        response = client.get("/api/v1/content/articles", params=params)
+        assert response.status_code == 200, response.text
+        return [item["slug"] for item in response.json()["items"]], response.json()
+
+    first, body = slugs(page=1, page_size=2)
+    assert first == ["bravo-two", "delta-four"] and body["total"] == 5 and body["page_size"] == 2
+    assert slugs(page=2, page_size=2)[0] == ["charlie-three", "echo-five"]
+    assert slugs(page=3, page_size=2)[0] == ["alpha-one"]
+    assert slugs(page=4, page_size=2)[0] == []
+    vin, body = slugs(topic="vin", page=1, page_size=2)
+    assert vin == ["delta-four", "charlie-three"] and body["total"] == 3
+    assert slugs(topic="vin", page=2, page_size=2)[0] == ["alpha-one"]

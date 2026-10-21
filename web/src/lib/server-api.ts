@@ -4,15 +4,24 @@ import type { components } from "@/lib/types.generated";
 import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, DealerReviewReport, DealerReviews, FavoriteListing, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, ModerationDealerReview, Report, UserNotificationList } from "@/lib/types";
 import type { NotificationPreferences } from "@/lib/api";
 
+async function fetchApi<T>(path: string, requestHeaders: Headers): Promise<T> {
+  const response = await fetch(`${internalApiBase()}/${path.replace(/^\//, "")}`, { headers: requestHeaders, cache: "no-store" });
+  const payload: unknown = await response.json().catch(() => undefined);
+  if (!response.ok) throw new ApiClientError(response.status, (payload || {}) as Partial<ApiErrorShape>);
+  return payload as T;
+}
+
 export async function serverApiRequest<T>(path: string): Promise<T> {
   const incoming = await headers();
   const requestHeaders = new Headers();
   const cookie = incoming.get("cookie");
   if (cookie) requestHeaders.set("cookie", cookie);
-  const response = await fetch(`${internalApiBase()}/${path.replace(/^\//, "")}`, { headers: requestHeaders, cache: "no-store" });
-  const payload: unknown = await response.json().catch(() => undefined);
-  if (!response.ok) throw new ApiClientError(response.status, (payload || {}) as Partial<ApiErrorShape>);
-  return payload as T;
+  return fetchApi<T>(path, requestHeaders);
+}
+
+/** Cookie-less request for public, user-independent data; never forwards the visitor's session. */
+export function publicServerApiRequest<T>(path: string): Promise<T> {
+  return fetchApi<T>(path, new Headers());
 }
 
 export async function getSessionServer(): Promise<AuthSession | null> {

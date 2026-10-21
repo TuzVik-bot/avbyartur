@@ -51,6 +51,21 @@ describe("managed article loading", () => {
   });
 });
 
+describe("managed article slug validation", () => {
+  it("rejects malformed or oversized slugs without calling the API", async () => {
+    for (const slug of ["Upper-Case", "a_b", "a--b", "-a", "a-", "a/b", "", "a".repeat(101)]) {
+      expect(await loadManagedArticle(slug)).toBeNull();
+    }
+    expect(mocks.article).not.toHaveBeenCalled();
+  });
+
+  it("accepts a valid slug of maximum length", async () => {
+    const slug = "a".repeat(100);
+    mocks.article.mockResolvedValueOnce({ content: { kind: "article", key: slug, status: "published" } });
+    expect(await loadManagedArticle(slug)).not.toBeNull();
+  });
+});
+
 describe("splitArticleParagraphs", () => {
   it("splits on blank lines and drops empty chunks", () => {
     expect(splitArticleParagraphs("one\nstill one\n\n\n two \n\n")).toEqual(["one\nstill one", "two"]);

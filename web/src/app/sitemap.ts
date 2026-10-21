@@ -41,6 +41,7 @@ async function loadApprovedDealers() {
   return loadPages<CompanySummary>((page) => serverApi.dealers(page));
 }
 
+// Managed articles are capped at 1000 (10 pages x 100 in loadManagedArticleSummaries).
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [listingsResult, dealersResult, managedResult] = await Promise.allSettled([
     loadActiveListings(),

@@ -168,7 +168,7 @@ def validate_content(kind: str, key: str, payload: dict, status: str) -> dict:
             raise ValueError("Publication requires document approval")
         return content.model_dump(mode="json")
     if kind == "article":
-        if not key or len(key) > 100 or not all(part and part.isascii() and part.isalnum() for part in key.split("-")):
+        if not key or len(key) > 100 or not all(part and part.isascii() and part.isalnum() and part == part.lower() for part in key.split("-")):
             raise ValueError("Article key must be a lowercase ASCII slug")
         content = ArticlePayload.model_validate(payload)
         if content.slug != key:
