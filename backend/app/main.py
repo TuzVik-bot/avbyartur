@@ -109,6 +109,7 @@ ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
     ("/api/v1/dealer/feeds/{feed_id}/rotate-token", "post"): (401, 403, 404, 409),
     ("/api/v1/dealer/feeds/{feed_id}/imports", "post"): (401, 403, 404, 409, 413, 422, 429),
     ("/api/v1/dealer/feeds/{feed_id}/api-imports", "post"): (401, 403, 409, 413, 422, 429),
+    ("/api/v1/dealer/feed-imports", "get"): (401, 403, 404, 422),
     ("/api/v1/dealer/feed-imports/{run_id}", "get"): (401, 403, 404),
     ("/api/v1/dealer/feed-imports/{run_id}/rows", "get"): (401, 403, 404),
     ("/api/v1/auth/login", "post"): (401, 429),
@@ -236,6 +237,11 @@ ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
     ("/api/v1/moderation/companies/{company_id}/block", "post"): (
         401, 403, 404, 409, 422
     ),
+    ("/api/v1/moderation/listings/{listing_id}/photo-badges", "put"): (401, 403, 404, 409, 422),
+    ("/api/v1/listings/{listing_id}/price-history", "get"): (404, 422),
+    ("/api/v1/me/favorites/{listing_id}/price-drop-alert", "put"): (401, 403, 404, 422),
+    ("/api/v1/analytics/events", "post"): (422, 429),
+    ("/api/v1/analytics/errors", "post"): (422, 429),
     ("/api/v1/moderation/reports", "get"): (401, 403),
     ("/api/v1/moderation/reports/{report_id}/resolve", "post"): (401, 403, 404, 409),
 }

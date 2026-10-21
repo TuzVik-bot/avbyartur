@@ -449,6 +449,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare Public Listings */
+        get: operations["compare_public_listings_api_v1_listings_compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent Public Listings */
+        get: operations["recent_public_listings_api_v1_listings_recent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listings/{listing_id}": {
         parameters: {
             query?: never;
@@ -663,6 +697,40 @@ export interface paths {
         };
         /** My Favorites */
         get: operations["my_favorites_api_v1_me_favorites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/favorites/{listing_id}/price-drop-alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Favorite Price Drop Alert */
+        put: operations["set_favorite_price_drop_alert_api_v1_me_favorites__listing_id__price_drop_alert_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings/{listing_id}/price-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing Price History */
+        get: operations["listing_price_history_api_v1_listings__listing_id__price_history_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1884,6 +1952,23 @@ export interface paths {
         put?: never;
         /** Import Dealer Feed Api */
         post: operations["import_dealer_feed_api_api_v1_dealer_feeds__feed_id__api_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dealer/feed-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Dealer Feed Import History */
+        get: operations["list_dealer_feed_import_history_api_v1_dealer_feed_imports_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3697,11 +3782,14 @@ export interface components {
             /** Engine Volume Cc */
             engine_volume_cc: number;
             /**
+             * Benefit 140
+             * @default false
+             */
+            benefit_140: boolean;
+            /**
              * Personal Use
              * @constant
              */
-            /** @default false */
-            benefit_140: boolean;
             personal_use: true;
             /**
              * Origin Outside Eaeu
@@ -3991,6 +4079,19 @@ export interface components {
              */
             missing_retirement_delay_hours: number;
         };
+        /** DealerFeedImportHistoryItemOut */
+        DealerFeedImportHistoryItemOut: {
+            /** Feed Name */
+            feed_name: string;
+            run: components["schemas"]["DealerFeedImportRunOut"];
+        };
+        /** DealerFeedImportHistoryOut */
+        DealerFeedImportHistoryOut: {
+            /** Items */
+            items: components["schemas"]["DealerFeedImportHistoryItemOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
         /** DealerFeedImportOut */
         DealerFeedImportOut: {
             run: components["schemas"]["DealerFeedImportRunOut"];
@@ -4171,6 +4272,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            latest_import?: components["schemas"]["DealerFeedImportRunOut"] | null;
+            /** Last Successful Import At */
+            last_successful_import_at?: string | null;
+            /** Last Successful Import Age Seconds */
+            last_successful_import_age_seconds?: number | null;
         };
         /** DealerFeedPatch */
         DealerFeedPatch: {
@@ -4603,6 +4709,119 @@ export interface components {
              */
             verified: true;
         };
+        /** FavoriteListingOut */
+        FavoriteListingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Revision */
+            revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
+            make: components["schemas"]["ListingCatalogItemOut"] | null;
+            model: components["schemas"]["ListingCatalogItemOut"] | null;
+            generation: components["schemas"]["ListingCatalogItemOut"] | null;
+            /** Year */
+            year: number | null;
+            /** Mileage Km */
+            mileage_km: number | null;
+            /** Fuel */
+            fuel: string | null;
+            /** Transmission */
+            transmission: string | null;
+            /** Drive */
+            drive: string | null;
+            /** Body Type */
+            body_type: string | null;
+            /** Body Variant Id */
+            body_variant_id: string | null;
+            body_variant: components["schemas"]["ListingCatalogItemOut"] | null;
+            price: components["schemas"]["ListingPriceOut"] | null;
+            region: components["schemas"]["ListingCatalogItemOut"] | null;
+            city: components["schemas"]["ListingCatalogItemOut"] | null;
+            /** Manual City */
+            manual_city: string | null;
+            seller: components["schemas"]["ListingSellerOut"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Published At */
+            published_at?: string | null;
+            /** Damaged */
+            damaged: boolean;
+            /** Parts Only */
+            parts_only: boolean;
+            /** Description */
+            description: string;
+            /** Engine Volume L */
+            engine_volume_l: string | null;
+            /** Power Hp */
+            power_hp: number | null;
+            /** Condition */
+            condition: string | null;
+            /** Color */
+            color?: ("black" | "white" | "gray" | "silver" | "red" | "blue" | "green" | "yellow" | "brown" | "beige" | "orange" | "purple" | "other") | null;
+            /** Customs Status */
+            customs_status?: ("cleared_rb" | "eaeu_import" | "uncleared" | "unknown") | null;
+            /** Technical Condition */
+            technical_condition?: ("good" | "needs_repair" | "non_operational") | null;
+            /** Body Condition */
+            body_condition?: ("good" | "minor_damage" | "significant_damage" | "repaired") | null;
+            /** Exchange */
+            exchange?: boolean | null;
+            /** Bargaining */
+            bargaining?: boolean | null;
+            /** Credit */
+            credit?: boolean | null;
+            /** Leasing */
+            leasing?: boolean | null;
+            /** Equipment */
+            equipment?: string[];
+            /** District */
+            district?: string | null;
+            /** Call Hours */
+            call_hours?: string | null;
+            /** Photo Badges */
+            photo_badges?: ("verified" | "free_history" | "best_price")[];
+            /** Promotion Badges */
+            promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
+            /** Photo Urls */
+            photo_urls: string[];
+            /** Photos */
+            photos: components["schemas"]["ListingPhotoOut"][];
+            modification?: components["schemas"]["ListingModificationOut"] | null;
+            /** Price Drop Notifications Enabled */
+            price_drop_notifications_enabled: boolean;
+        };
+        /** FavoritePriceDropAlertInput */
+        FavoritePriceDropAlertInput: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** FavoritePriceDropAlertOut */
+        FavoritePriceDropAlertOut: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** FavoriteToggleOut */
         FavoriteToggleOut: {
             /**
@@ -4718,6 +4937,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ListingComparisonOut */
+        ListingComparisonOut: {
+            /** Items */
+            items: components["schemas"]["ListingPublicOut"][];
         };
         /** ListingContactChannelOut */
         ListingContactChannelOut: {
@@ -4963,7 +5187,7 @@ export interface components {
         /** ListingFavoritesOut */
         ListingFavoritesOut: {
             /** Items */
-            items: components["schemas"]["ListingPublicOut"][];
+            items: components["schemas"]["FavoriteListingOut"][];
         };
         /** ListingFieldChangeOut */
         ListingFieldChangeOut: {
@@ -5502,6 +5726,37 @@ export interface components {
             /** Items */
             items: components["schemas"]["ListingPhotoStatusOut"][];
         };
+        /** ListingPriceHistoryItemOut */
+        ListingPriceHistoryItemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Event Type
+             * @enum {string}
+             */
+            event_type: "baseline" | "published" | "added" | "changed" | "removed";
+            /** Amount */
+            amount: string | null;
+            /** Currency */
+            currency: ("BYN" | "USD") | null;
+            /** Previous Amount */
+            previous_amount: string | null;
+            /** Previous Currency */
+            previous_currency: ("BYN" | "USD") | null;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
+        /** ListingPriceHistoryOut */
+        ListingPriceHistoryOut: {
+            /** Items */
+            items: components["schemas"]["ListingPriceHistoryItemOut"][];
+        };
         /** ListingPriceOut */
         ListingPriceOut: {
             /** Amount */
@@ -5626,6 +5881,11 @@ export interface components {
             /** Photos */
             photos: components["schemas"]["ListingPhotoOut"][];
             modification?: components["schemas"]["ListingModificationOut"] | null;
+        };
+        /** ListingRecentOut */
+        ListingRecentOut: {
+            /** Items */
+            items: components["schemas"]["ListingPublicOut"][];
         };
         /** ListingRelatedOut */
         ListingRelatedOut: {
@@ -6792,6 +7052,8 @@ export interface components {
             saved_search_id: string | null;
             /** Conversation Id */
             conversation_id: string | null;
+            /** Price Event Id */
+            price_event_id: string | null;
             /** Listing Id */
             listing_id: string | null;
             /** Title */
@@ -8232,6 +8494,86 @@ export interface operations {
             };
         };
     };
+    compare_public_listings_api_v1_listings_compare_get: {
+        parameters: {
+            query: {
+                ids: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingComparisonOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    recent_public_listings_api_v1_listings_recent_get: {
+        parameters: {
+            query: {
+                ids: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingRecentOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
     get_listing_api_v1_listings__listing_id__get: {
         parameters: {
             query?: never;
@@ -9166,6 +9508,126 @@ export interface operations {
             };
             /** @description The authenticated user is not allowed to perform this action */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    set_favorite_price_drop_alert_api_v1_me_favorites__listing_id__price_drop_alert_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listing_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FavoritePriceDropAlertInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoritePriceDropAlertOut"];
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    listing_price_history_api_v1_listings__listing_id__price_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listing_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingPriceHistoryOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10490,6 +10952,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModerationListingResponse"];
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
             /** @description Request validation error */
@@ -14865,6 +15363,74 @@ export interface operations {
             };
         };
     };
+    list_dealer_feed_import_history_api_v1_dealer_feed_imports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealerFeedImportHistoryOut"];
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
     get_dealer_feed_import_api_v1_dealer_feed_imports__run_id__get: {
         parameters: {
             query?: never;
@@ -17219,6 +17785,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
+            /** @description The request rate limit was exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
             /** @description API error */
             default: {
                 headers: {
@@ -17254,6 +17829,15 @@ export interface operations {
             };
             /** @description Request validation error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request rate limit was exceeded */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
