@@ -11,7 +11,8 @@ const owner: DealerTeamMember = {
 const feed: DealerFeed = {
   id: "feed-1", name: "Каталог", format: "csv", status: "active", field_mapping: {}, api_token_prefix: null,
   manual_conflict_policy: "review", missing_retirement_enabled: false, missing_retirement_delay_hours: 168,
-  created_at: "2026-10-01T10:00:00Z"
+  created_at: "2026-10-01T10:00:00Z", latest_import: null, last_successful_import_at: null,
+  last_successful_import_age_seconds: null
 };
 const candidate: DealerFeedMissingCandidate = {
   dealer_external_id: "STOCK-100", listing_id: "listing-1", title: "Toyota Camry", status: "active",
@@ -22,6 +23,41 @@ const run = (dry_run: boolean): DealerFeedImportRun => ({
   id: dry_run ? "preview-run" : "applied-run", feed_id: feed.id, status: dry_run ? "preview" : "succeeded", dry_run,
   source_filename: "stock.csv", total_rows: 1, applied_rows: dry_run ? 0 : 1, rejected_rows: 0,
   error_code: null, created_at: "2026-10-01T10:00:00Z", completed_at: "2026-10-01T10:00:01Z"
+});
+
+describe("dealer feed freshness", () => {
+  it("shows the empty state for import freshness", async () => {
+    vi.spyOn(dealerTeamApi, "importHistory").mockResolvedValue({ items: [], next_cursor: null });
+    await render();
+    expect(container.textContent).toContain("Импортов ещё не было.");
+    expect(container.textContent).toContain("Успешных применений ещё не было.");
+  });
+
+  it("refreshes source freshness after applying a file", async () => {
+    const applied = { ...run(false), id: "fresh-run", source_filename: "stock.csv" };
+    const updatedFeed = {
+      ...feed,
+      latest_import: applied,
+      last_successful_import_at: applied.completed_at,
+      last_successful_import_age_seconds: 0
+    };
+    const importCall = vi.spyOn(dealerTeamApi, "importFeedFile").mockResolvedValue({ run: applied, missing_candidates: [] });
+    const rowsCall = vi.spyOn(dealerTeamApi, "importRows").mockResolvedValue({ items: [] });
+    vi.spyOn(dealerTeamApi, "importHistory").mockResolvedValue({ items: [], next_cursor: null });
+    const feedsCall = vi.spyOn(dealerTeamApi, "feeds").mockResolvedValue({ items: [updatedFeed] });
+    await render();
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const file = new File(["dealer_external_id,title\nSTOCK-100,Toyota Camry"], "stock.csv", { type: "text/csv" });
+    Object.defineProperty(fileInput, "files", { configurable: true, value: [file] });
+    await act(async () => { fileInput.dispatchEvent(new Event("change", { bubbles: true })); });
+    const applyButton = [...container.querySelectorAll<HTMLButtonElement>(".feed-import-actions button")][1];
+    await act(async () => { applyButton.click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(importCall).toHaveBeenCalledWith(feed.id, file, false, expect.any(String), false);
+    expect(rowsCall).toHaveBeenCalledWith(applied.id);
+    expect(feedsCall).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain("Последний импорт");
+    expect(container.textContent).toContain("Успешно");
+  });
 });
 
 let container: HTMLDivElement;

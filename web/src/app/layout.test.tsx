@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({ getSessionServer: vi.fn() }));
 vi.mock("@/components/auth-provider", () => ({ AuthProvider: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("@/components/site-header", () => ({ SiteHeader: () => null }));
 vi.mock("@/components/site-footer", () => ({ SiteFooter: () => null }));
+vi.mock("@/components/install-prompt", () => ({ InstallPrompt: () => <div data-install-prompt /> }));
 vi.mock("@/components/compare-provider", () => ({ CompareProvider: ({ children }: { children: React.ReactNode }) => <div data-compare-provider>{children}</div> }));
 vi.mock("@/lib/server-api", () => ({ getSessionServer: mocks.getSessionServer }));
 
@@ -22,11 +23,13 @@ describe("closed-pilot root layout", () => {
     expect(html).toContain('href="#main-content"');
     expect(html).toContain('id="main-content"');
     expect(html).toContain("data-compare-provider");
+    expect(html).toContain("data-install-prompt");
     expect(html).toContain("Перейти к основному содержимому");
     expect(metadata.robots).toMatchObject({ index: true, follow: true, googleBot: { index: true, follow: true } });
     expect(metadata.metadataBase).toBeInstanceOf(URL);
     expect((metadata.metadataBase as URL).origin).toBe(SITE_ORIGIN);
     expect(metadata.title).toEqual({ default: `${SITE_NAME} — автомобили Беларуси`, template: `%s — ${SITE_NAME}` });
+    expect(metadata.appleWebApp).toMatchObject({ capable: true, statusBarStyle: "default", title: SITE_NAME });
     expect(metadata.alternates?.canonical).toBeUndefined();
     expect(html).toContain('<html lang="ru">');
   });

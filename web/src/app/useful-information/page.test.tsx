@@ -1,34 +1,30 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import UsefulInformationPage from "@/app/useful-information/page";
-import CheckCarBeforeBuyingPage from "@/app/useful-information/check-car-before-buying/page";
-import { metadata as checkCarMetadata } from "@/app/useful-information/check-car-before-buying/page";
 
-describe("useful information pages", () => {
-  it("links the useful-information index to the practical car inspection guide", () => {
+describe("useful information landing page", () => {
+  it("connects existing directories to articles and the four editable search presets", () => {
     const html = renderToStaticMarkup(<UsefulInformationPage />);
 
-    expect(html).toContain("Как проверить авто перед покупкой");
-    expect(html).toContain('href="/useful-information/check-car-before-buying"');
+    expect(html).toContain("Автосервисы и СТО");
+    expect(html).toContain("Статьи и инструкции");
+    expect(html).toContain("Подборки по задаче");
+    expect(html).toContain("/useful-information/articles");
+    expect(html).toContain("Первый автомобиль");
+    expect(html).toContain("Для семьи");
+    expect(html).toContain("Сравнить электромобили");
+    expect(html).toContain("Для работы и перевозок");
+    expect(html).toContain("Категория");
+    expect(html).toContain("Год выпуска от");
+    expect(html).toContain("Цена до, BYN");
   });
 
-  it("renders a dated buying checklist with official services and existing tools", () => {
-    const html = renderToStaticMarkup(<CheckCarBeforeBuyingPage />);
+  it("opens each preset with an existing, scenario-specific catalog filter", () => {
+    const html = renderToStaticMarkup(<UsefulInformationPage />);
 
-    expect(html).toContain("Сверьте документы и данные продавца");
-    expect(html).toContain("3.58.01");
-    expect(html).toContain("3.59.01");
-    expect(html).toContain("проверке, находится ли транспортное средство в розыске, по полному совпадению VIN");
-    expect(html).toContain("3.62.01");
-    expect(html).toContain("3.68.01");
-    expect(html).toContain('href="https://e-pasluga.by/services/gai-transport"');
-    expect(html).toContain('href="/vin-check"');
-    expect(html).toContain('href="/customs-calculator"');
-    expect(html).toContain('href="/sale-contract"');
-    expect(html).toContain("Проверено 15 октября 2026 года");
-    expect(html).toContain("не принимаем и не сохраняем VIN");
-    expect(html).toContain("поставщик отчётов не подключён");
-    expect(html).not.toMatch(/<form|<input/i);
-    expect(checkCarMetadata.alternates).toEqual({ canonical: "/useful-information/check-car-before-buying" });
+    expect(html).toContain('href="/cars?category_code=cars&amp;condition=used"');
+    expect(html).toContain('href="/cars?category_code=cars&amp;has_photos=true"');
+    expect(html).toContain('href="/cars?category_code=cars&amp;fuel=electric"');
+    expect(html).toContain('href="/cars?category_code=trucks"');
   });
 });

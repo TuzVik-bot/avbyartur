@@ -9,6 +9,8 @@ COPY web/package.json web/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
+ARG SITE_ORIGIN=https://xn--80aeylebmo7f.xn--90ais
+ENV SITE_ORIGIN=${SITE_ORIGIN}
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY web/ .
 ARG NEXT_PUBLIC_RELEASE_ID=

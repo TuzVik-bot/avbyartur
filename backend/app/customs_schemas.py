@@ -34,6 +34,7 @@ class CustomsCalculationRequest(_CustomsModel):
     manufacture_date: date
     engine_type: SupportedEngine
     engine_volume_cc: int = Field(ge=1, le=100_000, strict=True)
+    benefit_140: bool = Field(default=False, strict=True)
     personal_use: Literal[True]
     origin_outside_eaeu: Literal[True]
 

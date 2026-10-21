@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.feed_schemas import DealerFeedRecord, FEED_FIELDS, FEED_SCHEMA_FIELDS
@@ -29,6 +29,7 @@ from app.models import (
     User,
 )
 from app.schemas import ListingForm
+from app.listing_price_history import record_active_listing_price_state
 from app.services import fail
 
 
@@ -226,6 +227,112 @@ def import_run_out(run: FeedImportRun) -> dict:
         "error_code": run.error_code,
         "created_at": run.created_at,
         "completed_at": run.completed_at,
+    }
+
+
+def feed_freshness_by_feed(
+    db: Session,
+    *,
+    company_id: UUID,
+    feed_ids: list[UUID],
+    now: datetime | None = None,
+) -> dict[UUID, dict]:
+    if not feed_ids:
+        return {}
+
+    base_filters = (
+        FeedImportRun.company_id == company_id,
+        DealerFeed.company_id == company_id,
+        FeedImportRun.feed_id.in_(feed_ids),
+        FeedImportRun.dry_run.is_(False),
+        FeedImportRun.source_filename != "missing-confirmation",
+    )
+    latest_run_rank = (
+        select(
+            FeedImportRun.id.label("run_id"),
+            func.row_number().over(
+                partition_by=FeedImportRun.feed_id,
+                order_by=(FeedImportRun.created_at.desc(), FeedImportRun.id.desc()),
+            ).label("run_rank"),
+        )
+        .join(DealerFeed, DealerFeed.id == FeedImportRun.feed_id)
+        .where(*base_filters)
+        .subquery()
+    )
+    latest_runs = db.scalars(
+        select(FeedImportRun)
+        .join(latest_run_rank, latest_run_rank.c.run_id == FeedImportRun.id)
+        .where(latest_run_rank.c.run_rank == 1)
+    ).all()
+
+    successful_rows = db.execute(
+        select(FeedImportRun.feed_id, func.max(FeedImportRun.completed_at))
+        .join(DealerFeed, DealerFeed.id == FeedImportRun.feed_id)
+        .where(
+            *base_filters,
+            FeedImportRun.status == "succeeded",
+            FeedImportRun.rejected_rows == 0,
+            FeedImportRun.completed_at.is_not(None),
+        )
+        .group_by(FeedImportRun.feed_id)
+    ).all()
+    latest_by_feed = {run.feed_id: run for run in latest_runs}
+    successful_at_by_feed = {feed_id: completed_at for feed_id, completed_at in successful_rows}
+    observed_at = now or datetime.now(timezone.utc)
+
+    result = {}
+    for feed_id in feed_ids:
+        latest = latest_by_feed.get(feed_id)
+        successful_at = successful_at_by_feed.get(feed_id)
+        age_seconds = None
+        if successful_at is not None:
+            age_seconds = max(0, int((observed_at - successful_at).total_seconds()))
+        result[feed_id] = {
+            "latest_import": import_run_out(latest) if latest is not None else None,
+            "last_successful_import_at": successful_at,
+            "last_successful_import_age_seconds": age_seconds,
+        }
+    return result
+
+
+def list_feed_import_history(
+    db: Session,
+    *,
+    company_id: UUID,
+    limit: int,
+    cursor_id: UUID | None,
+) -> dict:
+    query = (
+        select(FeedImportRun, DealerFeed)
+        .join(DealerFeed, DealerFeed.id == FeedImportRun.feed_id)
+        .where(
+            FeedImportRun.company_id == company_id,
+            DealerFeed.company_id == company_id,
+        )
+    )
+    if cursor_id is not None:
+        cursor_run = db.scalar(select(FeedImportRun).where(
+            FeedImportRun.id == cursor_id,
+            FeedImportRun.company_id == company_id,
+        ))
+        if cursor_run is None:
+            fail(422, "invalid_cursor", "Feed import history cursor is invalid")
+        query = query.where(
+            or_(
+                FeedImportRun.created_at < cursor_run.created_at,
+                and_(FeedImportRun.created_at == cursor_run.created_at, FeedImportRun.id < cursor_run.id),
+            )
+        )
+
+    rows = db.execute(
+        query.order_by(FeedImportRun.created_at.desc(), FeedImportRun.id.desc())
+        .limit(limit + 1)
+    ).all()
+    has_more = len(rows) > limit
+    page = rows[:limit]
+    return {
+        "items": [{"feed_name": feed.name, "run": import_run_out(run)} for run, feed in page],
+        "next_cursor": page[-1][0].id if has_more and page else None,
     }
 
 
@@ -1000,6 +1107,8 @@ def create_feed_import(
                     action = "created"
                 elif action in {"update", "overrode_manual"}:
                     manual_override = action == "overrode_manual"
+                    if listing.status == "active":
+                        record_active_listing_price_state(db, listing, baseline_if_missing=True)
                     _apply_fields(db, listing, dict(values), owner, creating=False)
                     previous_status = listing.status
                     if previous_status != "draft":

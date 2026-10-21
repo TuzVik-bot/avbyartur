@@ -19,7 +19,7 @@ vi.mock("@/lib/legal-documents", () => ({ loadApprovedLegalDocument: vi.fn().moc
 
 describe("informational pilot pages", () => {
   const routes = [
-    ["about", AboutPage, "Авторынок BY — закрытый пилот"],
+    ["about", AboutPage, "Авторынок BY"],
     ["faq", FaqPage, "Частые вопросы"],
     ["support", SupportPage, "Поддержка закрытого пилота"],
     ["partner", PartnerPage, "Сотрудничество"],

@@ -19,6 +19,7 @@ class UserNotificationOut(BaseModel):
     id: UUID
     saved_search_id: UUID | None
     conversation_id: UUID | None
+    price_event_id: UUID | None
     listing_id: UUID | None
     title: str
     body: str

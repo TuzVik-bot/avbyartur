@@ -7,12 +7,14 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Building2, ChevronRight, CircleUserRound, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { FavoriteButton, ListingCard } from "@/components/listing-card";
+import { ListingPriceHistory } from "@/components/listing-price-history";
+import { RecentlyViewedListings } from "@/components/recently-viewed-listings";
 import { ListingContactActions } from "@/components/listing-contact-actions";
 import { useContactClickConsent } from "@/components/contact-click-consent";
 import { ListingTrust } from "@/components/listing-trust";
 import { ListingPhotoBadges } from "@/components/listing-photo-badges";
 import { SellerListings, type PublicSellerListing } from "@/components/seller-listings";
-import { CompareButton } from "@/components/compare-button";
+import { ComparisonAction } from "@/components/comparison/comparison-action";
 import { ShareButton } from "@/components/share-button";
 import { api, ApiClientError } from "@/lib/api";
 import type { ListingMessengerChannel } from "@/lib/api";
@@ -195,7 +197,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
           {canManageActiveListing && <Link className="button button-secondary contact-chat" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}
           <div className="detail-actions">
-            <CompareButton listingId={listing.id} />
+            <ComparisonAction listingId={listing.id} />
             <ShareButton href={href} title={listing.title} />
           </div>
           <div className="seller-box">
@@ -212,6 +214,8 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
       </div>
       {visibleRelatedListings.length > 0 && <section className="related-listings section" aria-labelledby="related-listings-heading"><div className="section-heading"><h2 id="related-listings-heading">Похожие объявления</h2></div><div className="listing-stack">{visibleRelatedListings.map((item) => <ListingCard key={item.id} listing={item} variant="row" />)}</div></section>}
       <SellerListings listingId={listing.id} sellerId={listing.seller.id} items={sellerListings} />
+      {listing.status === "active" && <ListingPriceHistory listingId={listing.id} />}
+      <RecentlyViewedListings currentListingId={listing.id} userId={user?.id ?? null} shouldRecord={listing.status === "active"} />
     </div>
   );
 }

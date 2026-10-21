@@ -7,9 +7,16 @@ export type DealerTeamMemberRole = Exclude<DealerTeamRole, "owner">;
 export type DealerTeamStatus = DealerTeamMember["status"];
 export type DealerTeamList = components["schemas"]["DealerTeamListOut"];
 export type DealerTeamPatch = components["schemas"]["DealerTeamPatch"];
-export type DealerFeed = components["schemas"]["DealerFeedOut"];
+type GeneratedDealerFeed = components["schemas"]["DealerFeedOut"];
+export type DealerFeed = GeneratedDealerFeed & {
+  latest_import: DealerFeedImportRun | null;
+  last_successful_import_at: string | null;
+  last_successful_import_age_seconds: number | null;
+};
 export type DealerFeedCreate = components["schemas"]["DealerFeedCreate"];
 export type DealerFeedImportRun = components["schemas"]["DealerFeedImportRunOut"];
+export type DealerFeedImportHistoryItem = { feed_name: string; run: DealerFeedImportRun };
+export type DealerFeedImportHistory = { items: DealerFeedImportHistoryItem[]; next_cursor: string | null };
 export type DealerFeedImportRow = components["schemas"]["DealerFeedImportRowOut"];
 export type DealerFeedMissingCandidate = components["schemas"]["DealerFeedMissingCandidateOut"];
 export type DealerFeedMissingConfirmation = components["schemas"]["DealerFeedMissingCandidateConfirmation"];
@@ -77,6 +84,11 @@ export const dealerTeamApi = {
   },
   importRun(runId: string) {
     return apiRequest<{ run: DealerFeedImportRun }>(`dealer/feed-imports/${encodeURIComponent(runId)}`);
+  },
+  importHistory(limit = 20, cursor?: string | null) {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set("cursor", cursor);
+    return apiRequest<DealerFeedImportHistory>(`dealer/feed-imports?${params.toString()}`);
   },
   importRows(runId: string) {
     return apiRequest<{ items: DealerFeedImportRow[] }>(`dealer/feed-imports/${encodeURIComponent(runId)}/rows`);

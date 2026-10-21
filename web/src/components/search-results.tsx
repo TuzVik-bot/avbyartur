@@ -4,7 +4,7 @@ import { CatalogDisplay } from "@/components/catalog-display";
 import { SearchFilters } from "@/components/search-filters";
 import { SearchSort } from "@/components/search-sort";
 import { SavedSearchAction } from "@/components/saved-search-action";
-import { activeSearchKeys, searchUrl } from "@/lib/search-state";
+import { activeSearchKeys, clearSearchFilters, searchRelaxationOptions, searchUrl } from "@/lib/search-state";
 import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch, ListingSummary, ListResponse } from "@/lib/types";
 
 const readableFilter: Record<string, string> = {
@@ -63,6 +63,8 @@ export function SearchResults({ search, data, title, makes, models, generations,
   const page = Number(search.page || 1);
   const pages = data?.pagination?.pages || 1;
   const total = data?.pagination?.total ?? entries.length;
+  const hasActiveFilters = activeSearchKeys.some((key) => Boolean(search[key]));
+  const relaxationOptions = searchRelaxationOptions(search);
 
   return (
     <>
@@ -80,20 +82,43 @@ export function SearchResults({ search, data, title, makes, models, generations,
                   {readableFilter[key]}: {filterValue(key, Array.isArray(search[key]) ? search[key].join(",") : String(search[key]), catalog)} <X size={13} aria-hidden="true" />
                 </Link>
               ))}
-              <Link className="filter-chip" href="/cars">Сбросить все</Link>
+              <Link className="filter-chip" href={clearSearchFilters(search)}>Сбросить все</Link>
             </div>
           )}
           <CatalogDisplay entries={entries} savedListingIds={savedListingIds}
-            count={<strong>{total ? `${total.toLocaleString("ru-BY")} предложений` : "Подходящие предложения"}</strong>}
+            count={<strong>{failed ? "Каталог временно недоступен" : total ? `${total.toLocaleString("ru-BY")} предложений` : "Нет совпадений по запросу"}</strong>}
             controls={<>
-              <SavedSearchAction search={search} title={title} />
+              {entries.length > 0 && <SavedSearchAction search={search} title={title} />}
               <SearchSort search={search} priceOperationsAvailable={priceOperationsAvailable} />
             </>}
             emptyState={
             <div className="empty-state">
-              <h2>{failed ? "Не удалось загрузить объявления" : "По этим условиям объявлений пока нет"}</h2>
-              <p className="muted">{failed ? "Проверьте соединение с каталогом." : "Измените или сбросьте часть фильтров, чтобы увидеть другие варианты."}</p>
-              <Link className="button button-secondary" href="/cars">Сбросить фильтры</Link>
+              {failed ? <>
+                <h2>Не удалось загрузить объявления</h2>
+                <p className="muted">Проверьте соединение с каталогом и обновите страницу.</p>
+              </> : total > 0 ? <>
+                <h2>На этой странице объявлений нет</h2>
+                <p className="muted">Всего найдено {total.toLocaleString("ru-BY")} объявлений по этим условиям.</p>
+                <Link className="button button-secondary" href={searchUrl(search, { page: "1" })}>Перейти к первой странице</Link>
+              </> : <>
+                <h2>По этим условиям объявлений пока нет</h2>
+                <p className="muted">{hasActiveFilters
+                  ? "Объявления должны одновременно подходить всем выбранным условиям. Попробуйте ослабить один фильтр."
+                  : "В этой выдаче пока нет опубликованных объявлений. Сохраните запрос, чтобы вернуться к новым предложениям."}</p>
+                {relaxationOptions.length > 0 && <>
+                  <h3>Попробуйте поиск без одного условия</h3>
+                  <nav className="active-filters" aria-label="Ослабить условия поиска">
+                    {relaxationOptions.map(({ key, href }) => (
+                      <Link className="filter-chip" key={key} href={href}>
+                        Убрать фильтр «{readableFilter[key] ?? "Условие"}»
+                      </Link>
+                    ))}
+                  </nav>
+                </>}
+                <p className="muted">Сохраните этот поиск и включите ежедневные уведомления в личном кабинете.</p>
+                <SavedSearchAction search={search} title={title} />
+              </>}
+              <Link className="button button-secondary" href={clearSearchFilters(search)}>{hasActiveFilters ? "Сбросить фильтры" : "Все объявления"}</Link>
             </div>
             } />
           {pages > 1 && <nav className="pagination" aria-label="Страницы выдачи">

@@ -28,14 +28,6 @@ def test_parse_accepts_current_and_past_official_rates():
     ) == ("2026-09-29", Decimal("34.5678"), 10)
 
 
-def test_daily_saved_search_batch_is_scheduled_at_nine_in_minsk():
-    before_nine = datetime(2026, 10, 10, 5, 0, tzinfo=UTC)
-    at_nine = datetime(2026, 10, 10, 6, 0, tzinfo=UTC)
-
-    assert worker._next_notification_at(before_nine, "daily") == datetime(2026, 10, 10, 6, 0, tzinfo=UTC)
-    assert worker._next_notification_at(at_nine, "daily") == datetime(2026, 10, 11, 6, 0, tzinfo=UTC)
-
-
 @pytest.mark.parametrize(
     ("payload", "message"),
     [

@@ -12,6 +12,7 @@ from app.admin_service import lock_active_administrators
 from app.models import AuditEvent, Company, Listing, ListingStatusEvent, ListingTrustEvidence, Report, User, UserSession
 from app.risk_signals import collect_listing_risk_signals
 from app.listing_change_audit import list_listing_change_history
+from app.listing_price_history import record_active_listing_price_state
 from app.photo_badge_schemas import ListingPhotoBadgesInput
 from app.schemas import CompanyModerationInput, ModerationInput, ReportResolveInput
 from app.services import (
@@ -218,6 +219,7 @@ def approve_listing(
     listing.status = "active"
     db.add(ListingStatusEvent(listing_id=listing.id, actor_id=moderator.id, from_status=old_status, to_status="active", revision=listing.revision, reason=None))
     enqueue_saved_search_match(db, listing)
+    record_active_listing_price_state(db, listing)
     db.add(AuditEvent(actor_id=moderator.id, entity_type="listing", entity_id=listing.id, action="approved", details={"revision": payload.expected_revision}))
     db.commit()
     return {"listing": serialize_listing(db, listing, public=False)}

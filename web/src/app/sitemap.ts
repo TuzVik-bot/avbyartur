@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
+import { editorialArticlePaths } from "@/lib/editorial-articles";
 import { buildSitemapEntries, type SitemapListing } from "@/lib/seo";
 import { serverApi } from "@/lib/server-api";
 import type { CompanySummary, ListResponse } from "@/lib/types";
+import { siteUrl } from "@/lib/site-config";
 
 const PAGE_SIZE = "25";
 const PAGE_BATCH_SIZE = 5;
@@ -44,8 +46,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     loadApprovedDealers(),
   ]);
 
-  return buildSitemapEntries(
+  const entries = buildSitemapEntries(
     listingsResult.status === "fulfilled" ? listingsResult.value : [],
     dealersResult.status === "fulfilled" ? dealersResult.value : [],
   );
+
+  return [
+    ...entries,
+    ...editorialArticlePaths.map((path) => ({ url: siteUrl(path) })),
+  ];
 }

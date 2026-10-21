@@ -155,6 +155,7 @@ type TestListingValidationPolicy = {
   used_year_max: number;
   minimum_photos: { new: number; used: number; damaged: number; parts: number };
   maximum_photos: number;
+  category_submission_requirements: Record<string, { top_level: string[]; category_details: string[] }>;
 };
 
 const defaultValidationPolicy: TestListingValidationPolicy = {
@@ -163,7 +164,12 @@ const defaultValidationPolicy: TestListingValidationPolicy = {
   new_year_max: 2027,
   used_year_max: 2026,
   minimum_photos: { new: 1, used: 1, damaged: 1, parts: 1 },
-  maximum_photos: 30
+  maximum_photos: 30,
+  category_submission_requirements: {
+    cars: { top_level: ["make", "model", "year", "mileage_km", "fuel", "transmission", "drive"], category_details: [] },
+    motorcycles: { top_level: ["make", "model", "year"], category_details: ["vehicle_type"] },
+    watercraft: { top_level: ["make", "model", "year"], category_details: ["watercraft_type"] }
+  }
 };
 
 function stubListingValidationPolicy(result: TestListingValidationPolicy | Error | Array<TestListingValidationPolicy | Error>) {
@@ -364,6 +370,37 @@ describe("listing validation policy", () => {
   });
 });
 
+describe("listing quality checklist", () => {
+  it("uses category-specific photo advice and marks unsupported category details unverified", async () => {
+    const photo = { id: "photo-ready", url: "/uploads/moto.webp", status: "ready", position: 0, is_cover: true } as const;
+    const listing = Object.assign(draft({ contact_phone: "+375291234567", photos: [photo] }), { category_code: "motorcycles" });
+    await renderWithValidationPolicy(listing);
+    for (let step = 0; step < 5; step += 1) await clickContinue();
+
+    const quality = container.querySelector<HTMLElement>(".listing-quality");
+    expect(quality?.textContent).toContain("Характеристики категории: Не проверено");
+    expect(quality?.textContent).toContain("форма не проверяет и не редактирует эти поля");
+    expect(quality?.textContent).toContain("мотоцикл целиком с обеих сторон");
+    expect(quality?.textContent).not.toContain("Коробку передач: Рекомендуется");
+  });
+
+  it("opens and focuses a recommended field from the checklist", async () => {
+    const photo = { id: "photo-ready", url: "/uploads/cover.webp", status: "ready", position: 0, is_cover: true } as const;
+    const listing = draft({ contact_phone: "+375291234567", photos: [photo], vin: null });
+    await renderWithValidationPolicy(listing);
+    for (let step = 0; step < 5; step += 1) await clickContinue();
+
+    const vinRow = [...container.querySelectorAll<HTMLElement>(".listing-quality li")]
+      .find((item) => item.textContent?.startsWith("VIN:"));
+    const addVinButton = vinRow?.querySelector<HTMLButtonElement>("button");
+    expect(addVinButton?.textContent).toBe("Указать");
+    await act(async () => { addVinButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+
+    expect(container.querySelector("h2")?.textContent).toBe("Состояние и описание");
+    expect(document.activeElement).toBe(container.querySelector("#vin"));
+  });
+});
+
 describe("market price estimate", () => {
   const bodyType: CatalogItem = { id: "body-sedan", slug: "sedan", name: "Седан" };
   const estimate = {
@@ -381,6 +418,24 @@ describe("market price estimate", () => {
 
     expect(request).toHaveBeenCalledWith(expect.objectContaining({ mileage_km: 0 }));
     expect(container.textContent).toMatch(/12\s345 BYN/);
+    expect(container.textContent).toContain("цены опубликованных предложений");
+    expect(container.textContent).toContain("выборка 12 объявлений от 7 продавцов");
+    expect(container.textContent).toContain("оценка на");
+    expect(container.textContent).toContain("не подтверждённые цены сделок");
+  });
+
+  it("shows one general unavailable message without disclosing sample thresholds", async () => {
+    const listing = draft({ body_type: bodyType.name, mileage_km: 0, contact_phone: "+375291234567" });
+    vi.spyOn(api, "listingMarketEstimate").mockResolvedValue({
+      available: false, median_byn: null, sample_size: 0, seller_count: 0, as_of: null, rate_date: null
+    });
+    await renderWithValidationPolicy(listing, defaultValidationPolicy, [bodyType]);
+    for (let step = 0; step < 3; step += 1) await clickContinue();
+
+    await clickButton("Оценить по рынку");
+
+    expect(container.textContent).toContain("Оценка сейчас недоступна: нет достаточно сопоставимых данных для надёжного результата.");
+    expect(container.textContent).not.toMatch(/10 аналог|5 продавц/);
   });
 
   it("ignores an estimate response after the seller changes vehicle characteristics", async () => {

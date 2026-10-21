@@ -1,0 +1,179 @@
+.breadcrumbs {
+  margin-bottom: 10px;
+}
+
+.breadcrumbs a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.breadcrumbs a:focus-visible,
+.articleCard h2 a:focus-visible,
+.relatedLink a:focus-visible,
+.relatedArticles a:focus-visible {
+  outline: 3px solid var(--accent-dark);
+  outline-offset: 3px;
+}
+
+.articleGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.articleCard {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  background: var(--surface);
+}
+
+.articleCard h2,
+.articleCard p {
+  margin: 0;
+}
+
+.articleCard h2 {
+  font-size: 19px;
+}
+
+.articleCard > p:not(.articleSection) {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.articleSection {
+  color: var(--accent-dark);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.relatedLink {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.relatedLink a,
+.relatedArticles a {
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
+.articleBody {
+  max-width: 780px;
+}
+
+.articleByline {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.articleBody section {
+  padding: 17px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.articleBody section:first-child {
+  padding-top: 0;
+}
+
+.articleBody h2 {
+  margin-bottom: 9px;
+  font-size: 20px;
+}
+
+.articleBody p {
+  margin: 0 0 12px;
+  line-height: 1.7;
+}
+
+.articleBody p:last-child {
+  margin-bottom: 0;
+}
+
+.articleBody ul {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding-left: 22px;
+  line-height: 1.6;
+}
+
+.closingNote {
+  margin-top: 17px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--accent-dark);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--surface-muted);
+  line-height: 1.6;
+}
+
+.articleNextSteps {
+  margin-top: 20px;
+}
+
+.articleActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.articleAction {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 9px;
+}
+
+.articleAction a:focus-visible {
+  outline: 3px solid var(--accent-dark);
+  outline-offset: 3px;
+}
+
+.articleAction p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.relatedArticles {
+  padding-bottom: 0;
+}
+
+.relatedArticles ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.relatedArticles a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 680px) {
+  .articleGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .articleActions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .articleAction a {
+    width: 100%;
+  }
+}

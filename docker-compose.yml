@@ -176,13 +176,14 @@ services:
       dockerfile: web/Dockerfile
       args:
         NEXT_PUBLIC_RELEASE_ID: ${NEXT_PUBLIC_RELEASE_ID:-}
+        SITE_ORIGIN: ${SITE_ORIGIN:-https://xn--80aeylebmo7f.xn--90ais}
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       SITE_NAME: ${SITE_NAME:-Авторынок BY}
-      SITE_ORIGIN: ${SITE_ORIGIN:-https://suite-s1.denjik.by}
+      SITE_ORIGIN: ${SITE_ORIGIN:-https://xn--80aeylebmo7f.xn--90ais}
       API_INTERNAL_URL: http://api:8000
       ASSISTANT_API_KEY: ${ASSISTANT_API_KEY:-}
       ASSISTANT_BASE_URL: ${ASSISTANT_BASE_URL:-}

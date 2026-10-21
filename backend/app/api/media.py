@@ -32,9 +32,10 @@ register_heif_opener()
 Image.MAX_IMAGE_PIXELS = 60_000_000
 warnings.simplefilter("error", Image.DecompressionBombWarning)
 router = APIRouter(prefix="/api/v1", tags=["photos"])
-ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP", "HEIF", "HEIC"}
+ALLOWED_FORMATS = {"JPEG", "MPO", "PNG", "WEBP", "HEIF", "HEIC"}
 FORMAT_MIME_TYPES = {
     "JPEG": {"image/jpeg", "image/jpg"},
+    "MPO": {"image/jpeg", "image/jpg", "image/mpo"},
     "PNG": {"image/png"},
     "WEBP": {"image/webp"},
     "HEIF": {"image/heif", "image/heic"},
@@ -102,7 +103,9 @@ def _validate_image_data(raw: bytes, max_pixels: int, content_type: str | None =
             declared_type = (content_type or "").split(";", 1)[0].strip().lower()
             if declared_type not in {"", "application/octet-stream"} and declared_type not in FORMAT_MIME_TYPES[image.format]:
                 fail(415, "photo_mime_mismatch", "Photo content type does not match image data")
-            if getattr(image, "is_animated", False) or getattr(image, "n_frames", 1) > 1:
+            # HEIF and multi-picture JPEG (MPO) contain a primary still photo.
+            # Process that photo, not auxiliary depth/HDR or stereo images.
+            if image.format not in {"HEIF", "HEIC", "MPO"} and (getattr(image, "is_animated", False) or getattr(image, "n_frames", 1) > 1):
                 fail(415, "animated_photo", "Animated images are not supported")
             if image.width * image.height > max_pixels:
                 fail(413, "photo_pixel_limit", "Photo exceeds the 60 megapixel limit")

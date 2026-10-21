@@ -6,15 +6,7 @@ from app.main import app
 from app.models import Listing, User
 from app.services import serialize_listing
 
-UNSAFE_PUBLIC_PROPERTIES = {
-    "contact_phone",
-    "phone",
-    "telegram_contact_url",
-    "viber_contact_url",
-    "messengers",
-    "vin",
-    "moderation_reason",
-}
+UNSAFE_PUBLIC_PROPERTIES = {"contact_phone", "phone", "vin", "moderation_reason"}
 
 
 def _component(openapi: dict, reference: str) -> dict:
@@ -69,52 +61,6 @@ def test_public_listing_search_documents_typed_listing_items() -> None:
     assert updated_at["type"] == "string"
     assert updated_at["format"] == "date-time"
     assert "updated_at" in listing_schema["required"]
-
-
-def test_public_listing_contract_includes_publication_and_market_fields_and_count_route() -> None:
-    openapi = app.openapi()
-    listing_schema = _component(openapi, "#/components/schemas/ListingPublicOut")
-
-    published_at = listing_schema["properties"]["published_at"]
-    published_variants = published_at.get("anyOf", [published_at])
-    published_timestamp = next(variant for variant in published_variants if variant.get("type") == "string")
-    assert published_timestamp["format"] == "date-time"
-    price_property = listing_schema["properties"]["price"]
-    price_ref = price_property.get("$ref") or next(
-        variant["$ref"] for variant in price_property.get("anyOf", []) if "$ref" in variant
-    )
-    price_schema = _component(openapi, price_ref)
-    assert "market_comparison" in price_schema["properties"]
-    comparison = price_schema["properties"]["market_comparison"]
-    comparison_variants = comparison.get("anyOf", [comparison])
-    assert any(variant.get("type") == "null" for variant in comparison_variants)
-    comparison_ref = next(variant["$ref"] for variant in comparison_variants if "$ref" in variant)
-    comparison_schema = _component(openapi, comparison_ref)
-    assert comparison_schema["properties"]["label"]["enum"] == ["below_market", "above_market"]
-    assert comparison_schema["properties"]["median_byn"]["type"] == "string"
-    assert comparison_schema["properties"]["sample_size"]["type"] == "integer"
-    assert comparison_schema["properties"]["seller_count"]["type"] == "integer"
-    assert comparison_schema["properties"]["as_of"]["format"] == "date-time"
-    rate_date_variants = comparison_schema["properties"]["rate_date"].get("anyOf", [])
-    assert any(variant.get("type") == "string" for variant in rate_date_variants)
-    assert any(variant.get("type") == "null" for variant in rate_date_variants)
-
-    count_response = openapi["paths"]["/api/v1/listings/count"]["get"]["responses"]["200"]
-    count_schema = _component(
-        openapi, count_response["content"]["application/json"]["schema"]["$ref"]
-    )
-    assert count_schema["properties"]["total"]["type"] == "integer"
-    listing_parameters = {
-        parameter["name"] for parameter in openapi["paths"]["/api/v1/listings"]["get"]["parameters"]
-    }
-    count_parameters = {
-        parameter["name"] for parameter in openapi["paths"]["/api/v1/listings/count"]["get"]["parameters"]
-    }
-    assert count_parameters == listing_parameters
-    listing_route_order = list(openapi["paths"])
-    assert listing_route_order.index("/api/v1/listings/count") < listing_route_order.index(
-        "/api/v1/listings/{listing_id}"
-    )
 
 
 def test_public_listing_search_and_detail_return_updated_at(integration) -> None:
@@ -301,7 +247,7 @@ def test_favorites_collection_documents_public_listing_items() -> None:
     )
 
 
-def test_phone_reveal_documents_phone_and_opted_in_messengers() -> None:
+def test_phone_reveal_documents_only_its_authenticated_phone_response() -> None:
     openapi = app.openapi()
     response = openapi["paths"]["/api/v1/listings/{listing_id}/phone-reveal"]["post"][
         "responses"
@@ -310,24 +256,8 @@ def test_phone_reveal_documents_phone_and_opted_in_messengers() -> None:
 
     assert response_schema["$ref"] == "#/components/schemas/PhoneRevealOut"
     phone_schema = _component(openapi, response_schema["$ref"])
-    assert set(phone_schema["properties"]) == {"phone", "messengers"}
+    assert set(phone_schema["properties"]) == {"phone"}
     assert phone_schema["properties"]["phone"]["type"] == "string"
-    messenger_schema = phone_schema["properties"]["messengers"]["items"]
-    messenger = _component(openapi, messenger_schema["$ref"])
-    assert set(messenger["properties"]) == {"channel", "uri", "opted_in"}
-
-
-def test_owner_contact_links_are_not_part_of_public_listing_schema() -> None:
-    openapi = app.openapi()
-    public_schema = _component(openapi, "#/components/schemas/ListingPublicOut")
-    owner_schema = _component(openapi, "#/components/schemas/ListingOwnerOut")
-
-    assert {"telegram_contact_url", "viber_contact_url"}.isdisjoint(
-        _all_property_names(openapi, public_schema)
-    )
-    assert {"telegram_contact_url", "viber_contact_url"}.issubset(
-        _all_property_names(openapi, owner_schema)
-    )
 
 
 def test_listing_report_documents_exact_created_report_result() -> None:

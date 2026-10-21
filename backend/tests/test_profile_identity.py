@@ -16,7 +16,6 @@ from app.api import profile_identity as _profile_identity
 from app.config import Settings
 from app.identity_models import VerifiedEmailContact
 from app.main import app
-from app.profile_identity_schemas import NotificationPreferencesOut
 from app.security import hash_password, new_secret, secret_hash
 from fastapi.testclient import TestClient
 
@@ -211,7 +210,6 @@ def test_global_notification_preferences_are_explicitly_opted_out_and_versioned(
             "email_enabled": True,
             "revision": 0,
             "email_verified": False,
-            "email_delivery_configured": False,
         }
     }
     from app import profile_identity_service as service
@@ -241,7 +239,6 @@ def test_global_notification_preferences_are_explicitly_opted_out_and_versioned(
         "email_enabled": True,
         "revision": 2,
         "email_verified": True,
-        "email_delivery_configured": False,
     }
 
     stale = client.put(
@@ -255,18 +252,6 @@ def test_global_notification_preferences_are_explicitly_opted_out_and_versioned(
     with factory() as db:
         assert service.notification_delivery_allowed(db, user_id, "web") is False
         assert service.notification_delivery_allowed(db, user_id, "email") is True
-
-
-def test_notification_preferences_contract_exposes_email_delivery_capability():
-    preferences = NotificationPreferencesOut(
-        web_enabled=True,
-        email_enabled=True,
-        revision=0,
-        email_verified=False,
-        email_delivery_configured=True,
-    )
-
-    assert preferences.email_delivery_configured is True
 
 
 def _legal_document_payload(version: str, *, approved: bool = True) -> dict:

@@ -291,7 +291,47 @@ class ListingOwnerSearchOut(BaseModel):
     pagination: ListingPaginationOut
 
 
+class FavoriteListingOut(ListingPublicOut):
+    price_drop_notifications_enabled: bool
+
+
 class ListingFavoritesOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[FavoriteListingOut]
+
+
+class FavoritePriceDropAlertInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+
+
+class FavoritePriceDropAlertOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+
+
+class ListingPriceHistoryItemOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    event_type: Literal["baseline", "published", "added", "changed", "removed"]
+    amount: str | None
+    currency: Literal["BYN", "USD"] | None
+    previous_amount: str | None
+    previous_currency: Literal["BYN", "USD"] | None
+    recorded_at: datetime
+
+
+class ListingPriceHistoryOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[ListingPriceHistoryItemOut]
+
+
+class ListingComparisonOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[ListingPublicOut]
@@ -327,6 +367,12 @@ class ListingDetailOut(BaseModel):
 
 
 class ListingRelatedOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[ListingPublicOut]
+
+
+class ListingRecentOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[ListingPublicOut]

@@ -22,10 +22,15 @@ from app.db import get_db
 from app.dealer_services import company_ids_for_user, company_role_for
 from app.listing_schemas import (
     FavoriteToggleOut,
+    FavoritePriceDropAlertInput,
+    FavoritePriceDropAlertOut,
     ListingDetailOut,
     ListingAnalyticsOut,
     ListingCountOut,
+    ListingComparisonOut,
     ListingFavoritesOut,
+    ListingPriceHistoryOut,
+    ListingRecentOut,
     ListingOwnerDetailOut,
     ListingOwnerSearchOut,
     ListingReportOut,
@@ -52,6 +57,7 @@ from app.models import (
     Favorite,
     IdempotencyRecord,
     Listing,
+    ListingPriceEvent,
     ListingCategoryDetails,
     ListingPhoto,
     ListingPromotion,
@@ -76,6 +82,8 @@ from app.listing_options import LISTING_OPTIONS, ListingOptionsOut
 from app.listing_validation_policy import listing_validation_policy
 from app.validation_policy_schemas import ListingValidationPolicyOut
 from app.listing_change_audit import build_listing_edit_event, snapshot_listing_fields
+from app.listing_price_history import record_active_listing_price_state
+from app.listing_discovery import RECENT_LISTING_LIMIT, public_recent_listing_candidates, related_listing_candidates
 from app.security import client_ip, new_secret, secret_hash
 from app.services import (
     active_quota_count,
@@ -638,6 +646,60 @@ def listing_public_capabilities(request: Request, response: Response) -> dict:
 
 
 @router.get(
+    "/listings/compare",
+    response_model=ListingComparisonOut,
+    response_model_exclude_unset=True,
+)
+def compare_public_listings(
+    ids: Annotated[list[UUID], Query()],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    if not 1 <= len(ids) <= 4:
+        fail(422, "invalid_comparison_size", "Compare between one and four listings")
+
+    ordered_ids = list(dict.fromkeys(ids))
+    rows = db.scalars(select(Listing).where(Listing.id.in_(ordered_ids))).all()
+    by_id = {listing.id: listing for listing in rows}
+    # This endpoint intentionally has no owner or moderator view. A session
+    # cookie cannot make a private listing part of a public comparison.
+    public_rows = [
+        by_id[listing_id]
+        for listing_id in ordered_ids
+        if (
+            listing_id in by_id
+            and by_id[listing_id].status == "active"
+            and listing_is_public(db, by_id[listing_id])
+        )
+    ]
+    if not public_rows:
+        return {"items": []}
+    return {
+        "items": _listed(
+            db,
+            public_rows,
+            public=True,
+            include_contact=False,
+            include_modification=True,
+        )
+    }
+
+
+@router.get(
+    "/listings/recent",
+    response_model=ListingRecentOut,
+    response_model_exclude_unset=True,
+)
+def recent_public_listings(
+    ids: Annotated[list[UUID], Query()],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    if not 1 <= len(ids) <= RECENT_LISTING_LIMIT:
+        fail(422, "invalid_recent_size", f"Provide between one and {RECENT_LISTING_LIMIT} listing IDs")
+    rows = public_recent_listing_candidates(db, ids)
+    return {"items": serialize_listings(db, rows, public=True, include_contact=False)}
+
+
+@router.get(
     "/listings/{listing_id}",
     response_model=ListingDetailOut,
     response_model_exclude_unset=True,
@@ -722,47 +784,7 @@ def related_listings(
     if listing is None or not listing_is_public(db, listing):
         fail(404, "not_found", "Listing not found")
 
-    query = _active_query().where(Listing.id != listing.id)
-    if listing.model_id is not None:
-        related_rank = case((Listing.model_id == listing.model_id, 0), else_=1)
-        same_model_or_make = Listing.model_id == listing.model_id
-        if listing.make_id is not None:
-            same_model_or_make = or_(same_model_or_make, Listing.make_id == listing.make_id)
-        query = query.where(same_model_or_make)
-    elif listing.manual_model or listing.model_name_snapshot:
-        model_name = (listing.manual_model or listing.model_name_snapshot or "").strip().casefold()
-        make_name = (listing.manual_make or listing.make_name_snapshot or "").strip().casefold()
-        related_model = func.lower(func.trim(func.coalesce(Listing.manual_model, Listing.model_name_snapshot))) == model_name
-        if make_name:
-            same_model_or_make = or_(
-                related_model,
-                func.lower(func.trim(func.coalesce(Listing.manual_make, Listing.make_name_snapshot))) == make_name,
-            )
-            related_rank = case((related_model, 0), else_=1)
-        else:
-            same_model_or_make = related_model
-            related_rank = case((related_model, 0), else_=1)
-        query = query.where(same_model_or_make)
-    elif listing.make_id is not None:
-        query = query.where(Listing.make_id == listing.make_id)
-        related_rank = case((Listing.make_id == listing.make_id, 0), else_=1)
-    elif listing.manual_make or listing.make_name_snapshot:
-        make_name = (listing.manual_make or listing.make_name_snapshot or "").strip().casefold()
-        same_make = func.lower(func.trim(func.coalesce(Listing.manual_make, Listing.make_name_snapshot))) == make_name
-        query = query.where(same_make)
-        related_rank = case((same_make, 0), else_=1)
-    elif listing.body_type_id is not None:
-        query = query.where(Listing.body_type_id == listing.body_type_id)
-        related_rank = case((Listing.body_type_id == listing.body_type_id, 0), else_=1)
-    elif listing.region_id is not None:
-        query = query.where(Listing.region_id == listing.region_id)
-        related_rank = case((Listing.region_id == listing.region_id, 0), else_=1)
-    else:
-        return {"items": []}
-
-    rows = db.scalars(
-        query.order_by(related_rank, Listing.created_at.desc(), Listing.id.desc()).limit(8)
-    ).all()
+    rows = related_listing_candidates(db, listing)
     return {"items": _listed(db, rows)}
 
 
@@ -1026,6 +1048,8 @@ def update_listing(
     check_revision(listing, values.pop("expected_revision"))
     if listing.status in {"sold", "blocked", "archived"}:
         fail(409, "listing_not_editable", "This listing cannot be edited")
+    if listing.status == "active":
+        record_active_listing_price_state(db, listing, baseline_if_missing=True)
     before_fields = snapshot_listing_fields(db, listing)
     seller_type = values.get("seller_type")
     if seller_type == "company":
@@ -1134,6 +1158,7 @@ def _seller_transition(listing_id: UUID, payload: RevisionInput, user: User, db:
     _record_transition(db, listing, user, target)
     if target == "active":
         enqueue_saved_search_match(db, listing)
+        record_active_listing_price_state(db, listing)
     db.commit()
     return {"listing": serialize_listing(db, listing, public=False, include_contact=True)}
 
@@ -1180,8 +1205,76 @@ def my_listings(
 
 @router.get("/me/favorites", response_model=ListingFavoritesOut, response_model_exclude_unset=True)
 def my_favorites(user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]) -> dict:
-    rows = db.scalars(select(Listing).join(Favorite, Favorite.listing_id == Listing.id).where(Favorite.user_id == user.id).order_by(Favorite.created_at.desc())).all()
-    return {"items": _listed(db, [listing for listing in rows if listing_is_public(db, listing)])}
+    rows = db.execute(
+        select(Favorite, Listing)
+        .join(Listing, Favorite.listing_id == Listing.id)
+        .where(Favorite.user_id == user.id)
+        .order_by(Favorite.created_at.desc(), Favorite.id.desc())
+    ).all()
+    visible = [(favorite, listing) for favorite, listing in rows if listing_is_public(db, listing)]
+    items = _listed(db, [listing for _favorite, listing in visible])
+    for (favorite, _listing), item in zip(visible, items, strict=True):
+        item["price_drop_notifications_enabled"] = favorite.price_drop_notifications_enabled
+    return {"items": items}
+
+
+@router.put(
+    "/me/favorites/{listing_id}/price-drop-alert",
+    response_model=FavoritePriceDropAlertOut,
+)
+def set_favorite_price_drop_alert(
+    listing_id: UUID,
+    payload: FavoritePriceDropAlertInput,
+    user: Annotated[User, Depends(get_current_user)],
+    csrf: Annotated[UserSession, Depends(require_csrf)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    del csrf
+    favorite = db.scalar(
+        select(Favorite)
+        .where(Favorite.user_id == user.id, Favorite.listing_id == listing_id)
+        .with_for_update()
+    )
+    if favorite is None:
+        fail(404, "not_found", "Favorite not found")
+    if payload.enabled:
+        listing = db.get(Listing, listing_id)
+        if listing is None or listing.status != "active" or not listing_is_public(db, listing):
+            fail(404, "not_found", "Listing not found")
+    favorite.price_drop_notifications_enabled = payload.enabled
+    db.commit()
+    return {"enabled": favorite.price_drop_notifications_enabled}
+
+
+@router.get("/listings/{listing_id}/price-history", response_model=ListingPriceHistoryOut)
+def listing_price_history(
+    listing_id: UUID,
+    response: Response,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    listing = db.get(Listing, listing_id)
+    if listing is None or listing.status != "active" or not listing_is_public(db, listing):
+        fail(404, "not_found", "Listing not found")
+    response.headers["Cache-Control"] = "private, no-store"
+    rows = db.scalars(
+        select(ListingPriceEvent)
+        .where(ListingPriceEvent.listing_id == listing.id)
+        .order_by(ListingPriceEvent.created_at, ListingPriceEvent.id)
+    ).all()
+    return {
+        "items": [
+            {
+                "id": row.id,
+                "event_type": row.event_type,
+                "amount": str(row.price_amount) if row.price_amount is not None else None,
+                "currency": row.currency,
+                "previous_amount": str(row.previous_price_amount) if row.previous_price_amount is not None else None,
+                "previous_currency": row.previous_currency,
+                "recorded_at": row.created_at,
+            }
+            for row in rows
+        ]
+    }
 
 
 @router.put(

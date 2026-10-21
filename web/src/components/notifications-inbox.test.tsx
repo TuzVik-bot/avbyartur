@@ -9,6 +9,7 @@ const notification: UserNotification = {
   id: "notification-1",
   saved_search_id: "search-1",
   conversation_id: null,
+  price_event_id: null,
   listing_id: "listing-1",
   title: "Новое объявление: BMW 320d",
   body: "Нашли автомобиль по вашему сохранённому поиску.",

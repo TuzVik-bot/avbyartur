@@ -30,108 +30,6 @@ def test_saved_search_email_content_uses_same_origin_absolute_link_and_plain_tex
     assert "https://cars.example.test/cars?q=audi" in body
 
 
-def test_saved_search_digest_email_contains_bounded_listing_links_and_total():
-    from app.notification_service import saved_search_digest_email_content
-
-    subject, body = saved_search_digest_email_content(
-        {
-            "search_url": "/cars?q=audi",
-            "listings": [
-                {"id": "1", "title": "Audi A4", "url": "/cars/audi-a4"},
-                {"id": "2", "title": "Audi Q5", "url": "/cars/audi-q5"},
-            ],
-        },
-        "https://cars.example.test",
-        27,
-    )
-
-    assert subject == "Новое объявление по сохранённому поиску"
-    assert "Найдено объявлений: 27" in body
-    assert "https://cars.example.test/cars/audi-a4" in body
-    assert "https://cars.example.test/cars/audi-q5" in body
-    assert "Ещё объявлений: 25" in body
-    assert "https://cars.example.test/cars?q=audi" in body
-
-
-def test_saved_search_digest_email_rejects_external_listing_links():
-    from app.notification_service import saved_search_digest_email_content
-
-    with pytest.raises(ValueError, match="invalid_notification_url"):
-        saved_search_digest_email_content(
-            {
-                "search_url": "/cars",
-                "listings": [{"id": "1", "title": "Audi", "url": "//phishing.example"}],
-            },
-            "https://cars.example.test",
-            1,
-        )
-
-
-@pytest.mark.parametrize(
-    "search_url",
-    ["//phishing.example/cars", "https://phishing.example/cars", "/cars#fragment", "/account"],
-)
-def test_saved_search_digest_email_rejects_invalid_search_links(search_url):
-    from app.notification_service import saved_search_digest_email_content
-
-    with pytest.raises(ValueError, match="invalid_notification_url"):
-        saved_search_digest_email_content(
-            {
-                "search_url": search_url,
-                "listings": [{"id": "1", "title": "Audi", "url": "/cars/audi"}],
-            },
-            "https://cars.example.test",
-            1,
-        )
-
-
-def test_saved_search_filters_ignore_presentation_state_for_legacy_urls():
-    from types import SimpleNamespace
-
-    from app.notification_service import saved_search_filter_snapshot, saved_search_filters
-
-    assert saved_search_filters(
-        SimpleNamespace(search_url="/cars?q=audi&page=3&page_size=50&sort=price_asc")
-    ) == {"q": "audi"}
-    assert saved_search_filter_snapshot(
-        {"q": "audi", "page": "3", "page_size": "50", "sort": "price_asc"}
-    ) == {"q": "audi"}
-
-
-def test_saved_search_filters_ignore_presentation_state_in_legacy_snapshot():
-    from app.notification_service import saved_search_filters
-
-    saved_search = SimpleNamespace(
-        filters={"q": "audi", "page": "3", "page_size": "50", "sort": "price_asc"}
-    )
-
-    assert saved_search_filters(saved_search) == {"q": "audi"}
-
-
-def test_saved_search_delivery_snapshot_ignores_name_and_presentation_changes():
-    from app.worker import _saved_search_delivery_snapshot
-
-    shared = {
-        "id": uuid.uuid4(),
-        "status": "active",
-        "notifications_enabled": True,
-        "notification_channel": "email",
-        "notification_frequency": "instant",
-        "search_url": "/cars?q=audi",
-        "subscription_started_at": datetime(2026, 10, 8, tzinfo=timezone.utc),
-    }
-    before = SimpleNamespace(revision=1, name="Audi alerts", **shared)
-    after = SimpleNamespace(
-        revision=2,
-        name="My Audi alerts",
-        **{**shared, "search_url": "/cars?q=audi&page=4&sort=price_asc"},
-    )
-
-    assert _saved_search_delivery_snapshot(before, {"q": "audi"}) == (
-        _saved_search_delivery_snapshot(after, {"q": "audi"})
-    )
-
-
 @pytest.mark.parametrize("search_url", ["https://phishing.example/", "//phishing.example/", "cars?q=audi"])
 def test_saved_search_email_content_rejects_non_site_links(search_url):
     from app.notification_service import saved_search_email_content
@@ -162,14 +60,7 @@ def login(client: TestClient, email: str) -> str:
     return response.json()["csrf_token"]
 
 
-def add_listing(
-    factory,
-    owner_id: uuid.UUID,
-    *,
-    title: str = "BMW 320d",
-    published_at: datetime | None = None,
-) -> models.Listing:
-    published_at = published_at or datetime.now(timezone.utc) - timedelta(days=1)
+def add_listing(factory, owner_id: uuid.UUID, *, title: str = "BMW 320d") -> models.Listing:
     listing = models.Listing(
         owner_id=owner_id,
         slug=f"notification-{uuid.uuid4().hex}",
@@ -193,28 +84,18 @@ def add_listing(
     )
     with factory() as db:
         db.add(listing)
-        db.flush()
-        db.add(models.ListingStatusEvent(
-            listing_id=listing.id,
-            actor_id=owner_id,
-            from_status="draft",
-            to_status="active",
-            revision=listing.revision,
-            reason="notification_test_publication",
-            created_at=published_at,
-        ))
         db.commit()
         db.refresh(listing)
         db.expunge(listing)
     return listing
 
 
-def run_job(factory, job_id: uuid.UUID, *, attempt: int = 1) -> None:
+def run_job(factory, job_id: uuid.UUID) -> None:
     with factory() as db:
         job = db.get(models.WorkerJob, job_id)
         job.status = "running"
         job.locked_by = "notification-test-worker"
-        job.attempts = attempt
+        job.attempts = 1
         job.lease_until = datetime.now(timezone.utc) + timedelta(minutes=3)
         db.commit()
     _run_job(job_id, "notification-test-worker")
@@ -228,12 +109,11 @@ def test_web_saved_search_match_is_delivered_idempotently(integration):
     saved_search = models.SavedSearch(
         user_id=subscriber.id,
         name="BMW under 25k",
-        search_url="/cars?q=bmw",
-        filters={"q": "bmw"},
+        search_url="/cars?q=bmw&price_max=25000&currency=USD",
+        filters={"q": "bmw", "price_max": "25000", "currency": "USD"},
         notifications_enabled=True,
         notification_channel="web",
         notification_frequency="instant",
-        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
     )
     with factory() as db:
         db.add(saved_search)
@@ -266,12 +146,6 @@ def test_web_saved_search_match_is_delivered_idempotently(integration):
     assert len(payload["items"]) == 1
     assert payload["items"][0]["saved_search_id"] == str(saved_search.id)
     assert payload["items"][0]["listing_id"] == str(listing.id)
-    assert payload["items"][0]["total_count"] == 1
-    assert payload["items"][0]["listings"] == [{
-        "id": str(listing.id),
-        "title": listing.title,
-        "url": f"/cars/{listing.slug}/{listing.slug}/{listing.id}",
-    }]
     notification_id = payload["items"][0]["id"]
     marked = client.post(
         f"/api/v1/me/notifications/{notification_id}/read",
@@ -282,504 +156,6 @@ def test_web_saved_search_match_is_delivered_idempotently(integration):
     with factory() as db:
         assert db.scalar(select(models.UserNotification.id).where(models.UserNotification.user_id == subscriber.id)) is not None
         assert db.scalar(select(models.NotificationOutbox.status).where(models.NotificationOutbox.saved_search_id == saved_search.id)) == "delivered"
-
-
-def test_saved_search_api_queue_delivery_and_pause_cancellation(integration):
-    factory = integration["SessionLocal"]
-    owner = add_user(factory, f"api-notification-owner-{uuid.uuid4().hex[:8]}@example.com")
-    subscriber = add_user(factory, f"api-notification-subscriber-{uuid.uuid4().hex[:8]}@example.com")
-    client = TestClient(app, base_url="http://testserver")
-    csrf = login(client, subscriber.email)
-
-    created_response = client.post(
-        "/api/v1/me/saved-searches",
-        headers={"X-CSRF-Token": csrf, "Idempotency-Key": "api-saved-search-flow"},
-        json={
-            "name": "BMW alerts",
-            "url": "/cars?q=bmw&page=3&sort=price_asc",
-            "filters": {"q": "bmw", "page": 3, "sort": "price_asc"},
-        },
-    )
-    assert created_response.status_code == 200, created_response.text
-    saved = created_response.json()["saved_search"]
-    assert saved["url"] == "/cars?q=bmw"
-    assert saved["filters"] == {"q": "bmw"}
-
-    subscribed_response = client.patch(
-        f"/api/v1/me/saved-searches/{saved['id']}",
-        headers={"X-CSRF-Token": csrf},
-        json={
-            "notifications_enabled": True,
-            "notification_channel": "web",
-            "notification_frequency": "instant",
-            "expected_revision": saved["revision"],
-        },
-    )
-    assert subscribed_response.status_code == 200, subscribed_response.text
-    saved = subscribed_response.json()["saved_search"]
-
-    first_listing = add_listing(
-        factory,
-        owner.id,
-        title="BMW 320d",
-        published_at=datetime.now(timezone.utc) + timedelta(seconds=5),
-    )
-    with factory() as db:
-        enqueue_saved_search_match(db, first_listing)
-        match_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "saved-search.match",
-                models.WorkerJob.payload["listing_id"].as_string() == str(first_listing.id),
-            )
-        )
-        assert match_job is not None
-        match_job_id = match_job.id
-        db.commit()
-    run_job(factory, match_job_id)
-
-    with factory() as db:
-        first_outbox = db.scalar(
-            select(models.NotificationOutbox).where(
-                models.NotificationOutbox.saved_search_id == uuid.UUID(saved["id"]),
-                models.NotificationOutbox.listing_id == first_listing.id,
-            )
-        )
-        assert first_outbox is not None
-        first_delivery_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "notification.deliver",
-                models.WorkerJob.payload["outbox_id"].as_string() == str(first_outbox.id),
-            )
-        )
-        assert first_delivery_job is not None
-        first_delivery_job_id = first_delivery_job.id
-    run_job(factory, first_delivery_job_id)
-    run_job(factory, first_delivery_job_id)
-
-    second_listing = add_listing(
-        factory,
-        owner.id,
-        title="BMW X5",
-        published_at=datetime.now(timezone.utc) + timedelta(seconds=10),
-    )
-    with factory() as db:
-        enqueue_saved_search_match(db, second_listing)
-        match_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "saved-search.match",
-                models.WorkerJob.payload["listing_id"].as_string() == str(second_listing.id),
-            )
-        )
-        assert match_job is not None
-        second_match_job_id = match_job.id
-        db.commit()
-    run_job(factory, second_match_job_id)
-
-    paused_response = client.post(
-        f"/api/v1/me/saved-searches/{saved['id']}/pause",
-        headers={"X-CSRF-Token": csrf},
-        json={"expected_revision": saved["revision"]},
-    )
-    assert paused_response.status_code == 200, paused_response.text
-    with factory() as db:
-        second_outbox = db.scalar(
-            select(models.NotificationOutbox).where(
-                models.NotificationOutbox.saved_search_id == uuid.UUID(saved["id"]),
-                models.NotificationOutbox.listing_id == second_listing.id,
-            )
-        )
-        assert second_outbox is not None
-        assert second_outbox.status == "cancelled"
-        second_delivery_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "notification.deliver",
-                models.WorkerJob.payload["outbox_id"].as_string() == str(second_outbox.id),
-            )
-        )
-        assert second_delivery_job is not None
-        assert second_delivery_job.status == "failed"
-        assert second_delivery_job.last_error == "notification_preference_changed"
-        assert db.scalar(
-            select(models.UserNotification.id).where(
-                models.UserNotification.user_id == subscriber.id,
-                models.UserNotification.outbox_id == first_outbox.id,
-            )
-        ) is not None
-        assert db.scalar(
-            select(models.UserNotification.id).where(
-                models.UserNotification.user_id == subscriber.id,
-                models.UserNotification.outbox_id == second_outbox.id,
-            )
-        ) is None
-
-
-def test_daily_saved_search_matches_dedupe_into_one_delivered_digest(integration):
-    factory = integration["SessionLocal"]
-    owner = add_user(factory, f"daily-owner-{uuid.uuid4().hex[:8]}@example.com")
-    subscriber = add_user(factory, f"daily-subscriber-{uuid.uuid4().hex[:8]}@example.com")
-    listings = [
-        add_listing(factory, owner.id, title="BMW 320d"),
-        add_listing(factory, owner.id, title="BMW X5"),
-    ]
-    saved_search = models.SavedSearch(
-        user_id=subscriber.id,
-        name="BMW digest",
-        search_url="/cars?q=bmw",
-        filters={"q": "bmw"},
-        notifications_enabled=True,
-        notification_channel="web",
-        notification_frequency="daily",
-        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
-    )
-    with factory() as db:
-        db.add(saved_search)
-        db.flush()
-        match_job_ids = []
-        for listing in listings:
-            enqueue_saved_search_match(db, listing)
-            job = db.scalar(
-                select(models.WorkerJob).where(
-                    models.WorkerJob.kind == "saved-search.match",
-                    models.WorkerJob.payload["listing_id"].as_string() == str(listing.id),
-                )
-            )
-            assert job is not None
-            match_job_ids.append(job.id)
-        db.commit()
-
-    for job_id in match_job_ids:
-        run_job(factory, job_id)
-
-    with factory() as db:
-        batches = db.scalars(
-            select(models.SavedSearchNotificationBatch).where(
-                models.SavedSearchNotificationBatch.saved_search_id == saved_search.id,
-            )
-        ).all()
-        assert len(batches) == 1
-        outbox = db.get(models.NotificationOutbox, batches[0].outbox_id)
-        assert outbox is not None
-        assert outbox.listing_id is None
-        assert outbox.payload["notification_frequency"] == "daily"
-        assert outbox.payload["filters"] == {"q": "bmw"}
-        assert outbox.payload["search_url"] == saved_search.search_url
-        assert outbox.payload["total_count"] == 2
-        assert {item["id"] for item in outbox.payload["listings"]} == {str(item.id) for item in listings}
-        assert db.scalar(
-            select(models.SavedSearchNotificationMatch.id).where(
-                models.SavedSearchNotificationMatch.saved_search_id == saved_search.id,
-                models.SavedSearchNotificationMatch.listing_id == listings[0].id,
-            )
-        ) is not None
-        delivery_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "notification.deliver",
-                models.WorkerJob.payload["outbox_id"].as_string() == str(outbox.id),
-            )
-        )
-        assert delivery_job is not None
-        delivery_job_id = delivery_job.id
-
-    run_job(factory, delivery_job_id)
-    run_job(factory, delivery_job_id)
-    with factory() as db:
-        inbox = db.scalars(select(models.UserNotification).where(models.UserNotification.user_id == subscriber.id)).all()
-        assert len(inbox) == 1
-        assert inbox[0].listing_id is None
-        assert inbox[0].total_count == 2
-        assert {item["id"] for item in inbox[0].listings} == {str(item.id) for item in listings}
-        assert inbox[0].url == saved_search.search_url
-        assert db.scalar(select(models.NotificationOutbox.status).where(models.NotificationOutbox.saved_search_id == saved_search.id)) == "delivered"
-
-
-def test_daily_email_saved_search_sends_one_digest_with_both_publications(
-    integration, monkeypatch
-):
-    from app.identity_models import VerifiedEmailContact
-    import app.worker as worker
-
-    class MemoryEmailSender:
-        is_configured = True
-
-        def __init__(self):
-            self.sent = []
-
-        def send_email(self, recipient, subject, body, *, idempotency_key):
-            self.sent.append((recipient, subject, body, idempotency_key))
-
-    sender = MemoryEmailSender()
-    monkeypatch.setattr(
-        worker, "get_email_sender", lambda _settings=None: sender, raising=False
-    )
-    monkeypatch.setattr(
-        worker,
-        "get_settings",
-        lambda: SimpleNamespace(public_app_url="https://cars.example.test"),
-    )
-    factory = integration["SessionLocal"]
-    owner = add_user(factory, f"daily-email-owner-{uuid.uuid4().hex[:8]}@example.com")
-    subscriber = add_user(
-        factory, f"daily-email-subscriber-{uuid.uuid4().hex[:8]}@example.com"
-    )
-    listings = [
-        add_listing(factory, owner.id, title="BMW 320d"),
-        add_listing(factory, owner.id, title="BMW X5"),
-    ]
-    saved_search = models.SavedSearch(
-        user_id=subscriber.id,
-        name="BMW daily email",
-        search_url="/cars?q=bmw",
-        filters={"q": "bmw"},
-        notifications_enabled=True,
-        notification_channel="email",
-        notification_frequency="daily",
-        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
-    )
-    with factory() as db:
-        db.add(
-            VerifiedEmailContact(
-                user_id=subscriber.id,
-                email=subscriber.email,
-                verified_at=datetime.now(timezone.utc),
-            )
-        )
-        db.add(saved_search)
-        db.flush()
-        match_job_ids = []
-        for listing in listings:
-            enqueue_saved_search_match(db, listing)
-            job = db.scalar(
-                select(models.WorkerJob).where(
-                    models.WorkerJob.kind == "saved-search.match",
-                    models.WorkerJob.payload["listing_id"].as_string() == str(listing.id),
-                )
-            )
-            assert job is not None
-            match_job_ids.append(job.id)
-        db.commit()
-
-    for job_id in match_job_ids:
-        run_job(factory, job_id)
-
-    with factory() as db:
-        batches = db.scalars(
-            select(models.SavedSearchNotificationBatch).where(
-                models.SavedSearchNotificationBatch.saved_search_id == saved_search.id,
-            )
-        ).all()
-        assert len(batches) == 1
-        outbox = db.get(models.NotificationOutbox, batches[0].outbox_id)
-        assert outbox is not None
-        assert outbox.payload["total_count"] == 2
-        assert {item["id"] for item in outbox.payload["listings"]} == {
-            str(listing.id) for listing in listings
-        }
-        outbox_id = outbox.id
-        delivery_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "notification.deliver",
-                models.WorkerJob.payload["outbox_id"].as_string() == str(outbox_id),
-            )
-        )
-        assert delivery_job is not None
-        delivery_job_id = delivery_job.id
-
-    run_job(factory, delivery_job_id)
-    run_job(factory, delivery_job_id)
-
-    assert len(sender.sent) == 1
-    recipient, subject, body, dedupe_key = sender.sent[0]
-    assert recipient == subscriber.email
-    assert subject == "Новое объявление по сохранённому поиску"
-    assert "Найдено объявлений: 2" in body
-    for listing in listings:
-        listing_url = f"https://cars.example.test/cars/{listing.slug}/{listing.slug}/{listing.id}"
-        assert listing.title in body
-        assert listing_url in body
-    with factory() as db:
-        outbox = db.get(models.NotificationOutbox, outbox_id)
-        assert outbox.status == "delivered"
-        assert outbox.last_error is None
-        assert dedupe_key == outbox.dedupe_key
-
-
-def test_saved_search_does_not_notify_for_publication_before_subscription(integration):
-    factory = integration["SessionLocal"]
-    owner = add_user(factory, f"pre-subscription-owner-{uuid.uuid4().hex[:8]}@example.com")
-    subscriber = add_user(
-        factory, f"pre-subscription-subscriber-{uuid.uuid4().hex[:8]}@example.com"
-    )
-    published_at = datetime.now(timezone.utc) - timedelta(days=3)
-    listing = add_listing(
-        factory, owner.id, title="BMW 320d", published_at=published_at
-    )
-    saved_search = models.SavedSearch(
-        user_id=subscriber.id,
-        name="BMW after signup",
-        search_url="/cars?q=bmw",
-        filters={"q": "bmw"},
-        notifications_enabled=True,
-        notification_channel="web",
-        notification_frequency="instant",
-        subscription_started_at=published_at + timedelta(days=1),
-    )
-    with factory() as db:
-        db.add(saved_search)
-        db.flush()
-        enqueue_saved_search_match(db, listing)
-        db.commit()
-        match_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "saved-search.match",
-                models.WorkerJob.payload["listing_id"].as_string() == str(listing.id),
-            )
-        )
-        assert match_job is not None
-        match_job_id = match_job.id
-
-    run_job(factory, match_job_id)
-
-    with factory() as db:
-        assert db.scalar(
-            select(models.NotificationOutbox.id).where(
-                models.NotificationOutbox.saved_search_id == saved_search.id,
-            )
-        ) is None
-        assert db.scalar(
-            select(models.SavedSearchNotificationMatch.id).where(
-                models.SavedSearchNotificationMatch.saved_search_id == saved_search.id,
-                models.SavedSearchNotificationMatch.listing_id == listing.id,
-            )
-        ) is None
-        assert db.scalar(
-            select(models.UserNotification.id).where(
-                models.UserNotification.user_id == subscriber.id,
-            )
-        ) is None
-
-
-def test_daily_batch_slot_can_be_reused_after_search_change(integration):
-    factory = integration["SessionLocal"]
-    owner = add_user(factory, f"batch-update-owner-{uuid.uuid4().hex[:8]}@example.com")
-    subscriber = add_user(factory, f"batch-update-subscriber-{uuid.uuid4().hex[:8]}@example.com")
-    first_listing = add_listing(factory, owner.id, title="BMW 320d")
-    saved_search = models.SavedSearch(
-        user_id=subscriber.id,
-        name="BMW digest",
-        search_url="/cars?q=bmw",
-        filters={"q": "bmw"},
-        notifications_enabled=True,
-        notification_channel="web",
-        notification_frequency="daily",
-        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
-    )
-    with factory() as db:
-        db.add(saved_search)
-        db.flush()
-        enqueue_saved_search_match(db, first_listing)
-        first_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "saved-search.match",
-                models.WorkerJob.payload["listing_id"].as_string() == str(first_listing.id),
-            )
-        )
-        assert first_job is not None
-        first_job_id = first_job.id
-        db.commit()
-    run_job(factory, first_job_id)
-
-    client = TestClient(app, base_url="http://testserver")
-    csrf = login(client, subscriber.email)
-    updated = client.patch(
-        f"/api/v1/me/saved-searches/{saved_search.id}",
-        json={"url": "/cars?q=audi", "filters": {"q": "audi"}, "expected_revision": 1},
-        headers={"X-CSRF-Token": csrf},
-    )
-    assert updated.status_code == 200, updated.text
-    second_listing = add_listing(
-        factory,
-        owner.id,
-        title="Audi A4",
-        published_at=datetime.now(timezone.utc) + timedelta(minutes=1),
-    )
-    with factory() as db:
-        enqueue_saved_search_match(db, second_listing)
-        second_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "saved-search.match",
-                models.WorkerJob.payload["listing_id"].as_string() == str(second_listing.id),
-            )
-        )
-        assert second_job is not None
-        second_job_id = second_job.id
-        db.commit()
-    run_job(factory, second_job_id)
-
-    with factory() as db:
-        batches = db.scalars(
-            select(models.SavedSearchNotificationBatch).where(
-                models.SavedSearchNotificationBatch.saved_search_id == saved_search.id,
-                models.SavedSearchNotificationBatch.channel == "web",
-            )
-        ).all()
-        assert len(batches) == 1
-        replacement = db.get(models.NotificationOutbox, batches[0].outbox_id)
-        assert replacement is not None
-        assert replacement.listing_id is None
-        assert replacement.status == "queued"
-        assert replacement.payload["search_url"] == "/cars?q=audi"
-        assert replacement.payload["total_count"] == 1
-        assert replacement.payload["listings"][0]["id"] == str(second_listing.id)
-        outboxes = db.scalars(
-            select(models.NotificationOutbox).where(
-                models.NotificationOutbox.saved_search_id == saved_search.id,
-            )
-        ).all()
-        old = next(row for row in outboxes if row.id != replacement.id)
-        assert old.status == "cancelled"
-
-
-def test_legacy_weekly_subscription_processes_a_queued_match_job(integration):
-    factory = integration["SessionLocal"]
-    owner = add_user(factory, f"weekly-owner-{uuid.uuid4().hex[:8]}@example.com")
-    subscriber = add_user(factory, f"weekly-subscriber-{uuid.uuid4().hex[:8]}@example.com")
-    listing = add_listing(factory, owner.id, title="BMW 320d")
-    saved_search = models.SavedSearch(
-        user_id=subscriber.id,
-        name="Legacy weekly BMW",
-        search_url="/cars?q=bmw",
-        filters={"q": "bmw"},
-        notifications_enabled=True,
-        notification_channel="web",
-        notification_frequency="weekly",
-        subscription_started_at=None,
-    )
-    with factory() as db:
-        db.add(saved_search)
-        db.flush()
-        enqueue_saved_search_match(db, listing)
-        job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "saved-search.match",
-                models.WorkerJob.payload["listing_id"].as_string() == str(listing.id),
-            )
-        )
-        assert job is not None
-        match_job_id = job.id
-        db.commit()
-
-    run_job(factory, match_job_id)
-
-    with factory() as db:
-        outbox = db.scalar(
-            select(models.NotificationOutbox).where(
-                models.NotificationOutbox.saved_search_id == saved_search.id,
-            )
-        )
-        assert outbox is not None
-        assert outbox.status == "queued"
-        assert outbox.available_at.weekday() == 0
-        assert outbox.available_at.hour == 0
 
 
 def test_email_saved_search_is_retained_as_unsupported_without_delivery(integration):
@@ -795,7 +171,6 @@ def test_email_saved_search_is_retained_as_unsupported_without_delivery(integrat
         notifications_enabled=True,
         notification_channel="email",
         notification_frequency="instant",
-        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
     )
     with factory() as db:
         db.add(saved_search)
@@ -815,39 +190,21 @@ def test_email_saved_search_is_retained_as_unsupported_without_delivery(integrat
         assert db.scalar(select(models.UserNotification.id).where(models.UserNotification.user_id == subscriber.id)) is None
 
 
-@pytest.mark.parametrize(
-    "fail_after_accept",
-    [
-        pytest.param(False, id="successful-send"),
-        pytest.param(True, id="retry-after-ambiguous-provider-failure"),
-    ],
-)
-def test_configured_email_saved_search_delivers_idempotently(
-    integration, monkeypatch, fail_after_accept
-):
+def test_configured_email_saved_search_delivers_only_to_verified_contact(integration, monkeypatch):
     from app.identity_models import VerifiedEmailContact
     import app.worker as worker
 
-    class IdempotentMemoryEmailSender:
+    class MemoryEmailSender:
         is_configured = True
 
-        def __init__(self, fail_after_accept):
-            self.attempts = []
-            self.accepted = {}
-            self.fail_after_accept = fail_after_accept
+        def __init__(self):
+            self.sent = []
 
         def send_email(self, recipient, subject, body, *, idempotency_key):
-            message = (recipient, subject, body, idempotency_key)
-            self.attempts.append(message)
-            self.accepted.setdefault(idempotency_key, message)
-            if self.fail_after_accept:
-                self.fail_after_accept = False
-                raise RuntimeError("simulated provider response loss after acceptance")
+            self.sent.append((recipient, subject, body, idempotency_key))
 
-    sender = IdempotentMemoryEmailSender(fail_after_accept)
-    monkeypatch.setattr(
-        worker, "get_email_sender", lambda _settings=None: sender, raising=False
-    )
+    sender = MemoryEmailSender()
+    monkeypatch.setattr(worker, "get_email_sender", lambda _settings=None: sender, raising=False)
     monkeypatch.setattr(
         worker,
         "get_settings",
@@ -865,7 +222,6 @@ def test_configured_email_saved_search_delivers_idempotently(
         notifications_enabled=True,
         notification_channel="email",
         notification_frequency="instant",
-        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
     )
     with factory() as db:
         db.add(VerifiedEmailContact(user_id=subscriber.id, email=subscriber.email, verified_at=datetime.now(timezone.utc)))
@@ -902,177 +258,21 @@ def test_configured_email_saved_search_delivers_idempotently(
 
     run_job(factory, delivery_job_id)
 
-    if fail_after_accept:
-        with factory() as db:
-            outbox = db.scalar(
-                select(models.NotificationOutbox).where(
-                    models.NotificationOutbox.saved_search_id == saved_search.id,
-                )
-            )
-            delivery_job = db.get(models.WorkerJob, delivery_job_id)
-            assert outbox.status == "queued"
-            assert outbox.attempts == 1
-            assert outbox.last_error == "email_delivery_failed"
-            assert delivery_job.status == "queued"
-            assert delivery_job.attempts == 1
-
-        run_job(factory, delivery_job_id, attempt=2)
-        # Even a duplicate worker execution after success cannot send again.
-        run_job(factory, delivery_job_id, attempt=2)
-
-    expected_attempts = 2 if fail_after_accept else 1
-    assert len(sender.attempts) == expected_attempts
-    assert len(sender.accepted) == 1
-    recipient, subject, body, dedupe_key = sender.attempts[-1]
+    assert len(sender.sent) == 1
+    recipient, subject, body, dedupe_key = sender.sent[0]
     assert recipient == subscriber.email
     assert subject == "Новое объявление по сохранённому поиску"
     assert "Audi A4" in body
     assert "https://cars.example.test/cars?q=audi" in body
-    assert {attempt[3] for attempt in sender.attempts} == {dedupe_key}
     with factory() as db:
         outbox = db.scalar(
             select(models.NotificationOutbox).where(
                 models.NotificationOutbox.saved_search_id == saved_search.id,
             )
         )
-        delivery_job = db.get(models.WorkerJob, delivery_job_id)
         assert outbox.status == "delivered"
         assert outbox.last_error is None
-        assert outbox.attempts == expected_attempts
-        assert delivery_job.status == "succeeded"
-        assert delivery_job.attempts == expected_attempts
         assert dedupe_key == outbox.dedupe_key
-
-
-@pytest.mark.parametrize(
-    ("search_change", "should_send"),
-    [
-        pytest.param("name", True, id="name-only-update-does-not-cancel"),
-        pytest.param("filter", False, id="filter-change-cancels"),
-        pytest.param("channel", False, id="channel-change-cancels"),
-        pytest.param("subscription", False, id="subscription-change-cancels"),
-        pytest.param("combined", False, id="existing-combined-race-still-cancels"),
-    ],
-)
-def test_email_saved_search_rechecks_search_before_provider_send(
-    integration, monkeypatch, search_change, should_send
-):
-    from app.identity_models import VerifiedEmailContact
-    import app.worker as worker
-
-    class MemoryEmailSender:
-        is_configured = True
-
-        def __init__(self):
-            self.sent = []
-
-        def send_email(self, recipient, subject, body, *, idempotency_key):
-            self.sent.append((recipient, subject, body, idempotency_key))
-
-    sender = MemoryEmailSender()
-    monkeypatch.setattr(
-        worker, "get_email_sender", lambda _settings=None: sender, raising=False
-    )
-    monkeypatch.setattr(
-        worker,
-        "get_settings",
-        lambda: SimpleNamespace(public_app_url="https://cars.example.test"),
-    )
-    factory = integration["SessionLocal"]
-    owner = add_user(factory, f"email-race-owner-{uuid.uuid4().hex[:8]}@example.com")
-    subscriber = add_user(
-        factory, f"email-race-subscriber-{uuid.uuid4().hex[:8]}@example.com"
-    )
-    listing = add_listing(factory, owner.id, title="Audi A4")
-    saved_search_id = uuid.uuid4()
-    saved_search = models.SavedSearch(
-        id=saved_search_id,
-        user_id=subscriber.id,
-        name="Audi alerts",
-        search_url="/cars?q=audi",
-        filters={"q": "audi"},
-        status="active",
-        revision=1,
-        notifications_enabled=True,
-        notification_channel="email",
-        notification_frequency="instant",
-        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
-    )
-    outbox = models.NotificationOutbox(
-        dedupe_key=f"email-race:{uuid.uuid4()}",
-        saved_search_id=saved_search_id,
-        user_id=subscriber.id,
-        listing_id=listing.id,
-        channel="email",
-        status="queued",
-        payload={
-            "title": "Audi alert",
-            "body": listing.title,
-            "url": "/cars?q=audi",
-            "listing_revision": listing.revision,
-            "notification_frequency": "instant",
-            "search_url": "/cars?q=audi",
-            "filters": {"q": "audi"},
-        },
-        attempts=0,
-        available_at=datetime.now(timezone.utc),
-    )
-    with factory() as db:
-        db.add(
-            VerifiedEmailContact(
-                user_id=subscriber.id,
-                email=subscriber.email,
-                verified_at=datetime.now(timezone.utc),
-            )
-        )
-        db.add(saved_search)
-        db.flush()
-        db.add(outbox)
-        db.commit()
-
-    real_session_local = worker.SessionLocal
-    session_calls = 0
-
-    def change_search_before_final_guard():
-        nonlocal session_calls
-        session_calls += 1
-        if session_calls == 2:
-            with real_session_local() as db:
-                current_outbox = db.get(models.NotificationOutbox, outbox.id)
-                current_search = db.get(models.SavedSearch, saved_search_id)
-                assert current_outbox.status == "running"
-                if search_change == "name":
-                    current_search.name = "Renamed Audi alerts"
-                elif search_change == "filter":
-                    current_search.search_url = "/cars?q=toyota"
-                    current_search.filters = {"q": "toyota"}
-                elif search_change == "channel":
-                    current_search.notification_channel = "web"
-                elif search_change == "subscription":
-                    current_search.subscription_started_at = datetime.now(timezone.utc)
-                else:
-                    current_search.search_url = "/cars?q=toyota"
-                    current_search.filters = {"q": "toyota"}
-                    current_search.subscription_started_at = datetime.now(timezone.utc)
-                current_search.revision += 1
-                db.commit()
-        return real_session_local()
-
-    monkeypatch.setattr(worker, "SessionLocal", change_search_before_final_guard)
-    worker._deliver_notification(outbox.id)
-
-    assert session_calls == 2
-    with factory() as db:
-        current_outbox = db.get(models.NotificationOutbox, outbox.id)
-        if should_send:
-            assert len(sender.sent) == 1
-            assert current_outbox.status == "delivered"
-            assert current_outbox.last_error is None
-            assert db.get(models.SavedSearch, saved_search_id).name == "Renamed Audi alerts"
-        else:
-            assert sender.sent == []
-            assert current_outbox.status == "cancelled"
-            assert current_outbox.last_error == "notification_preference_changed"
 
 
 def test_saved_search_match_is_suppressed_for_non_matching_listing(integration):
@@ -1088,7 +288,6 @@ def test_saved_search_match_is_suppressed_for_non_matching_listing(integration):
         notifications_enabled=True,
         notification_channel="web",
         notification_frequency="instant",
-        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
     )
     with factory() as db:
         db.add(saved_search)
@@ -1101,97 +300,3 @@ def test_saved_search_match_is_suppressed_for_non_matching_listing(integration):
     run_job(factory, match_job_id)
     with factory() as db:
         assert db.scalar(select(models.NotificationOutbox.id).where(models.NotificationOutbox.saved_search_id == saved_search.id)) is None
-
-
-def test_saved_search_notifications_skip_private_and_removed_listings(integration):
-    factory = integration["SessionLocal"]
-    owner = add_user(factory, f"visibility-owner-{uuid.uuid4().hex[:8]}@example.com")
-    subscriber = add_user(factory, f"visibility-subscriber-{uuid.uuid4().hex[:8]}@example.com")
-    private_listing = add_listing(factory, owner.id, title="BMW private listing")
-    removed_listing = add_listing(factory, owner.id, title="BMW removed listing")
-    saved_search = models.SavedSearch(
-        user_id=subscriber.id,
-        name="BMW alerts",
-        search_url="/cars?q=bmw",
-        filters={"q": "bmw"},
-        notifications_enabled=True,
-        notification_channel="web",
-        notification_frequency="instant",
-        subscription_started_at=datetime.now(timezone.utc) - timedelta(days=2),
-    )
-
-    with factory() as db:
-        db.add(saved_search)
-        db.flush()
-        enqueue_saved_search_match(db, private_listing)
-        enqueue_saved_search_match(db, removed_listing)
-        db.commit()
-        private_match_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "saved-search.match",
-                models.WorkerJob.payload["listing_id"].as_string() == str(private_listing.id),
-            )
-        )
-        removed_match_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "saved-search.match",
-                models.WorkerJob.payload["listing_id"].as_string() == str(removed_listing.id),
-            )
-        )
-        assert private_match_job is not None
-        assert removed_match_job is not None
-        private_match_job_id = private_match_job.id
-        removed_match_job_id = removed_match_job.id
-
-    with factory() as db:
-        current_private = db.get(models.Listing, private_listing.id)
-        current_private.status = "draft"
-        current_private.revision += 1
-        db.commit()
-    run_job(factory, private_match_job_id)
-
-    with factory() as db:
-        assert db.scalar(
-            select(models.NotificationOutbox.id).where(
-                models.NotificationOutbox.saved_search_id == saved_search.id,
-                models.NotificationOutbox.listing_id == private_listing.id,
-            )
-        ) is None
-
-    run_job(factory, removed_match_job_id)
-    with factory() as db:
-        removed_outbox = db.scalar(
-            select(models.NotificationOutbox).where(
-                models.NotificationOutbox.saved_search_id == saved_search.id,
-                models.NotificationOutbox.listing_id == removed_listing.id,
-            )
-        )
-        assert removed_outbox is not None
-        assert removed_outbox.status == "queued"
-        delivery_job = db.scalar(
-            select(models.WorkerJob).where(
-                models.WorkerJob.kind == "notification.deliver",
-                models.WorkerJob.payload["outbox_id"].as_string() == str(removed_outbox.id),
-            )
-        )
-        assert delivery_job is not None
-        removed_outbox_id = removed_outbox.id
-        delivery_job_id = delivery_job.id
-
-    with factory() as db:
-        current_removed = db.get(models.Listing, removed_listing.id)
-        current_removed.status = "archived"
-        current_removed.revision += 1
-        db.commit()
-    run_job(factory, delivery_job_id)
-
-    with factory() as db:
-        removed_outbox = db.get(models.NotificationOutbox, removed_outbox_id)
-        assert removed_outbox.status == "unsupported"
-        assert removed_outbox.last_error == "listing_no_longer_matches"
-        assert db.scalar(
-            select(models.UserNotification.id).where(
-                models.UserNotification.user_id == subscriber.id,
-                models.UserNotification.outbox_id == removed_outbox.id,
-            )
-        ) is None

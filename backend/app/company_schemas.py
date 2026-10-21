@@ -79,6 +79,7 @@ class DealerDirectoryResponse(BaseModel):
 class PublicMarketStatsOut(BaseModel):
     active_listings: int
     approved_companies: int
+    published_reviews: int
 
 
 class DealerCatalogItemOut(BaseModel):
@@ -164,6 +165,7 @@ class DealerListingSummaryOut(BaseModel):
     district: str | None = None
     call_hours: str | None = None
     promotion_badges: list[Literal["bump", "highlight", "top", "urgent"]] = Field(default_factory=list)
+    photo_badges: list[str] = Field(default_factory=list)
     photo_urls: list[str]
     photos: list[DealerListingPhotoOut]
 

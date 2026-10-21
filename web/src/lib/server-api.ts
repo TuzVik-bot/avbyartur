@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { ApiClientError, internalApiBase, searchPath } from "@/lib/api";
 import type { components } from "@/lib/types.generated";
-import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, DealerReviewReport, DealerReviews, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, ModerationDealerReview, Report, UserNotificationList } from "@/lib/types";
+import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, DealerReviewReport, DealerReviews, FavoriteListing, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, ModerationDealerReview, Report, UserNotificationList } from "@/lib/types";
 import type { NotificationPreferences } from "@/lib/api";
 
 export async function serverApiRequest<T>(path: string): Promise<T> {
@@ -44,13 +44,13 @@ export const serverApi = {
     return serverApiRequest<{ items: CatalogItem[] }>(`catalog/${kind}${query ? `?${query}` : ""}`);
   },
   dealers: (page = 1) => serverApiRequest<ListResponse<CompanySummary>>(`dealers?${new URLSearchParams({ page: String(page) })}`),
-  publicStats: () => serverApiRequest<{ active_listings: number; approved_companies: number }>("public-stats"),
+  publicStats: () => serverApiRequest<{ active_listings: number; approved_companies: number; published_reviews: number }>("public-stats"),
   dealer: (slug: string, page = 1) => serverApiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary>; reviews: DealerReviews }>(`dealers/${encodeURIComponent(slug)}?${new URLSearchParams({ page: String(page) })}`),
   meListings: (page = 1, pageSize = 25) => {
     const query = new URLSearchParams({ page: String(page), page_size: String(pageSize) }).toString();
     return serverApiRequest<ListResponse<Listing>>(`me/listings?${query}`);
   },
-  favorites: () => serverApiRequest<{ items: ListingSummary[] }>("me/favorites"),
+  favorites: () => serverApiRequest<{ items: FavoriteListing[] }>("me/favorites"),
   notifications: (options: { unreadOnly?: boolean; limit?: number } = {}) => {
     const params = new URLSearchParams();
     if (options.unreadOnly) params.set("unread_only", "true");

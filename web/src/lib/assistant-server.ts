@@ -21,6 +21,37 @@ async function catalogs(): Promise<Catalog> {
   return { ...value };
 }
 
+// Each alternative changes one condition and is checked against public inventory.
+async function nearbySearches(filters: AssistantFilters): Promise<AssistantLink[]> {
+  const candidates: { filters: AssistantFilters; title: string }[] = [];
+  if (filters.price_max && filters.currency) {
+    const ceiling = Number(filters.price_max);
+    // Keep the increment modest even for small budgets, in the requested currency.
+    const increment = Math.min(1000, Math.max(1, Math.round(ceiling * 0.1)));
+    if (ceiling + increment <= 999999999) candidates.push({
+      filters: { ...filters, price_min: (ceiling + 0.01).toFixed(2), price_max: String(ceiling + increment), sort: "price_asc" },
+      title: `До ${increment.toLocaleString("ru")} ${filters.currency} дороже бюджета`
+    });
+  }
+  if (filters.year_min && Number(filters.year_min) > 1886) candidates.push({
+    filters: { ...filters, year_min: String(Number(filters.year_min) - 1), year_max: String(Number(filters.year_min) - 1) },
+    title: `На год старше — только ${Number(filters.year_min) - 1} г.`
+  });
+  if (filters.city_id) {
+    const nearby = { ...filters };
+    delete nearby.city_id;
+    candidates.push({ filters: nearby, title: "Те же условия — по всей Беларуси" });
+  }
+  const results = await Promise.all(candidates.map(async (candidate) => {
+    try {
+      const params = new URLSearchParams({ ...candidate.filters, page_size: "1" });
+      const found = await publicAssistantApi<{ pagination: { total: number } }>(`listings?${params}`);
+      return found.pagination.total > 0 ? { title: `${candidate.title} · ${found.pagination.total} объявл.`, href: searchUrl(candidate.filters) } : null;
+    } catch { return null; }
+  }));
+  return results.filter((result): result is AssistantLink => result !== null);
+}
+
 const topics: { pattern: RegExp; text: string; links: AssistantLink[] }[] = [
   { pattern: /размест|продать|подать|добавить.*(?:авто|машин|объявлен)/i, text: "Чтобы разместить автомобиль, откройте подачу объявления. Понадобятся сведения об автомобиле и фотографии. Объявление проходит проверку перед публикацией; его статус виден в личном кабинете.", links: [{ title: "Подать объявление", href: "/sell" }, { title: "Помощь", href: "/help" }] },
   { pattern: /вин|\bvin\b|истори.*авто/i, text: "На сайте есть страница проверки VIN. Откройте её, чтобы посмотреть доступные способы проверки и их условия. Наличие VIN в объявлении само по себе не подтверждает историю автомобиля.", links: [{ title: "Проверка VIN", href: "/vin-check" }] },
@@ -68,6 +99,18 @@ export async function answerAssistant(input: { message: string; filters: Assista
   let modelText = "";
   let intent = input.action === "summary" ? "summary" : "";
   const baseReply = (): Omit<AssistantReply, "text"> => ({ filters, labels: assistantFilterLabels(filters, catalog), listings: [], links: [], engine });
+  const relativeIncrease = parsed.relativeBudgetIncrease;
+  if (relativeIncrease && !relativeIncrease.applied) {
+    const currencyName = (currency?: string) => currency === "USD" ? "долларах США (USD)" : currency === "BYN" ? "белорусских рублях (BYN)" : "";
+    const text = relativeIncrease.currencyConflict
+      ? `В исходном поиске бюджет указан в ${currencyName(filters.currency)}, а прибавка — в ${currencyName(relativeIncrease.currency)}. Я сохранил исходную валюту. Укажите прибавку в валюте бюджета или выберите новый бюджет.`
+      : !filters.price_max
+        ? "Чтобы показать варианты дороже, нужен исходный максимальный бюджет. Например: «до 10 000 BYN, а затем на 1 000 дороже»."
+        : !filters.currency
+          ? "В какой валюте увеличить исходный бюджет — USD или BYN?"
+          : "Не удалось рассчитать новый предел бюджета. Укажите желаемую максимальную цену и валюту.";
+    return { ...baseReply(), text };
+  }
   if (/сравн/i.test(input.message) && input.listingIds?.length) {
     const details = (await Promise.all(input.listingIds.slice(0, 3).map(async (id) => {
       try { return (await publicAssistantApi<{ listing: ListingSummary }>(`listings/${encodeURIComponent(id)}`)).listing; }
@@ -87,8 +130,14 @@ export async function answerAssistant(input: { message: string; filters: Assista
     })) : [];
     const plan = await modelPlan(input.message, filters, catalog, input.history, input.page, details.filter(Boolean));
     engine = "ai"; intent = input.action === "summary" ? "summary" : plan.intent; modelText = plan.text;
-    if (intent === "search") {
-      filters = plan.filters;
+    if (intent === "search" || relativeIncrease?.applied) {
+      if (relativeIncrease?.applied) {
+        // The model may read a relative amount as an absolute budget. Keep the
+        // parser's complete active state and explicit follow-up changes.
+        filters = { ...plan.filters, ...parsed.filters };
+        for (const key of Object.keys(input.filters)) if (!(key in parsed.filters)) delete (filters as Record<string, string>)[key];
+        intent = "search";
+      } else filters = plan.filters;
       for (const [key, entries] of [["make_id", catalog.makes], ["city_id", catalog.cities]] as const) {
         if (filters[key] && !entries.some((item) => item.id === filters[key])) throw new Error("unknown_catalog_filter");
       }
@@ -114,8 +163,15 @@ export async function answerAssistant(input: { message: string; filters: Assista
   if (filters.year_min && filters.year_max && Number(filters.year_min) > Number(filters.year_max)) return { ...baseReply(), text: "Начальный год больше конечного. Уточните диапазон лет." };
   const params = new URLSearchParams({ ...filters, page_size: "4" });
   const found = await publicAssistantApi<{ items: ListingSummary[]; pagination: { total: number } }>(`listings?${params}`);
+  const alternatives = found.pagination.total === 0 ? await nearbySearches(filters) : [];
+  const budgetChangeNotice = relativeIncrease?.applied
+    ? `Бюджет увеличен: теперь от ${Number(filters.price_min).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} до ${Number(filters.price_max).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ${filters.currency}. `
+    : "";
+  const resultText = found.pagination.total ? `По вашим условиям найдено объявлений: ${found.pagination.total}. ${found.pagination.total > 4 ? "Показываю первые четыре." : "Вот подходящие варианты."}` : alternatives.length
+    ? "По этим условиям объявлений сейчас нет. Похоже на ваш запрос: ниже реальные объявления по близким условиям. В каждой ссылке указано, что изменено. Выберите ссылку ниже, чтобы открыть подборку в каталоге. Исходные условия поиска сохранены."
+    : "По этим условиям опубликованных объявлений сейчас нет. Можно увеличить бюджет, изменить год или убрать город — какие условия изменить?";
   return {
-    ...baseReply(), listings: found.items, total: found.pagination.total, searchHref: searchUrl(filters),
-    text: found.pagination.total ? `По вашим условиям найдено объявлений: ${found.pagination.total}. ${found.pagination.total > 4 ? "Показываю первые четыре." : "Вот подходящие варианты."}` : "По этим условиям опубликованных объявлений сейчас нет. Можно увеличить бюджет, изменить год или убрать город — какие условия изменить?"
+    ...baseReply(), listings: found.items, total: found.pagination.total, searchHref: searchUrl(filters), links: alternatives,
+    text: `${budgetChangeNotice}${resultText}`
   };
 }

@@ -15,6 +15,7 @@ from app.feed_schemas import (
     DealerFeedAPIImportRequest,
     DealerFeedCreate,
     DealerFeedImportOut,
+    DealerFeedImportHistoryOut,
     DealerFeedImportRowsOut,
     DealerFeedListOut,
     DealerFeedMissingCandidatesConfirmOut,
@@ -34,11 +35,13 @@ from app.feed_services import (
     create_feed_import,
     digest_feed_payload,
     feed_out,
+    feed_freshness_by_feed,
     feed_sample,
     feed_schema_out,
     import_row_out,
     import_run_out,
     issue_api_token,
+    list_feed_import_history,
     list_missing_candidates,
     parse_feed_bytes,
     preview_missing_candidates,
@@ -76,6 +79,11 @@ def _company_feed(
     return company, feed
 
 
+def _feed_out_with_freshness(db: Session, company_id: UUID, feed: DealerFeed) -> dict:
+    freshness = feed_freshness_by_feed(db, company_id=company_id, feed_ids=[feed.id])[feed.id]
+    return {**feed_out(feed), **freshness}
+
+
 @router.get("/feeds", response_model=DealerFeedListOut)
 def list_dealer_feeds(
     user: Annotated[User, Depends(get_current_user)],
@@ -87,7 +95,12 @@ def list_dealer_feeds(
         .where(DealerFeed.company_id == company.id)
         .order_by(DealerFeed.created_at.desc(), DealerFeed.id.desc())
     ).all()
-    return {"items": [feed_out(feed) for feed in feeds]}
+    freshness = feed_freshness_by_feed(
+        db,
+        company_id=company.id,
+        feed_ids=[feed.id for feed in feeds],
+    )
+    return {"items": [{**feed_out(feed), **freshness[feed.id]} for feed in feeds]}
 
 
 @router.get("/feeds/samples/{format_}")
@@ -185,7 +198,7 @@ def create_dealer_feed(
     db.add(feed)
     db.commit()
     db.refresh(feed)
-    return {"feed": feed_out(feed), "api_token": token}
+    return {"feed": _feed_out_with_freshness(db, company.id, feed), "api_token": token}
 
 
 @router.patch("/feeds/{feed_id}", response_model=DealerFeedMutationOut)
@@ -197,7 +210,7 @@ def update_dealer_feed(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     lock_owner(db, user.id)
-    _company, feed = _company_feed(db, user, feed_id, lock=True)
+    company, feed = _company_feed(db, user, feed_id, lock=True)
     if payload.status is not None:
         feed.status = payload.status
     if payload.manual_conflict_policy is not None:
@@ -208,7 +221,7 @@ def update_dealer_feed(
         feed.missing_retirement_delay_hours = payload.missing_retirement_delay_hours
     db.commit()
     db.refresh(feed)
-    return {"feed": feed_out(feed), "api_token": None}
+    return {"feed": _feed_out_with_freshness(db, company.id, feed), "api_token": None}
 
 
 @router.post("/feeds/{feed_id}/rotate-token", response_model=DealerFeedTokenOut)
@@ -388,6 +401,22 @@ def import_dealer_feed_api(
             payload_digest=digest_feed_payload(content),
         )
     return {"run": import_run_out(run), "missing_candidates": missing_candidates}
+
+
+@router.get("/feed-imports", response_model=DealerFeedImportHistoryOut)
+def list_dealer_feed_import_history(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    cursor: Annotated[UUID | None, Query()] = None,
+) -> dict:
+    company, _role = resolve_company_for_user(db, user, allowed_roles=TEAM_ROLES)
+    return list_feed_import_history(
+        db,
+        company_id=company.id,
+        limit=limit,
+        cursor_id=cursor,
+    )
 
 
 @router.get("/feed-imports/{run_id}", response_model=DealerFeedImportOut)

@@ -3700,6 +3700,8 @@ export interface components {
              * Personal Use
              * @constant
              */
+            /** @default false */
+            benefit_140: boolean;
             personal_use: true;
             /**
              * Origin Outside Eaeu
@@ -4351,6 +4353,8 @@ export interface components {
             call_hours?: string | null;
             /** Promotion Badges */
             promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
+            /** Photo Badges */
+            photo_badges?: string[];
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -6528,6 +6532,8 @@ export interface components {
             active_listings: number;
             /** Approved Companies */
             approved_companies: number;
+            /** Published Reviews */
+            published_reviews: number;
         };
         /** RecoveryConfirmInput */
         RecoveryConfirmInput: {

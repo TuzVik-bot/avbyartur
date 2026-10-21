@@ -30,8 +30,10 @@ from app.identity_models import (
 from app.logging_config import configure_json_logger, log_event
 from app.models import (
     ExchangeRate,
+    Favorite,
     Listing,
     ListingPhoto,
+    ListingPriceEvent,
     ListingStatusEvent,
     NotificationOutbox,
     RateLimitBucket,
@@ -50,7 +52,8 @@ from app.notification_service import (
     saved_search_matches,
 )
 from app.profile_identity_service import notification_delivery_allowed
-from app.services import enqueue_job
+from app.listing_price_history import is_same_currency_price_drop
+from app.services import enqueue_job, listing_is_public
 
 register_heif_opener()
 Image.MAX_IMAGE_PIXELS = 60_000_000
@@ -180,9 +183,10 @@ def _make_variants(photo_id: uuid.UUID) -> None:
             except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
                 raise PermanentJobError("Image data is invalid") from exc
             with raw:
-                if raw.format not in {"JPEG", "PNG", "WEBP", "HEIF", "HEIC"}:
+                if raw.format not in {"JPEG", "MPO", "PNG", "WEBP", "HEIF", "HEIC"}:
                     raise PermanentJobError("Unsupported image format")
-                if getattr(raw, "is_animated", False) or getattr(raw, "n_frames", 1) > 1:
+                # Decode only the primary still from HEIF/MPO collections, as at upload.
+                if raw.format not in {"HEIF", "HEIC", "MPO"} and (getattr(raw, "is_animated", False) or getattr(raw, "n_frames", 1) > 1):
                     raise PermanentJobError("Animated images are not supported")
                 if raw.width * raw.height > settings.upload_max_pixels:
                     raise PermanentJobError("Image pixel limit exceeded")
@@ -957,8 +961,9 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
 
         user = db.get(User, outbox.user_id)
         if user is None or user.status != "active":
-            outbox.status = "failed"
-            outbox.last_error = "notification_recipient_inactive"
+            is_price_drop = outbox.price_event_id is not None
+            outbox.status = "cancelled" if is_price_drop else "failed"
+            outbox.last_error = "price_drop_no_longer_eligible" if is_price_drop else "notification_recipient_inactive"
             outbox.locked_by = None
             outbox.lease_until = None
             db.commit()
@@ -1030,6 +1035,48 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                     "title": " ".join(str(listing.title or payload.get("body") or "Новое объявление").split())[:240],
                     "url": _listing_url(listing),
                 }]
+
+        if outbox.price_event_id is not None:
+            price_event = db.get(ListingPriceEvent, outbox.price_event_id)
+            listing = db.get(Listing, outbox.listing_id) if outbox.listing_id is not None else None
+            latest_price_event_id = db.scalar(
+                select(ListingPriceEvent.id)
+                .where(ListingPriceEvent.listing_id == outbox.listing_id)
+                .order_by(ListingPriceEvent.revision.desc(), ListingPriceEvent.id.desc())
+                .limit(1)
+            ) if outbox.listing_id is not None else None
+            favorite = db.scalar(
+                select(Favorite).where(
+                    Favorite.user_id == user.id,
+                    Favorite.listing_id == outbox.listing_id,
+                )
+            ) if outbox.listing_id is not None else None
+            if (
+                outbox.channel != "web"
+                or price_event is None
+                or listing is None
+                or price_event.listing_id != listing.id
+                or latest_price_event_id != price_event.id
+                or listing.status != "active"
+                or not listing_is_public(db, listing)
+                or listing.price_amount != price_event.price_amount
+                or listing.currency != price_event.currency
+                or favorite is None
+                or not favorite.price_drop_notifications_enabled
+                or user.id == listing.owner_id
+                or not is_same_currency_price_drop(
+                    price_event.previous_price_amount,
+                    price_event.previous_currency,
+                    price_event.price_amount,
+                    price_event.currency,
+                )
+            ):
+                outbox.status = "cancelled"
+                outbox.last_error = "price_drop_no_longer_eligible"
+                outbox.locked_by = None
+                outbox.lease_until = None
+                db.commit()
+                return
 
         if outbox.channel == "email":
             if not notification_delivery_allowed(db, outbox.user_id, "email"):
@@ -1259,8 +1306,9 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
             return
 
         if not notification_delivery_allowed(db, outbox.user_id, "web"):
-            outbox.status = "unsupported"
-            outbox.last_error = "web_preference_disabled"
+            is_price_drop = outbox.price_event_id is not None
+            outbox.status = "cancelled" if is_price_drop else "unsupported"
+            outbox.last_error = "price_drop_web_disabled" if is_price_drop else "web_preference_disabled"
             outbox.locked_by = None
             outbox.lease_until = None
             db.commit()
@@ -1277,6 +1325,7 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 user_id=outbox.user_id,
                 saved_search_id=outbox.saved_search_id,
                 conversation_id=outbox.conversation_id,
+                price_event_id=outbox.price_event_id,
                 listing_id=outbox.listing_id,
                 title=str(payload.get("title") or "Новое объявление")[:240],
                 body=str(payload.get("body") or "Новое объявление"),

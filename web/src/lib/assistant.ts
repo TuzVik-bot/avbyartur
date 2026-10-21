@@ -58,12 +58,47 @@ function amount(raw: string, unit?: string) {
   return String(n * (unit ? 1000 : 1));
 }
 
+function relativeBudgetIncrease(text: string, currentMaximum?: string) {
+  const amountAndCurrency = "(\\d{1,3}(?:\\s\\d{3})+|\\d+(?:[.,]\\d+)?)\\s*(тыс(?:яч[а-я]*|\\.)?|[kк])?\\s*(usd|byn|доллар[а-я]*|долл\\.?|руб(?:л[а-я]*|[а-я]*)?\\.?|р\\.)?";
+  const prefix = text.match(new RegExp(`(?:^|[\\s,])на\\s+${amountAndCurrency}\\s+(?:дороже|выше|больше)(?=$|[\\s,.!?])`, "i"));
+  const suffix = text.match(new RegExp(`(?:^|[\\s,])(?:дороже|выше|больше)\\s+на\\s+${amountAndCurrency}(?=$|[\\s,.!?])`, "i"));
+  const match = prefix || suffix;
+  if (!match) {
+    const qualitative = /(?:чуть|немного|слегка)\s+(?:подороже|дороже|выше)|(?:увелич|повыс|подним)\S*\s+бюджет|бюджет\s+(?:чуть|немного|слегка)\s+(?:выше|дороже|больше)/.test(text);
+    if (!qualitative) return undefined;
+    const ceiling = Number(currentMaximum);
+    return { amount: Number.isFinite(ceiling) && ceiling > 0 ? Math.min(1000, Math.max(1, Math.round(ceiling * 0.1))) : 0, currency: undefined, qualitative: true };
+  }
+  const rawAmount = Number(match[1].replace(/\s/g, "").replace(",", "."));
+  const multiplier = /^(?:тыс|тысяч|k|к)/i.test(match[2] || "") ? 1000 : 1;
+  const amount = rawAmount * multiplier;
+  if (!Number.isFinite(amount) || amount <= 0) return undefined;
+  const currencyToken = match[3] || "";
+  const currency = /usd|доллар|долл/i.test(currencyToken) ? "USD" : /byn|руб|р\./i.test(currencyToken) ? "BYN" : undefined;
+  return { amount, currency, qualitative: false };
+}
+
+const priceValue = (value: number) => String(Number(value.toFixed(2)));
+
 export function parseAssistantSearch(message: string, previous: AssistantFilters, catalog: { makes: CatalogItem[]; models: CatalogItem[]; cities: CatalogItem[] }) {
   const text = normalize(message);
   const reset = /заново|сброс|новый поиск/.test(text);
   const filters: AssistantFilters = reset ? { category_code: "cars" } : { category_code: "cars", ...previous };
-  const currency = /\$|usd|доллар|бакс/.test(text) ? "USD" : /byn|рубл|белорус|бел\.?\s*руб/.test(text) ? "BYN" : undefined;
-  if (currency) filters.currency = currency;
+  const relativeIncrease = relativeBudgetIncrease(text, filters.price_max);
+  const mentionedCurrency = /\$|usd|доллар|бакс/.test(text) ? "USD" : /byn|рубл|белорус|бел\.?\s*руб/.test(text) ? "BYN" : undefined;
+  if (relativeIncrease && !relativeIncrease.currency && mentionedCurrency) relativeIncrease.currency = mentionedCurrency;
+  const currencyConflict = Boolean(relativeIncrease?.currency && filters.currency && relativeIncrease.currency !== filters.currency);
+  if (relativeIncrease?.currency && !filters.currency) filters.currency = relativeIncrease.currency;
+  else if (mentionedCurrency && !relativeIncrease) filters.currency = mentionedCurrency;
+  let appliedRelativeIncrease = false;
+  if (relativeIncrease && relativeIncrease.amount > 0 && !currencyConflict && filters.price_max && filters.currency) {
+    const ceiling = Number(filters.price_max);
+    if (Number.isFinite(ceiling) && ceiling + relativeIncrease.amount <= 999999999) {
+      filters.price_min = priceValue(ceiling + 0.01);
+      filters.price_max = priceValue(ceiling + relativeIncrease.amount);
+      appliedRelativeIncrease = true;
+    }
+  }
   const budget = text.match(/(?:бюджет(?:ом)?\s*(?:до)?|цена\s*до|стоимост\S*\s*до|до|не дороже|максимум)\s*(\d{1,3}(?:\s\d{3})+|\d+(?:[.,]\d+)?)\s*(тыс\S*|k\b|к\b)?/);
   if (budget && !/^(?:\s*(?:года|год|г\b|км|километр))/.test(text.slice((budget.index || 0) + budget[0].length))) {
     const n = Number(amount(budget[1], budget[2]));
@@ -100,7 +135,13 @@ export function parseAssistantSearch(message: string, previous: AssistantFilters
   if (city) filters.city_id = city.id;
   const validated = validateAssistantFilters(filters);
   const changed = JSON.stringify(validated) !== JSON.stringify(validateAssistantFilters({ category_code: "cars", ...previous }));
-  return { filters: validated, changed, needsCurrency: Boolean((validated.price_min || validated.price_max || validated.sort?.startsWith("price_")) && !validated.currency), make };
+  return {
+    filters: validated,
+    changed,
+    needsCurrency: Boolean((validated.price_min || validated.price_max || validated.sort?.startsWith("price_")) && !validated.currency),
+    make,
+    relativeBudgetIncrease: relativeIncrease ? { ...relativeIncrease, applied: appliedRelativeIncrease, currencyConflict } : undefined
+  };
 }
 
 export function assistantFilterLabels(filters: AssistantFilters, catalog: { makes: CatalogItem[]; models: CatalogItem[]; cities: CatalogItem[] }) {

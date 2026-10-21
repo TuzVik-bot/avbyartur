@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SITE_ORIGIN } from "@/lib/site-config";
+import { editorialArticlePaths } from "@/lib/editorial-articles";
 
 const mocks = vi.hoisted(() => ({ listings: vi.fn(), dealers: vi.fn() }));
 
@@ -102,6 +103,7 @@ describe("closed pilot sitemap", () => {
       `${SITE_ORIGIN}/cars/bmw/3-series/bmw-1`,
       `${SITE_ORIGIN}/cars/manual-1/manual-1/manual-1`,
       `${SITE_ORIGIN}/dealers/approved-dealer`,
+      ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
     ]));
     expect(urls).not.toContain(`${SITE_ORIGIN}/cars/toyota`);
     expect(urls).not.toContain(`${SITE_ORIGIN}/cars/toyota/corolla`);
@@ -125,7 +127,12 @@ describe("closed pilot sitemap", () => {
 
     const entries = await sitemap();
     const urls = entries.map(({ url }) => url);
-    expect(urls).toEqual([`${SITE_ORIGIN}/`, `${SITE_ORIGIN}/cars`, `${SITE_ORIGIN}/dealers`]);
+    expect(urls).toEqual([
+      `${SITE_ORIGIN}/`,
+      `${SITE_ORIGIN}/cars`,
+      `${SITE_ORIGIN}/dealers`,
+      ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
+    ]);
     expect(entries.every((entry) => !("lastModified" in entry))).toBe(true);
   });
 

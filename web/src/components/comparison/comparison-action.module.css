@@ -1,0 +1,61 @@
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-block: 0.8rem;
+}
+
+.toggle,
+.listLink {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line, #d8dee8);
+  border-radius: 0.65rem;
+  background: var(--surface, #fff);
+  color: var(--ink, #17212f);
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.toggle:hover:not(:disabled),
+.listLink:hover {
+  border-color: var(--accent, #0b6bcb);
+  color: var(--accent-dark, #0b6bcb);
+}
+
+.toggle[aria-pressed="true"] {
+  border-color: var(--accent, #0b6bcb);
+  background: var(--soft-accent, #eef6ff);
+}
+
+.toggle:focus-visible,
+.listLink:focus-visible {
+  outline: 3px solid var(--accent, #1570ef);
+  outline-offset: 2px;
+}
+
+.toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.limitNotice {
+  flex-basis: 100%;
+  color: var(--muted, #5b6676);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 480px) {
+  .toggle,
+  .listLink {
+    flex: 1 1 auto;
+  }
+}

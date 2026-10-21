@@ -10,6 +10,8 @@ import type {
   Listing,
   ListingDraftInput,
   ListingPhoto,
+  FavoriteListing,
+  ListingPriceHistoryItem,
   PhotoBadge,
   ListingSearch,
   ListingSummary,
@@ -265,6 +267,13 @@ export const api = {
   blockConversation: (id: string, idempotencyKey?: string) => apiRequest<{ ok: true }>(`conversations/${encodeURIComponent(id)}/block`, { method: "POST", body: JSON.stringify({}), headers: idempotencyHeaders(idempotencyKey) }),
   markNotificationRead: (id: string) => apiRequest<{ ok: true }>(`me/notifications/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({}) }),
   listings: (search: ListingSearch = {}) => apiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
+  recentListings: (ids: string[]) => {
+    const params = new URLSearchParams();
+    for (const id of [...new Set(ids)].slice(0, 12)) params.append("ids", id);
+    const query = params.toString();
+    if (!query) return Promise.resolve({ items: [] as ListingSummary[] });
+    return apiRequest<{ items: ListingSummary[] }>(`listings/recent?${query}`);
+  },
   listing: (id: string) => apiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: Record<string, string> = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -278,7 +287,9 @@ export const api = {
   regions: () => apiRequest<{ items: CatalogItem[] }>("locations/regions"),
   cities: (regionId: string) => apiRequest<{ items: CatalogItem[] }>(`locations/cities?region_id=${encodeURIComponent(regionId)}`),
   myListings: () => apiRequest<ListResponse<Listing>>("me/listings"),
-  favorites: () => apiRequest<{ items: ListingSummary[] }>("me/favorites"),
+  favorites: () => apiRequest<{ items: FavoriteListing[] }>("me/favorites"),
+  setFavoritePriceDropAlert: (id: string, enabled: boolean) => apiRequest<{ enabled: boolean }>(`me/favorites/${encodeURIComponent(id)}/price-drop-alert`, { method: "PUT", body: JSON.stringify({ enabled }) }),
+  listingPriceHistory: (id: string) => apiRequest<{ items: ListingPriceHistoryItem[] }>(`listings/${encodeURIComponent(id)}/price-history`),
   addFavorite: (id: string) => apiRequest<{ ok: true }>(`me/favorites/${encodeURIComponent(id)}`, { method: "PUT" }),
   removeFavorite: (id: string) => apiRequest<{ ok: true }>(`me/favorites/${encodeURIComponent(id)}`, { method: "DELETE" }),
   guestContactEnabled: () => loadGuestContactCapabilities(),

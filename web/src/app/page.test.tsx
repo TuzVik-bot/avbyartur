@@ -53,7 +53,7 @@ beforeEach(() => {
   mocks.catalog.mockResolvedValue({ items: [] });
   mocks.regions.mockResolvedValue({ items: [] });
   mocks.dealers.mockResolvedValue({ items: [] });
-  mocks.publicStats.mockResolvedValue({ active_listings: 0, approved_companies: 0 });
+  mocks.publicStats.mockResolvedValue({ active_listings: 0, approved_companies: 0, published_reviews: 0 });
   mocks.getSavedListingIds.mockResolvedValue([]);
 });
 
@@ -131,13 +131,14 @@ describe("home listing cards", () => {
   });
 
   it("shows public counts from the aggregate endpoint and explains moderation", async () => {
-    mocks.publicStats.mockResolvedValueOnce({ active_listings: 27, approved_companies: 4 });
+    mocks.publicStats.mockResolvedValueOnce({ active_listings: 27, approved_companies: 4, published_reviews: 6 });
 
     const html = renderToStaticMarkup(await HomePage());
     const rendered = new DOMParser().parseFromString(html, "text/html");
 
     expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Активных объявлений: 27");
     expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Допущенные компании: 4");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Опубликованные отзывы: 6");
     const status = rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent || "";
     expect(status).toContain("проверяются обязательные поля карточки, их согласованность и минимум обработанных фото");
     expect(status).toContain("подсказки о повторах и необычно низкой цене");
@@ -153,5 +154,6 @@ describe("home listing cards", () => {
 
     expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Статистика временно недоступна");
     expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).not.toContain("Активных объявлений: 0");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).not.toContain("Опубликованные отзывы: 0");
   });
 });

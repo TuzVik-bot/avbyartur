@@ -97,6 +97,20 @@ class DealerFeedPatch(BaseModel):
         return self
 
 
+class DealerFeedImportRunOut(BaseModel):
+    id: UUID
+    feed_id: UUID
+    status: ImportStatus
+    dry_run: bool
+    source_filename: str
+    total_rows: int
+    applied_rows: int
+    rejected_rows: int
+    error_code: str | None
+    created_at: datetime
+    completed_at: datetime | None
+
+
 class DealerFeedOut(BaseModel):
     id: UUID
     name: str
@@ -108,6 +122,9 @@ class DealerFeedOut(BaseModel):
     missing_retirement_delay_hours: int
     api_token_prefix: str | None
     created_at: datetime
+    latest_import: DealerFeedImportRunOut | None = None
+    last_successful_import_at: datetime | None = None
+    last_successful_import_age_seconds: int | None = Field(default=None, ge=0)
 
 
 class DealerFeedListOut(BaseModel):
@@ -174,20 +191,6 @@ class DealerFeedRecord(BaseModel):
     contact_phone: str | None = Field(default=None, max_length=40)
 
 
-class DealerFeedImportRunOut(BaseModel):
-    id: UUID
-    feed_id: UUID
-    status: ImportStatus
-    dry_run: bool
-    source_filename: str
-    total_rows: int
-    applied_rows: int
-    rejected_rows: int
-    error_code: str | None
-    created_at: datetime
-    completed_at: datetime | None
-
-
 class DealerFeedMissingCandidateOut(BaseModel):
     dealer_external_id: str
     listing_id: UUID
@@ -209,6 +212,16 @@ class DealerFeedMissingCandidatesOut(BaseModel):
 class DealerFeedImportOut(BaseModel):
     run: DealerFeedImportRunOut
     missing_candidates: list[DealerFeedMissingCandidateOut] = Field(default_factory=list)
+
+
+class DealerFeedImportHistoryItemOut(BaseModel):
+    feed_name: str
+    run: DealerFeedImportRunOut
+
+
+class DealerFeedImportHistoryOut(BaseModel):
+    items: list[DealerFeedImportHistoryItemOut]
+    next_cursor: UUID | None
 
 
 class DealerFeedMissingCandidateConfirmation(BaseModel):

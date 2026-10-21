@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { ArrowUpRight, Building2, Wrench } from "lucide-react";
-import { InformationalPage } from "@/components/informational-page";
 import Link from "next/link";
+import { InformationalPage } from "@/components/informational-page";
+import { UseCaseSearchCard } from "@/components/use-case-search-card";
+import { editorialArticles } from "@/lib/editorial-articles";
+import { useCasePresets } from "@/lib/use-case-presets";
+import styles from "./useful-information.module.css";
 
 export const metadata: Metadata = { title: "Полезная информация" };
 
@@ -48,11 +52,37 @@ export default function UsefulInformationPage() {
           ))}
         </div>
       </section>
-      <section className="info-section">
-        <h2>Покупка автомобиля</h2>
-        <p>Сверьте документы и VIN, осмотрите машину и договоритесь о независимой диагностике до расчёта.</p>
-        <Link className="text-link" href="/useful-information/check-car-before-buying">Как проверить авто перед покупкой <ArrowUpRight size={16} aria-hidden="true" /></Link>
+
+      <section className="info-section" aria-labelledby="useful-articles-title">
+        <div className={`section-heading ${styles.sectionHeading}`}>
+          <div>
+            <h2 id="useful-articles-title">Статьи и инструкции</h2>
+            <p>Короткие памятки для покупки, продажи и обслуживания автомобиля.</p>
+          </div>
+          <Link className="text-link" href="/useful-information/articles">Все статьи <ArrowUpRight size={16} aria-hidden="true" /></Link>
+        </div>
+        <div className={styles.articleGrid}>
+          {editorialArticles.map((article) => (
+            <article className={`info-card ${styles.articleCard}`} key={article.slug}>
+              <p className={styles.articleSection}>{article.section}</p>
+              <h3><Link href={`/useful-information/articles/${article.slug}`}>{article.title}</Link></h3>
+              <p>{article.description}</p>
+              <Link className="text-link" href={`/useful-information/articles/${article.slug}`}>Читать статью <ArrowUpRight size={16} aria-hidden="true" /></Link>
+            </article>
+          ))}
+        </div>
       </section>
+
+      <section className="info-section" aria-labelledby="use-case-presets-title">
+        <div className={styles.sectionHeading}>
+          <h2 id="use-case-presets-title">Подборки по задаче</h2>
+          <p>Выберите стартовые условия и настройте каждый фильтр под себя. Поиск не подтверждает состояние или пригодность конкретного автомобиля.</p>
+        </div>
+        <div className={styles.useCaseGrid}>
+          {useCasePresets.map((preset) => <UseCaseSearchCard key={preset.slug} preset={preset} />)}
+        </div>
+      </section>
+
       <section className="info-section">
         <h2>Перед поездкой</h2>
         <ul className="info-list">

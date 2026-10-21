@@ -42,6 +42,7 @@ export type UserNotification = {
   id: string;
   saved_search_id: string | null;
   conversation_id: string | null;
+  price_event_id: string | null;
   listing_id: string | null;
   title: string;
   body: string;
@@ -145,6 +146,17 @@ export type ListingSummary = {
   updated_at: string;
   damaged: boolean;
   parts_only: boolean;
+};
+
+export type FavoriteListing = ListingSummary & { price_drop_notifications_enabled: boolean };
+export type ListingPriceHistoryItem = {
+  id: string;
+  event_type: "baseline" | "published" | "added" | "changed" | "removed";
+  amount: string | null;
+  currency: "BYN" | "USD" | null;
+  previous_amount: string | null;
+  previous_currency: "BYN" | "USD" | null;
+  recorded_at: string;
 };
 
 export type Listing = ListingSummary & {

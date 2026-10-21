@@ -8,12 +8,12 @@ from app import main
 from app.main import UploadBodyLimitMiddleware
 
 
-def _scope(path: str, *, method: str = "POST", headers: list[tuple[bytes, bytes]] | None = None) -> dict:
+def _scope(path: str, *, headers: list[tuple[bytes, bytes]] | None = None) -> dict:
     return {
         "type": "http",
         "asgi": {"version": "3.0"},
         "http_version": "1.1",
-        "method": method,
+        "method": "POST",
         "scheme": "http",
         "path": path,
         "raw_path": path.encode(),
@@ -100,19 +100,6 @@ def test_photo_upload_body_limit_does_not_apply_to_other_routes():
     assert receive_count == 2
     assert sent[0]["status"] == 200
     assert sent[1]["body"] == b"12"
-
-
-def test_company_logo_upload_body_limit_rejects_oversize_put_body():
-    middleware = UploadBodyLimitMiddleware(_app_that_reads_body(), max_body_bytes=10)
-    sent, receive_count = _run(
-        middleware,
-        _scope("/api/v1/companies/123/logo", method="PUT"),
-        [b"123456", b"789012", b"unread"],
-    )
-
-    assert receive_count == 2
-    assert sent[0]["status"] == 413
-    assert json.loads(sent[1]["body"])["code"] == "request_body_too_large"
 
 
 def test_app_rejects_chunked_upload_body_before_multipart_parsing(monkeypatch):

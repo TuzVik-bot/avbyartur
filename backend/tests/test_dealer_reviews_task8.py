@@ -11,7 +11,7 @@ PASSWORD = "task8-dealer-review-test-password-123"
 
 
 def add_user(factory, role="user"):
-    email = f"{role}-{uuid.uuid4().hex[:12]}@example.test"
+    email = f"{role}-{uuid.uuid4().hex[:12]}@example.com"
     user = User(email=email, display_name=email.split("@", 1)[0], password_hash=hash_password(PASSWORD), role=role, status="active")
     with factory() as db:
         db.add(user)
@@ -27,9 +27,10 @@ def login(client, email):
     return {"X-CSRF-Token": response.json()["csrf_token"]}
 
 
-def test_public_stats_only_count_active_public_listings_and_approved_companies(integration):
+def test_public_stats_only_count_active_public_listings_approved_companies_and_published_reviews(integration):
     factory = integration["SessionLocal"]
     approved_owner, pending_owner, private_owner = add_user(factory), add_user(factory), add_user(factory)
+    review_authors = [add_user(factory) for _ in range(5)]
     approved = Company(owner_id=approved_owner.id, name="Approved", slug=f"approved-{uuid.uuid4().hex[:8]}", unp=str(100000000 + uuid.uuid4().int % 899999999), address="", phone="", status="approved")
     pending = Company(owner_id=pending_owner.id, name="Pending", slug=f"pending-{uuid.uuid4().hex[:8]}", unp=str(100000000 + uuid.uuid4().int % 899999999), address="", phone="", status="pending")
     with factory() as db:
@@ -41,14 +42,44 @@ def test_public_stats_only_count_active_public_listings_and_approved_companies(i
             Listing(owner_id=private_owner.id, company_id=None, slug=f"private-listing-{uuid.uuid4().hex[:8]}", status="active"),
             Listing(owner_id=private_owner.id, company_id=None, slug=f"archived-listing-{uuid.uuid4().hex[:8]}", status="archived"),
         ])
+        db.add_all([
+            DealerReview(
+                company_id=approved.id, author_id=review_authors[0].id,
+                rating=5, text="published review", status="published",
+            ),
+            DealerReview(
+                company_id=approved.id, author_id=review_authors[1].id,
+                rating=4, text="pending review", status="pending",
+            ),
+            DealerReview(
+                company_id=approved.id, author_id=review_authors[2].id,
+                rating=2, text="rejected review", status="rejected",
+            ),
+            DealerReview(
+                company_id=approved.id, author_id=review_authors[3].id,
+                rating=1, text="hidden review", status="hidden",
+            ),
+            DealerReview(
+                company_id=pending.id, author_id=review_authors[4].id,
+                rating=5, text="published review on unapproved company", status="published",
+            ),
+        ])
         db.commit()
         pending_id = pending.id
     client = integration["client"]
-    assert client.get("/api/v1/public-stats").json() == {"active_listings": 2, "approved_companies": 1}
+    assert client.get("/api/v1/public-stats").json() == {
+        "active_listings": 2,
+        "approved_companies": 1,
+        "published_reviews": 1,
+    }
     with factory() as db:
         db.get(Company, pending_id).status = "approved"
         db.commit()
-    assert client.get("/api/v1/public-stats").json() == {"active_listings": 3, "approved_companies": 2}
+    assert client.get("/api/v1/public-stats").json() == {
+        "active_listings": 3,
+        "approved_companies": 2,
+        "published_reviews": 2,
+    }
 
 
 def test_company_logo_upload_sanitizes_image_and_uses_company_revision(integration):

@@ -5,6 +5,7 @@ import { ContactClickConsent, ContactClickConsentProvider } from "@/components/c
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SiteAssistant } from "@/components/site-assistant";
+import { InstallPrompt } from "@/components/install-prompt";
 import { DEFAULT_LOCALE, getMessage } from "@/lib/i18n";
 import { getSessionServer } from "@/lib/server-api";
 import { SITE_NAME, SITE_ORIGIN } from "@/lib/site-config";
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
   description: getMessage("layout.description", DEFAULT_LOCALE),
   robots: { index: true, follow: true, noarchive: false, googleBot: { index: true, follow: true, noimageindex: false } },
   applicationName: SITE_NAME,
+  appleWebApp: { capable: true, statusBarStyle: "default", title: SITE_NAME },
   referrer: "strict-origin-when-cross-origin"
 };
 
@@ -40,6 +42,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <SiteFooter />
             <SiteAssistant />
             <ContactClickConsent />
+            <InstallPrompt />
           </CompareProvider></ContactClickConsentProvider>
         </AuthProvider>
       </body>

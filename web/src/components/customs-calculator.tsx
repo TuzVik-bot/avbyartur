@@ -211,7 +211,6 @@ export function CustomsCalculator() {
     const manufactureDate = String(data.get("manufacture_date") || "");
     const engineVolume = Number(String(data.get("engine_volume_cc") || ""));
     if (!Number.isSafeInteger(engineVolume) || engineVolume < 1 || engineVolume > 100_000) return;
-    if (data.get("personal_use") !== "yes" || data.get("origin_outside_eaeu") !== "yes") return;
 
     const payload: CustomsCalculationRequest = {
       price_amount: rawPrice,
@@ -219,6 +218,7 @@ export function CustomsCalculator() {
       manufacture_date: manufactureDate,
       engine_type: String(data.get("engine_type")) as CustomsCalculationRequest["engine_type"],
       engine_volume_cc: engineVolume,
+      benefit_140: data.get("benefit_140") === "yes",
       personal_use: true,
       origin_outside_eaeu: true
     };
@@ -331,13 +331,10 @@ export function CustomsCalculator() {
                 {issue?.fields.engine_volume_cc && <span className={styles.fieldError} id="customs-engine-volume-error">{issue.fields.engine_volume_cc}</span>}
               </div>
 
-              <fieldset className={styles.confirmations}>
-                <legend>Подтверждения *</legend>
-                <label className="check-field"><input name="personal_use" type="checkbox" value="yes" required onChange={invalidatePreviousRequest} /> Автомобиль ввозится для личного пользования.</label>
-                {issue?.fields.personal_use && <span className={styles.fieldError}>{issue.fields.personal_use}</span>}
-                <label className="check-field"><input name="origin_outside_eaeu" type="checkbox" value="yes" required onChange={invalidatePreviousRequest} /> Автомобиль ввозится из-за пределов ЕАЭС.</label>
-                {issue?.fields.origin_outside_eaeu && <span className={styles.fieldError}>{issue.fields.origin_outside_eaeu}</span>}
-              </fieldset>
+              <div className={styles.confirmations}>
+                <label className="check-field"><input name="benefit_140" type="checkbox" value="yes" onChange={invalidatePreviousRequest} /> Таможенная льгота 50% (Указ №140)</label>
+                <span className={styles.help}>Уменьшает пошлину и налоги на 50%. Утилизационный и таможенный сборы оплачиваются полностью. Право на льготу необходимо подтвердить.</span>
+              </div>
             </div>
 
             {issue && <div className={`notice ${styles.errorPanel}`} role="alert" aria-live="assertive">
@@ -363,8 +360,8 @@ export function CustomsCalculator() {
           {meta?.rules_version && <p className={styles.provenance}>Версия правил {meta.rules_version}{meta.verified_on ? ` · проверена ${meta.verified_on}` : ""}.</p>}
           {!meta && <ul>
             <li>Физическое лицо ввозит легковой автомобиль категории M1 для личного пользования.</li>
-            <li>Автомобиль с бензиновым или дизельным двигателем ввозится из-за пределов ЕАЭС в Беларусь без льгот.</li>
-            <li>Электромобили, любые гибриды, ввоз из ЕАЭС, юридические лица и льготы не поддерживаются.</li>
+            <li>Автомобиль с бензиновым или дизельным двигателем ввозится из-за пределов ЕАЭС в Беларусь.</li>
+            <li>Электромобили, любые гибриды, ввоз из ЕАЭС, юридические лица не поддерживаются.</li>
           </ul>}
           {!meta && <>
             <p>Цена покупки служит оценкой таможенной стоимости. Окончательную стоимость определяет таможня. Цена автомобиля, доставка, брокерские услуги и страхование не входят в сумму таможенных платежей.</p>

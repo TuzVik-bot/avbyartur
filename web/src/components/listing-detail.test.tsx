@@ -1,6 +1,6 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ListingDetail } from "@/components/listing-detail";
 import { ContactClickConsentProvider } from "@/components/contact-click-consent";
 import { api, ApiClientError } from "@/lib/api";
@@ -23,11 +23,14 @@ vi.mock("@/components/share-button", () => ({ ShareButton: ({ title }: { href: s
 
 let container: HTMLDivElement;
 let root: Root;
+let historyLoader: Mock<typeof api.listingPriceHistory>;
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   authMocks.user = null;
   vi.spyOn(api, "guestContactEnabled").mockResolvedValue({ guest_contact_reveal_enabled: false });
+  historyLoader = vi.spyOn(api, "listingPriceHistory").mockResolvedValue({ items: [] });
+  vi.spyOn(api, "recentListings").mockResolvedValue({ items: [] });
   container = document.createElement("div");
   document.body.append(container);
   act(() => { root = createRoot(container); });
@@ -401,5 +404,30 @@ describe("listing photo labels", () => {
       ...listing, photo_badges: ["verified"]
     } })));
     expect(container.querySelector(".listing-photo-badges")).toBeNull();
+  });
+});
+
+describe("listing price history integration", () => {
+  it("loads the original-currency event history on active listings", async () => {
+    historyLoader.mockResolvedValue({ items: [{
+      id: "price-event-1",
+      event_type: "changed",
+      amount: "4500",
+      currency: "USD",
+      previous_amount: "5000",
+      previous_currency: "USD",
+      recorded_at: "2026-10-15T12:00:00Z"
+    }] });
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing }));
+      await Promise.resolve();
+    });
+
+    const history = container.querySelector<HTMLElement>("[data-testid='listing-price-history']");
+    expect(historyLoader).toHaveBeenCalledWith(listing.id);
+    expect(history?.textContent).toContain("История цены");
+    expect(history?.textContent).toContain("Цена изменена");
+    expect(history?.textContent).toContain("USD");
+    expect(history?.querySelector("time")?.getAttribute("datetime")).toBe("2026-10-15T12:00:00Z");
   });
 });

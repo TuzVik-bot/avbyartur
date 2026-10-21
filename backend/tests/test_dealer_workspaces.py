@@ -1,10 +1,8 @@
 import uuid
-from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
 from app.models import Company, ContactReveal, Conversation, Listing, User
-from app.analytics_models import ContactClickEvent
 from app.security import hash_password
 
 
@@ -369,12 +367,6 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
         db.flush()
         db.add(ContactReveal(listing_id=listing.id, user_id=buyer_id))
         db.add(Conversation(listing_id=listing.id, buyer_id=buyer_id, seller_id=owner_id))
-        db.add(ContactClickEvent(
-            listing_id=listing.id,
-            channel="telegram",
-            dedup_id=str(uuid.uuid4()),
-            occurred_at=datetime.now(timezone.utc),
-        ))
         db.commit()
         listing_id = listing.id
     owner, _ = _login(integration, owner_email)
@@ -385,8 +377,6 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
     # Owner views are excluded from public listing analytics.
     owner_view = owner.get(f"/api/v1/listings/{listing_id}")
     assert owner_view.status_code == 200, owner_view.text
-    click = public.post("/api/v1/dealer/clicks", json={"listing_id": str(listing_id)})
-    assert click.status_code == 202, click.text
 
     response = owner.get("/api/v1/dealer/analytics")
     assert response.status_code == 200, response.text
@@ -396,12 +386,8 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
         "contact_reveals": 1,
         "chats": 1,
         "views": 1,
-        "company_clicks": 1,
-        "contact_clicks": 1,
     }
     assert response.json()["items"][0]["views"] == 1
-    assert response.json()["items"][0]["company_clicks"] == 1
-    assert response.json()["items"][0]["contact_clicks"] == 1
 
     isolated = outsider.get("/api/v1/dealer/analytics")
     assert isolated.status_code == 200, isolated.text

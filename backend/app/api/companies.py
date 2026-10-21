@@ -25,7 +25,7 @@ from app.config import get_settings
 from app.dealer_review_service import public_reviews
 from app.dealer_services import MANAGER_ROLES, require_company_role
 from app.db import get_db
-from app.models import AuditEvent, Company, DealerTeamMember, Listing, User, UserSession
+from app.models import AuditEvent, Company, DealerReview, DealerTeamMember, Listing, User, UserSession
 from app.schemas import CompanyInput, CompanyPatchInput
 from app.services import check_revision, fail, lock_owner, serialize_listings
 
@@ -45,7 +45,16 @@ def public_stats(db: Annotated[Session, Depends(get_db)]) -> dict[str, int]:
         )
     )
     approved_companies = db.scalar(select(func.count(Company.id)).where(Company.status == "approved"))
-    return {"active_listings": int(active_listings or 0), "approved_companies": int(approved_companies or 0)}
+    published_reviews = db.scalar(
+        select(func.count(DealerReview.id))
+        .join(Company, DealerReview.company_id == Company.id)
+        .where(DealerReview.status == "published", Company.status == "approved")
+    )
+    return {
+        "active_listings": int(active_listings or 0),
+        "approved_companies": int(approved_companies or 0),
+        "published_reviews": int(published_reviews or 0),
+    }
 
 
 def _slug(name: str) -> str:

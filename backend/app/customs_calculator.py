@@ -627,6 +627,9 @@ def calculate_customs(
             duty_eur_exact = Decimal(request.engine_volume_cc) * band.eur_per_cc
             recycling_fee_exact = rules.recycling_fee_over_3_byn
 
+        if request.benefit_140:
+            duty_eur_exact *= Decimal("0.5")
+
         duty_eur_rounded = duty_eur_exact.quantize(CENT, rounding=ROUND_HALF_UP)
         # Convert the unrounded duty, then round the displayed BYN duty once.
         duty_byn_rounded = (duty_eur_exact * eur_rate.byn_per_unit).quantize(
@@ -653,6 +656,7 @@ def calculate_customs(
         dict.fromkeys(
             (
                 *rules.sources,
+                *(("https://pravo.by/document/?guid=12551&p0=P31900140",) if request.benefit_140 else ()),
                 band.source_url,
                 f"{NBRB_API_URL}?periodicity=0&ondate={rates.rate_date.isoformat()}",
             )
@@ -672,6 +676,7 @@ def calculate_customs(
         rates_used=rates_used,
         sources=list(source_urls),
         warnings=[
+            *(["Применена льгота 50% по Указу №140 к единой пошлине и налогам. Право на льготу необходимо подтвердить; утилизационный и таможенный сборы уплачиваются полностью."] if request.benefit_140 else []),
             "Цена покупки используется как оценка таможенной стоимости; окончательную стоимость определяет таможня.",
             "Отдельный НДС не добавляется поверх единой ставки.",
             "Доставка, брокерские услуги и страхование не входят в итог таможенных платежей.",

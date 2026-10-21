@@ -68,3 +68,32 @@ export function searchUrl(search: ListingSearch, patch: Partial<ListingSearch> =
 }
 
 export const activeSearchKeys = allowedSearchKeys.filter((key) => !["category_code", "page", "page_size", "sort", "currency"].includes(key));
+
+const relaxationPriority: (typeof activeSearchKeys)[number][] = [
+  "city_id", "region_id", "price_max", "price_min", "year_min", "year_max", "mileage_max", "mileage_min",
+  "modification_id", "body_variant_id", "generation_id", "model_id", "make_id", "engine_volume_max", "engine_volume_min",
+  "power_max", "power_min", "fuel", "transmission", "drive", "body_type", "condition", "seller_type", "equipment",
+  "color", "customs_status", "technical_condition", "body_condition", "damaged", "parts_only", "district", "call_hours",
+  "exchange", "bargaining", "credit", "leasing", "has_vin", "has_photos", "q"
+];
+
+export function searchRelaxationOptions(search: ListingSearch, limit = 4) {
+  const selected = new Set(activeSearchKeys.filter((key) => {
+    const value = search[key];
+    return Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "";
+  }));
+  const boundedLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 4;
+
+  return [...new Set([...relaxationPriority, ...activeSearchKeys])]
+    .filter((key) => selected.has(key))
+    .slice(0, boundedLimit)
+    .map((key) => ({
+      key,
+      href: searchUrl(search, { [key]: undefined } as Partial<ListingSearch>)
+    }));
+}
+
+export function clearSearchFilters(search: ListingSearch) {
+  const patch = Object.fromEntries(activeSearchKeys.map((key) => [key, undefined])) as Partial<ListingSearch>;
+  return searchUrl(search, patch);
+}
