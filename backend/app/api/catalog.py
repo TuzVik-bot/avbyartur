@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import String, cast, or_, select
+from sqlalchemy import String, and_, cast, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.catalog_schemas import CatalogItemsOut, CatalogModificationsOut
@@ -36,7 +36,15 @@ CATEGORY_PACK_SOURCE_NAMES = (
 
 def category_scope(entity, category_code: CategoryCode):
     if category_code == "cars":
-        return or_(entity.source_name.is_(None), entity.source_name.not_in(CATEGORY_PACK_SOURCE_NAMES))
+        category_codes = entity.source_metadata["category_codes"]
+        return and_(
+            or_(entity.source_name.is_(None), entity.source_name.not_in(CATEGORY_PACK_SOURCE_NAMES)),
+            or_(
+                entity.source_metadata.is_(None),
+                category_codes.is_(None),
+                category_codes.contains(["cars"]),
+            ),
+        )
     return entity.source_metadata.contains({"category_codes": [category_code]})
 
 

@@ -14,6 +14,7 @@ from app.models import (
     CatalogModel,
 )
 from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = ROOT / "data/catalog.json"
@@ -159,10 +160,10 @@ def test_bmw_search_aliases_survive_catalog_import_and_match_search_queries():
     model_db = CapturingSession()
     assert search_makes(make_db, q="БМВ") == {"items": []}
     assert search_models(model_db, make_id=None, q="3 серия") == {"items": []}
-    make_sql = str(make_db.query.compile(compile_kwargs={"literal_binds": True}))
-    model_sql = str(model_db.query.compile(compile_kwargs={"literal_binds": True}))
-    assert "aliases" in make_sql and "БМВ" in make_sql
-    assert "aliases" in model_sql and "3 серия" in model_sql
+    make_compiled = make_db.query.compile(dialect=postgresql.dialect())
+    model_compiled = model_db.query.compile(dialect=postgresql.dialect())
+    assert "aliases" in str(make_compiled) and "БМВ" in str(make_compiled.params)
+    assert "aliases" in str(model_compiled) and "3 серия" in str(model_compiled.params)
 
 
 def test_checked_in_bmw_3_series_ranges_match_exact_sources():
