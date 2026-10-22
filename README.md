@@ -60,7 +60,7 @@ Production и preview-БД для тестов не подходят, даже �
 
 - Канонический домен: <https://xn--80aeylebmo7f.xn--90ais> (авторынок.бел). `suite-s1.denjik.by` выведен из эксплуатации ([приёмка](docs/runtime/CANONICAL_DOMAIN_ACCEPTANCE_2026-10-21.md)).
 - Web: `product-wave-articles-20261022-r1` ([отчёт](docs/runtime/COMBINED_RELEASE_2026-10-22.md)). API и worker: `product-wave-20261021-r1`, собран из архива `product-wave-source.tar.gz` (sha256 `4fb7cf57a83e3fedcedc15a516c098735c2bf1269d29e3c352edd5afdcaa62d0`, база `53ff49e`).
-- Схема БД: `0032_listing_price_hist` (alembic head этой ветки; значение на проде выведено из скрипта релиза, подтверждённое документами значение на 21.10.2026 — `0031`).
+- Схема БД: `0032_listing_price_hist` (alembic head этой ветки; значение на проде подтверждено read-only проверкой 22.10.2026; ранее подтверждённое документами значение на 21.10.2026 — `0031`).
 - HTTP Basic Auth выключен (с 4 октября 2026 по запросу пользователя); глобальный `X-Robots-Tag: noindex` включён (`web/next.config.ts`). Оба правила сохраняются.
 - Активных объявлений на последней проверке (22.10.2026, до релиза) — 0.
 - Источник истины для кода — git-ветка `integrate/20261022` (реконструирована из production-архивов релизов, коммит `dc41a9e`). Архивы релизов сохранены локально в `/Users/home/backups/avbyartur-20261022/tmp-rescue` (вне git).

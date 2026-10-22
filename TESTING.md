@@ -2,6 +2,39 @@
 
 Бегущий лог: «как мы знаем, что это работает». Новые разделы добавляются сверху.
 
+## 2026-10-22 — read-only проверка production по SSH
+
+### SSH (read-only, разрешён пользователем)
+
+- Активный симлинк `/home/suite/apps/avtorinok` → `releases/product-wave-articles-20261022-r1`.
+- web = `avtorinok-web:product-wave-articles-20261022-r1` (из articles-r1); api/worker = `avtorinok-api:product-wave-20261021-r1` (из `releases/product-wave-20261021-r1`).
+- 5 контейнеров healthy, RestartCount 0.
+- Тома `avtorinok_postgres` и `avtorinok_private_media` на месте.
+- `.env` права 600 (симлинк на `releases/home-ux-20261016-r1/.env`).
+
+### БД
+
+- `alembic_version` = `0032_listing_price_hist` (подтверждено).
+- listings: draft 108, paused 102, pending_review 1, active 0.
+- `listing_price_events` 0; `catalog_makes` 211.
+
+### HTTP
+
+- Главная 200, `X-Robots-Tag: noindex, nofollow, noarchive`, Basic Auth нет; `/api/v1/listings` 200.
+- С самого сервера curl к публичному домену вернул 000 (не исследовано).
+
+### Сверка исходников
+
+sha256, `backend/app`, `backend/alembic`, `web/src`; py/ts/tsx/css.
+
+- Релиз articles-r1: 470/470 файлов идентичны коммиту dc41a9e (реконструкция подтверждена побайтово).
+- Релиз product-wave-20261021-r1: 467/469 идентичны; 2 отличия — файлы статей, которые обновил web-релиз 22.10 (ожидаемо).
+- Отличия integrate HEAD от прода — только коммиты после реконструкции: защиты миграций 0027/0028/0031 и `env.py`, документация статусов в `main.py`, тесты, `types.generated.ts`.
+
+### Наблюдение
+
+- В проде запущен test-mail (mailpit).
+
 ## 2026-10-22 — интеграция integrate/20261022 (реконструкция прод-исходника)
 
 ### 1. Что проверялось и источник истины
