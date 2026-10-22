@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate and import licensed catalog pack 07.5, 07.25 and 07.26.
+"""Validate and import licensed Autorinok catalog pack 07 archives.
 
 Dry-run is the default. Only make/model names enter the public catalog;
 specifications, variants and source review statuses remain in CatalogImport.
@@ -26,12 +26,32 @@ from app.db import SessionLocal
 from app.models import CatalogImport, CatalogMake, CatalogModel
 
 
-SOURCE_NAME = "Autorinok catalog packs 07.5, 07.25 and 07.26"
+SOURCE_NAME = "Autorinok catalog packs 07"
 OWNER_CONFIRMATION_DATE = "2026-10-22"
 PACKS = {
-    "07.5": {"archive": "autorinok_pack_07_part5.zip", "source_category": "boat_jetski", "category_code": "watercraft"},
-    "07.25": {"archive": "autorinok_pack_07_part25.zip", "source_category": "motorcycle_scooter", "category_code": "motorcycles"},
-    "07.26": {"archive": "autorinok_pack_07_part26.zip", "source_category": "boat_motorboat", "category_code": "watercraft"},
+    "07.5": {"archive": "autorinok_pack_07_part5.zip", "source_categories": ["boat_jetski"], "category_code": "watercraft"},
+    "07.23": {"archive": "autorinok_pack_07_part23.zip", "source_categories": ["atv_utv", "motorcycle"], "category_code": "motorcycles"},
+    "07.24": {"archive": "autorinok_pack_07_part24.zip", "source_categories": ["boat_motorboat"], "category_code": "watercraft"},
+    "07.25": {"archive": "autorinok_pack_07_part25.zip", "source_categories": ["motorcycle_scooter"], "category_code": "motorcycles"},
+    "07.26": {"archive": "autorinok_pack_07_part26.zip", "source_categories": ["boat_motorboat"], "category_code": "watercraft"},
+    "07.27": {
+        "archive": "autorinok_pack_07_part27.zip",
+        "source_categories": ["atv_utility", "atv_youth", "atv_electric", "atv_sport", "atv_utv"],
+        "category_code": "motorcycles",
+    },
+}
+_DENAGO_FAQ = "https://denagopowersports.com/pages/faq-denago-powersports"
+_PRIVATE_MODEL_IDENTITIES = {
+    ("07.27", "atv_utility|DENAGO|FREELANDER200FI"): "Freelander 200FI",
+    ("07.27", "atv_utility|DENAGO|FREELANDER350FI4X4"): "Freelander 350FI 4x4",
+    ("07.27", "atv_utility|DENAGO|FREELANDER500FI4X4"): "Freelander 500FI 4x4",
+}
+_PRIVATE_MODEL_DECISION = {
+    "status": "private_review_only",
+    "reason_code": "manufacturer_lists_model_as_planned",
+    "note": "The manufacturer FAQ describes this model as a planned 2026 addition; no current product page or manual was verified.",
+    "source_url": _DENAGO_FAQ,
+    "checked_on": "2026-10-22",
 }
 CSV_FILES = {
     "models": "01_models_staging.csv",
@@ -91,7 +111,14 @@ def load_archives(paths: dict[str, Path]) -> dict:
     bundles: list[dict] = []
     seen_keys: set[str] = set()
     seen_pairs: set[tuple[str, str]] = set()
+    unknown_packs = set(paths) - set(PACKS)
+    if unknown_packs:
+        raise ValueError(f"Unsupported pack codes: {', '.join(sorted(unknown_packs))}")
+    if not paths:
+        raise ValueError("At least one archive is required")
     for pack_code, expected in PACKS.items():
+        if pack_code not in paths:
+            continue
         path = paths[pack_code]
         if path.name != expected["archive"]:
             raise ValueError(f"Expected {expected['archive']}, received {path.name}")
@@ -124,7 +151,7 @@ def load_archives(paths: dict[str, Path]) -> dict:
                 raise ValueError(f"Missing brand/model/model_key in {path.name}")
             if len(brand) > 180 or len(model) > 180:
                 raise ValueError(f"Brand/model label exceeds catalog limits in {path.name}")
-            if row.get("category_id") != expected["source_category"]:
+            if row.get("category_id") not in expected["source_categories"]:
                 raise ValueError(f"Unexpected category {row.get('category_id')} in {path.name}")
             if model_key in keys_in_pack or model_key in seen_keys:
                 raise ValueError(f"Duplicate model_key across supplied archives: {model_key}")
@@ -147,6 +174,15 @@ def load_archives(paths: dict[str, Path]) -> dict:
 
     combined = "\n".join(f"{bundle['pack']}:{bundle['archive_sha256']}" for bundle in bundles).encode()
     return {"bundles": bundles, "checksum": hashlib.sha256(combined).hexdigest()}
+
+
+def model_publication_hold(pack_code: str, row: dict[str, str]) -> dict | None:
+    expected_model = _PRIVATE_MODEL_IDENTITIES.get((pack_code, row.get("model_key", "")))
+    if expected_model is None:
+        return None
+    if _normalize(row.get("brand", "")) != "denago" or _normalize(row.get("model", "")) != _normalize(expected_model):
+        raise ValueError(f"Model identity mismatch for reserved publication hold: {row.get('model_key')}")
+    return dict(_PRIVATE_MODEL_DECISION)
 
 
 def _normalize(value: str) -> str:
@@ -230,6 +266,8 @@ def build_plan(db, data: dict) -> dict:
     for bundle in data["bundles"]:
         grouped: dict[str, list[dict[str, str]]] = defaultdict(list)
         for row in bundle["models"]:
+            if model_publication_hold(bundle["pack"], row) is not None:
+                continue
             grouped[_normalize(row["brand"])].append(row)
         for key, rows in grouped.items():
             if not key:
@@ -291,6 +329,8 @@ def build_plan(db, data: dict) -> dict:
     seen_external_ids: set[str] = set()
     for bundle in data["bundles"]:
         for row in bundle["models"]:
+            if model_publication_hold(bundle["pack"], row) is not None:
+                continue
             make_key = _normalize(row["brand"])
             make_plan = make_plans[make_key]
             external_id = _model_external_id(bundle["pack"], row["model_key"])
@@ -357,11 +397,20 @@ def build_plan(db, data: dict) -> dict:
         "models_created": sum(plan["new"] for plan in model_plans),
         "models_reused": sum(not plan["new"] for plan in model_plans),
         "public_model_names": len(model_plans),
+        "source_model_rows_preserved": sum(len(bundle["models"]) for bundle in data["bundles"]),
+        "private_review_only_model_rows": sum(
+            model_publication_hold(bundle["pack"], row) is not None
+            for bundle in data["bundles"] for row in bundle["models"]
+        ),
         "public_generations": 0,
         "public_modifications": 0,
         "source_spec_rows_staged": sum(len(bundle["specs"]) for bundle in data["bundles"]),
         "source_variant_rows_staged": sum(len(bundle["variants"]) for bundle in data["bundles"]),
         "packs": {bundle["pack"]: len(bundle["models"]) for bundle in data["bundles"]},
+        "public_packs": {
+            bundle["pack"]: sum(model_publication_hold(bundle["pack"], row) is None for row in bundle["models"])
+            for bundle in data["bundles"]
+        },
     }
     return {
         "status": "ready",
@@ -384,6 +433,11 @@ def _catalog_import_metadata(data: dict, plan: dict, created_make_ids: list[str]
             "public_fields": ["make.name", "model.name"],
             "not_written_to_public_catalog": ["specifications", "variants", "model_year_reference"],
             "source_review_statuses_preserved": True,
+            "private_review_only_model_rows": [
+                {"pack": bundle["pack"], "record": row, "decision": model_publication_hold(bundle["pack"], row)}
+                for bundle in data["bundles"] for row in bundle["models"]
+                if model_publication_hold(bundle["pack"], row) is not None
+            ],
         },
         "archives": [
             {
@@ -479,11 +533,23 @@ def _summary(data: dict) -> dict:
         "checksum": data["checksum"],
         "archives": [
             {"name": bundle["path"].name, "sha256": bundle["archive_sha256"], "pack": bundle["pack"],
-             "models": len(bundle["models"]), "specs": len(bundle["specs"]), "variants": len(bundle["variants"])}
+             "models": len(bundle["models"]), "public_models": sum(
+                 model_publication_hold(bundle["pack"], row) is None for row in bundle["models"]
+             ), "private_review_only_models": sum(
+                 model_publication_hold(bundle["pack"], row) is not None for row in bundle["models"]
+             ), "specs": len(bundle["specs"]), "variants": len(bundle["variants"])}
             for bundle in data["bundles"]
         ],
         "totals": {
             "models": sum(len(bundle["models"]) for bundle in data["bundles"]),
+            "public_models": sum(
+                model_publication_hold(bundle["pack"], row) is None
+                for bundle in data["bundles"] for row in bundle["models"]
+            ),
+            "private_review_only_models": sum(
+                model_publication_hold(bundle["pack"], row) is not None
+                for bundle in data["bundles"] for row in bundle["models"]
+            ),
             "specs": sum(len(bundle["specs"]) for bundle in data["bundles"]),
             "variants": sum(len(bundle["variants"]) for bundle in data["bundles"]),
         },
@@ -493,7 +559,7 @@ def _summary(data: dict) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     for pack_code, expected in PACKS.items():
-        parser.add_argument(f"--pack-{pack_code.replace('.', '-')}", required=True, type=Path, help=expected["archive"])
+        parser.add_argument(f"--pack-{pack_code.replace('.', '-')}", type=Path, help=expected["archive"])
     parser.add_argument("--validate-only", action="store_true", help="validate archives and checksums without connecting to a database")
     parser.add_argument("--apply", action="store_true", help="write the names-only catalog import; dry-run is the default")
     parser.add_argument("--owner-rights-confirmed", action="store_true", help="record the user's direct license confirmation")
@@ -503,7 +569,10 @@ def main() -> int:
         parser.error("--apply requires --owner-rights-confirmed")
     if args.apply and not args.publish_model_names_only:
         parser.error("--apply requires --publish-model-names-only")
-    paths = {pack: getattr(args, f"pack_{pack.replace('.', '_')}") for pack in PACKS}
+    paths = {
+        pack: path for pack in PACKS
+        if (path := getattr(args, f"pack_{pack.replace('.', '_')}")) is not None
+    }
     try:
         data = load_archives(paths)
         if args.validate_only:
