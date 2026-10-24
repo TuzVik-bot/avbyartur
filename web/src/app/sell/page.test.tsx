@@ -8,19 +8,68 @@ const mocks = vi.hoisted(() => ({
   company: vi.fn(),
   listing: vi.fn(),
   photos: vi.fn(),
-  requireSession: vi.fn()
+  getSessionServer: vi.fn()
 }));
 
 vi.mock("next/link", () => ({ default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a> }));
-vi.mock("@/components/sell-form", () => ({ SellForm: (props: { makes: unknown[]; regions: unknown[]; initialListing?: { id: string } | null }) => createElement("div", { "data-makes": props.makes.length, "data-regions": props.regions.length, "data-listing-id": props.initialListing?.id || "" }) }));
-vi.mock("@/lib/server-api", () => ({ serverApi: mocks }));
-vi.mock("@/lib/server", () => ({ requireSession: mocks.requireSession }));
+vi.mock("next/image", () => ({ default: (props: Record<string, unknown>) => createElement("img", props) }));
+vi.mock("@/components/sell-form", () => ({ SellForm: (props: { makes: unknown[]; regions: unknown[]; initialListing?: { id: string } | null; initialCategoryCode?: string; initialSubcategory?: string }) => createElement("div", { "data-makes": props.makes.length, "data-regions": props.regions.length, "data-listing-id": props.initialListing?.id || "", "data-category-code": props.initialCategoryCode || "", "data-subcategory": props.initialSubcategory || "" }) }));
+vi.mock("@/lib/server-api", () => ({ serverApi: mocks, getSessionServer: mocks.getSessionServer }));
 
-import SellPage from "./page";
+import SellPage, { metadata } from "./page";
 
-describe("sell page catalog failures", () => {
+describe("seller landing and listing form", () => {
+  it("shows a seller landing to guests and sends them back to the requested form after login", async () => {
+    mocks.getSessionServer.mockResolvedValue(null);
+
+    const html = renderToStaticMarkup(await SellPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain("От черновика до объявления в каталоге");
+    expect(html).toContain("Три этапа до публикации");
+    expect(html).toContain("Телефон скрыт в выдаче");
+    expect(html).toContain("Подойдут JPEG, PNG и WebP");
+    expect(html).not.toContain("5 минут");
+    expect(html).not.toContain("HEIC");
+    expect(html).toContain('href="/login?next=%2Fsell"');
+    expect(html).not.toContain("data-makes");
+    expect(metadata.robots).toEqual({ index: false, follow: false });
+  });
+
+  it("keeps the edit listing in the login return path", async () => {
+    mocks.getSessionServer.mockResolvedValue(null);
+
+    const html = renderToStaticMarkup(await SellPage({ searchParams: Promise.resolve({ listing: "listing-26" }) }));
+
+    expect(html).toContain('href="/login?next=%2Fsell%3Flisting%3Dlisting-26"');
+  });
+
+  it("preserves category and valid subcategory through guest login", async () => {
+    mocks.getSessionServer.mockResolvedValue(null);
+
+    const html = renderToStaticMarkup(await SellPage({ searchParams: Promise.resolve({ category_code: "motorcycles", subcategory: "motorcycle" }) }));
+
+    expect(html).toContain("Новое объявление мототехники");
+    expect(html).toContain("Вы выбрали: Мотоцикл");
+    expect(html).toContain('href="/login?next=%2Fsell%3Fcategory_code%3Dmotorcycles%26subcategory%3Dmotorcycle"');
+  });
+
+  it("drops an invalid subcategory before rendering or building a login return URL", async () => {
+    mocks.getSessionServer.mockResolvedValue(null);
+
+    const html = renderToStaticMarkup(await SellPage({ searchParams: Promise.resolve({ category_code: "watercraft", subcategory: "not-a-subcategory" }) }));
+
+    expect(html).not.toContain("Вы выбрали:");
+    expect(html).toContain('href="/login?next=%2Fsell%3Fcategory_code%3Dwatercraft"');
+  });
+
+  it("propagates session API failures instead of presenting them as a guest state", async () => {
+    mocks.getSessionServer.mockRejectedValue(new Error("session service unavailable"));
+
+    await expect(SellPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("session service unavailable");
+  });
+
   it("explains unavailable required reference data and leaves manual make entry available", async () => {
-    mocks.requireSession.mockResolvedValue({ user: { display_name: "Тест" } });
+    mocks.getSessionServer.mockResolvedValue({ user: { display_name: "Тест" } });
     mocks.catalog.mockImplementation(async (kind: string) => {
       if (kind === "makes") throw new Error("catalog offline");
       return { items: [] };
@@ -37,8 +86,20 @@ describe("sell page catalog failures", () => {
     expect(html).toContain('href="/sell"');
   });
 
+  it("passes category and subcategory into the authenticated form", async () => {
+    mocks.getSessionServer.mockResolvedValue({ user: { display_name: "Тест" } });
+    mocks.catalog.mockResolvedValue({ items: [] });
+    mocks.regions.mockResolvedValue({ items: [] });
+    mocks.company.mockResolvedValue({ company: null });
+
+    const html = renderToStaticMarkup(await SellPage({ searchParams: Promise.resolve({ category_code: "tires", subcategory: "passenger" }) }));
+
+    expect(html).toContain('data-category-code="tires"');
+    expect(html).toContain('data-subcategory="passenger"');
+  });
+
   it("loads an edit listing by ID even when it is beyond the first owner page", async () => {
-    mocks.requireSession.mockResolvedValue({ user: { display_name: "Тест" } });
+    mocks.getSessionServer.mockResolvedValue({ user: { display_name: "Тест" } });
     mocks.catalog.mockResolvedValue({ items: [] });
     mocks.regions.mockResolvedValue({ items: [] });
     mocks.company.mockResolvedValue({ company: null });

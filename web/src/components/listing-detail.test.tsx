@@ -1,8 +1,9 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ListingDetail } from "@/components/listing-detail";
 import { api, ApiClientError } from "@/lib/api";
+import { clearComparisonIds } from "@/lib/comparison-state";
 import type { Listing } from "@/lib/types";
 
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
@@ -18,10 +19,14 @@ vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: null }) }
 
 let container: HTMLDivElement;
 let root: Root;
+let historyLoader: Mock<typeof api.listingPriceHistory>;
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  localStorage.clear();
+  clearComparisonIds();
   vi.spyOn(api, "guestContactEnabled").mockResolvedValue({ guest_contact_reveal_enabled: false });
+  historyLoader = vi.spyOn(api, "listingPriceHistory").mockResolvedValue({ items: [] });
   container = document.createElement("div");
   document.body.append(container);
   act(() => { root = createRoot(container); });
@@ -30,6 +35,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  clearComparisonIds();
   vi.restoreAllMocks();
 });
 
@@ -60,6 +66,25 @@ const listing: Listing = {
 };
 
 describe("contact reveal", () => {
+  it("shows modification and seller-provided VIN context beside the price without claiming a history check", async () => {
+    await act(async () => root.render(createElement(ListingDetail, {
+      listing: { ...listing, vin: "WVWZZZ1JZXW000001", updated_at: "2026-10-20T12:00:00Z" }
+    })));
+    const panel = container.querySelector('aside[aria-label="Цена и продавец"]');
+    expect(panel?.textContent).toContain("Изменено");
+    expect(panel?.querySelector("time")?.getAttribute("dateTime")).toBe("2026-10-20T12:00:00Z");
+    expect(panel?.textContent).toContain("VIN указан продавцом");
+    expect(panel?.textContent).toContain("История автомобиля не проверена");
+    expect(panel?.textContent).not.toContain("VIN проверен");
+  });
+
+  it("does not imply a VIN report exists when the seller omitted VIN", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, vin: null } })));
+    const panel = container.querySelector('aside[aria-label="Цена и продавец"]');
+    expect(panel?.textContent).not.toContain("VIN не указан");
+    expect(panel?.textContent).not.toContain("VIN указан продавцом");
+  });
+
   it("takes a guest to login with the new chat route as the next path", async () => {
     await act(async () => root.render(createElement(ListingDetail, { listing })));
 
@@ -131,6 +156,95 @@ describe("contact reveal", () => {
       await Promise.resolve();
     });
     expect(container.textContent).toContain("+375 29 000 00 00");
+  });
+});
+
+describe("listing detail comparison", () => {
+  it("provides add and selected-list actions on the public listing detail", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+    const addButton = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Добавить к сравнению"));
+
+    expect(addButton).not.toBeNull();
+    expect(container.querySelector('a[href="/compare"]')?.textContent).toBe("Сравнение");
+    await act(async () => addButton!.click());
+    expect(container.querySelector('a[href="/compare"]')?.textContent).toBe("Сравнение (1)");
+  });
+});
+
+describe("public price history", () => {
+  it("shows recorded dates and original currencies without substituting the current converted price", async () => {
+    historyLoader.mockResolvedValue({ items: [{
+      id: "price-event-1",
+      event_type: "changed",
+      amount: "5000.50",
+      currency: "USD",
+      previous_amount: "5200.00",
+      previous_currency: "USD",
+      recorded_at: "2026-10-15T12:00:00Z"
+    }] });
+    const usdListing = { ...listing, price: { amount: "5000", currency: "USD" as const, display_byn: "13500.00", rate_date: "2026-10-20" } };
+
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing: usdListing }));
+      await Promise.resolve();
+    });
+
+    const history = container.querySelector<HTMLElement>("[data-testid='listing-price-history']");
+    expect(historyLoader).toHaveBeenCalledWith(listing.id);
+    expect(history?.textContent).toContain("5 000,5 USD");
+    expect(history?.textContent).toContain("5 200 USD");
+    expect(history?.textContent).not.toContain("13 500 BYN");
+    expect([...history!.querySelectorAll(".sr-only")].map((label) => label.textContent)).toEqual(["Было: ", "Стало: "]);
+    expect(history?.querySelector("time")?.getAttribute("datetime")).toBe("2026-10-15T12:00:00Z");
+  });
+
+  it("labels a baseline as a recorded price without implying an earlier value", async () => {
+    historyLoader.mockResolvedValue({ items: [{
+      id: "price-event-baseline",
+      event_type: "baseline",
+      amount: "4500",
+      currency: "USD",
+      previous_amount: null,
+      previous_currency: null,
+      recorded_at: "2026-10-15T12:00:00Z"
+    }] });
+
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing }));
+      await Promise.resolve();
+    });
+
+    const entry = container.querySelector<HTMLElement>("[data-testid='listing-price-history'] li");
+    expect(entry?.querySelector("strong")?.textContent).toBe("Цена зафиксирована");
+    expect(entry?.querySelector("p strong")?.textContent).toBe("4 500 USD");
+    expect(entry?.querySelector(".sr-only")?.textContent).toBe("Цена: ");
+    expect(entry?.textContent).not.toContain("Было:");
+    expect(entry?.textContent).not.toContain(" → ");
+  });
+
+  it("distinguishes an empty history from a failed request", async () => {
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing }));
+      await Promise.resolve();
+    });
+    expect(container.querySelector("[data-testid='listing-price-history']")?.textContent).toContain("Изменений цены пока нет.");
+
+    historyLoader.mockRejectedValueOnce(new Error("offline"));
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing: { ...listing, id: "listing-2" } }));
+      await Promise.resolve();
+    });
+    const history = container.querySelector("[data-testid='listing-price-history']");
+    expect(history?.textContent).toContain("Не удалось загрузить историю цены.");
+    expect(history?.textContent).not.toContain("Изменений цены пока нет.");
+    expect(history?.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it("does not request or render price history for an inactive listing", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, status: "paused" } })));
+
+    expect(historyLoader).not.toHaveBeenCalled();
+    expect(container.querySelector("[data-testid='listing-price-history']")).toBeNull();
   });
 });
 

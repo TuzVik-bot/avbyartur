@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SearchResults } from "@/components/search-results";
 import type { CatalogItem, CatalogModification, ListingSearch, ListingSummary } from "@/lib/types";
 
+const mocks = vi.hoisted(() => ({
+  savedSearchAction: vi.fn()
+}));
+
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>
 }));
@@ -12,6 +16,15 @@ vi.mock("@/components/listing-card", () => ({
 }));
 vi.mock("@/components/search-filters", () => ({
   SearchFilters: ({ priceOperationsAvailable }: { priceOperationsAvailable: boolean }) => <div data-price-operations-available={String(priceOperationsAvailable)} />
+}));
+vi.mock("@/components/saved-search-action", () => ({
+  SavedSearchAction: ({ search, title }: { search: ListingSearch; title: string }) => {
+    mocks.savedSearchAction(search, title);
+    return <div data-saved-search-title={title}>
+      <button type="button">Сохранить поиск</button>
+      <button type="button">Подписаться на новые объявления</button>
+    </div>;
+  }
 }));
 
 let container: HTMLDivElement;
@@ -50,17 +63,26 @@ const listing: ListingSummary = {
   parts_only: false
 };
 
-async function render(search: ListingSearch, catalogsFailed = false, savedListingIds: string[] = [], items: ListingSummary[] = [], priceOperationsAvailable = true, modifications: CatalogModification[] = [], generations: CatalogItem[] = [], bodyVariants: CatalogItem[] = []) {
+async function render(search: ListingSearch, catalogsFailed = false, savedListingIds: string[] = [], items: ListingSummary[] = [], priceOperationsAvailable = true, modifications: CatalogModification[] = [], generations: CatalogItem[] = [], bodyVariants: CatalogItem[] = [], totalOverride?: number, failed = false) {
+  const total = totalOverride ?? items.length;
   await act(async () => root.render(createElement(SearchResults, {
     search,
-    data: { items, pagination: { page: 1, page_size: 25, total: items.length, pages: items.length ? 1 : 0 } },
+    data: { items, pagination: { page: Number(search.page || 1), page_size: 25, total, pages: Math.ceil(total / 25) } },
     title: "Объявления",
     makes: [], models: [], regions: [], cities: [], bodyTypes: [], modifications, generations, bodyVariants, catalogsFailed,
-    savedListingIds, priceOperationsAvailable
+    savedListingIds, priceOperationsAvailable, failed
   })));
 }
 
 describe("search result controls", () => {
+  it("shows a localized subcategory chip and removes only that filter", async () => {
+    await render({ category_code: "watercraft", subcategory: "jet_ski" });
+    const chip = [...container.querySelectorAll<HTMLAnchorElement>(".filter-chip")]
+      .find((link) => link.textContent?.includes("Подкатегория"));
+    expect(chip?.textContent).toContain("Подкатегория: Гидроцикл");
+    expect(chip?.getAttribute("href")).toBe("/cars?category_code=watercraft");
+  });
+
   it("submits BYN with sorting on a fresh cars URL", async () => {
     await render({});
 
@@ -90,6 +112,57 @@ describe("search result controls", () => {
       .find((link) => link.textContent?.includes("Модификация"));
     expect(fallbackChip?.textContent).toContain("Модификация: Комплектация выбрана");
     expect(fallbackChip?.textContent).not.toContain("unresolved-catalog-id");
+  });
+
+  it("offers to save the active search with its title", async () => {
+    await render({ q: "BMW", equipment: ["abs", "rear_camera"] });
+
+    expect(mocks.savedSearchAction).toHaveBeenCalledWith({ q: "BMW", equipment: ["abs", "rear_camera"] }, "Объявления");
+    const emptyState = container.querySelector(".empty-state");
+    expect(emptyState?.querySelector("[data-saved-search-title]")?.textContent).toContain("Сохранить поиск");
+    expect(emptyState?.querySelector("[data-saved-search-title]")?.textContent).toContain("Подписаться на новые объявления");
+    expect(container.querySelector(".results-toolbar-actions [data-saved-search-title]")).toBeNull();
+  });
+
+  it("offers specific filter relaxations that retain the rest of the query", async () => {
+    await render({ category_code: "parts", q: "BMW", city_id: "city-1", price_max: "12000", year_min: "2020", page: "2", sort: "newest" });
+
+    const suggestions = container.querySelector('[aria-label="Варианты поиска"]');
+    expect(suggestions?.textContent).toContain("Убрать фильтр «Город»");
+    expect(suggestions?.textContent).toContain("Убрать фильтр «Цена до»");
+    expect(suggestions?.querySelector('a[href="/cars?category_code=parts&q=BMW&price_max=12000&year_min=2020&sort=newest"]')).not.toBeNull();
+    expect(suggestions?.querySelector('a[href="/cars?category_code=parts&q=BMW&year_min=2020&city_id=city-1&sort=newest"]')).not.toBeNull();
+    expect(container.querySelector('.empty-state a[href="/cars?category_code=parts&sort=newest"]')?.textContent).toContain("Сбросить фильтры");
+  });
+
+  it("shows an explicit 15 percent budget search only when price operations are available", async () => {
+    const search = { category_code: "cars", q: "BMW", make_id: "make-1", model_id: "model-1", price_min: "8000", price_max: "12000", currency: "USD", city_id: "minsk", page: "2" } as const;
+    await render(search, false, [], [], true);
+
+    const option = [...container.querySelectorAll<HTMLAnchorElement>('[aria-label="Варианты поиска"] a')]
+      .find((link) => link.textContent?.includes("15%"));
+    expect(option?.textContent).toContain("Расширить бюджет на 15%");
+    expect(option?.getAttribute("href")).toBe("/cars?category_code=cars&q=BMW&make_id=make-1&model_id=model-1&price_min=6800&price_max=13800&currency=USD&city_id=minsk");
+
+    await render(search, false, [], [], false);
+    expect([...container.querySelectorAll('[aria-label="Варианты поиска"] a')]
+      .some((link) => link.textContent?.includes("15%"))).toBe(false);
+  });
+
+  it("distinguishes an empty page from a search with no matches", async () => {
+    await render({ q: "BMW", page: "2", sort: "newest" }, false, [], [], true, [], [], [], 26);
+
+    expect(container.querySelector(".empty-state h2")?.textContent).toBe("На этой странице объявлений нет");
+    expect(container.querySelector('.empty-state a[href="/cars?q=BMW&page=1&sort=newest"]')?.textContent).toContain("Перейти к первой странице");
+    expect(container.querySelector('[aria-label="Варианты поиска"]')).toBeNull();
+  });
+
+  it("keeps catalog failures separate from a successful empty search", async () => {
+    await render({ q: "BMW", city_id: "city-1" }, false, [], [], true, [], [], [], 0, true);
+
+    expect(container.querySelector(".empty-state h2")?.textContent).toBe("Не удалось загрузить объявления");
+    expect(container.querySelector('[aria-label="Варианты поиска"]')).toBeNull();
+    expect(container.querySelector(".empty-state [data-saved-search-title]")).toBeNull();
   });
 
   it("shows a readable fallback chip for a selected body variant", async () => {

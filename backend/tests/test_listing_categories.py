@@ -36,6 +36,62 @@ def test_category_details_accepts_truck_capacity_and_rejects_unknown_fields():
         )
 
 
+def test_tire_subcategory_is_optional_and_validated_without_changing_legacy_details():
+    from app.listing_categories import ListingCategoryDetailsInput
+
+    assert ListingCategoryDetailsInput(category_code="tires", details={"width_mm": 205}).details == {"width_mm": 205}
+    assert ListingCategoryDetailsInput(category_code="tires", details={"vehicle_type": "passenger"}).details == {"vehicle_type": "passenger"}
+    with pytest.raises(ValidationError):
+        ListingCategoryDetailsInput(category_code="tires", details={"vehicle_type": "tractor"})
+
+
+def test_search_subcategory_requires_a_supported_category_value():
+    from app.listing_schemas import ListingSearchFilters
+
+    assert ListingSearchFilters(category_code="watercraft", subcategory="jet_ski").subcategory == "jet_ski"
+    with pytest.raises(ValidationError):
+        ListingSearchFilters(category_code="watercraft", subcategory="tractor")
+    with pytest.raises(ValidationError):
+        ListingSearchFilters(category_code="wheels", subcategory="passenger")
+
+
+def test_saved_search_subcategory_filter_is_validated_with_its_category():
+    from app.api.saved_searches import _normalise_filters
+
+    assert _normalise_filters({"category_code": "tires", "subcategory": "truck"})["subcategory"] == "truck"
+    with pytest.raises(ValueError, match="Unsupported subcategory"):
+        _normalise_filters({"category_code": "wheels", "subcategory": "truck"})
+
+
+def test_subcategory_json_predicate_matches_category_and_subtype_in_sqlite_memory():
+    import json
+    from sqlalchemy import create_engine, select
+    from app.listing_subcategories import subcategory_details_condition
+    from app.models import ListingCategoryDetails
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE listing_category_details (listing_id TEXT, category_code TEXT, details JSON)"
+        )
+        rows = [
+            ("00000000-0000-0000-0000-000000000001", "special_equipment", {"equipment_type": "excavator"}),
+            ("00000000-0000-0000-0000-000000000002", "special_equipment", {"equipment_type": "loader"}),
+            ("00000000-0000-0000-0000-000000000003", "agricultural_equipment", {"equipment_type": "excavator"}),
+            ("00000000-0000-0000-0000-000000000004", "special_equipment", {}),
+        ]
+        connection.exec_driver_sql(
+            "INSERT INTO listing_category_details VALUES (?, ?, ?)",
+            [(listing_id, category_code, json.dumps(details)) for listing_id, category_code, details in rows],
+        )
+        matched = connection.execute(
+            select(ListingCategoryDetails.listing_id).where(
+                subcategory_details_condition("special_equipment", "excavator")
+            )
+        ).scalars().all()
+        assert [str(item) for item in matched] == ["00000000-0000-0000-0000-000000000001"]
+
+
 def test_category_details_must_match_its_listing_category():
     from app.schemas import ListingForm
 

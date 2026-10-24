@@ -101,6 +101,7 @@ class _WheelsDetails(_Details):
 
 
 class _TiresDetails(_Details):
+    vehicle_type: Literal["passenger", "truck", "motorcycle"] | None = None
     width_mm: int | None = Field(default=None, gt=0, le=1000)
     profile_percent: int | None = Field(default=None, gt=0, le=100)
     diameter_in: float | None = Field(default=None, gt=0, le=40)

@@ -10,6 +10,7 @@ type HomeSearchProps = {
   regions: CatalogItem[];
   bodyTypes: CatalogItem[];
   className?: string;
+  priceOperationsAvailable?: boolean;
 };
 
 const fields: (keyof ListingSearch)[] = [
@@ -34,7 +35,7 @@ function searchFromForm(form: HTMLFormElement): ListingSearch {
   return search;
 }
 
-export function HomeSearch({ makes, regions, bodyTypes, className = "" }: HomeSearchProps) {
+export function HomeSearch({ makes, regions, bodyTypes, className = "", priceOperationsAvailable = true }: HomeSearchProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const requestId = useRef(0);
   const modelRequestId = useRef(0);
@@ -134,10 +135,10 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "" }: HomeSe
       </label>
       {modelsError && <span className="home-search-count" id="home-model-error" role="status">Список моделей временно недоступен. Поиск по марке и названию продолжает работать.</span>}
       <label className="field search-range"><span>Цена, BYN</span><span className="range-fields">
-        <input name="price_min" type="number" min="1" inputMode="numeric" placeholder="От" aria-label="Цена от, BYN" />
-        <input name="price_max" type="number" min="1" inputMode="numeric" placeholder="До" aria-label="Цена до, BYN" />
+        <input name="price_min" disabled={!priceOperationsAvailable} aria-describedby={!priceOperationsAvailable ? "home-price-status" : undefined} type="number" min="1" inputMode="numeric" placeholder="От" aria-label="Цена от, BYN" />
+        <input name="price_max" disabled={!priceOperationsAvailable} aria-describedby={!priceOperationsAvailable ? "home-price-status" : undefined} type="number" min="1" inputMode="numeric" placeholder="До" aria-label="Цена до, BYN" />
       </span></label>
-      <input type="hidden" name="currency" value="BYN" disabled={!hasPrice} />
+      <input type="hidden" name="currency" value="BYN" disabled={!hasPrice || !priceOperationsAvailable} />
       <label className="field search-range"><span>Год выпуска</span><span className="range-fields">
         <input name="year_min" type="number" min="1886" inputMode="numeric" placeholder="От" aria-label="Год от" />
         <input name="year_max" type="number" min="1886" inputMode="numeric" placeholder="До" aria-label="Год до" />
@@ -151,6 +152,7 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "" }: HomeSe
       <label className="field"><span>Кузов</span><select name="body_type" defaultValue=""><option value="">Любой</option>{bodyTypes.map((item) => <option key={item.id} value={item.slug}>{item.name}</option>)}</select></label>
       <label className="field"><span>Область</span><select name="region_id" defaultValue=""><option value="">Вся Беларусь</option>{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       <button className="button home-search-button" type="submit"><Search size={17} /> {countLoading ? "Подбираем…" : count === null ? "Показать предложения" : `Показать ${offerLabel(count)}`}</button>
+      {!priceOperationsAvailable && <p className="home-search-count" id="home-price-status" role="status">Фильтр по цене временно недоступен: нет подтверждённого курса НБРБ за последние 72 часа. Цены показаны в исходной валюте.</p>}
       <span className="home-search-count" aria-live="polite" data-count-state={count === null ? "generic" : "count"}>
         {countLoading ? "Подбираем подходящие предложения" : count === null ? "Поиск по опубликованным объявлениям Беларуси" : `${offerLabel(count)} по выбранным условиям`}
       </span>

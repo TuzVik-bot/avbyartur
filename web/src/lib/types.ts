@@ -32,13 +32,23 @@ export type CatalogCity = CatalogItem & { region_id: string };
 export type User = components["schemas"]["UserOut"];
 export type AuthSession = components["schemas"]["AuthSessionResponse"];
 
+export type UserNotificationListing = {
+  id: string;
+  title: string;
+  url: string;
+};
+
 export type UserNotification = {
   id: string;
-  saved_search_id: string;
-  listing_id: string;
+  saved_search_id: string | null;
+  conversation_id: string | null;
+  price_event_id: string | null;
+  listing_id: string | null;
   title: string;
   body: string;
   url: string;
+  listings: UserNotificationListing[];
+  total_count: number;
   read_at: string | null;
   created_at: string;
 };
@@ -136,6 +146,12 @@ export type ListingSummary = {
   parts_only: boolean;
 };
 
+export type FavoriteListing = ListingSummary & Pick<
+  components["schemas"]["FavoriteListingOut"],
+  "price_drop_notifications_enabled"
+>;
+export type ListingPriceHistoryItem = components["schemas"]["ListingPriceHistoryItemOut"];
+
 export type Listing = ListingSummary & {
   status: "draft" | "pending_review" | "rejected" | "active" | "paused" | "sold" | "archived" | "blocked";
   revision: number;
@@ -201,6 +217,8 @@ export type ReportCategory = components["schemas"]["ReportInput"]["category"];
 export type ApiErrorShape = components["schemas"]["ApiErrorOut"];
 
 export type ListingSearch = {
+  category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+  subcategory?: string;
   q?: string;
   make_id?: string;
   model_id?: string;

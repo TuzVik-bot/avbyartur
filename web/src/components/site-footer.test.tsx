@@ -18,7 +18,10 @@ const requiredContentLinks = {
   "/credit-policy": { group: "Правила и политики", label: "Согласие на обработку персональных данных для фин. организаций" },
   "/promotion": { group: "Разделы", label: "Продвижение" },
   "/pro-subscription": { group: "Разделы", label: "PRO-подписка" },
-  "/customs-calculator": { group: "Разделы", label: "Таможенный калькулятор" }
+  "/customs-calculator": { group: "Разделы", label: "Таможенный калькулятор" },
+  "/currency-converter": { group: "Разделы", label: "Конвертер валют" },
+  "/vin-check": { group: "Разделы", label: "Проверка авто по VIN" },
+  "/sale-contract": { group: "Разделы", label: "Договор купли-продажи" }
 } as const;
 
 let container: HTMLDivElement;
@@ -46,9 +49,24 @@ describe("SiteFooter", () => {
     for (const [href, expected] of Object.entries(requiredContentLinks)) {
       const link = footer!.querySelector<HTMLAnchorElement>(`a[href="${href}"]`);
       expect(link?.textContent).toBe(expected.label);
-      expect(link?.closest(".footer-group")?.querySelector(".footer-group-title")?.textContent).toBe(expected.group);
+      expect(link?.closest(".footer-group")?.querySelector(".footer-desktop-title")?.textContent).toBe(expected.group);
     }
-    expect(Object.keys(requiredContentLinks)).toHaveLength(15);
+    expect(Object.keys(requiredContentLinks)).toHaveLength(18);
+  });
+
+  it("toggles mobile sections independently with accessible controls", () => {
+    act(() => { root.render(createElement(SiteFooter)); });
+    const toggles = container.querySelectorAll<HTMLButtonElement>(".footer-group-toggle");
+    expect(toggles).toHaveLength(5);
+    const first = toggles[0];
+    expect(first.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector(`#${first.getAttribute("aria-controls")}`)).not.toBeNull();
+    act(() => first.click());
+    expect(first.getAttribute("aria-expanded")).toBe("true");
+    expect(first.closest(".footer-group")?.classList.contains("is-expanded")).toBe(true);
+    expect(toggles[1].getAttribute("aria-expanded")).toBe("false");
+    act(() => first.click());
+    expect(first.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("keeps the pilot navigation and closed-pilot notice", () => {

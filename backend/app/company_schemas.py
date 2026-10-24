@@ -112,6 +112,7 @@ class DealerListingSummaryOut(BaseModel):
     seller: DealerListingSellerOut
     created_at: datetime
     updated_at: datetime
+    published_at: datetime | None = None
     damaged: bool
     parts_only: bool
     description: str

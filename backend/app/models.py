@@ -1,11 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    text,
     UniqueConstraint,
     Uuid,
     event,
@@ -527,6 +529,22 @@ class ListingViewEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
+class DealerClickEvent(Base):
+    """A public click from a company listing to its company page."""
+
+    __tablename__ = "dealer_click_events"
+    __table_args__ = (
+        Index("ix_dealer_click_events_company_created", "company_id", "created_at"),
+        Index("ix_dealer_click_events_listing_created", "listing_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(32), default="listing_detail", server_default="listing_detail")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
 class ListingStatusEvent(Base):
     __tablename__ = "listing_status_events"
 
@@ -560,6 +578,43 @@ class Favorite(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    price_drop_notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ListingPriceEvent(Base):
+    """A price state that became public with an active listing revision."""
+
+    __tablename__ = "listing_price_events"
+    __table_args__ = (
+        UniqueConstraint("listing_id", "revision", name="uq_listing_price_event_revision"),
+        CheckConstraint(
+            "(price_amount IS NULL AND currency IS NULL) OR "
+            "(price_amount > 0 AND currency IN ('BYN', 'USD'))",
+            name="ck_listing_price_event_price",
+        ),
+        CheckConstraint(
+            "(previous_price_amount IS NULL AND previous_currency IS NULL) OR "
+            "(previous_price_amount > 0 AND previous_currency IN ('BYN', 'USD'))",
+            name="ck_listing_price_event_previous_price",
+        ),
+        CheckConstraint(
+            "event_type IN ('baseline', 'published', 'added', 'changed', 'removed')",
+            name="ck_listing_price_event_type",
+        ),
+        Index("ix_listing_price_events_listing_created", "listing_id", "created_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    price_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    previous_price_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    previous_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -588,6 +643,7 @@ class SavedSearch(Base):
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notification_channel: Mapped[str | None] = mapped_column(String(20), nullable=True)
     notification_frequency: Mapped[str] = mapped_column(String(20), default="daily", nullable=False)
+    subscription_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -605,12 +661,13 @@ class NotificationOutbox(Base):
         UniqueConstraint("dedupe_key", name="uq_notification_outbox_dedupe"),
         CheckConstraint("channel IN ('web', 'email')", name="ck_notification_outbox_channel"),
         CheckConstraint(
-            "status IN ('queued', 'running', 'delivered', 'failed', 'unsupported')",
+            "status IN ('queued', 'running', 'delivered', 'failed', 'unsupported', 'cancelled')",
             name="ck_notification_outbox_status",
         ),
         CheckConstraint(
-            "(saved_search_id IS NOT NULL AND conversation_id IS NULL) OR "
-            "(saved_search_id IS NULL AND conversation_id IS NOT NULL)",
+            "(saved_search_id IS NOT NULL AND conversation_id IS NULL AND price_event_id IS NULL) OR "
+            "(saved_search_id IS NULL AND conversation_id IS NOT NULL AND listing_id IS NOT NULL AND price_event_id IS NULL) OR "
+            "(saved_search_id IS NULL AND conversation_id IS NULL AND listing_id IS NOT NULL AND price_event_id IS NOT NULL)",
             name="ck_notification_outbox_source",
         ),
         Index("ix_notification_outbox_claim", "status", "available_at", "created_at", "id"),
@@ -621,8 +678,9 @@ class NotificationOutbox(Base):
     dedupe_key: Mapped[str] = mapped_column(String(300))
     saved_search_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("saved_searches.id", ondelete="CASCADE"), nullable=True, index=True)
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), nullable=True, index=True)
+    price_event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("listing_price_events.id", ondelete="CASCADE"), nullable=True, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    listing_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), nullable=True, index=True)
     channel: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), default="queued", index=True)
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
@@ -636,6 +694,44 @@ class NotificationOutbox(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class SavedSearchNotificationBatch(Base):
+    """One digest slot per saved search, channel, and local delivery period."""
+
+    __tablename__ = "saved_search_notification_batches"
+    __table_args__ = (
+        UniqueConstraint("saved_search_id", "channel", "period", name="uq_saved_search_notification_batch_period"),
+        UniqueConstraint("outbox_id", name="uq_saved_search_notification_batch_outbox"),
+        CheckConstraint("channel IN ('web', 'email')", name="ck_saved_search_notification_batch_channel"),
+        Index("ix_saved_search_notification_batches_outbox", "outbox_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    saved_search_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("saved_searches.id", ondelete="CASCADE"), index=True)
+    channel: Mapped[str] = mapped_column(String(20))
+    period: Mapped[date] = mapped_column(Date, nullable=False)
+    outbox_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("notification_outbox.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SavedSearchNotificationMatch(Base):
+    """First successful subscription match for one listing."""
+
+    __tablename__ = "saved_search_notification_matches"
+    __table_args__ = (
+        UniqueConstraint("saved_search_id", "listing_id", name="uq_saved_search_notification_match"),
+        Index("ix_saved_search_notification_matches_outbox", "outbox_id", "created_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    saved_search_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("saved_searches.id", ondelete="CASCADE"), index=True)
+    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    listing_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    outbox_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("notification_outbox.id", ondelete="SET NULL"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    url: Mapped[str] = mapped_column(String(2048))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class UserNotification(Base):
     """An in-app notification materialised from a delivered outbox row."""
 
@@ -643,10 +739,12 @@ class UserNotification(Base):
     __table_args__ = (
         UniqueConstraint("outbox_id", name="uq_user_notification_outbox"),
         CheckConstraint(
-            "(saved_search_id IS NOT NULL AND conversation_id IS NULL) OR "
-            "(saved_search_id IS NULL AND conversation_id IS NOT NULL)",
+            "(saved_search_id IS NOT NULL AND conversation_id IS NULL AND price_event_id IS NULL) OR "
+            "(saved_search_id IS NULL AND conversation_id IS NOT NULL AND listing_id IS NOT NULL AND price_event_id IS NULL) OR "
+            "(saved_search_id IS NULL AND conversation_id IS NULL AND listing_id IS NOT NULL AND price_event_id IS NOT NULL)",
             name="ck_user_notification_source",
         ),
+        CheckConstraint("total_count >= 1", name="ck_user_notification_total_count"),
         Index("ix_user_notifications_user_created", "user_id", "created_at", "id"),
     )
 
@@ -655,10 +753,18 @@ class UserNotification(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     saved_search_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("saved_searches.id", ondelete="CASCADE"), nullable=True, index=True)
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), nullable=True, index=True)
-    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    price_event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("listing_price_events.id", ondelete="CASCADE"), nullable=True, index=True)
+    listing_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(240))
     body: Mapped[str] = mapped_column(Text)
     url: Mapped[str] = mapped_column(String(2048))
+    listings: Mapped[list] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"),
+        default=list,
+        server_default=text("'[]'::jsonb"),
+        nullable=False,
+    )
+    total_count: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

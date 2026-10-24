@@ -1,0 +1,166 @@
+--- a/web/src/components/sell-form.tsx
++++ b/web/src/components/sell-form.tsx
+@@ -397,9 +397,6 @@
+   const [generations, setGenerations] = useState(initialGenerations);
+   const [modifications, setModifications] = useState<CatalogModification[]>([]);
+   const [modificationsLoading, setModificationsLoading] = useState(false);
+-  const [bodyVariants, setBodyVariants] = useState<CatalogItem[]>([]);
+-  const [bodyVariantsLoading, setBodyVariantsLoading] = useState(false);
+-  const [bodyVariantsError, setBodyVariantsError] = useState(false);
+   const [cities, setCities] = useState(initialCities);
+   const [listingOptions, setListingOptions] = useState<ListingOptions | null>(null);
+   const [listingOptionsError, setListingOptionsError] = useState(false);
+@@ -538,38 +535,6 @@
+   }, [fields.generation_id, fields.model_mode, initialListing]);
+   useEffect(() => {
+     let active = true;
+-    if (fields.model_mode !== "catalog" || !fields.generation_id) {
+-      setBodyVariants([]);
+-      setBodyVariantsLoading(false);
+-      setBodyVariantsError(false);
+-      return () => { active = false; };
+-    }
+-    setBodyVariants([]);
+-    setBodyVariantsLoading(true);
+-    setBodyVariantsError(false);
+-    api.catalog("body-variants", { generation_id: fields.generation_id })
+-      .then((result) => {
+-        if (!active) return;
+-        const items = result.items;
+-        const savedVariant = initialListing?.body_variant;
+-        const savedVariantId = initialListing?.body_variant_id || savedVariant?.id;
+-        const savedGenerationId = initialListing?.generation?.id;
+-        setBodyVariants(savedVariant && savedVariant.id === savedVariantId && fields.generation_id === savedGenerationId && !items.some((item) => item.id === savedVariant.id)
+-          ? [savedVariant, ...items]
+-          : items);
+-      })
+-      .catch(() => {
+-        if (!active) return;
+-        const savedVariant = initialListing?.body_variant;
+-        const savedVariantId = initialListing?.body_variant_id || savedVariant?.id;
+-        setBodyVariants(savedVariant && savedVariant.id === savedVariantId && initialListing?.generation?.id === fields.generation_id ? [savedVariant] : []);
+-        setBodyVariantsError(true);
+-      })
+-      .finally(() => { if (active) setBodyVariantsLoading(false); });
+-    return () => { active = false; };
+-  }, [fields.generation_id, fields.model_mode, initialListing]);
+-  useEffect(() => {
+-    let active = true;
+     if (!fields.region_id) { setCities([]); return () => { active = false; }; }
+     api.cities(fields.region_id)
+       .then((result) => { if (active) setCities(result.items); })
+@@ -678,7 +643,6 @@
+   function changeMake(makeId: string) {
+     setError("");
+     clearFieldErrors("make_id", "model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
+-    setBodyVariants([]);
+     setFields((current) => ({
+       ...current,
+       make_id: makeId,
+@@ -693,14 +657,12 @@
+   function changeModel(modelId: string) {
+     setError("");
+     clearFieldErrors("model_id", "generation_id", "modification_id", "body_variant_id");
+-    setBodyVariants([]);
+     setFields((current) => ({ ...current, model_id: modelId, generation_id: "", modification_id: "", body_variant_id: "" }));
+   }
+ 
+   function changeMakeMode(mode: FormFields["make_mode"]) {
+     setError("");
+     clearFieldErrors("make_id", "manual_make", "model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
+-    setBodyVariants([]);
+     setMissingModificationSelected(false);
+     setFields((current) => ({
+       ...current,
+@@ -719,7 +681,6 @@
+   function changeModelMode(mode: FormFields["model_mode"]) {
+     setError("");
+     clearFieldErrors("model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
+-    setBodyVariants([]);
+     setMissingModificationSelected(false);
+     setFields((current) => ({
+       ...current,
+@@ -747,7 +708,6 @@
+   function changeGeneration(generationId: string) {
+     setError("");
+     clearFieldErrors("generation_id", "modification_id", "body_variant_id");
+-    setBodyVariants([]);
+     setMissingModificationSelected(false);
+     setFields((current) => ({ ...current, generation_id: generationId, modification_id: "", body_variant_id: "" }));
+   }
+@@ -1056,8 +1016,7 @@
+   const generation = generations.find((item) => item.id === fields.generation_id) || (initialListing?.generation?.id === fields.generation_id ? initialListing.generation : undefined);
+   const selectedModification = modifications.find((item) => item.id === fields.modification_id)
+     || (initialListing?.modification?.id === fields.modification_id ? initialListing.modification : undefined);
+-  const selectedBodyVariant = bodyVariants.find((item) => item.id === fields.body_variant_id)
+-    || (initialListing?.body_variant?.id === fields.body_variant_id && initialListing?.generation?.id === fields.generation_id ? initialListing.body_variant : undefined);
++  const selectedBodyVariant = initialListing?.body_variant?.id === fields.body_variant_id && initialListing?.generation?.id === fields.generation_id ? initialListing.body_variant : undefined;
+   const modificationSpecs = selectedModification?.specs;
+   const modificationSpecRows: [string, string | number | null | undefined][] = modificationSpecs ? ([
+     ["Код двигателя", modificationSpecs.engine_code],
+@@ -1105,10 +1064,10 @@
+       {step === 2 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Автомобиль и характеристики</h2><div className="form-grid">
+         {fields.make_mode === "manual" ? <label className="field"><span>Марка</span><input {...fieldProps("manual_make")} aria-label="Марка вручную" value={fields.manual_make} onChange={(event) => update("manual_make", event.target.value)} maxLength={180} required /><button type="button" className="text-button" onClick={() => changeMakeMode("catalog")}>Выбрать марку из списка</button>{fieldError("manual_make")}</label> : <label className="field"><span>Марка</span><select {...fieldProps("make_id")} value={fields.make_id} onChange={(event) => event.target.value === "__manual__" ? changeMakeMode("manual") : changeMake(event.target.value)} required><option value="">Выберите марку</option>{makes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__manual__">Марки нет в списке — указать вручную</option></select>{fieldError("make_id")}</label>}
+         {fields.model_mode === "manual" ? <label className="field"><span>Модель</span><input {...fieldProps("manual_model")} aria-label="Модель вручную" value={fields.manual_model} onChange={(event) => update("manual_model", event.target.value)} maxLength={180} required />{fields.make_mode === "catalog" && <button type="button" className="text-button" onClick={() => changeModelMode("catalog")}>Выбрать модель из списка</button>}{fieldError("manual_model")}</label> : <label className="field"><span>Модель</span><select {...fieldProps("model_id")} value={fields.model_id} onChange={(event) => event.target.value === "__manual__" ? changeModelMode("manual") : changeModel(event.target.value)} disabled={!fields.make_id} required><option value="">Выберите модель</option>{models.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__manual__">Модели нет в списке — указать вручную</option></select>{fieldError("model_id")}</label>}
+-        {fields.model_mode === "catalog" && <label className="field"><span>Поколение <small className="muted">необязательно</small></span><select {...fieldProps("generation_id")} value={fields.generation_id} onChange={(event) => changeGeneration(event.target.value)} disabled={!generations.length}><option value="">Не выбрано</option>{generations.map((item) => <option key={item.id} value={item.id}>{item.name}{item.year_from ? ` · ${item.year_from}${item.year_to ? `–${item.year_to}` : ""}` : ""}</option>)}</select>{fieldError("generation_id")}</label>}
++        {fields.model_mode === "catalog" && (generations.length > 0 || generation) && <label className="field"><span>Поколение <small className="muted">необязательно</small></span><select {...fieldProps("generation_id")} value={fields.generation_id} onChange={(event) => changeGeneration(event.target.value)} disabled={!generations.length}><option value="">Не выбрано</option>{generations.map((item) => <option key={item.id} value={item.id}>{item.name}{item.year_from ? ` · ${item.year_from}${item.year_to ? `–${item.year_to}` : ""}` : ""}</option>)}</select>{fieldError("generation_id")}</label>}
+         {fields.model_mode === "catalog" && <>
+-          <label className="field"><span>Вариант кузова <small className="muted">необязательно</small></span><select {...fieldProps("body_variant_id")} aria-label="Вариант кузова" value={fields.body_variant_id} onChange={(event) => update("body_variant_id", event.target.value)} disabled={!fields.generation_id || bodyVariantsLoading || (!bodyVariants.length && !selectedBodyVariant)} aria-busy={bodyVariantsLoading}><option value="">{!fields.generation_id ? "Тип кузова можно выбрать ниже" : bodyVariantsLoading ? "Загрузка вариантов…" : bodyVariantsError ? "Список временно недоступен" : bodyVariants.length ? "Не выбрано" : "Нет в каталоге"}</option>{fields.body_variant_id && !selectedBodyVariant && <option value={fields.body_variant_id}>Сохранённый вариант</option>}{selectedBodyVariant && !bodyVariants.some((item) => item.id === selectedBodyVariant.id) && <option value={selectedBodyVariant.id}>{selectedBodyVariant.name}</option>}{bodyVariants.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("body_variant_id")}</label>
+-          <label className="field"><span>Модификация <small className="muted">необязательно</small></span><select {...fieldProps("modification_id")} aria-label="Модификация" value={missingModificationSelected ? "__missing_modification__" : fields.modification_id} onChange={(event) => {
++          {!fields.generation_id && <p className="muted wide">{generations.length ? "Можно выбрать поколение для подстановки характеристик или заполнить их самостоятельно." : "Для этой модели пока нет поколений и модификаций в справочнике."} Укажите характеристики автомобиля ниже — это не мешает подаче объявления.</p>}
++          {fields.generation_id && <label className="field"><span>Модификация <small className="muted">необязательно</small></span><select {...fieldProps("modification_id")} aria-label="Модификация" value={missingModificationSelected ? "__missing_modification__" : fields.modification_id} onChange={(event) => {
+             if (event.target.value === "__missing_modification__") {
+               changeModification("");
+               setMissingModificationSelected(true);
+@@ -1119,7 +1078,7 @@
+             {selectedModification && !modifications.some((item) => item.id === selectedModification.id) && <option value={selectedModification.id}>{selectedModification.name}</option>}
+             {modifications.map((item) => <option key={item.id} value={item.id}>{item.name}{item.specs?.production_period_raw?.trim() ? ` · ${item.specs.production_period_raw.trim()}` : ""}</option>)}
+             {fields.generation_id && <option value="__missing_modification__">Не нашёл модификацию</option>}
+-          </select>{fieldError("modification_id")}</label>
++          </select>{fieldError("modification_id")}</label>}
+           {missingModificationSelected && fields.generation_id && <div className="notice wide catalog-request-intake">
+             <p><strong>Сообщить о не найденной модификации</strong></p>
+             <p className="muted">Сначала сохраните ручные характеристики. Запрос отправится на проверку отдельно и не задержит создание объявления.</p>
+--- a/backend/app/api/media.py
++++ b/backend/app/api/media.py
+@@ -32,9 +32,10 @@
+ Image.MAX_IMAGE_PIXELS = 60_000_000
+ warnings.simplefilter("error", Image.DecompressionBombWarning)
+ router = APIRouter(prefix="/api/v1", tags=["photos"])
+-ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP", "HEIF", "HEIC"}
++ALLOWED_FORMATS = {"JPEG", "MPO", "PNG", "WEBP", "HEIF", "HEIC"}
+ FORMAT_MIME_TYPES = {
+     "JPEG": {"image/jpeg", "image/jpg"},
++    "MPO": {"image/jpeg", "image/jpg", "image/mpo"},
+     "PNG": {"image/png"},
+     "WEBP": {"image/webp"},
+     "HEIF": {"image/heif", "image/heic"},
+@@ -102,9 +103,9 @@
+             declared_type = (content_type or "").split(";", 1)[0].strip().lower()
+             if declared_type not in {"", "application/octet-stream"} and declared_type not in FORMAT_MIME_TYPES[image.format]:
+                 fail(415, "photo_mime_mismatch", "Photo content type does not match image data")
+-            # HEIF is a still-image collection; Pillow opens its primary image.
+-            # Extra images (e.g. spatial photos) do not make it an animation.
+-            if image.format not in {"HEIF", "HEIC"} and (getattr(image, "is_animated", False) or getattr(image, "n_frames", 1) > 1):
++            # HEIF and multi-picture JPEG (MPO) contain a primary still photo.
++            # Process that photo, not auxiliary depth/HDR or stereo images.
++            if image.format not in {"HEIF", "HEIC", "MPO"} and (getattr(image, "is_animated", False) or getattr(image, "n_frames", 1) > 1):
+                 fail(415, "animated_photo", "Animated images are not supported")
+             if image.width * image.height > max_pixels:
+                 fail(413, "photo_pixel_limit", "Photo exceeds the 60 megapixel limit")
+--- a/backend/app/worker.py
++++ b/backend/app/worker.py
+@@ -179,10 +179,10 @@
+             except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+                 raise PermanentJobError("Image data is invalid") from exc
+             with raw:
+-                if raw.format not in {"JPEG", "PNG", "WEBP", "HEIF", "HEIC"}:
++                if raw.format not in {"JPEG", "MPO", "PNG", "WEBP", "HEIF", "HEIC"}:
+                     raise PermanentJobError("Unsupported image format")
+-                # Decode only the primary still from HEIF collections, as at upload.
+-                if raw.format not in {"HEIF", "HEIC"} and (getattr(raw, "is_animated", False) or getattr(raw, "n_frames", 1) > 1):
++                # Decode only the primary still from HEIF/MPO collections, as at upload.
++                if raw.format not in {"HEIF", "HEIC", "MPO"} and (getattr(raw, "is_animated", False) or getattr(raw, "n_frames", 1) > 1):
+                     raise PermanentJobError("Animated images are not supported")
+                 if raw.width * raw.height > settings.upload_max_pixels:
+                     raise PermanentJobError("Image pixel limit exceeded")

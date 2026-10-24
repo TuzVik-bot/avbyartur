@@ -1,11 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SITE_ORIGIN } from "@/lib/site-config";
+import { editorialArticlePaths } from "@/lib/editorial-articles";
 
-const mocks = vi.hoisted(() => ({ listings: vi.fn(), dealers: vi.fn() }));
+const PUBLIC_INDEXING_ENV = "AVTORINOK_PUBLIC_INDEXING_ENABLED";
+const mocks = vi.hoisted(() => ({ listings: vi.fn(), dealers: vi.fn(), connection: vi.fn() }));
 
 vi.mock("@/lib/server-api", () => ({
   serverApi: { listings: mocks.listings, dealers: mocks.dealers },
 }));
+
+vi.mock("next/server", () => ({ connection: mocks.connection }));
 
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
@@ -13,7 +17,11 @@ import robots from "@/app/robots";
 beforeEach(() => {
   mocks.listings.mockReset();
   mocks.dealers.mockReset();
+  mocks.connection.mockReset();
+  vi.stubEnv(PUBLIC_INDEXING_ENV, undefined);
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 function listing(id: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -40,7 +48,28 @@ function routedListing(id: string, makeSlug: string, modelSlug: string, citySlug
 }
 
 describe("closed pilot sitemap", () => {
+  it("keeps the sitemap empty and omits its robots advertisement until opt-in", async () => {
+    expect(await sitemap()).toEqual([]);
+    expect(await robots()).toEqual({ rules: { userAgent: "*", disallow: "/api/v1/" } });
+    expect(mocks.listings).not.toHaveBeenCalled();
+    expect(mocks.dealers).not.toHaveBeenCalled();
+    expect(mocks.connection).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["TRUE", "True", "1", "yes", ""])(
+    "keeps indexing closed when the flag is %j",
+    async (flagValue) => {
+      vi.stubEnv(PUBLIC_INDEXING_ENV, flagValue);
+
+      expect(await sitemap()).toEqual([]);
+      expect(await robots()).toEqual({ rules: { userAgent: "*", disallow: "/api/v1/" } });
+      expect(mocks.listings).not.toHaveBeenCalled();
+      expect(mocks.dealers).not.toHaveBeenCalled();
+    },
+  );
+
   it("includes active listing routes and category routes only at their offer thresholds", async () => {
+    vi.stubEnv(PUBLIC_INDEXING_ENV, "true");
     const bmw = Array.from({ length: 3 }, (_, index) => routedListing(
       `bmw-${index + 1}`,
       "bmw",
@@ -102,6 +131,7 @@ describe("closed pilot sitemap", () => {
       `${SITE_ORIGIN}/cars/bmw/3-series/bmw-1`,
       `${SITE_ORIGIN}/cars/manual-1/manual-1/manual-1`,
       `${SITE_ORIGIN}/dealers/approved-dealer`,
+      ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
     ]));
     expect(urls).not.toContain(`${SITE_ORIGIN}/cars/toyota`);
     expect(urls).not.toContain(`${SITE_ORIGIN}/cars/toyota/corolla`);
@@ -120,20 +150,66 @@ describe("closed pilot sitemap", () => {
   });
 
   it("keeps its core routes available when the public catalog API is down", async () => {
+    vi.stubEnv(PUBLIC_INDEXING_ENV, "true");
     mocks.listings.mockRejectedValue(new Error("unavailable"));
     mocks.dealers.mockRejectedValue(new Error("unavailable"));
 
     const entries = await sitemap();
     const urls = entries.map(({ url }) => url);
-    expect(urls).toEqual([`${SITE_ORIGIN}/`, `${SITE_ORIGIN}/cars`, `${SITE_ORIGIN}/dealers`]);
+    expect(urls).toEqual([
+      `${SITE_ORIGIN}/`,
+      `${SITE_ORIGIN}/cars`,
+      `${SITE_ORIGIN}/dealers`,
+      ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
+    ]);
     expect(entries.every((entry) => !("lastModified" in entry))).toBe(true);
   });
 
-  it("advertises the sitemap without weakening the API disallow rule", () => {
-    expect(robots()).toEqual({
+  it("advertises the sitemap without weakening the API disallow rule when enabled", async () => {
+    vi.stubEnv(PUBLIC_INDEXING_ENV, "true");
+    expect(await robots()).toEqual({
       rules: { userAgent: "*", disallow: "/api/v1/" },
       sitemap: `${SITE_ORIGIN}/sitemap.xml`,
     });
+  });
+
+  it("fetches every reported sitemap page in bounded batches", async () => {
+    vi.stubEnv(PUBLIC_INDEXING_ENV, "true");
+    mocks.listings.mockImplementation(async ({ page }: { page: string }) => ({
+      items: [listing(`page-${page}`)],
+      pagination: { page: Number(page), page_size: 25, total: 7, pages: 7 },
+    }));
+    mocks.dealers.mockResolvedValue({ items: [], pagination: { page: 1, page_size: 25, total: 0, pages: 1 } });
+
+    const entries = await sitemap();
+    const urls = entries.map(({ url }) => url);
+
+    expect(mocks.listings.mock.calls.map(([params]) => params.page)).toEqual(["1", "2", "3", "4", "5", "6", "7"]);
+    expect(urls).toEqual(expect.arrayContaining(
+      Array.from({ length: 7 }, (_, index) => `${SITE_ORIGIN}/cars/bmw/3-series/page-${index + 1}`),
+    ));
+  });
+
+  it("falls back to core routes when a later listing page fails", async () => {
+    vi.stubEnv(PUBLIC_INDEXING_ENV, "true");
+    mocks.listings.mockImplementation(async ({ page }: { page: string }) => {
+      if (page === "2") throw new Error("page unavailable");
+      return {
+        items: [],
+        pagination: { page: Number(page), page_size: 25, total: 0, pages: 2 },
+      };
+    });
+    mocks.dealers.mockResolvedValue({ items: [], pagination: { page: 1, page_size: 25, total: 0, pages: 1 } });
+
+    const entries = await sitemap();
+
+    expect(entries.map(({ url }) => url)).toEqual([
+      `${SITE_ORIGIN}/`,
+      `${SITE_ORIGIN}/cars`,
+      `${SITE_ORIGIN}/dealers`,
+      ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
+    ]);
+    expect(mocks.listings).toHaveBeenCalledTimes(2);
   });
 
 });

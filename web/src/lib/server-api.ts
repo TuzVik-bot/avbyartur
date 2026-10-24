@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { ApiClientError, internalApiBase, searchPath } from "@/lib/api";
 import type { components } from "@/lib/types.generated";
-import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, Report, UserNotificationList } from "@/lib/types";
+import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, FavoriteListing, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, Report, UserNotificationList } from "@/lib/types";
 import type { NotificationPreferences } from "@/lib/api";
 
 export async function serverApiRequest<T>(path: string): Promise<T> {
@@ -47,7 +47,7 @@ export const serverApi = {
     const query = new URLSearchParams({ page: String(page), page_size: String(pageSize) }).toString();
     return serverApiRequest<ListResponse<Listing>>(`me/listings?${query}`);
   },
-  favorites: () => serverApiRequest<{ items: ListingSummary[] }>("me/favorites"),
+  favorites: () => serverApiRequest<{ items: FavoriteListing[] }>("me/favorites"),
   notifications: (options: { unreadOnly?: boolean; limit?: number } = {}) => {
     const params = new URLSearchParams();
     if (options.unreadOnly) params.set("unread_only", "true");
@@ -65,7 +65,15 @@ export const serverApi = {
   moderationReports: () => serverApiRequest<{ items: Report[] }>("moderation/reports"),
   regions: () => serverApiRequest<{ items: CatalogItem[] }>("locations/regions"),
   cities: (regionId = "") => serverApiRequest<{ items: CatalogItem[] }>(`locations/cities?region_id=${encodeURIComponent(regionId)}`),
-  photos: (id: string) => serverApiRequest<{ items: ListingPhoto[] }>(`listings/${encodeURIComponent(id)}/photos`)
+  photos: (id: string) => serverApiRequest<{ items: ListingPhoto[] }>(`listings/${encodeURIComponent(id)}/photos`),
+  customsRates: () => serverApiRequest<components["schemas"]["CustomsRatesResponse"]>("customs-calculator/rates"),
+  customsRateHistory: (
+    currency: components["schemas"]["CustomsRateHistoryResponse"]["currency"] = "USD",
+    period: components["schemas"]["CustomsRateHistoryResponse"]["period"] = "90d"
+  ) => {
+    const query = new URLSearchParams({ currency, period }).toString();
+    return serverApiRequest<components["schemas"]["CustomsRateHistoryResponse"]>(`customs-calculator/rates/history?${query}`);
+  }
 };
 
 export async function getSavedListingIds() {

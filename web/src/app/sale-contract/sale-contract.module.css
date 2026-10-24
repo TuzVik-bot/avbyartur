@@ -1,0 +1,23 @@
+.parties {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  overflow-wrap: anywhere;
+}
+
+.details { margin: 0; }
+.details > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(0, 2fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.details > div:last-child { border-bottom: 0; }
+.details dt { color: var(--muted); }
+.details dd { margin: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 600px) {
+  .parties { grid-template-columns: 1fr; }
+  .details > div { grid-template-columns: 1fr; gap: 4px; }
+}

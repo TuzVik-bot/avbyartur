@@ -1,0 +1,82 @@
+diff --git a/web/src/components/category-navigation.tsx b/web/src/components/category-navigation.tsx
+index 52a7d2c..f967993 100644
+--- a/web/src/components/category-navigation.tsx
++++ b/web/src/components/category-navigation.tsx
+@@ -1,5 +1,16 @@
+ import Link from "next/link";
+ import { categories } from "@/lib/listing-categories";
+-export function CategoryNavigation() {
+- return <nav className="page-width section" aria-label="Разделы объявлений"><div className="quick-links">{categories.map(category => <Link className="button button-secondary button-small" key={category.href} href={category.href}>{category.label}</Link>)}</div></nav>;
++import { ArrowUpRight, CarFront, Truck, Wrench } from "lucide-react";
++import styles from "./category-navigation.module.css";
++
++const groups = [
++ { title: "Автомобили", Icon: CarFront, codes: ["cars"] },
++ { title: "Транспорт и техника", Icon: Truck, codes: ["trucks", "buses", "motorcycles", "special_equipment", "agricultural_equipment", "trailers", "watercraft"] },
++ { title: "Запчасти и колёса", Icon: Wrench, codes: ["parts", "wheels", "tires"] }
++];
++export function CategoryNavigation({ embedded = false }: { embedded?: boolean }) {
++ return <nav className={`${embedded ? "" : "page-width "}${styles.navigation}`} aria-label="Разделы объявлений">{groups.map(({ title, Icon, codes }) => <section className={styles.group} key={title}>
++   <h3 className={styles.heading}><Icon size={20} aria-hidden="true" />{title}</h3>
++   <ul className={styles.links}>{categories.filter(category => codes.includes(category.code)).map(category => <li key={category.href}><Link className={styles.link} href={category.href}>{category.label}<ArrowUpRight size={16} aria-hidden="true" /></Link></li>)}</ul>
++ </section>)}</nav>;
+ }
+diff --git a/web/src/components/site-header.tsx b/web/src/components/site-header.tsx
+index 20a6e9e..6828102 100644
+--- a/web/src/components/site-header.tsx
++++ b/web/src/components/site-header.tsx
+@@ -3,7 +3,8 @@
+ import { CategoryNavigation } from "@/components/category-navigation";
+ import Link from "next/link";
+ import { useState } from "react";
+-import { Heart, LogOut, Menu, Plus, ShieldCheck, UserRound, X } from "lucide-react";
++import { ChevronDown, Heart, LayoutGrid, LogOut, Menu, Plus, ShieldCheck, UserRound, X } from "lucide-react";
++import categoryStyles from "./category-navigation.module.css";
+ import { useAuth } from "@/components/auth-provider";
+ import { CornflowerMark } from "@/components/cornflower-mark";
+ import { DEFAULT_LOCALE, getMessage, localizedPath } from "@/lib/i18n";
+@@ -51,7 +52,10 @@ export function SiteHeader() {
+           <Link className="button button-primary header-sell" href={localizedPath("/sell")} onClick={() => setOpen(false)}><Plus size={17} /> {message("header.sellListing")}</Link>
+         </div>
+       </div>
+-      <details className="page-width"><summary>Разделы объявлений</summary><CategoryNavigation /></details>
++      <details className={categoryStyles.disclosure} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
++        <summary className={`page-width ${categoryStyles.summary}`}><LayoutGrid size={18} aria-hidden="true" />Разделы объявлений<ChevronDown className={categoryStyles.chevron} size={16} aria-hidden="true" /></summary>
++        <div className={categoryStyles.panel} onClick={(event) => { if ((event.target as HTMLElement).closest("a")) event.currentTarget.closest("details")?.removeAttribute("open"); }}><div className="page-width"><CategoryNavigation embedded /></div></div>
++      </details>
+       {error && <p className="header-error" role="alert">{error}</p>}
+     </header>
+   );
+diff --git a/web/src/components/category-navigation.module.css b/web/src/components/category-navigation.module.css
+new file mode 100644
+index 0000000..c14c740
+--- /dev/null
++++ b/web/src/components/category-navigation.module.css
+@@ -0,0 +1,27 @@
++.navigation { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 32px; padding: 24px 0; }
++.group { min-width: 0; }
++.heading { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--muted); }
++.heading svg { flex-shrink: 0; color: var(--accent); }
++.links { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
++.group:nth-child(2) .links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++.link { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 10px 12px; border-radius: 8px; font-size: 15px; font-weight: 600; transition: background-color .15s, color .15s; }
++.link svg { flex-shrink: 0; color: var(--muted); }
++.link:hover, .link:focus-visible { background: var(--soft-accent); color: var(--accent-dark); }
++.link:hover svg { color: var(--accent-dark); }
++.disclosure { border-top: 1px solid var(--line); background: var(--surface); }
++.summary { display: flex; align-items: center; gap: 10px; min-height: 52px; padding-block: 8px; font-size: 14px; font-weight: 700; cursor: pointer; list-style: none; }
++.summary::-webkit-details-marker { display: none; }
++.summary:hover { color: var(--accent-dark); background: var(--soft-accent); }
++.summary > svg:first-child { color: var(--accent); }
++.chevron { margin-left: 16px; transition: transform .15s; }
++.disclosure[open] .chevron { transform: rotate(180deg); }
++.panel { max-height: calc(100dvh - 160px); overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--line); }
++@media (max-width: 760px) {
++ .navigation { grid-template-columns: 1fr; gap: 20px; padding: 20px 0; }
++ .group + .group { padding-top: 20px; border-top: 1px solid var(--line); }
++ .links, .group:nth-child(2) .links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++ .link { height: 100%; padding: 10px 8px; font-size: 14px; }
++ .heading { margin-bottom: 8px; }
++}
++@media (max-width: 360px) { .links, .group:nth-child(2) .links { grid-template-columns: 1fr; } }
++@media (prefers-reduced-motion: reduce) { .link, .chevron { transition: none; } }

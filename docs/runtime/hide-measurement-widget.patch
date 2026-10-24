@@ -1,0 +1,19 @@
+--- a/web/src/app/layout.tsx
++++ b/web/src/app/layout.tsx
+@@ -1,7 +1,7 @@
+ import type { Metadata, Viewport } from "next";
+ import { AuthProvider } from "@/components/auth-provider";
+ import { CompareProvider } from "@/components/compare-provider";
+-import { ContactClickConsent, ContactClickConsentProvider } from "@/components/contact-click-consent";
++import { ContactClickConsentProvider } from "@/components/contact-click-consent";
+ import { SiteFooter } from "@/components/site-footer";
+ import { SiteHeader } from "@/components/site-header";
+ import { SiteAssistant } from "@/components/site-assistant";
+@@ -41,7 +41,6 @@
+             <main id="main-content">{children}</main>
+             <SiteFooter />
+             <SiteAssistant />
+-            <ContactClickConsent />
+             <InstallPrompt />
+           </CompareProvider></ContactClickConsentProvider>
+         </AuthProvider>

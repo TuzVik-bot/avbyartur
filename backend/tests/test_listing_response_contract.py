@@ -63,6 +63,52 @@ def test_public_listing_search_documents_typed_listing_items() -> None:
     assert "updated_at" in listing_schema["required"]
 
 
+def test_public_listing_contract_includes_publication_and_market_fields_and_count_route() -> None:
+    openapi = app.openapi()
+    listing_schema = _component(openapi, "#/components/schemas/ListingPublicOut")
+
+    published_at = listing_schema["properties"]["published_at"]
+    published_variants = published_at.get("anyOf", [published_at])
+    published_timestamp = next(variant for variant in published_variants if variant.get("type") == "string")
+    assert published_timestamp["format"] == "date-time"
+    price_property = listing_schema["properties"]["price"]
+    price_ref = price_property.get("$ref") or next(
+        variant["$ref"] for variant in price_property.get("anyOf", []) if "$ref" in variant
+    )
+    price_schema = _component(openapi, price_ref)
+    assert "market_comparison" in price_schema["properties"]
+    comparison = price_schema["properties"]["market_comparison"]
+    comparison_variants = comparison.get("anyOf", [comparison])
+    assert any(variant.get("type") == "null" for variant in comparison_variants)
+    comparison_ref = next(variant["$ref"] for variant in comparison_variants if "$ref" in variant)
+    comparison_schema = _component(openapi, comparison_ref)
+    assert comparison_schema["properties"]["label"]["enum"] == ["below_market", "above_market"]
+    assert comparison_schema["properties"]["median_byn"]["type"] == "string"
+    assert comparison_schema["properties"]["sample_size"]["type"] == "integer"
+    assert comparison_schema["properties"]["seller_count"]["type"] == "integer"
+    assert comparison_schema["properties"]["as_of"]["format"] == "date-time"
+    rate_date_variants = comparison_schema["properties"]["rate_date"].get("anyOf", [])
+    assert any(variant.get("type") == "string" for variant in rate_date_variants)
+    assert any(variant.get("type") == "null" for variant in rate_date_variants)
+
+    count_response = openapi["paths"]["/api/v1/listings/count"]["get"]["responses"]["200"]
+    count_schema = _component(
+        openapi, count_response["content"]["application/json"]["schema"]["$ref"]
+    )
+    assert count_schema["properties"]["total"]["type"] == "integer"
+    listing_parameters = {
+        parameter["name"] for parameter in openapi["paths"]["/api/v1/listings"]["get"]["parameters"]
+    }
+    count_parameters = {
+        parameter["name"] for parameter in openapi["paths"]["/api/v1/listings/count"]["get"]["parameters"]
+    }
+    assert count_parameters == listing_parameters
+    listing_route_order = list(openapi["paths"])
+    assert listing_route_order.index("/api/v1/listings/count") < listing_route_order.index(
+        "/api/v1/listings/{listing_id}"
+    )
+
+
 def test_public_listing_search_and_detail_return_updated_at(integration) -> None:
     factory = integration["SessionLocal"]
     owner_id = uuid4()

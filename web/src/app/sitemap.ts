@@ -1,7 +1,11 @@
 import type { MetadataRoute } from "next";
+import { connection } from "next/server";
+import { editorialArticlePaths } from "@/lib/editorial-articles";
 import { buildSitemapEntries, type SitemapListing } from "@/lib/seo";
 import { serverApi } from "@/lib/server-api";
 import type { CompanySummary, ListResponse } from "@/lib/types";
+import { siteUrl } from "@/lib/site-config";
+import { isPublicIndexingEnabled } from "@/lib/pilot-visibility";
 
 const PAGE_SIZE = "25";
 const PAGE_BATCH_SIZE = 5;
@@ -39,13 +43,21 @@ async function loadApprovedDealers() {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  await connection();
+  if (!isPublicIndexingEnabled()) return [];
+
   const [listingsResult, dealersResult] = await Promise.allSettled([
     loadActiveListings(),
     loadApprovedDealers(),
   ]);
 
-  return buildSitemapEntries(
+  const entries = buildSitemapEntries(
     listingsResult.status === "fulfilled" ? listingsResult.value : [],
     dealersResult.status === "fulfilled" ? dealersResult.value : [],
   );
+
+  return [
+    ...entries,
+    ...editorialArticlePaths.map((path) => ({ url: siteUrl(path) })),
+  ];
 }

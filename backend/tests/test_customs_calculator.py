@@ -631,3 +631,21 @@ def test_packaged_gtk_control_cases_match_runtime_decimal_engine() -> None:
         assert Decimal(result.duty_byn) == Decimal(case["gtk_actual_duty_byn"]).quantize(
             Decimal("0.01")
         ), case["id"]
+
+
+@pytest.mark.parametrize("manufactured", [date(2025, 1, 1), date(2022, 1, 1), date(2018, 1, 1)])
+def test_benefit_140_halves_only_duty(manufactured):
+    options = dict(calculation_date=date(2026, 10, 4), rates=_rates(), rules=_rules())
+    full = calculate_customs(_request(manufacture_date=manufactured), **options)
+    reduced = calculate_customs(_request(manufacture_date=manufactured, benefit_140=True), **options)
+    assert Decimal(reduced.duty_eur) == Decimal(full.duty_eur) / 2
+    assert Decimal(reduced.duty_byn) == Decimal(full.duty_byn) / 2
+    assert reduced.recycling_fee_byn == full.recycling_fee_byn
+    assert reduced.customs_fee_byn == full.customs_fee_byn
+    assert Decimal(reduced.total_byn) == Decimal(reduced.duty_byn) + Decimal(full.recycling_fee_byn) + Decimal(full.customs_fee_byn)
+    assert any("№140" in warning for warning in reduced.warnings)
+
+
+def test_benefit_140_rejects_non_boolean():
+    with pytest.raises(ValidationError):
+        _request(benefit_140="true")

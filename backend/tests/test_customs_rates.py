@@ -15,21 +15,20 @@ from app.customs_rates import (
 
 def _payload(*, on_date: str = "2026-10-04", overrides: dict[str, dict] | None = None) -> bytes:
     values = {
-        "EUR": ("3.386", 1),
-        "USD": ("3.0051", 1),
-        "RUB": ("3.6121", 100),
-        "CNY": ("4.5035", 10),
+        "EUR": {"Cur_OfficialRate": "3.386", "Cur_Scale": 1, "Cur_ID": 292},
+        "USD": {"Cur_OfficialRate": "3.0051", "Cur_Scale": 1, "Cur_ID": 431},
+        "RUB": {"Cur_OfficialRate": "3.6121", "Cur_Scale": 100, "Cur_ID": 456},
+        "CNY": {"Cur_OfficialRate": "4.5035", "Cur_Scale": 10, "Cur_ID": 451},
     }
     for currency, row in (overrides or {}).items():
-        values[currency] = (str(row.get("Cur_OfficialRate", values[currency][0])), row.get("Cur_Scale", values[currency][1]))
+        values[currency].update(row)
     data = [
         {
             "Cur_Abbreviation": currency,
-            "Cur_OfficialRate": rate,
-            "Cur_Scale": scale,
+            **row,
             "Date": f"{on_date}T00:00:00",
         }
-        for currency, (rate, scale) in values.items()
+        for currency, row in values.items()
     ]
     return json.dumps(data, allow_nan=True).encode()
 
@@ -61,6 +60,7 @@ def test_supported_currencies_and_scales_are_normalized_to_byn_per_unit() -> Non
     assert snapshot.rates["RUB"].byn_per_unit == Decimal("0.036121")
     assert snapshot.rates["CNY"].scale == 10
     assert snapshot.rates["CNY"].byn_per_unit == Decimal("0.45035")
+    assert snapshot.rates["USD"].nbrb_id == 431
     assert snapshot.rates["BYN"].byn_per_unit == Decimal("1")
 
 
@@ -73,6 +73,8 @@ def test_supported_currencies_and_scales_are_normalized_to_byn_per_unit() -> Non
         {"EUR": {"Cur_OfficialRate": "-1"}},
         {"RUB": {"Cur_Scale": 0}},
         {"CNY": {"Cur_Scale": 2.5}},
+        {"USD": {"Cur_ID": True}},
+        {"USD": {"Cur_ID": 0}},
     ],
 )
 def test_rejects_nonfinite_nonpositive_rates_or_invalid_scales(overrides) -> None:
@@ -201,3 +203,65 @@ def test_fixed_nbrb_host_is_used_and_user_cannot_choose_a_url() -> None:
     assert seen == [
         "https://api.nbrb.by/exrates/rates?periodicity=0&ondate=2026-10-04"
     ]
+
+
+def test_history_uses_fixed_nbrb_dynamics_endpoint_and_caches_valid_points() -> None:
+    calls = []
+    body = json.dumps([
+        {"Cur_ID": 431, "Date": "2026-10-02T00:00:00", "Cur_OfficialRate": "3.1"},
+        {"Cur_ID": 431, "Date": "2026-10-01T00:00:00", "Cur_OfficialRate": "3.0"},
+    ]).encode()
+
+    def opener(request, timeout):
+        calls.append(request.full_url)
+        return _Response(body)
+
+    client = NbrbRateClient(opener=opener)
+    points = client.get_history(431, date(2026, 10, 1), date(2026, 10, 4), 1)
+
+    assert [point.rate_date for point in points] == [date(2026, 10, 1), date(2026, 10, 2)]
+    assert [point.official_rate for point in points] == [Decimal("3.0"), Decimal("3.1")]
+    assert all(point.byn_per_unit == point.official_rate for point in points)
+    assert client.get_history(431, date(2026, 10, 1), date(2026, 10, 4), 1) is points
+    assert calls == [
+        "https://api.nbrb.by/exrates/rates/dynamics/431?startdate=2026-10-01&enddate=2026-10-04"
+    ]
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [{"Cur_ID": 431, "Date": "2026-09-30", "Cur_OfficialRate": "3.1"}],
+        [
+            {"Cur_ID": 431, "Date": "2026-10-01", "Cur_OfficialRate": "3.1"},
+            {"Cur_ID": 431, "Date": "2026-10-01", "Cur_OfficialRate": "3.2"},
+        ],
+        [{"Cur_ID": 432, "Date": "2026-10-01", "Cur_OfficialRate": "3.1"}],
+        [{"Date": "2026-10-01", "Cur_OfficialRate": "3.1"}],
+        [{"Cur_ID": 431, "Date": "2026-10-01", "Cur_OfficialRate": "NaN"}],
+    ],
+)
+def test_history_rejects_invalid_or_untrusted_rows(rows) -> None:
+    client = _client(json.dumps(rows).encode())
+
+    with pytest.raises(RatesUnavailable):
+        client.get_history(431, date(2026, 10, 1), date(2026, 10, 4), 1)
+
+
+def test_history_rejects_empty_and_oversized_responses() -> None:
+    empty = _client(b"[]")
+    oversized = _client(b"[]" + b" " * 100, max_response_bytes=16)
+
+    with pytest.raises(RatesUnavailable, match="no rates"):
+        empty.get_history(431, date(2026, 10, 1), date(2026, 10, 4), 1)
+    with pytest.raises(RatesUnavailable, match="size"):
+        oversized.get_history(431, date(2026, 10, 1), date(2026, 10, 4), 1)
+
+
+def test_history_rejects_user_selected_invalid_currency_ids_and_long_periods() -> None:
+    client = _client(b"[]")
+
+    with pytest.raises(ValueError, match="currency_id"):
+        client.get_history(0, date(2026, 10, 1), date(2026, 10, 4), 1)
+    with pytest.raises(ValueError, match="range"):
+        client.get_history(431, date(2025, 10, 4), date(2026, 10, 5), 1)

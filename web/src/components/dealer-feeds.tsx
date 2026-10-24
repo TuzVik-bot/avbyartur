@@ -16,6 +16,24 @@ import { FeedImportHistory, type FeedImportDetail } from "@/components/feed-impo
 const roleCanManage = (member: DealerTeamMember | undefined) => member?.status === "active" && (member.role === "owner" || member.role === "admin");
 const roleCanImport = (member: DealerTeamMember | undefined) => member?.status === "active" && (member.role === "owner" || member.role === "admin" || member.role === "seller");
 const MAX_FEED_BYTES = 10 * 1024 * 1024;
+const importStatusLabels: Record<DealerFeedImportRun["status"], string> = {
+  preview: "Предпросмотр",
+  succeeded: "Успешно",
+  partial: "Частично",
+  failed: "Ошибка"
+};
+
+function formatImportAge(ageSeconds: number) {
+  if (ageSeconds < 60) return "меньше минуты назад";
+  if (ageSeconds < 60 * 60) return `${Math.floor(ageSeconds / 60)} мин назад`;
+  if (ageSeconds < 24 * 60 * 60) return `${Math.floor(ageSeconds / (60 * 60))} ч назад`;
+  return `${Math.floor(ageSeconds / (24 * 60 * 60))} дн назад`;
+}
+
+function formatTimestamp(value: string) {
+  return new Date(value).toLocaleString("ru-RU");
+}
+
 type FeedPolicyDraft = {
   manual_conflict_policy: DealerFeed["manual_conflict_policy"];
   missing_retirement_enabled: boolean;
@@ -58,6 +76,11 @@ export function DealerFeeds({ initialFeeds, initialTeam, currentUserId }: {
   const [feeds, setFeeds] = useState(initialFeeds);
   const [history, setHistory] = useState<FeedImportDetail[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [selectedRowsLoading, setSelectedRowsLoading] = useState(false);
+  const [selectedRowsError, setSelectedRowsError] = useState("");
   const [name, setName] = useState("");
   const [format, setFormat] = useState<DealerFeedCreate["format"]>("csv");
   const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({ dealer_external_id: "dealer_external_id" });
@@ -76,33 +99,81 @@ export function DealerFeeds({ initialFeeds, initialTeam, currentUserId }: {
   const currentMember = initialTeam.find((member) => member.user_id === currentUserId);
   const manager = roleCanManage(currentMember);
   const canImport = roleCanImport(currentMember);
-  const historyStorageKey = `avtorinok-feed-imports:${currentUserId}`;
 
   useEffect(() => {
     let active = true;
-    try {
-      const raw = sessionStorage.getItem(historyStorageKey);
-      const ids: unknown = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(ids)) {
-        const validIds = ids.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 10);
-        Promise.all(validIds.map(async (id) => {
-          try {
-            const [run, rows] = await Promise.all([dealerTeamApi.importRun(id), dealerTeamApi.importRows(id)]);
-            return { run: run.run, rows: rows.items };
-          } catch { return null; }
-        })).then((items) => {
-          if (active) setHistory(items.filter((item): item is FeedImportDetail => item !== null));
-        });
-      }
-    } catch { /* Storage can be disabled; imports still work for this page view. */ }
+    setHistoryLoading(true);
+    dealerTeamApi.importHistory().then((result) => {
+      if (!active) return;
+      setHistory(result.items.map((item) => ({ ...item, rows: null })));
+      setHistoryCursor(result.next_cursor);
+      setHistoryError("");
+    }).catch((issue) => {
+      if (active) setHistoryError(errorText(issue));
+    }).finally(() => {
+      if (active) setHistoryLoading(false);
+    });
     return () => { active = false; };
-  }, [historyStorageKey]);
+  }, []);
+
+  async function loadMoreHistory() {
+    if (!historyCursor || historyLoading) return;
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const result = await dealerTeamApi.importHistory(20, historyCursor);
+      const nextItems = result.items.map((item) => ({ ...item, rows: null }));
+      setHistory((current) => {
+        const known = new Set(current.map((item) => item.run.id));
+        return [...current, ...nextItems.filter((item) => !known.has(item.run.id))];
+      });
+      setHistoryCursor(result.next_cursor);
+    } catch (issue) { setHistoryError(errorText(issue)); }
+    finally { setHistoryLoading(false); }
+  }
+
+  async function retryImportHistory() {
+    if (historyCursor) {
+      await loadMoreHistory();
+      return;
+    }
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const result = await dealerTeamApi.importHistory();
+      setHistory(result.items.map((item) => ({ ...item, rows: null })));
+      setHistoryCursor(result.next_cursor);
+    } catch (issue) { setHistoryError(errorText(issue)); }
+    finally { setHistoryLoading(false); }
+  }
+
+  async function loadImportRows(runId: string) {
+    setSelectedRowsLoading(true);
+    setSelectedRowsError("");
+    try {
+      const rows = await dealerTeamApi.importRows(runId);
+      setHistory((current) => current.map((item) => item.run.id === runId ? { ...item, rows: rows.items } : item));
+    } catch (issue) { setSelectedRowsError(errorText(issue)); }
+    finally { setSelectedRowsLoading(false); }
+  }
+
+  async function retrySelectedRows() {
+    if (!selectedRunId) return;
+    const selected = history.find((item) => item.run.id === selectedRunId);
+    if (!selected || selected.rows !== null) return;
+    await loadImportRows(selectedRunId);
+  }
 
   async function reloadFeeds() {
     setBusy(true); setError("");
     try { setFeeds((await dealerTeamApi.feeds()).items); setNotice("Источники данных обновлены."); }
     catch (issue) { setError(errorText(issue)); }
     finally { setBusy(false); }
+  }
+
+  async function refreshFeedFreshness() {
+    try { setFeeds((await dealerTeamApi.feeds()).items); }
+    catch { setError("Импорт обработан. Обновите список источников, чтобы увидеть его результат."); }
   }
 
   async function createFeed(event: React.FormEvent<HTMLFormElement>) {
@@ -244,16 +315,12 @@ export function DealerFeeds({ initialFeeds, initialTeam, currentUserId }: {
         setMissingCandidates((current) => ({ ...current, [feed.id]: result.missing_candidates ?? [] }));
       }
       setHistory((current) => [
-        { run: result.run, rows: [] },
+        { feed_name: feed.name, run: result.run, rows: null },
         ...current.filter((item) => item.run.id !== result.run.id)
-      ].slice(0, 10));
+      ]);
       setSelectedRunId(result.run.id);
-      try {
-        const ids = [result.run.id, ...JSON.parse(sessionStorage.getItem(historyStorageKey) || "[]").filter((id: unknown) => id !== result.run.id)].slice(0, 10);
-        sessionStorage.setItem(historyStorageKey, JSON.stringify(ids));
-      } catch { /* History remains visible until this page is closed. */ }
-      const [run, rows] = await Promise.all([dealerTeamApi.importRun(result.run.id), dealerTeamApi.importRows(result.run.id)]);
-      setHistory((current) => current.map((item) => item.run.id === run.run.id ? { run: run.run, rows: rows.items } : item));
+      await loadImportRows(result.run.id);
+      await refreshFeedFreshness();
       if (dryRun) {
         setNotice("Предпросмотр готов. Данные не записаны.");
       } else if (completeSnapshot && result.run.status === "failed") {
@@ -269,12 +336,10 @@ export function DealerFeeds({ initialFeeds, initialTeam, currentUserId }: {
 
   async function selectRun(runId: string) {
     setSelectedRunId(runId);
+    setSelectedRowsError("");
     const cached = history.find((item) => item.run.id === runId);
-    if (cached?.rows.length) return;
-    try {
-      const [run, rows] = await Promise.all([dealerTeamApi.importRun(runId), dealerTeamApi.importRows(runId)]);
-      setHistory((current) => current.map((item) => item.run.id === runId ? { run: run.run, rows: rows.items } : item));
-    } catch (issue) { setError(errorText(issue)); }
+    if (!cached || cached.rows !== null) return;
+    await loadImportRows(runId);
   }
 
   if (feeds === null) return <section className="notice" role="alert"><p>Не удалось загрузить интеграции. Проверьте доступ компании или повторите загрузку.</p><button className="button button-secondary button-small" type="button" disabled={busy} onClick={reloadFeeds}>Повторить загрузку</button></section>;
@@ -300,6 +365,15 @@ export function DealerFeeds({ initialFeeds, initialTeam, currentUserId }: {
         const policyValid = Number.isInteger(delay) && delay >= 1 && delay <= 8760;
         return <article className="feed-card" key={feed.id}>
           <div className="feed-card-heading"><div><h3>{feed.name}</h3><p className="muted">{feed.format.toUpperCase()} · {feed.status === "active" ? "Включён" : "Отключён"}{feed.api_token_prefix ? ` · ключ ${feed.api_token_prefix}…` : ""}</p></div>{manager && <button className={feed.status === "active" ? "button button-secondary button-small" : "button button-primary button-small"} type="button" disabled={busy} onClick={() => changeStatus(feed)}>{feed.status === "active" ? "Отключить" : "Включить"}</button>}</div>
+
+          <section className="feed-freshness" aria-label={`Свежесть источника ${feed.name}`}>
+            <p><strong>Последний импорт:</strong> {feed.latest_import ? <>
+              <span>{importStatusLabels[feed.latest_import.status]}</span> · {feed.latest_import.source_filename} · {feed.latest_import.applied_rows} принято · {feed.latest_import.rejected_rows} отклонено · <time dateTime={feed.latest_import.created_at}>{formatTimestamp(feed.latest_import.created_at)}</time>
+            </> : "Импортов ещё не было."}</p>
+            <p><strong>Последнее успешное применение:</strong> {feed.last_successful_import_at ? <>
+              <time dateTime={feed.last_successful_import_at}>{formatTimestamp(feed.last_successful_import_at)}</time>{feed.last_successful_import_age_seconds !== null && ` · ${formatImportAge(feed.last_successful_import_age_seconds)}`}
+            </> : "Успешных применений ещё не было."}</p>
+          </section>
 
           {manager && <section className="feed-policy" aria-label={`Правила источника ${feed.name}`}>
             <h4>Правила синхронизации</h4>
@@ -334,7 +408,7 @@ export function DealerFeeds({ initialFeeds, initialTeam, currentUserId }: {
     </section>
 
     {oneTimeToken && <section className="notice feed-token-notice" aria-label="Новый API-ключ" role="status"><div><strong>Новый ключ для источника «{oneTimeToken.feedName}»</strong><p>Он больше не появится в интерфейсе. При ротации предыдущий ключ уже отозван.</p></div><code>{oneTimeToken.token}</code><button className="button button-secondary button-small" type="button" onClick={() => setOneTimeToken(null)}>Скрыть ключ</button></section>}
-    <FeedImportHistory items={history} selectedId={selectedRunId} onSelect={selectRun} />
+    <FeedImportHistory items={history} selectedId={selectedRunId} onSelect={selectRun} nextCursor={historyCursor} loading={historyLoading} error={historyError} onLoadMore={loadMoreHistory} onRetry={retryImportHistory} selectedRowsLoading={selectedRowsLoading} selectedRowsError={selectedRowsError} onRetrySelectedRows={retrySelectedRows} />
     {notice && <p className="notice" role="status">{notice}</p>}{error && <p className="inline-error" role="alert">{error}</p>}
   </div>;
 }

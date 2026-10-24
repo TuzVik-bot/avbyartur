@@ -24,6 +24,7 @@ const request = {
   manufacture_date: "2020-04-12",
   engine_type: "diesel",
   engine_volume_cc: 1998,
+  benefit_140: false,
   personal_use: true,
   origin_outside_eaeu: true
 } as const;

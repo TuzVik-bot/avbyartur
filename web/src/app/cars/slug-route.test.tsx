@@ -60,7 +60,7 @@ describe("listing route API failures", () => {
     const metadata = await generateMetadata({ params: Promise.resolve(publicParams) });
     const html = renderToStaticMarkup(await CarsBySlugPage({ params: Promise.resolve(publicParams) }));
 
-    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars/bmw/3-series/listing-1");
+    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars/bmw/3-series/listing-1");
     expect(html).toContain('type="application/ld+json"');
     expect(html).toContain('"@type":"Car"');
     expect(html).not.toContain("+375291234567");
@@ -173,7 +173,7 @@ describe("category metadata thresholds", () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ slug: ["toyota"] }) });
 
     expect(metadata.robots).toBeUndefined();
-    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars/toyota");
+    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars/toyota");
     expect(mocks.listings).toHaveBeenCalledWith({ make_id: make.id, page_size: "1" });
   });
 
@@ -203,7 +203,7 @@ describe("category metadata thresholds", () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ slug: ["toyota", "corolla"] }) });
 
     expect(metadata.robots).toBeUndefined();
-    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars/toyota/corolla");
+    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars/toyota/corolla");
   });
 
   it("fails closed when a category count is missing or the API is unavailable", async () => {

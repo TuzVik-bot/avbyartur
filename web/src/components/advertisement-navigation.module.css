@@ -1,0 +1,16 @@
+.catalogContent { width: min(1240px, calc(100% - 64px)); margin-inline: auto; padding: 28px 0 32px; }
+.panelHeading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.panelHeading h2 { margin: 0; font-size: 21px; }
+.panelHeading > a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--accent-dark); }
+.advertisementList { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 24px; list-style: none; margin: 0; padding: 0; }
+.advertisementList a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 10px 12px; border-radius: 8px; color: var(--accent-dark); font-size: 16px; }
+.advertisementList a:hover, .advertisementList a:focus-visible { background: var(--soft-accent); }
+.advertisementList svg { flex: none; }
+.categoryNavigation { padding-block: 24px; }
+.categoryNavigation h2 { margin: 0 0 16px; font-size: 24px; }
+.footerAdvertisements a { color: var(--accent-dark); }
+@media (max-width: 760px) {
+ .catalogContent { width: calc(100% - 32px); padding: 20px 0 24px; }
+ .panelHeading { align-items: flex-start; flex-direction: column; gap: 4px; }
+ .advertisementList { grid-template-columns: 1fr; gap: 2px; }
+}

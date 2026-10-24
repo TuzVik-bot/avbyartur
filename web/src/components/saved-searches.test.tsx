@@ -49,9 +49,17 @@ afterEach(() => {
 });
 
 describe("saved searches", () => {
+  it("describes email eligibility from the current delivery capability", async () => {
+    request.mockResolvedValueOnce({ preferences: { email_verified: true, email_delivery_configured: true } });
+    await act(async () => root.render(createElement(SavedSearches, { initialItems: [] })));
+
+    expect(container.textContent).toContain("Email доступен при подтверждённом адресе и настроенной доставке");
+    expect(container.textContent).not.toContain("Email-настройка сохраняется, но письма не отправляются");
+  });
+
   it("renders an empty state and creates a search from a relative URL", async () => {
     const created = search({ id: "search-2", name: "Мой новый поиск", url: "/cars?q=Belgee", filters: { q: "Belgee" } });
-    request.mockResolvedValueOnce({ saved_search: created });
+    request.mockResolvedValueOnce({ preferences: { email_verified: false, email_delivery_configured: false } }).mockResolvedValueOnce({ saved_search: created });
     await act(async () => root.render(createElement(SavedSearches, { initialItems: [], initialUrl: "/cars?q=Belgee" })));
 
     expect(container.textContent).toContain("Сохранённых поисков пока нет");
@@ -68,10 +76,10 @@ describe("saved searches", () => {
   it("saves notification preferences and pauses a search", async () => {
     const updated = search({ revision: 3, notifications_enabled: true, notification_channel: "email", notification_frequency: "weekly" });
     const paused = search({ revision: 4, status: "paused", notifications_enabled: true, notification_channel: "email", notification_frequency: "weekly" });
-    request.mockResolvedValueOnce({ saved_search: updated }).mockResolvedValueOnce({ saved_search: paused });
+    request.mockResolvedValueOnce({ preferences: { email_verified: true, email_delivery_configured: true } }).mockResolvedValueOnce({ saved_search: updated }).mockResolvedValueOnce({ saved_search: paused });
     await act(async () => root.render(createElement(SavedSearches, { initialItems: [search()] })));
 
-    expect(container.textContent).toContain("Email — пока не отправляется");
+    expect(container.querySelector('option[value="email"]')?.textContent).toBe("Email");
     const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
     await act(async () => { checkbox.click(); });
     const selects = container.querySelectorAll<HTMLSelectElement>("select");
@@ -90,6 +98,7 @@ describe("saved searches", () => {
   });
 
   it("rejects external URLs before making a request", async () => {
+    request.mockResolvedValueOnce({ preferences: { email_verified: false, email_delivery_configured: false } });
     await act(async () => root.render(createElement(SavedSearches, { initialItems: [], initialUrl: "https://example.com" })));
     const name = container.querySelector<HTMLInputElement>('input[name="name"]')!;
     await act(async () => { setInputValue(name, "Внешний"); });
@@ -98,7 +107,7 @@ describe("saved searches", () => {
     const form = container.querySelector<HTMLFormElement>("form")!;
     await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
 
-    expect(request).not.toHaveBeenCalled();
+    expect(request.mock.calls.filter(([path]) => path === "me/saved-searches")).toHaveLength(0);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("только поиск на этом сайте");
   });
 });

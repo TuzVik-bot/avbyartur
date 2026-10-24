@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register Email */
+        post: operations["register_email_api_v1_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -381,6 +398,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Count Public Listings */
+        get: operations["count_public_listings_api_v1_listings_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listings/public-capabilities": {
         parameters: {
             query?: never;
@@ -390,6 +424,40 @@ export interface paths {
         };
         /** Listing Public Capabilities */
         get: operations["listing_public_capabilities_api_v1_listings_public_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare Public Listings */
+        get: operations["compare_public_listings_api_v1_listings_compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent Public Listings */
+        get: operations["recent_public_listings_api_v1_listings_recent_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -595,6 +663,40 @@ export interface paths {
         };
         /** My Favorites */
         get: operations["my_favorites_api_v1_me_favorites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/favorites/{listing_id}/price-drop-alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Favorite Price Drop Alert */
+        put: operations["set_favorite_price_drop_alert_api_v1_me_favorites__listing_id__price_drop_alert_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings/{listing_id}/price-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing Price History */
+        get: operations["listing_price_history_api_v1_listings__listing_id__price_history_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1358,6 +1460,26 @@ export interface paths {
         patch: operations["update_setting_api_v1_admin_settings__key__patch"];
         trace?: never;
     };
+    "/api/v1/dealer/clicks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Dealer Click
+         * @description Record an anonymous, non-PII click from a public listing to its company page.
+         */
+        post: operations["record_dealer_click_api_v1_dealer_clicks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dealer/team": {
         parameters: {
             query?: never;
@@ -1558,6 +1680,23 @@ export interface paths {
         put?: never;
         /** Import Dealer Feed Api */
         post: operations["import_dealer_feed_api_api_v1_dealer_feeds__feed_id__api_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dealer/feed-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Dealer Feed Import History */
+        get: operations["list_dealer_feed_import_history_api_v1_dealer_feed_imports_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2013,6 +2152,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customs-calculator/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Customs Exchange Rates */
+        get: operations["customs_exchange_rates_api_v1_customs_calculator_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/customs-calculator/rates/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Customs Rate History */
+        get: operations["customs_rate_history_api_v1_customs_calculator_rates_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/customs-calculator/calculate": {
         parameters: {
             query?: never;
@@ -2024,6 +2197,40 @@ export interface paths {
         put?: never;
         /** Calculate Customs Public */
         post: operations["calculate_customs_public_api_v1_customs_calculator_calculate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/test-mail/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Messages */
+        get: operations["messages_api_v1_admin_test_mail_messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/test-mail/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Message */
+        get: operations["message_api_v1_admin_test_mail_messages__message_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2548,6 +2755,21 @@ export interface components {
             sms_login: boolean;
             /** Sms Registration */
             sms_registration: boolean;
+            /**
+             * Email Registration
+             * @default false
+             */
+            email_registration: boolean;
+            /**
+             * Email Registration Pilot
+             * @default false
+             */
+            email_registration_pilot: boolean;
+            /**
+             * Test Mail
+             * @default false
+             */
+            test_mail: boolean;
             /** Email Notifications */
             email_notifications: boolean;
             /** Email Verification */
@@ -3188,6 +3410,11 @@ export interface components {
             /** Engine Volume Cc */
             engine_volume_cc: number;
             /**
+             * Benefit 140
+             * @default false
+             */
+            benefit_140: boolean;
+            /**
              * Personal Use
              * @constant
              */
@@ -3260,6 +3487,52 @@ export interface components {
             /** Scope Notes */
             scope_notes: string[];
         };
+        /** CustomsRateHistoryPoint */
+        CustomsRateHistoryPoint: {
+            /**
+             * Rate Date
+             * Format: date
+             */
+            rate_date: string;
+            /** Official Rate */
+            official_rate: string;
+            /** Scale */
+            scale: number;
+            /** Byn Per Unit */
+            byn_per_unit: string;
+        };
+        /** CustomsRateHistoryResponse */
+        CustomsRateHistoryResponse: {
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "EUR" | "USD" | "RUB";
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "30d" | "90d" | "180d" | "365d";
+            /**
+             * Rate Date
+             * Format: date
+             */
+            rate_date: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Source Url */
+            source_url: string;
+            /** Points */
+            points: components["schemas"]["CustomsRateHistoryPoint"][];
+        };
         /** CustomsRateUsed */
         CustomsRateUsed: {
             /**
@@ -3273,6 +3546,16 @@ export interface components {
             scale: number;
             /** Byn Per Unit */
             byn_per_unit: string;
+        };
+        /** CustomsRatesResponse */
+        CustomsRatesResponse: {
+            /**
+             * Rate Date
+             * Format: date
+             */
+            rate_date: string;
+            /** Rates */
+            rates: components["schemas"]["CustomsRateUsed"][];
         };
         /** DealerAnalyticsItemOut */
         DealerAnalyticsItemOut: {
@@ -3291,6 +3574,8 @@ export interface components {
             chats: number;
             /** Views */
             views: number;
+            /** Company Clicks */
+            company_clicks: number;
         };
         /** DealerAnalyticsOut */
         DealerAnalyticsOut: {
@@ -3318,6 +3603,8 @@ export interface components {
             chats: number;
             /** Views */
             views: number;
+            /** Company Clicks */
+            company_clicks: number;
         };
         /** DealerCatalogItemOut */
         DealerCatalogItemOut: {
@@ -3342,6 +3629,20 @@ export interface components {
             year_from?: number | null;
             /** Year To */
             year_to?: number | null;
+        };
+        /** DealerClickInput */
+        DealerClickInput: {
+            /**
+             * Listing Id
+             * Format: uuid
+             */
+            listing_id: string;
+            /**
+             * Source
+             * @default listing_detail
+             * @constant
+             */
+            source: "listing_detail";
         };
         /** DealerDetailResponse */
         DealerDetailResponse: {
@@ -3400,6 +3701,19 @@ export interface components {
              * @default 168
              */
             missing_retirement_delay_hours: number;
+        };
+        /** DealerFeedImportHistoryItemOut */
+        DealerFeedImportHistoryItemOut: {
+            /** Feed Name */
+            feed_name: string;
+            run: components["schemas"]["DealerFeedImportRunOut"];
+        };
+        /** DealerFeedImportHistoryOut */
+        DealerFeedImportHistoryOut: {
+            /** Items */
+            items: components["schemas"]["DealerFeedImportHistoryItemOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** DealerFeedImportOut */
         DealerFeedImportOut: {
@@ -3581,6 +3895,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            latest_import?: components["schemas"]["DealerFeedImportRunOut"] | null;
+            /** Last Successful Import At */
+            last_successful_import_at?: string | null;
+            /** Last Successful Import Age Seconds */
+            last_successful_import_age_seconds?: number | null;
         };
         /** DealerFeedPatch */
         DealerFeedPatch: {
@@ -3725,6 +4044,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Published At */
+            published_at?: string | null;
             /** Damaged */
             damaged: boolean;
             /** Parts Only */
@@ -3848,6 +4169,32 @@ export interface components {
             /** Status */
             status?: ("active" | "revoked") | null;
         };
+        /** EmailRegistrationInput */
+        EmailRegistrationInput: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Password */
+            password: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Accept Terms
+             * @constant
+             */
+            accept_terms: true;
+            /**
+             * Accept Privacy
+             * @constant
+             */
+            accept_privacy: true;
+            /** Terms Version */
+            terms_version: string;
+            /** Privacy Version */
+            privacy_version: string;
+        };
         /** EmailRequestInput */
         EmailRequestInput: {
             /**
@@ -3863,6 +4210,117 @@ export interface components {
              * @constant
              */
             verified: true;
+        };
+        /** FavoriteListingOut */
+        FavoriteListingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Revision */
+            revision: number;
+            /** Category Code */
+            category_code: string;
+            /** Category Details */
+            category_details: {
+                [key: string]: unknown;
+            };
+            make: components["schemas"]["ListingCatalogItemOut"] | null;
+            model: components["schemas"]["ListingCatalogItemOut"] | null;
+            generation: components["schemas"]["ListingCatalogItemOut"] | null;
+            /** Year */
+            year: number | null;
+            /** Mileage Km */
+            mileage_km: number | null;
+            /** Fuel */
+            fuel: string | null;
+            /** Transmission */
+            transmission: string | null;
+            /** Drive */
+            drive: string | null;
+            /** Body Type */
+            body_type: string | null;
+            /** Body Variant Id */
+            body_variant_id: string | null;
+            body_variant: components["schemas"]["ListingCatalogItemOut"] | null;
+            price: components["schemas"]["ListingPriceOut"] | null;
+            region: components["schemas"]["ListingCatalogItemOut"] | null;
+            city: components["schemas"]["ListingCatalogItemOut"] | null;
+            /** Manual City */
+            manual_city: string | null;
+            seller: components["schemas"]["ListingSellerOut"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Published At */
+            published_at?: string | null;
+            /** Damaged */
+            damaged: boolean;
+            /** Parts Only */
+            parts_only: boolean;
+            /** Description */
+            description: string;
+            /** Engine Volume L */
+            engine_volume_l: string | null;
+            /** Power Hp */
+            power_hp: number | null;
+            /** Condition */
+            condition: string | null;
+            /** Color */
+            color?: ("black" | "white" | "gray" | "silver" | "red" | "blue" | "green" | "yellow" | "brown" | "beige" | "orange" | "purple" | "other") | null;
+            /** Customs Status */
+            customs_status?: ("cleared_rb" | "eaeu_import" | "uncleared" | "unknown") | null;
+            /** Technical Condition */
+            technical_condition?: ("good" | "needs_repair" | "non_operational") | null;
+            /** Body Condition */
+            body_condition?: ("good" | "minor_damage" | "significant_damage" | "repaired") | null;
+            /** Exchange */
+            exchange?: boolean | null;
+            /** Bargaining */
+            bargaining?: boolean | null;
+            /** Credit */
+            credit?: boolean | null;
+            /** Leasing */
+            leasing?: boolean | null;
+            /** Equipment */
+            equipment?: string[];
+            /** District */
+            district?: string | null;
+            /** Call Hours */
+            call_hours?: string | null;
+            /** Promotion Badges */
+            promotion_badges?: ("bump" | "highlight" | "top")[];
+            /** Photo Urls */
+            photo_urls: string[];
+            /** Photos */
+            photos: components["schemas"]["ListingPhotoOut"][];
+            modification?: components["schemas"]["ListingModificationOut"] | null;
+            /** Price Drop Notifications Enabled */
+            price_drop_notifications_enabled: boolean;
+        };
+        /** FavoritePriceDropAlertInput */
+        FavoritePriceDropAlertInput: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** FavoritePriceDropAlertOut */
+        FavoritePriceDropAlertOut: {
+            /** Enabled */
+            enabled: boolean;
         };
         /** FavoriteToggleOut */
         FavoriteToggleOut: {
@@ -3966,6 +4424,16 @@ export interface components {
              */
             created_at: string;
         };
+        /** ListingComparisonOut */
+        ListingComparisonOut: {
+            /** Items */
+            items: components["schemas"]["ListingPublicOut"][];
+        };
+        /** ListingCountOut */
+        ListingCountOut: {
+            /** Total */
+            total: number;
+        };
         /** ListingDetailOut */
         ListingDetailOut: {
             /** Listing */
@@ -3974,7 +4442,7 @@ export interface components {
         /** ListingFavoritesOut */
         ListingFavoritesOut: {
             /** Items */
-            items: components["schemas"]["ListingPublicOut"][];
+            items: components["schemas"]["FavoriteListingOut"][];
         };
         /** ListingFieldChangeOut */
         ListingFieldChangeOut: {
@@ -4078,6 +4546,27 @@ export interface components {
             usd_rate: string;
             /** Scale */
             scale: number;
+        };
+        /** ListingMarketComparisonOut */
+        ListingMarketComparisonOut: {
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "below_market" | "above_market";
+            /** Median Byn */
+            median_byn: string;
+            /** Sample Size */
+            sample_size: number;
+            /** Seller Count */
+            seller_count: number;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Rate Date */
+            rate_date: string | null;
         };
         /** ListingModificationOut */
         ListingModificationOut: {
@@ -4207,6 +4696,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Published At */
+            published_at?: string | null;
             /** Damaged */
             damaged: boolean;
             /** Parts Only */
@@ -4400,6 +4891,37 @@ export interface components {
             /** Items */
             items: components["schemas"]["ListingPhotoStatusOut"][];
         };
+        /** ListingPriceHistoryItemOut */
+        ListingPriceHistoryItemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Event Type
+             * @enum {string}
+             */
+            event_type: "baseline" | "published" | "added" | "changed" | "removed";
+            /** Amount */
+            amount: string | null;
+            /** Currency */
+            currency: ("BYN" | "USD") | null;
+            /** Previous Amount */
+            previous_amount: string | null;
+            /** Previous Currency */
+            previous_currency: ("BYN" | "USD") | null;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
+        /** ListingPriceHistoryOut */
+        ListingPriceHistoryOut: {
+            /** Items */
+            items: components["schemas"]["ListingPriceHistoryItemOut"][];
+        };
         /** ListingPriceOut */
         ListingPriceOut: {
             /** Amount */
@@ -4417,6 +4939,7 @@ export interface components {
             display_amount?: string | null;
             /** Display Currency */
             display_currency?: ("BYN" | "USD") | null;
+            market_comparison?: components["schemas"]["ListingMarketComparisonOut"] | null;
         };
         /** ListingPublicCapabilitiesOut */
         ListingPublicCapabilitiesOut: {
@@ -4478,6 +5001,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Published At */
+            published_at?: string | null;
             /** Damaged */
             damaged: boolean;
             /** Parts Only */
@@ -4519,6 +5044,11 @@ export interface components {
             /** Photos */
             photos: components["schemas"]["ListingPhotoOut"][];
             modification?: components["schemas"]["ListingModificationOut"] | null;
+        };
+        /** ListingRecentOut */
+        ListingRecentOut: {
+            /** Items */
+            items: components["schemas"]["ListingPublicOut"][];
         };
         /** ListingRelatedOut */
         ListingRelatedOut: {
@@ -4839,6 +5369,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Published At */
+            published_at?: string | null;
             /** Damaged */
             damaged: boolean;
             /** Parts Only */
@@ -5124,6 +5656,18 @@ export interface components {
         MyCompanyResponse: {
             company: components["schemas"]["PrivateCompanyOut"] | null;
         };
+        /** NotificationListingOut */
+        NotificationListingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /** NotificationPreferencesEnvelope */
         NotificationPreferencesEnvelope: {
             preferences: components["schemas"]["NotificationPreferencesOut"];
@@ -5147,6 +5691,8 @@ export interface components {
             revision: number;
             /** Email Verified */
             email_verified: boolean;
+            /** Email Delivery Configured */
+            email_delivery_configured: boolean;
         };
         /** OtpAcceptedResponse */
         OtpAcceptedResponse: {
@@ -5613,17 +6159,20 @@ export interface components {
             saved_search_id: string | null;
             /** Conversation Id */
             conversation_id: string | null;
-            /**
-             * Listing Id
-             * Format: uuid
-             */
-            listing_id: string;
+            /** Price Event Id */
+            price_event_id: string | null;
+            /** Listing Id */
+            listing_id: string | null;
             /** Title */
             title: string;
             /** Body */
             body: string;
             /** Url */
             url: string;
+            /** Listings */
+            listings: components["schemas"]["NotificationListingOut"][];
+            /** Total Count */
+            total_count: number;
             /** Read At */
             read_at: string | null;
             /**
@@ -5729,6 +6278,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthCapabilitiesResponse"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    register_email_api_v1_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-csrf-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailRegistrationInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionResponse"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request conflicts with the current resource state */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request rate limit was exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description An external service required for this action is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
             /** @description API error */
@@ -6694,6 +7332,11 @@ export interface operations {
     search_listings_api_v1_listings_get: {
         parameters: {
             query?: {
+                page?: number;
+                page_size?: number;
+                equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
                 q?: string | null;
                 make_id?: string | null;
                 model_id?: string | null;
@@ -6722,7 +7365,6 @@ export interface operations {
                 bargaining?: boolean | null;
                 credit?: boolean | null;
                 leasing?: boolean | null;
-                equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
                 district?: string | null;
                 call_hours?: string | null;
                 has_vin?: boolean | null;
@@ -6734,15 +7376,16 @@ export interface operations {
                 region_id?: string | null;
                 city_id?: string | null;
                 seller_type?: ("private" | "company") | null;
-                page?: number;
-                page_size?: number;
-                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
             };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6751,6 +7394,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListingSearchOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    count_public_listings_api_v1_listings_count_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
+                category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+                q?: string | null;
+                make_id?: string | null;
+                model_id?: string | null;
+                generation_id?: string | null;
+                body_variant_id?: string | null;
+                modification_id?: string | null;
+                price_min?: number | string | null;
+                price_max?: number | string | null;
+                currency?: ("BYN" | "USD") | null;
+                year_min?: number | null;
+                year_max?: number | null;
+                mileage_min?: number | null;
+                mileage_max?: number | null;
+                fuel?: string | null;
+                transmission?: string | null;
+                drive?: string | null;
+                body_type?: string | null;
+                damaged?: boolean | null;
+                parts_only?: boolean | null;
+                condition?: string | null;
+                color?: ("black" | "white" | "gray" | "silver" | "red" | "blue" | "green" | "yellow" | "brown" | "beige" | "orange" | "purple" | "other") | null;
+                customs_status?: ("cleared_rb" | "eaeu_import" | "uncleared" | "unknown") | null;
+                technical_condition?: ("good" | "needs_repair" | "non_operational") | null;
+                body_condition?: ("good" | "minor_damage" | "significant_damage" | "repaired") | null;
+                exchange?: boolean | null;
+                bargaining?: boolean | null;
+                credit?: boolean | null;
+                leasing?: boolean | null;
+                district?: string | null;
+                call_hours?: string | null;
+                has_vin?: boolean | null;
+                has_photos?: boolean | null;
+                engine_volume_min?: number | string | null;
+                engine_volume_max?: number | string | null;
+                power_min?: number | null;
+                power_max?: number | null;
+                region_id?: string | null;
+                city_id?: string | null;
+                seller_type?: ("private" | "company") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingCountOut"];
                 };
             };
             /** @description Request validation error */
@@ -6789,6 +7519,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListingPublicCapabilitiesOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    compare_public_listings_api_v1_listings_compare_get: {
+        parameters: {
+            query: {
+                ids: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingComparisonOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    recent_public_listings_api_v1_listings_recent_get: {
+        parameters: {
+            query: {
+                ids: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingRecentOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
             /** @description API error */
@@ -7687,6 +8497,90 @@ export interface operations {
             };
             /** @description The authenticated user is not allowed to perform this action */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    set_favorite_price_drop_alert_api_v1_me_favorites__listing_id__price_drop_alert_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listing_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FavoritePriceDropAlertInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoritePriceDropAlertOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    listing_price_history_api_v1_listings__listing_id__price_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listing_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingPriceHistoryOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11312,6 +12206,59 @@ export interface operations {
             };
         };
     };
+    record_dealer_click_api_v1_dealer_clicks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealerClickInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request rate limit was exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
     dealer_team_api_v1_dealer_team_get: {
         parameters: {
             query?: never;
@@ -12343,6 +13290,47 @@ export interface operations {
             };
             /** @description The request rate limit was exceeded */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    list_dealer_feed_import_history_api_v1_dealer_feed_imports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealerFeedImportHistoryOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14329,6 +15317,94 @@ export interface operations {
             };
         };
     };
+    customs_exchange_rates_api_v1_customs_calculator_rates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomsRatesResponse"];
+                };
+            };
+            /** @description Official exchange rates are unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    customs_rate_history_api_v1_customs_calculator_rates_history_get: {
+        parameters: {
+            query?: {
+                currency?: "EUR" | "USD" | "RUB";
+                period?: "30d" | "90d" | "180d" | "365d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomsRateHistoryResponse"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Official exchange-rate history is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
     calculate_customs_public_api_v1_customs_calculator_calculate_post: {
         parameters: {
             query?: never;
@@ -14361,6 +15437,151 @@ export interface operations {
                 };
             };
             /** @description Customs rules or official rates are unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    messages_api_v1_admin_test_mail_messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description An external service required for this action is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    message_api_v1_admin_test_mail_messages__message_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description An external service required for this action is unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;

@@ -57,3 +57,8 @@ data/abw_import_*.json
 .htpasswd*
 pilot-password*
 .DS_Store
+
+# Local tooling artifacts (baseline 2026-10-24)
+.aislop/
+.serena/
+backend/.codex-test-deps-*/

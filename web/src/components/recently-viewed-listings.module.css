@@ -1,0 +1,63 @@
+.section {
+  margin-top: 26px;
+}
+
+.heading {
+  align-items: center;
+}
+
+.heading h2 {
+  margin: 0;
+}
+
+.clearButton,
+.removeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.stack {
+  gap: 12px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.item > article {
+  min-width: 0;
+}
+
+.removeButton {
+  justify-self: end;
+}
+
+@media (max-width: 640px) {
+  .heading {
+    align-items: flex-start;
+  }
+
+  .clearButton {
+    min-height: 34px;
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+
+  .item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .removeButton {
+    min-height: 34px;
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+}

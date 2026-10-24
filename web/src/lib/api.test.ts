@@ -8,6 +8,19 @@ afterEach(() => {
 });
 
 describe("same-origin API client", () => {
+  it("loads at most twelve de-duplicated recent listing IDs as repeated query parameters", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const ids = Array.from({ length: 13 }, (_, index) => `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`);
+
+    await api.recentListings([ids[0], ids[0], ...ids.slice(1)]);
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new URL(url, "http://localhost").searchParams.getAll("ids")).toEqual(ids.slice(0, 12));
+
+    expect(await api.recentListings([])).toEqual({ items: [] });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("bootstraps and sends the guest contact request proof", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ guest_contact_reveal_enabled: true }), { status: 200, headers: { "Content-Type": "application/json", "X-Guest-Contact-Token": "guest-proof" } }))
@@ -162,6 +175,24 @@ describe("same-origin API client", () => {
     expect(new Headers((fetchMock.mock.calls[1] as [string, RequestInit])[1].headers).get("X-CSRF-Token")).toBe("session-csrf");
   });
 
+  it("loads public price history and updates a favorite price-drop opt-in", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [] }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ enabled: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    setCsrfToken("session-csrf");
+
+    await api.listingPriceHistory("listing/1");
+    await api.setFavoritePriceDropAlert("listing/1", true);
+
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe("/api/v1/listings/listing%2F1/price-history");
+    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe("/api/v1/me/favorites/listing%2F1/price-drop-alert");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual({ enabled: true });
+    expect(new Headers(init.headers).get("X-CSRF-Token")).toBe("session-csrf");
+  });
+
   it("uses the revision-protected global notification preference and phone change contracts", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ preferences: { web_enabled: true, email_enabled: false, revision: 4, email_verified: false } }), { status: 200, headers: { "Content-Type": "application/json" } }))
@@ -250,6 +281,15 @@ describe("same-origin API client", () => {
     await api.conversation("thread/1", { beforeSequence: 40, limit: 20 });
 
     expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe("/api/v1/conversations/thread%2F1?limit=20&before_sequence=40");
+  });
+
+  it("requests listing counts with the same repeated filters as search", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ total: 1234 }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.listingCount({ make_id: "make-1", equipment: ["abs", "esp"], page: "3", sort: "newest" });
+
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe("/api/v1/listings/count?make_id=make-1&equipment=abs&equipment=esp&page=3&sort=newest");
   });
 
   it("mints idempotency keys when conversation actions do not provide one", async () => {

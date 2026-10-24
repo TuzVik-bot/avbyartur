@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AlertTriangle, Building2, Check, ChevronRight, CircleUserRound, MapPin, MessageCircle, Phone, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { ComparisonAction } from "@/components/comparison/comparison-action";
 import { FavoriteButton, ListingCard } from "@/components/listing-card";
+import { ListingPriceHistory } from "@/components/listing-price-history";
+import { RecentlyViewedListings } from "@/components/recently-viewed-listings";
 import { api, ApiClientError } from "@/lib/api";
 import { formatDate, formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import type { Listing, ReportCategory } from "@/lib/types";
@@ -151,6 +154,8 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           {listing.status === "sold" && <p className="status-pill">Продано</p>}
           <p className="detail-price">{formatMoney(listing.price)}</p>
           {listing.price?.currency === "USD" && listing.price.display_byn && listing.price.rate_date && <p className="muted">В BYN по курсу на {formatDate(listing.price.rate_date)}</p>}
+          <p className="muted">Изменено <time dateTime={listing.updated_at}>{formatDate(listing.updated_at)}</time></p>
+          {listing.vin?.trim() && <p className="muted">VIN указан продавцом. История автомобиля не проверена.</p>}
           {listing.status === "active" ? <>
             {!user && guestContactRevealEnabled && <p className="muted">Телефон можно посмотреть без входа в аккаунт.</p>}
             {phone ? <div className="phone-revealed"><strong>{phone}</strong><span className="muted">Контакт продавца</span></div> : <button className="button button-primary contact-reveal" type="button" aria-busy={phoneBusy} disabled={phoneBusy} onClick={revealPhone}><Phone size={17} /> {phoneBusy ? "Загружаем телефон…" : "Показать телефон"}</button>}
@@ -158,19 +163,22 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
           </> : <p className="muted">Контакт недоступен для проданного автомобиля.</p>}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
+          <ComparisonAction listingId={listing.id} />
           <div className="seller-box">
             <span className={`seller-tag ${listing.seller.type === "private" ? "private" : ""}`}>
               {listing.seller.type === "company" ? <Building2 size={16} /> : <CircleUserRound size={16} />}
               {listing.seller.type === "company" ? "Компания" : "Частный продавец"}
             </span>
-            {listing.seller.type === "company" && listing.seller.slug ? <p><Link className="text-link" href={`/dealers/${encodeURIComponent(listing.seller.slug)}`}>{listing.seller.name} <ChevronRight size={15} /></Link></p> : <p><strong>{listing.seller.name}</strong></p>}
+            {listing.seller.type === "company" && listing.seller.slug ? <p><Link className="text-link" href={`/dealers/${encodeURIComponent(listing.seller.slug)}`} onClick={() => { void api.trackDealerClick(listing.id).catch(() => undefined); }}>{listing.seller.name} <ChevronRight size={15} /></Link></p> : <p><strong>{listing.seller.name}</strong></p>}
             <p className="muted">{location}</p>
           </div>
           <ReportForm listingId={listing.id} href={href} />
           {listing.status === "active" && <p className="privacy-note"><ShieldCheck size={15} /> Телефон открывается по запросу и не показывается в публичной выдаче.</p>}
         </aside>
       </div>
+      {listing.status === "active" && <ListingPriceHistory listingId={listing.id} />}
       {relatedListings.length > 0 && <section className="related-listings section" aria-labelledby="related-listings-heading"><div className="section-heading"><h2 id="related-listings-heading">Похожие объявления</h2></div><div className="listing-stack">{relatedListings.map((item) => <ListingCard key={item.id} listing={item} variant="row" />)}</div></section>}
+      <RecentlyViewedListings currentListingId={listing.id} userId={user?.id ?? null} shouldRecord={listing.status === "active"} />
     </div>
   );
 }

@@ -28,10 +28,13 @@ def _serialise(row: UserNotification) -> dict:
         "id": row.id,
         "saved_search_id": row.saved_search_id,
         "conversation_id": row.conversation_id,
+        "price_event_id": row.price_event_id,
         "listing_id": row.listing_id,
         "title": row.title,
         "body": row.body,
         "url": row.url,
+        "listings": list(row.listings or []),
+        "total_count": row.total_count,
         "read_at": row.read_at,
         "created_at": row.created_at,
     }
