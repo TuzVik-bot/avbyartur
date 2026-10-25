@@ -26,11 +26,7 @@ export default async function FavoritesPage() {
         <div className="listing-grid">
           {items.map((item) => <div className={styles.favoriteItem} key={item.id}>
             <ListingCard listing={item} saved />
-            <FavoritePriceDropToggle
-              listingId={item.id}
-              listingTitle={item.title}
-              initialEnabled={item.price_drop_notifications_enabled}
-            />
+            <FavoritePriceDropToggle listingId={item.id} listingTitle={item.title} initialEnabled={item.price_drop_notifications_enabled} />
           </div>)}
         </div>
       </> : <div className="empty-state"><h2>Здесь пока пусто</h2><p className="muted">Сохраняйте объявления, чтобы быстро вернуться к ним.</p><Link className="button button-secondary" href="/cars">Найти автомобиль</Link></div>}

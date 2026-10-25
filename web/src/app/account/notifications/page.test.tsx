@@ -23,7 +23,6 @@ describe("notifications page", () => {
         id: "notification-1",
         saved_search_id: "search-1",
         conversation_id: null,
-        price_event_id: null,
         listing_id: "listing-1",
         title: "Новое объявление",
         body: "BMW 320d подходит под ваш поиск.",

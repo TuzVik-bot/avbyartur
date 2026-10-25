@@ -1,0 +1,16 @@
+.reviews { display: grid; gap: 16px; }
+.rating { color: var(--muted); font-size: 14px; }
+.rating strong { color: var(--ink); font-size: 20px; }
+.reviewList { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.review { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.review p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.stars { color: #a86500; letter-spacing: .08em; }
+.review time { color: var(--muted); font-size: 12px; }
+.disclaimer { margin: 0; color: var(--muted); font-size: 13px; }
+.reviewForm, .reportForm { display: grid; gap: 12px; max-width: 680px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; }
+.reviewForm h3 { margin: 0; }
+.reviewForm label, .reportForm label { display: grid; gap: 6px; font-weight: 600; }
+.reviewForm select, .reviewForm textarea, .reportForm textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); padding: 10px 12px; }
+.reviewForm textarea, .reportForm textarea { min-height: 110px; resize: vertical; }
+.reportForm { padding: 12px 0 0; border: 0; }
+.reviews button:focus-visible, .reviews a:focus-visible, .reviews select:focus-visible, .reviews textarea:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 3px; }

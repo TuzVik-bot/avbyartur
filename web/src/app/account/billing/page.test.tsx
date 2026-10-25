@@ -24,6 +24,18 @@ describe("billing page", () => {
     expect(html).toContain("Продвижение для объявления");
   });
 
+  it("labels an owner-configured urgent tariff", async () => {
+    mocks.requireSession.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.billingTariffs.mockResolvedValue([{ id: "urgent-1", code: "urgent-1-day", service_code: "urgent", name: "Срочно на день", amount: "2.00", currency: "BYN", duration_days: 1, listing_quota: null, revision: 1 }]);
+    mocks.billingOrders.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 25 });
+
+    const html = renderToStaticMarkup(await BillingPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain("Отметить «Срочно»");
+    expect(html).toContain("2,00 BYN");
+    expect(html).toContain("Оформление закрыто");
+  });
+
   it("shows a retryable tariff failure and an empty order history", async () => {
     mocks.requireSession.mockResolvedValue({ user: { id: "user-1" } });
     mocks.billingTariffs.mockRejectedValue(new Error("offline"));

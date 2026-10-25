@@ -177,22 +177,16 @@ export function buildListingQuality(input: ListingQualityInput): ListingQuality 
   if (requiredCategoryDetails.length) {
     if (input.categoryDetailsEditable) {
       const missing = requiredCategoryDetails.filter((field) => !present(input.values[field]));
-      const missingLabels = missing.map(humanizeField);
       const firstMissing = missing[0];
       required.push({
-        id: "category-details",
-        kind: "required",
-        label: "Характеристики категории",
+        id: "category-details", kind: "required", label: "Характеристики категории",
         status: missing.length ? "missing" : "complete",
-        detail: missing.length ? `Не заполнено: ${missingLabels.join(", ")}.` : "Заполнено.",
+        detail: missing.length ? `Не заполнено: ${missing.map(humanizeField).join(", ")}.` : "Заполнено.",
         target: firstMissing ? input.targets[firstMissing] : undefined
       });
     } else {
       required.push({
-        id: "category-details",
-        kind: "required",
-        label: "Характеристики категории",
-        status: "not_checked",
+        id: "category-details", kind: "required", label: "Характеристики категории", status: "not_checked",
         detail: `По правилам подачи нужны: ${requiredCategoryDetails.map(humanizeField).join(", ")}. Эта форма не проверяет и не редактирует эти поля.`
       });
     }

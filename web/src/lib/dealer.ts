@@ -8,13 +8,13 @@ export type DealerTeamStatus = DealerTeamMember["status"];
 export type DealerTeamList = components["schemas"]["DealerTeamListOut"];
 export type DealerTeamPatch = components["schemas"]["DealerTeamPatch"];
 type GeneratedDealerFeed = components["schemas"]["DealerFeedOut"];
-export type DealerFeedCreate = components["schemas"]["DealerFeedCreate"];
-export type DealerFeedImportRun = components["schemas"]["DealerFeedImportRunOut"];
 export type DealerFeed = GeneratedDealerFeed & {
   latest_import: DealerFeedImportRun | null;
   last_successful_import_at: string | null;
   last_successful_import_age_seconds: number | null;
 };
+export type DealerFeedCreate = components["schemas"]["DealerFeedCreate"];
+export type DealerFeedImportRun = components["schemas"]["DealerFeedImportRunOut"];
 export type DealerFeedImportHistoryItem = { feed_name: string; run: DealerFeedImportRun };
 export type DealerFeedImportHistory = { items: DealerFeedImportHistoryItem[]; next_cursor: string | null };
 export type DealerFeedImportRow = components["schemas"]["DealerFeedImportRowOut"];

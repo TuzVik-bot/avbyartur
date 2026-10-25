@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   meListings: vi.fn(),
+  listingPromotionEligibility: vi.fn(),
   requireSession: vi.fn()
 }));
 
@@ -18,6 +19,33 @@ vi.mock("@/components/listing-status-actions", () => ({
 import AccountListingsPage from "./page";
 
 describe("account listing drafts", () => {
+  it("shows promotion CTA only when the protected listing-specific check permits it", async () => {
+    mocks.requireSession.mockResolvedValue({ user: { display_name: "Тест", email: "pilot@example.com" } });
+    mocks.meListings.mockResolvedValueOnce({ items: [{
+      id: "company-listing", slug: "company-listing", title: "Audi A3", status: "active", revision: 1,
+      make: null, model: null, generation: null, year: null, mileage_km: null, fuel: null, transmission: null,
+      drive: null, price: null, region: null, city: null,
+      seller: { type: "company", id: "company-1", name: "Тест" }, created_at: "2026-09-28T00:00:00Z",
+      damaged: false, parts_only: false
+    }] });
+    mocks.listingPromotionEligibility.mockResolvedValueOnce({ promotable: false });
+
+    const deniedHtml = renderToStaticMarkup(await AccountListingsPage({ searchParams: Promise.resolve({}) }));
+    expect(mocks.listingPromotionEligibility).toHaveBeenCalledWith("company-listing");
+    expect(deniedHtml).not.toContain("Услуги продвижения");
+
+    mocks.meListings.mockResolvedValueOnce({ items: [{
+      id: "company-listing", slug: "company-listing", title: "Audi A3", status: "active", revision: 1,
+      make: null, model: null, generation: null, year: null, mileage_km: null, fuel: null, transmission: null,
+      drive: null, price: null, region: null, city: null,
+      seller: { type: "company", id: "company-1", name: "Тест" }, created_at: "2026-09-28T00:00:00Z",
+      damaged: false, parts_only: false
+    }] });
+    mocks.listingPromotionEligibility.mockResolvedValueOnce({ promotable: true });
+    const allowedHtml = renderToStaticMarkup(await AccountListingsPage({ searchParams: Promise.resolve({}) }));
+    expect(allowedHtml).toContain("Услуги продвижения");
+  });
+
   it("offers a repeatable retry when the listing request fails and preserves the requested page", async () => {
     mocks.requireSession.mockResolvedValue({ user: { display_name: "Тест", email: "pilot@example.com" } });
     mocks.meListings.mockRejectedValueOnce(new Error("offline"));

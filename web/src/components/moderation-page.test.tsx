@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   moderationListings: vi.fn(),
   moderationCompanies: vi.fn(),
   moderationReports: vi.fn(),
+  moderationDealerReviewReports: vi.fn(),
+  moderationDealerReviews: vi.fn(),
   requireSession: vi.fn(),
   redirect: vi.fn((href: string): never => { throw new Error(`REDIRECT:${href}`); })
 }));
@@ -18,7 +20,9 @@ vi.mock("@/components/account-nav", () => ({ AccountNav: () => null }));
 vi.mock("@/components/moderation-actions", () => ({
   CompanyModerationActions: () => null,
   ListingModerationActions: () => <div data-testid="listing-moderation-actions" />,
-  ReportResolution: () => null
+  ReportResolution: () => null,
+  DealerReviewReportResolution: () => null,
+  DealerReviewModerationActions: () => null
 }));
 vi.mock("@/components/moderation-listing-preview", () => ({ ModerationListingPreview: () => null }));
 vi.mock("@/lib/server-api", () => ({ serverApi: mocks }));
@@ -36,6 +40,8 @@ beforeEach(() => {
   mocks.moderationListings.mockReset().mockResolvedValue({ items: [], pagination: { page: 1, page_size: 50, total: 120, pages: 3 } });
   mocks.moderationCompanies.mockReset().mockResolvedValue({ items: [] });
   mocks.moderationReports.mockReset().mockResolvedValue({ items: [] });
+  mocks.moderationDealerReviewReports.mockReset().mockResolvedValue({ items: [] });
+  mocks.moderationDealerReviews.mockReset().mockResolvedValue({ items: [] });
   mocks.requireSession.mockReset().mockResolvedValue({ user: { role: "moderator" } });
   mocks.redirect.mockClear();
 });
@@ -59,6 +65,38 @@ describe("moderation listing queues", () => {
     await render();
     expect(mocks.moderationListings).toHaveBeenLastCalledWith("pending_review", 1);
     expect(container.querySelector('a[href="/moderation?queue=listings"]')?.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("loads review complaints into their own queue without exposing reporter data", async () => {
+    mocks.moderationDealerReviewReports.mockResolvedValueOnce({ items: [{
+      id: "report-1", review_id: "review-1", company_name: "Dealer One", review_rating: 2,
+      review_text: "Текст опубликованного отзыва", reason: "Прошу проверить", status: "open",
+      created_at: "2026-10-15T10:00:00Z"
+    }] });
+
+    await render({ queue: "review-reports" });
+
+    expect(mocks.moderationDealerReviewReports).toHaveBeenCalledWith("open");
+    expect(mocks.moderationReports).not.toHaveBeenCalled();
+    expect(container.querySelector('a[href="/moderation?queue=review-reports"]')?.getAttribute("aria-current")).toBe("page");
+    expect(container.textContent).toContain("Dealer One");
+    expect(container.textContent).toContain("Прошу проверить");
+    expect(container.textContent).not.toContain("reporter_id");
+  });
+
+  it("loads pending dealer reviews into a dedicated queue", async () => {
+    mocks.moderationDealerReviews.mockResolvedValueOnce({ items: [{
+      id: "review-1", rating: 2, text: "Необоснованный отзыв", created_at: "2026-10-15T10:00:00Z",
+      status: "pending", revision: 3, moderation_reason: null, company_id: "company-1", author_id: "author-1"
+    }] });
+
+    await render({ queue: "dealer-reviews" });
+
+    expect(mocks.moderationDealerReviews).toHaveBeenCalledWith("pending");
+    expect(container.querySelector('a[href="/moderation?queue=dealer-reviews"]')?.getAttribute("aria-current")).toBe("page");
+    expect(container.textContent).toContain("company-1");
+    expect(container.textContent).toContain("Необоснованный отзыв");
+    expect(container.querySelectorAll(".moderation-item")).toHaveLength(1);
   });
 
   it("passes the selected page and keeps the queue in pagination links", async () => {

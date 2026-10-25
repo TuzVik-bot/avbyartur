@@ -126,6 +126,9 @@ export default async function CarsBySlugPage({ params }: { params: Promise<{ slu
     let relatedListings: import("@/lib/types").ListingSummary[] = [];
     try { relatedListings = (await serverApi.relatedListings(listing.id)).items; }
     catch { /* A related-listing outage does not block the primary detail page. */ }
+    let sellerListings: (import("@/lib/types").ListingSummary & { status: "active" })[] = [];
+    try { sellerListings = (await serverApi.sellerListings(listing.id)).items; }
+    catch { /* Seller recommendations are optional and must not block the primary detail page. */ }
     const vehicleJsonLd = buildVehicleJsonLd(listing);
     const breadcrumbJsonLd = buildBreadcrumbJsonLd([
       { name: "Главная", path: "/" },
@@ -140,7 +143,7 @@ export default async function CarsBySlugPage({ params }: { params: Promise<{ slu
       <Fragment key={listing.id}>
         {vehicleJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(vehicleJsonLd) }} />}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }} />
-        <ListingDetail listing={listing} initialSaved={initialSaved} relatedListings={relatedListings} />
+        <ListingDetail listing={listing} initialSaved={initialSaved} relatedListings={relatedListings} sellerListings={sellerListings} />
       </Fragment>
     );
   }

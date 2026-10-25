@@ -1,6 +1,6 @@
 import { apiRequest } from "@/lib/api";
 
-export type TariffServiceCode = "bump" | "highlight" | "top" | "dealer_package";
+export type TariffServiceCode = "bump" | "highlight" | "top" | "urgent" | "dealer_package";
 export type TariffCurrency = "BYN" | "USD";
 export type TariffStatus = "active" | "disabled";
 

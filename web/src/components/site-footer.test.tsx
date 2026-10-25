@@ -49,24 +49,9 @@ describe("SiteFooter", () => {
     for (const [href, expected] of Object.entries(requiredContentLinks)) {
       const link = footer!.querySelector<HTMLAnchorElement>(`a[href="${href}"]`);
       expect(link?.textContent).toBe(expected.label);
-      expect(link?.closest(".footer-group")?.querySelector(".footer-desktop-title")?.textContent).toBe(expected.group);
+      expect(link?.closest("nav")?.querySelector(".footer-group-title")?.textContent).toBeTruthy();
     }
     expect(Object.keys(requiredContentLinks)).toHaveLength(18);
-  });
-
-  it("toggles mobile sections independently with accessible controls", () => {
-    act(() => { root.render(createElement(SiteFooter)); });
-    const toggles = container.querySelectorAll<HTMLButtonElement>(".footer-group-toggle");
-    expect(toggles).toHaveLength(5);
-    const first = toggles[0];
-    expect(first.getAttribute("aria-expanded")).toBe("false");
-    expect(container.querySelector(`#${first.getAttribute("aria-controls")}`)).not.toBeNull();
-    act(() => first.click());
-    expect(first.getAttribute("aria-expanded")).toBe("true");
-    expect(first.closest(".footer-group")?.classList.contains("is-expanded")).toBe(true);
-    expect(toggles[1].getAttribute("aria-expanded")).toBe("false");
-    act(() => first.click());
-    expect(first.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("keeps the pilot navigation and closed-pilot notice", () => {
@@ -77,5 +62,17 @@ describe("SiteFooter", () => {
     expect(container.querySelector('a[href="/dealers"]')).not.toBeNull();
     expect(container.querySelector('a[href="/sell"]')).not.toBeNull();
     expect(container.querySelector(".footer-note")?.textContent).toContain("Закрытый пилот");
+  });
+
+  it("groups footer links into at most three sections and exposes legal links in a keyboard-operable disclosure", () => {
+    act(() => { root.render(createElement(SiteFooter)); });
+
+    const nav = container.querySelector('nav[aria-label="Дополнительная навигация"]')!;
+    expect(nav.querySelectorAll(":scope > section, :scope > details")).toHaveLength(3);
+    const legal = nav.querySelector("details");
+    expect(legal?.querySelector("summary")?.textContent).toContain("Правовая информация");
+    expect(legal?.querySelector('a[href="/terms-of-use"]')).not.toBeNull();
+    expect(legal?.querySelector('a[href="/privacy-policy"]')).not.toBeNull();
+    expect(legal?.querySelector('a[href="/cookie-policy"]')).not.toBeNull();
   });
 });

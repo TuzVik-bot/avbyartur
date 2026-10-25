@@ -21,8 +21,10 @@ export function readSearchParams(input: URLSearchParams | Record<string, string 
   const result: ListingSearch = {};
   for (const key of allowedSearchKeys) {
     const value = input instanceof URLSearchParams ? key === "equipment" ? input.getAll(key) : input.get(key) : input[key];
-    if (key === "equipment" && Array.isArray(value)) {
-      const values = value.filter((item): item is string => typeof item === "string" && item.trim() !== "").map((item) => item.trim());
+    if (key === "equipment") {
+      const values = (Array.isArray(value) ? value : [value])
+        .filter((item): item is string => typeof item === "string" && item.trim() !== "")
+        .map((item) => item.trim());
       if (values.length) result.equipment = values;
       continue;
     }
@@ -34,7 +36,6 @@ export function readSearchParams(input: URLSearchParams | Record<string, string 
       result[key] = trimmed as never;
     }
   }
-  if ((result.price_min || result.price_max) && !result.currency) result.currency = "BYN";
   return result;
 }
 
@@ -80,51 +81,20 @@ const relaxationPriority: (typeof activeSearchKeys)[number][] = [
   "exchange", "bargaining", "credit", "leasing", "has_vin", "has_photos", "q"
 ];
 
-type SearchRelaxationOption = { key: (typeof activeSearchKeys)[number] | "budget"; href: string; label?: string };
-
-function expandedPrice(value: string | undefined, factor: number, direction: "down" | "up") {
-  if (value === undefined) return undefined;
-  if (!/^\d+(?:\.\d+)?$/.test(value)) return null;
-  const amount = Number(value);
-  if (!Number.isFinite(amount) || amount <= 0 || amount > Number.MAX_SAFE_INTEGER) return null;
-  const cents = amount * factor * 100;
-  const expanded = (direction === "down" ? Math.floor(cents + 1e-8) : Math.ceil(cents - 1e-8)) / 100;
-  return Number.isFinite(expanded) && expanded > 0 ? String(Number(expanded.toFixed(2))) : null;
-}
-
-export function searchRelaxationOptions(search: ListingSearch, limit = 4, priceOperationsAvailable = false): SearchRelaxationOption[] {
+export function searchRelaxationOptions(search: ListingSearch, limit = 4) {
   const selected = new Set(activeSearchKeys.filter((key) => {
     const value = search[key];
     return Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null && value !== "";
   }));
   const boundedLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 4;
 
-  const options: SearchRelaxationOption[] = [...new Set([...relaxationPriority, ...activeSearchKeys])]
+  return [...new Set([...relaxationPriority, ...activeSearchKeys])]
     .filter((key) => selected.has(key))
     .slice(0, boundedLimit)
     .map((key) => ({
       key,
       href: searchUrl(search, { [key]: undefined } as Partial<ListingSearch>)
     }));
-
-  if (priceOperationsAvailable && search.currency && ["BYN", "USD"].includes(search.currency) && (search.price_min || search.price_max)) {
-    const priceMin = expandedPrice(search.price_min, 0.85, "down");
-    const priceMax = expandedPrice(search.price_max, 1.15, "up");
-    if (priceMin !== null && priceMax !== null && (priceMin === undefined || priceMax === undefined || Number(priceMin) <= Number(priceMax))) {
-      options.push({
-        key: "budget",
-        href: searchUrl(search, { price_min: priceMin, price_max: priceMax }),
-        label: "Расширить бюджет на 15%"
-      });
-    }
-  }
-
-  const unique = new Set<string>();
-  return options.filter((option) => {
-    if (unique.has(option.href)) return false;
-    unique.add(option.href);
-    return true;
-  });
 }
 
 export function clearSearchFilters(search: ListingSearch) {

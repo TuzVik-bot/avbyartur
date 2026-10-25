@@ -80,14 +80,16 @@ function normalizeUrl(value: string) {
   catch { throw new Error("Ссылка на поиск выглядит некорректно."); }
   if (parsed.origin !== (typeof window === "undefined" ? "http://localhost" : window.location.origin)) throw new Error("Сохранить можно только поиск на этом сайте.");
   if (!parsed.pathname.startsWith("/cars")) throw new Error("Ссылка должна вести в раздел поиска автомобилей.");
-  return `${parsed.pathname}${parsed.search}` || "/cars";
+  for (const key of ["page", "page_size", "sort"]) parsed.searchParams.delete(key);
+  const query = parsed.searchParams.toString();
+  return `${parsed.pathname}${query ? `?${query}` : ""}` || "/cars";
 }
 
 function filtersFromUrl(value: string) {
   const parsed = new URL(value, "http://localhost");
   const filters: Record<string, string | string[]> = {};
   for (const key of [...new Set([...parsed.searchParams.keys()])].sort()) {
-    if (key === "page" || key === "page_size") continue;
+    if (key === "page" || key === "page_size" || key === "sort") continue;
     const values = parsed.searchParams.getAll(key).filter(Boolean);
     if (!values.length) continue;
     filters[key] = key === "equipment" ? [...new Set(values)].sort() : values[0];

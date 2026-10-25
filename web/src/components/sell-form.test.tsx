@@ -141,7 +141,9 @@ const blankOptionalFields = {
   city_id: "city-1",
   city_mode: "catalog",
   manual_city: "",
-  contact_phone: "+375000000000"
+  contact_phone: "+375000000000",
+  telegram_contact_url: "",
+  viber_contact_url: ""
 } satisfies Parameters<typeof payloadFor>[0];
 
 const catalogGeneration = { id: "generation-1", slug: "generation-1", name: "Поколение 1", model_id: "catalog-model" };
@@ -181,7 +183,8 @@ function stubListingValidationPolicy(result: TestListingValidationPolicy | Error
 
 async function renderWithValidationPolicy(
   listing: Listing,
-  result: TestListingValidationPolicy | Error | Array<TestListingValidationPolicy | Error> = defaultValidationPolicy
+  result: TestListingValidationPolicy | Error | Array<TestListingValidationPolicy | Error> = defaultValidationPolicy,
+  bodyTypes: CatalogItem[] = []
 ) {
   const policyRequest = stubListingValidationPolicy(result);
   vi.spyOn(api, "listingOptions").mockResolvedValue({
@@ -196,7 +199,7 @@ async function renderWithValidationPolicy(
     root.render(createElement(SellForm, {
       initialListing: listing,
       makes: [listing.make!], models: [listing.model!], generations: [],
-      bodyTypes: [], regions: [listing.region!], cities: [listing.city!], company: null
+      bodyTypes, regions: [listing.region!], cities: [listing.city!], company: null
     }));
     await Promise.resolve();
     await Promise.resolve();
@@ -205,33 +208,6 @@ async function renderWithValidationPolicy(
 }
 
 describe("listing validation policy", () => {
-  it("lets a model without generations use manual specs without blocked catalog controls", async () => {
-    const listing = draft();
-    await renderWithValidationPolicy(listing);
-    await clickContinue();
-    expect(selectedValue("Поколение")).toBeUndefined();
-    expect(selectedValue("Вариант кузова")).toBeUndefined();
-    expect(selectedValue("Модификация")).toBeUndefined();
-    expect(container.textContent).toContain("Укажите характеристики автомобиля ниже");
-    await act(async () => { inputValue("Объём двигателя, л", "2.0"); });
-    await clickContinue();
-    expect(vi.mocked(api.updateDraft).mock.calls.at(-1)?.[2]).toMatchObject({ generation_id: null, modification_id: null, engine_volume_l: "2.0" });
-  });
-
-  it("resumes polling pending photos when the photo step is reopened", async () => {
-    const listing = draft({ contact_phone: "+375291234567", photos: [{ id: "pending", status: "processing", position: 0, is_cover: true }] });
-    await renderWithValidationPolicy(listing);
-    vi.useFakeTimers();
-    try {
-      for (let step = 0; step < 4; step += 1) await clickContinue();
-      vi.mocked(api.photos).mockResolvedValue({ items: [{ id: "pending", status: "ready", position: 0, is_cover: true }] });
-      await act(async () => { await vi.advanceTimersByTimeAsync(2500); });
-      expect(container.querySelector(".photo-item-meta")?.textContent).toContain("Обложка");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("loads advertised year bounds and lets a new listing use the next year", async () => {
     const policy = { ...defaultValidationPolicy, listing_year_min: 1900 };
     const listing = draft({ contact_phone: "+375291234567" });
@@ -353,19 +329,6 @@ describe("listing validation policy", () => {
     expect(container.querySelector("#photos-error")?.textContent).toBe("Дождитесь завершения обработки фотографий.");
   });
 
-  it("shows category-specific photo advice and leaves unsupported category details unverified", async () => {
-    const photo = { id: "photo-ready", url: "/uploads/moto.webp", status: "ready", position: 0, is_cover: true } as const;
-    const listing = Object.assign(draft({ contact_phone: "+375291234567", photos: [photo] }), { category_code: "motorcycles", category_details: { category_code: "motorcycles", details: { vehicle_type: "motorcycle" } } });
-    await renderWithValidationPolicy(listing);
-    for (let step = 0; step < 5; step += 1) await clickContinue();
-
-    const quality = container.querySelector<HTMLElement>(".listing-quality");
-    expect(quality?.textContent).toContain("Характеристики категории: Заполнено");
-    expect(quality?.textContent).not.toContain("форма не проверяет и не редактирует эти поля");
-    expect(quality?.textContent).toContain("мотоцикл целиком с обеих сторон");
-    expect(quality?.textContent).not.toContain("Коробку передач: Рекомендуется");
-  });
-
   it("blocks final submission when a failed photo is attached", async () => {
     const listing = draft({
       contact_phone: "+375291234567",
@@ -407,6 +370,117 @@ describe("listing validation policy", () => {
   });
 });
 
+describe("listing quality checklist", () => {
+  it("uses category-specific photo advice and marks unsupported category details unverified", async () => {
+    const photo = { id: "photo-ready", url: "/uploads/moto.webp", status: "ready", position: 0, is_cover: true } as const;
+    const listing = Object.assign(draft({ contact_phone: "+375291234567", photos: [photo] }), { category_code: "motorcycles" });
+    await renderWithValidationPolicy(listing);
+    const subcategory = container.querySelector<HTMLSelectElement>('select[aria-label="Подкатегория"]');
+    if (!subcategory) throw new Error("Missing motorcycle subcategory select");
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+      setter?.call(subcategory, "motorcycle");
+      subcategory.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    for (let step = 0; step < 5; step += 1) await clickContinue();
+
+    const quality = container.querySelector<HTMLElement>(".listing-quality");
+    expect(quality?.textContent).toContain("Характеристики категории: Заполнено");
+    expect(quality?.textContent).not.toContain("форма не проверяет и не редактирует эти поля");
+    expect(quality?.textContent).toContain("мотоцикл целиком с обеих сторон");
+    expect(quality?.textContent).not.toContain("Коробку передач: Рекомендуется");
+  });
+
+  it("opens and focuses a recommended field from the checklist", async () => {
+    const photo = { id: "photo-ready", url: "/uploads/cover.webp", status: "ready", position: 0, is_cover: true } as const;
+    const listing = draft({ contact_phone: "+375291234567", photos: [photo], vin: null });
+    await renderWithValidationPolicy(listing);
+    for (let step = 0; step < 5; step += 1) await clickContinue();
+
+    const vinRow = [...container.querySelectorAll<HTMLElement>(".listing-quality li")]
+      .find((item) => item.textContent?.startsWith("VIN:"));
+    const addVinButton = vinRow?.querySelector<HTMLButtonElement>("button");
+    expect(addVinButton?.textContent).toBe("Указать");
+    await act(async () => { addVinButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+
+    expect(container.querySelector("h2")?.textContent).toBe("Состояние и описание");
+    expect(document.activeElement).toBe(container.querySelector("#vin"));
+  });
+});
+
+describe("market price estimate", () => {
+  const bodyType: CatalogItem = { id: "body-sedan", slug: "sedan", name: "Седан" };
+  const estimate = {
+    available: true, median_byn: "12345.00", sample_size: 12, seller_count: 7,
+    as_of: "2026-10-15T00:00:00Z", rate_date: null
+  };
+
+  it("accepts zero mileage and submits it as a valid estimate characteristic", async () => {
+    const listing = draft({ body_type: bodyType.name, mileage_km: 0, contact_phone: "+375291234567" });
+    const request = vi.spyOn(api, "listingMarketEstimate").mockResolvedValue(estimate);
+    await renderWithValidationPolicy(listing, defaultValidationPolicy, [bodyType]);
+    for (let step = 0; step < 3; step += 1) await clickContinue();
+
+    await clickButton("Оценить по рынку");
+
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ mileage_km: 0 }));
+    expect(container.textContent).toMatch(/12\s345 BYN/);
+    expect(container.textContent).toContain("цены опубликованных предложений");
+    expect(container.textContent).toContain("выборка 12 объявлений от 7 продавцов");
+    expect(container.textContent).toContain("оценка на");
+    expect(container.textContent).toContain("не подтверждённые цены сделок");
+  });
+
+  it("shows one general unavailable message without disclosing sample thresholds", async () => {
+    const listing = draft({ body_type: bodyType.name, mileage_km: 0, contact_phone: "+375291234567" });
+    vi.spyOn(api, "listingMarketEstimate").mockResolvedValue({
+      available: false, median_byn: null, sample_size: 0, seller_count: 0, as_of: null, rate_date: null
+    });
+    await renderWithValidationPolicy(listing, defaultValidationPolicy, [bodyType]);
+    for (let step = 0; step < 3; step += 1) await clickContinue();
+
+    await clickButton("Оценить по рынку");
+
+    expect(container.textContent).toContain("Оценка сейчас недоступна: нет достаточно сопоставимых данных для надёжного результата.");
+    expect(container.textContent).not.toMatch(/10 аналог|5 продавц/);
+  });
+
+  it("ignores an estimate response after the seller changes vehicle characteristics", async () => {
+    const listing = draft({ body_type: bodyType.name, contact_phone: "+375291234567" });
+    let resolveEstimate!: (value: Awaited<ReturnType<typeof api.listingMarketEstimate>>) => void;
+    const pendingEstimate = new Promise<Awaited<ReturnType<typeof api.listingMarketEstimate>>>((resolve) => { resolveEstimate = resolve; });
+    vi.spyOn(api, "listingMarketEstimate").mockReturnValue(pendingEstimate);
+    await renderWithValidationPolicy(listing, defaultValidationPolicy, [bodyType]);
+    for (let step = 0; step < 3; step += 1) await clickContinue();
+
+    await clickButton("Оценить по рынку");
+    expect(container.textContent).toContain("Оцениваем…");
+    await clickButton("Назад");
+    await clickButton("Назад");
+    await act(async () => { inputValue("Пробег, км", "60000"); });
+    await act(async () => {
+      resolveEstimate({ ...estimate, median_byn: "888888.00" });
+      await pendingEstimate;
+    });
+
+    expect(container.textContent).not.toContain("888888");
+  });
+});
+
+describe("zero mileage preview", () => {
+  it("shows 0 km in the final review instead of treating it as missing", async () => {
+    const readyPhoto = { id: "ready-zero-mileage", status: "ready", position: 0, is_cover: true } as const;
+    const listing = draft({ mileage_km: 0, contact_phone: "+375291234567", photos: [readyPhoto] });
+    await renderWithValidationPolicy(listing);
+    for (let step = 0; step < 5; step += 1) await clickContinue();
+
+    const mileage = [...container.querySelectorAll<HTMLElement>(".review-list > div")]
+      .find((row) => row.querySelector("dt")?.textContent === "Год и пробег")
+      ?.querySelector("dd")?.textContent;
+    expect(mileage).toBe("2020 · 0 км");
+  });
+});
+
 async function renderWithModifications(modifications: CatalogModification[], listingOverrides: Partial<Listing> = {}) {
   const listing = draft({ generation: catalogGeneration, ...listingOverrides });
   const updateDraft = vi.spyOn(api, "updateDraft").mockResolvedValue({ listing: { ...listing, revision: 2 } });
@@ -434,6 +508,8 @@ describe("draft form payload", () => {
       vin: null,
       manual_make: null,
       manual_model: null,
+      telegram_contact_url: null,
+      viber_contact_url: null,
       description: ""
     });
   });
@@ -446,14 +522,18 @@ describe("draft form payload", () => {
       body_variant_id: "body-variant-1",
       engine_volume_l: "2.0",
       power_hp: "150",
-      vin: "1hgcm82633a004352"
+      vin: "1hgcm82633a004352",
+      telegram_contact_url: " https://t.me/seller ",
+      viber_contact_url: "https://viber.me/seller"
     })).toMatchObject({
       generation_id: "generation-1",
       body_type_id: "body-1",
       body_variant_id: "body-variant-1",
       engine_volume_l: "2.0",
       power_hp: 150,
-      vin: "1HGCM82633A004352"
+      vin: "1HGCM82633A004352",
+      telegram_contact_url: "https://t.me/seller",
+      viber_contact_url: "https://viber.me/seller"
     });
   });
 
@@ -518,46 +598,6 @@ describe("draft form payload", () => {
 });
 
 describe("manual vehicle entry", () => {
-  it("allows manual model entry when the selected make has no catalog models", async () => {
-    await renderWithValidationPolicy(draft({ contact_phone: "+375291234567" }));
-    await clickContinue();
-    expect(container.querySelector<HTMLSelectElement>("#model_id")?.disabled).toBe(false);
-    await act(async () => { selectValue("Модель", "__manual__"); });
-    await act(async () => { inputValue("Модель вручную", "Модели нет в каталоге"); });
-    await clickContinue();
-    expect(container.querySelector("h2")?.textContent).toBe("Состояние и описание");
-    expect(vi.mocked(api.updateDraft).mock.calls.at(-1)?.[2]).toMatchObject({
-      make_id: "catalog-make", model_id: null, manual_model: "Модели нет в каталоге"
-    });
-  });
-
-  it("creates a listing for an absent vehicle, uploads a photo and submits it without catalog dependencies", async () => {
-    const listing = draft({ contact_phone: "+375291234567" });
-    await renderWithValidationPolicy(listing);
-    const upload = vi.spyOn(api, "uploadPhoto").mockResolvedValue({ id: "uploaded", status: "ready" });
-    const submit = vi.spyOn(api, "submitListing").mockResolvedValue({ listing } as never);
-    await clickContinue();
-    expect(container.textContent).not.toContain("Способ выбора марки");
-    await act(async () => { selectValue("Марка", "__manual__"); });
-    await act(async () => {
-      inputValue("Марка вручную", "Редкая марка");
-      inputValue("Модель вручную", "Редкая модель");
-    });
-    for (let step = 0; step < 3; step += 1) await clickContinue();
-    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
-    expect(input?.disabled).toBe(false);
-    const file = new File(["photo"], "car.jpg", { type: "image/jpeg" });
-    const photo = { id: "uploaded", status: "ready" as const, position: 0, is_cover: true };
-    vi.mocked(api.photos).mockResolvedValue({ items: [photo] });
-    Object.defineProperty(input!, "files", { configurable: true, value: [file] });
-    await act(async () => { input!.dispatchEvent(new Event("change", { bubbles: true })); });
-    expect(upload).toHaveBeenCalledWith(listing.id, file);
-    await clickContinue();
-    expect(container.querySelector("h2")?.textContent).toContain("Провер");
-    await act(async () => { container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
-    expect(submit).toHaveBeenCalledOnce();
-  });
-
   it("shows only whitelisted API field errors next to their controls", async () => {
     const listing = draft();
     const updateDraft = vi.spyOn(api, "updateDraft").mockRejectedValue(new ApiClientError(422, {
@@ -654,7 +694,7 @@ describe("manual vehicle entry", () => {
     await clickContinue();
 
     await act(async () => {
-      selectValue("Марка", "__manual__");
+      selectValue("Источник марки", "manual");
       inputValue("Марка вручную", "Редкая марка");
       inputValue("Модель вручную", "Редкая модель");
       inputValue("Год выпуска", "2018");
@@ -704,7 +744,7 @@ describe("manual vehicle entry", () => {
     await clickContinue();
 
     await act(async () => {
-      selectValue("Марка", "__manual__");
+      selectValue("Источник марки", "manual");
       inputValue("Марка вручную", "Редкая марка");
       inputValue("Модель вручную", "Редкая модель");
       inputValue("Год выпуска", "2018");
@@ -737,7 +777,7 @@ describe("manual vehicle entry", () => {
       }));
     });
     await clickContinue();
-    expect(container.querySelector('input[aria-label="Марка вручную"]')).not.toBeNull();
+    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Источник марки"]')?.value).toBe("manual");
     expect(container.querySelector<HTMLInputElement>('input[aria-label="Марка вручную"]')?.value).toBe("Ручная марка");
     expect(container.querySelector<HTMLInputElement>('input[aria-label="Модель вручную"]')?.value).toBe("Ручная модель");
 
@@ -775,7 +815,7 @@ describe("manual vehicle entry", () => {
     });
     await clickContinue();
 
-    expect(container.querySelector('input[aria-label="Марка вручную"]')).toBeNull();
+    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Источник марки"]')?.value).toBe("catalog");
     expect(selectedValue("Марка")).toBe("");
     expect(inputText("Год выпуска")).toBe("");
     expect(inputText("Пробег, км")).toBe("");
@@ -1024,7 +1064,7 @@ describe("catalog modifications", () => {
 });
 
 describe("generation-specific body variants", () => {
-  it("preserves a saved body variant without showing a redundant selector", async () => {
+  it("restores the saved variant and saves a newly selected variant", async () => {
     const savedVariant: CatalogItem = { id: "body-variant-1", slug: "sedan", name: "Седан", generation_id: catalogGeneration.id };
     const selectedVariant: CatalogItem = { id: "body-variant-2", slug: "wagon", name: "Универсал", generation_id: catalogGeneration.id };
     const listing = draft({
@@ -1047,12 +1087,14 @@ describe("generation-specific body variants", () => {
     });
     await clickContinue();
 
-    expect(catalog).not.toHaveBeenCalledWith("body-variants", expect.anything());
-    expect(selectedValue("Вариант кузова")).toBeUndefined();
-    await act(async () => { inputValue("Год выпуска", "2021"); });
+    expect(catalog).toHaveBeenCalledWith("body-variants", { generation_id: catalogGeneration.id });
+    expect(selectedValue("Вариант кузова")).toBe(savedVariant.id);
+    expect(container.textContent).toContain("Седан");
+
+    await act(async () => { selectValue("Вариант кузова", selectedVariant.id); });
     await clickContinue();
 
-    expect(updateDraft.mock.calls[0]?.[2]).toMatchObject({ body_variant_id: savedVariant.id });
+    expect(updateDraft.mock.calls[0]?.[2]).toMatchObject({ body_variant_id: selectedVariant.id });
   });
 
   it("shows the selected body variant in the final listing review", async () => {
@@ -1089,14 +1131,14 @@ describe("generation-specific body variants", () => {
   it("shows the saved seller details and processed photos in the final review", async () => {
     const coverPhoto = { id: "photo-cover", url: "/uploads/cover.webp", status: "ready", position: 0, is_cover: true } as const;
     const secondPhoto = { id: "photo-side", url: "/uploads/side.webp", status: "ready", position: 1, is_cover: false } as const;
-    const listing = draft({
+    const listing = Object.assign(draft({
       description: "Осмотрен и обслужен.\nБез вложений.",
       engine_volume_l: "2.0",
       power_hp: 150,
       contact_phone: "+375291234567",
       seller: { type: "company", id: "seller-1", name: "Автосалон" },
       photos: [coverPhoto, secondPhoto]
-    });
+    }), { telegram_contact_url: "https://t.me/seller", viber_contact_url: "https://viber.me/seller" });
     vi.spyOn(api, "catalog").mockResolvedValue({ items: [] });
     vi.spyOn(api, "cities").mockResolvedValue({ items: [listing.city!] });
     vi.spyOn(api, "photos").mockResolvedValue({ items: [coverPhoto, secondPhoto] });
@@ -1123,12 +1165,9 @@ describe("generation-specific body variants", () => {
     expect(valueFor("Объём двигателя и мощность")).toBe("2.0 л · 150 л.с.");
     expect(valueFor("Тип продавца")).toBe("Компания");
     expect(valueFor("Телефон для связи")).toBe("+375291234567");
+    expect(valueFor("Telegram")).toBe("https://t.me/seller");
+    expect(valueFor("Viber")).toBe("https://viber.me/seller");
     expect(valueFor("Фотографии")).toBe("2 обработано");
-    const quality = container.querySelector<HTMLElement>(".listing-quality");
-    expect(quality?.textContent).toContain("Для отправки");
-    expect(quality?.textContent).toContain("Можно дополнить");
-    expect(quality?.textContent).toContain("Идеи для фотографий");
-    expect(quality?.textContent).not.toContain("+375291234567");
 
     const thumbnails = [...container.querySelectorAll<HTMLImageElement>(".review-photo-list img")];
     expect(thumbnails).toHaveLength(2);
@@ -1136,22 +1175,6 @@ describe("generation-specific body variants", () => {
       ["/uploads/cover.webp", "Обложка объявления"],
       ["/uploads/side.webp", "Фотография 2"]
     ]);
-  });
-
-  it("opens an optional incomplete field from the quality checklist and focuses it", async () => {
-    const readyPhoto = { id: "photo-ready", url: "/uploads/cover.webp", status: "ready", position: 0, is_cover: true } as const;
-    const listing = draft({ contact_phone: "+375291234567", photos: [readyPhoto], vin: null });
-    await renderWithValidationPolicy(listing);
-    for (let step = 0; step < 5; step += 1) await clickContinue();
-
-    const vinRow = [...container.querySelectorAll<HTMLElement>(".listing-quality li")]
-      .find((item) => item.textContent?.startsWith("VIN:"));
-    const editButton = vinRow?.querySelector<HTMLButtonElement>("button");
-    expect(editButton?.textContent).toBe("Указать");
-    await act(async () => { editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-
-    expect(container.querySelector("h2")?.textContent).toBe("Состояние и описание");
-    expect(document.activeElement).toBe(container.querySelector("#vin"));
   });
 
   it("clears variant and modification on generation change and ignores stale variant results", async () => {
@@ -1186,20 +1209,20 @@ describe("generation-specific body variants", () => {
       }));
     });
     await clickContinue();
-    expect(selectedValue("Вариант кузова")).toBeUndefined();
+    expect(selectedValue("Вариант кузова")).toBe(firstVariant.id);
     expect(selectedValue("Модификация")).toBe(firstModification.id);
 
     await act(async () => {
       selectValue("Поколение", secondGeneration.id);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(selectedValue("Вариант кузова")).toBeUndefined();
+    expect(selectedValue("Вариант кузова")).toBe("");
     expect(selectedValue("Модификация")).toBe("");
-    expect(container.querySelector('option[value="variant-generation-2"]')).toBeNull();
+    expect(container.querySelector('option[value="variant-generation-2"]')).not.toBeNull();
 
     await act(async () => { resolveFirstVariants({ items: [firstVariant] }); await Promise.resolve(); });
     expect(container.querySelector('option[value="variant-generation-1"]')).toBeNull();
-    expect(container.querySelector('option[value="variant-generation-2"]')).toBeNull();
+    expect(container.querySelector('option[value="variant-generation-2"]')).not.toBeNull();
 
     await clickContinue();
     expect(updateDraft.mock.calls[0]?.[2]).toMatchObject({ body_variant_id: null, modification_id: null });

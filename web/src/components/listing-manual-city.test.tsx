@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ListingCard } from "@/components/listing-card";
 import { ListingDetail } from "@/components/listing-detail";
 import { ModerationListingPreview } from "@/components/moderation-listing-preview";
+import { CompareProvider } from "@/components/compare-provider";
 import type { Listing } from "@/lib/types";
 
 vi.mock("next/image", () => ({ default: ({ unoptimized: _unoptimized, priority: _priority, ...props }: React.ComponentProps<"img"> & { unoptimized?: boolean; priority?: boolean }) => <img {...props} /> }));
@@ -56,11 +57,11 @@ const manualCityListing = {
 
 describe("manual city display", () => {
   it("shows manual_city when the catalog city is absent", async () => {
-    await act(async () => root.render(createElement("div", null,
+    await act(async () => root.render(createElement(CompareProvider, null, createElement("div", null,
       createElement(ListingCard, { listing: manualCityListing }),
       createElement(ListingDetail, { listing: manualCityListing }),
       createElement(ModerationListingPreview, { listing: manualCityListing })
-    )));
+    ))));
 
     expect(container.querySelector(".listing-card .card-footer")?.textContent).toContain("Заславль");
     expect(container.querySelector(".location-line")?.textContent).toContain("Заславль, Минская область");

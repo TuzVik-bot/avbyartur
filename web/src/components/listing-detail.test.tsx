@@ -2,11 +2,13 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ListingDetail } from "@/components/listing-detail";
+import { ContactClickConsentProvider } from "@/components/contact-click-consent";
 import { api, ApiClientError } from "@/lib/api";
-import { clearComparisonIds } from "@/lib/comparison-state";
-import type { Listing } from "@/lib/types";
+import * as analytics from "@/lib/analytics";
+import type { Listing, User } from "@/lib/types";
 
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
+const authMocks = vi.hoisted(() => ({ user: null as User | null }));
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>
@@ -15,7 +17,9 @@ vi.mock("next/image", () => ({
   default: ({ unoptimized: _unoptimized, priority: _priority, ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { unoptimized?: boolean; priority?: boolean }) => <img {...props} />
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
-vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: null }) }));
+vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: authMocks.user }) }));
+vi.mock("@/components/compare-button", () => ({ CompareButton: ({ listingId }: { listingId: string }) => <button data-compare-listing={listingId}>Сравнить</button> }));
+vi.mock("@/components/share-button", () => ({ ShareButton: ({ title }: { href: string; title: string }) => <button>Поделиться {title}</button> }));
 
 let container: HTMLDivElement;
 let root: Root;
@@ -23,10 +27,10 @@ let historyLoader: Mock<typeof api.listingPriceHistory>;
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  localStorage.clear();
-  clearComparisonIds();
+  authMocks.user = null;
   vi.spyOn(api, "guestContactEnabled").mockResolvedValue({ guest_contact_reveal_enabled: false });
   historyLoader = vi.spyOn(api, "listingPriceHistory").mockResolvedValue({ items: [] });
+  vi.spyOn(api, "recentListings").mockResolvedValue({ items: [] });
   container = document.createElement("div");
   document.body.append(container);
   act(() => { root = createRoot(container); });
@@ -35,8 +39,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
-  clearComparisonIds();
   vi.restoreAllMocks();
+  localStorage.clear();
 });
 
 const listing: Listing = {
@@ -66,36 +70,38 @@ const listing: Listing = {
 };
 
 describe("contact reveal", () => {
-  it("shows modification and seller-provided VIN context beside the price without claiming a history check", async () => {
-    await act(async () => root.render(createElement(ListingDetail, {
-      listing: { ...listing, vin: "WVWZZZ1JZXW000001", updated_at: "2026-10-20T12:00:00Z" }
-    })));
-    const panel = container.querySelector('aside[aria-label="Цена и продавец"]');
-    expect(panel?.textContent).toContain("Изменено");
-    expect(panel?.querySelector("time")?.getAttribute("dateTime")).toBe("2026-10-20T12:00:00Z");
-    expect(panel?.textContent).toContain("VIN указан продавцом");
-    expect(panel?.textContent).toContain("История автомобиля не проверена");
-    expect(panel?.textContent).not.toContain("VIN проверен");
-  });
-
-  it("does not imply a VIN report exists when the seller omitted VIN", async () => {
-    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, vin: null } })));
-    const panel = container.querySelector('aside[aria-label="Цена и продавец"]');
-    expect(panel?.textContent).not.toContain("VIN не указан");
-    expect(panel?.textContent).not.toContain("VIN указан продавцом");
+  it("renders only the verified evidence attached to the public detail payload", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: {
+      ...listing,
+      verified_evidence: [{ id: "evidence-1", label: "Документы проверены", summary: "Сверены регистрационные документы", source: "Реестр документов", checked_at: "2026-10-10", scope: "регистрационные документы" }]
+    } })));
+    expect(container.textContent).toContain("Документы проверены");
+    expect(container.textContent).toContain("Сверены регистрационные документы");
+    expect(container.textContent).toContain("Реестр документов");
   });
 
   it("takes a guest to login with the new chat route as the next path", async () => {
-    await act(async () => root.render(createElement(ListingDetail, { listing })));
+    localStorage.setItem("avtorinok.contact_click_consent", "granted");
+    const track = vi.spyOn(analytics, "trackContactClick").mockResolvedValue(true);
+    await act(async () => root.render(createElement(ContactClickConsentProvider, null, createElement(ListingDetail, { listing }))));
 
     const link = container.querySelector<HTMLAnchorElement>(".contact-chat");
     expect(link?.textContent).toContain("Написать продавцу");
     expect(link?.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(`/account/messages/new?listing_id=${listing.id}`)}`);
+    link!.addEventListener("click", (event) => event.preventDefault());
+    await act(async () => { link!.click(); await Promise.resolve(); });
+    expect(track).toHaveBeenCalledWith({ listingId: "listing-1", channel: "internal_chat", consent: "granted" });
   });
 
   it("lets a guest explicitly reveal a phone only when the public capability is enabled", async () => {
     vi.spyOn(api, "guestContactEnabled").mockResolvedValue({ guest_contact_reveal_enabled: true });
-    const revealPhone = vi.spyOn(api, "revealPhone").mockResolvedValue({ phone: "+375 29 000 00 00" });
+    const revealPhone = vi.spyOn(api, "revealPhone").mockResolvedValue({
+      phone: "+375 29 000 00 00",
+      messengers: [
+        { channel: "telegram", uri: "https://t.me/seller", opted_in: true },
+        { channel: "viber", uri: "https://viber.me/seller", opted_in: true }
+      ]
+    });
     await act(async () => {
       root.render(createElement(ListingDetail, { listing }));
       await Promise.resolve();
@@ -103,6 +109,8 @@ describe("contact reveal", () => {
 
     expect(container.textContent).toContain("Телефон можно посмотреть без входа в аккаунт.");
     expect(container.textContent).not.toContain("+375 29 000 00 00");
+    expect(container.querySelector('a[href="https://t.me/seller"]')).toBeNull();
+    expect(container.querySelector('a[href="https://viber.me/seller"]')).toBeNull();
     expect(container.querySelector<HTMLAnchorElement>(".contact-chat")?.getAttribute("href")).toBe(
       `/login?next=${encodeURIComponent(`/account/messages/new?listing_id=${listing.id}`)}`
     );
@@ -114,6 +122,10 @@ describe("contact reveal", () => {
 
     expect(revealPhone).toHaveBeenCalledOnce();
     expect(container.textContent).toContain("+375 29 000 00 00");
+    expect(container.querySelector('a[href="https://t.me/seller"]')?.textContent).toContain("Telegram");
+    expect(container.querySelector('a[href="https://viber.me/seller"]')?.textContent).toContain("Viber");
+    expect(container.querySelector('[data-compare-listing="listing-1"]')).not.toBeNull();
+    expect(container.textContent).toContain("Поделиться Марка Модель");
   });
 
   it("keeps the disabled pilot login redirect after an unauthenticated reveal is rejected", async () => {
@@ -159,92 +171,44 @@ describe("contact reveal", () => {
   });
 });
 
-describe("listing detail comparison", () => {
-  it("provides add and selected-list actions on the public listing detail", async () => {
-    await act(async () => root.render(createElement(ListingDetail, { listing })));
-    const addButton = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Добавить к сравнению"));
-
-    expect(addButton).not.toBeNull();
-    expect(container.querySelector('a[href="/compare"]')?.textContent).toBe("Сравнение");
-    await act(async () => addButton!.click());
-    expect(container.querySelector('a[href="/compare"]')?.textContent).toBe("Сравнение (1)");
-  });
-});
-
-describe("public price history", () => {
-  it("shows recorded dates and original currencies without substituting the current converted price", async () => {
-    historyLoader.mockResolvedValue({ items: [{
-      id: "price-event-1",
-      event_type: "changed",
-      amount: "5000.50",
-      currency: "USD",
-      previous_amount: "5200.00",
-      previous_currency: "USD",
-      recorded_at: "2026-10-15T12:00:00Z"
-    }] });
-    const usdListing = { ...listing, price: { amount: "5000", currency: "USD" as const, display_byn: "13500.00", rate_date: "2026-10-20" } };
-
+describe("owner promotion entry", () => {
+  async function renderWithEligibility(promotable: boolean, targetListing = listing) {
+    vi.spyOn(api, "listingPromotionEligibility").mockResolvedValueOnce({ promotable });
     await act(async () => {
-      root.render(createElement(ListingDetail, { listing: usdListing }));
+      root.render(createElement(ListingDetail, { listing: targetListing }));
       await Promise.resolve();
     });
+  }
 
-    const history = container.querySelector<HTMLElement>("[data-testid='listing-price-history']");
-    expect(historyLoader).toHaveBeenCalledWith(listing.id);
-    expect(history?.textContent).toContain("5 000,5 USD");
-    expect(history?.textContent).toContain("5 200 USD");
-    expect(history?.textContent).not.toContain("13 500 BYN");
-    expect([...history!.querySelectorAll(".sr-only")].map((label) => label.textContent)).toEqual(["Было: ", "Стало: "]);
-    expect(history?.querySelector("time")?.getAttribute("datetime")).toBe("2026-10-15T12:00:00Z");
+  it("shows the CTA when the protected listing-specific eligibility check permits it", async () => {
+    authMocks.user = { id: "seller-1" } as User;
+    await renderWithEligibility(true);
+    expect(api.listingPromotionEligibility).toHaveBeenCalledWith("listing-1");
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/account/billing?listing_id=listing-1"]')?.textContent).toContain("Услуги продвижения");
   });
 
-  it("labels a baseline as a recorded price without implying an earlier value", async () => {
-    historyLoader.mockResolvedValue({ items: [{
-      id: "price-event-baseline",
-      event_type: "baseline",
-      amount: "4500",
-      currency: "USD",
-      previous_amount: null,
-      previous_currency: null,
-      recorded_at: "2026-10-15T12:00:00Z"
-    }] });
-
-    await act(async () => {
-      root.render(createElement(ListingDetail, { listing }));
-      await Promise.resolve();
-    });
-
-    const entry = container.querySelector<HTMLElement>("[data-testid='listing-price-history'] li");
-    expect(entry?.querySelector("strong")?.textContent).toBe("Цена зафиксирована");
-    expect(entry?.querySelector("p strong")?.textContent).toBe("4 500 USD");
-    expect(entry?.querySelector(".sr-only")?.textContent).toBe("Цена: ");
-    expect(entry?.textContent).not.toContain("Было:");
-    expect(entry?.textContent).not.toContain(" → ");
+  it("uses the server result for a company listing rather than user company summary fields", async () => {
+    const companyListing = { ...listing, seller: { id: "company-1", type: "company" as const, name: "Автосалон" } };
+    authMocks.user = { id: "seller-user", company_id: "company-1", company_role: "viewer" } as User;
+    await renderWithEligibility(false, companyListing);
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
   });
 
-  it("distinguishes an empty history from a failed request", async () => {
-    await act(async () => {
-      root.render(createElement(ListingDetail, { listing }));
-      await Promise.resolve();
-    });
-    expect(container.querySelector("[data-testid='listing-price-history']")?.textContent).toContain("Изменений цены пока нет.");
+  it("hides the CTA for a viewer or a user from another company when the server denies access", async () => {
+    const companyListing = { ...listing, seller: { id: "company-1", type: "company" as const, name: "Автосалон" } };
+    authMocks.user = { id: "viewer-user", company_id: "company-1", company_role: "viewer" } as User;
+    await renderWithEligibility(false, companyListing);
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
 
-    historyLoader.mockRejectedValueOnce(new Error("offline"));
-    await act(async () => {
-      root.render(createElement(ListingDetail, { listing: { ...listing, id: "listing-2" } }));
-      await Promise.resolve();
-    });
-    const history = container.querySelector("[data-testid='listing-price-history']");
-    expect(history?.textContent).toContain("Не удалось загрузить историю цены.");
-    expect(history?.textContent).not.toContain("Изменений цены пока нет.");
-    expect(history?.querySelector('[role="alert"]')).not.toBeNull();
+    authMocks.user = { id: "foreign-user", company_id: "company-2", company_role: "admin" } as User;
+    await renderWithEligibility(false, companyListing);
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
   });
 
-  it("does not request or render price history for an inactive listing", async () => {
-    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, status: "paused" } })));
-
-    expect(historyLoader).not.toHaveBeenCalled();
-    expect(container.querySelector("[data-testid='listing-price-history']")).toBeNull();
+  it("does not expose promotion for a listing outside the active state", async () => {
+    authMocks.user = { id: "seller-1" } as User;
+    await renderWithEligibility(false, { ...listing, status: "paused" });
+    expect(container.querySelector('a[href="/account/billing?listing_id=listing-1"]')).toBeNull();
   });
 });
 
@@ -289,13 +253,28 @@ describe("catalog specifications", () => {
     const facts = container.querySelector(".detail-facts")?.textContent || "";
     expect(facts).toContain("Синий");
     expect(facts).toContain("Оформлен в РБ");
-    expect(facts).toContain("Возможен");
     expect(facts).toContain("ABS");
     expect(facts).toContain("Центральный");
     expect(facts).toContain("9:00–20:00");
+    expect(container.querySelector(".listing-trust")?.textContent).toContain("Указано продавцом");
+    expect(container.querySelector(".listing-trust")?.textContent).toContain("Торг: Возможен");
     expect(container.textContent).toContain("Похожие объявления");
     const relatedLink = container.querySelector<HTMLAnchorElement>('.related-listings .card-title[href="/cars/marka/model/related-1"]');
     expect(relatedLink?.textContent).toBe("Похожий автомобиль");
+  });
+
+  it("does not show the current listing twice and caps related results at eight", async () => {
+    const items = Array.from({ length: 10 }, (_, index) => ({ ...listing, id: `related-${index}`, title: `Автомобиль ${index}` }));
+    await act(async () => root.render(createElement(ListingDetail, { listing, relatedListings: [{ ...listing }, ...items] })));
+    expect(container.querySelectorAll(".related-listings .listing-card")).toHaveLength(8);
+    expect(container.querySelector('.related-listings a[href$="listing-1"]')).toBeNull();
+  });
+
+  it("shows other active listings from the same seller", async () => {
+    const sellerListing = { ...listing, id: "seller-other", status: "active" as const, title: "Ещё одно объявление" };
+    await act(async () => root.render(createElement(ListingDetail, { listing, sellerListings: [sellerListing] })));
+    expect(container.querySelector("#seller-listings-heading")?.textContent).toBe("Другие объявления продавца");
+    expect(container.textContent).toContain("Ещё одно объявление");
   });
 });
 
@@ -406,5 +385,49 @@ describe("report submission", () => {
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(category.value).toBe("");
     expect(comment.value).toBe("");
+  });
+});
+
+
+describe("listing photo labels", () => {
+  it("shows assigned labels over the real gallery photo", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: {
+      ...listing, photo_urls: ["/car.jpg"], photo_badges: ["verified", "best_price"]
+    } })));
+    const overlay = container.querySelector(".detail-photo-wrap .listing-photo-badges");
+    expect(overlay?.textContent).toContain("Проверено Авторынок");
+    expect(overlay?.textContent).toContain("Лучшая цена");
+  });
+
+  it("does not show labels on the synthetic gallery image", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: {
+      ...listing, photo_badges: ["verified"]
+    } })));
+    expect(container.querySelector(".listing-photo-badges")).toBeNull();
+  });
+});
+
+describe("listing price history integration", () => {
+  it("loads the original-currency event history on active listings", async () => {
+    historyLoader.mockResolvedValue({ items: [{
+      id: "price-event-1",
+      event_type: "changed",
+      amount: "4500",
+      currency: "USD",
+      previous_amount: "5000",
+      previous_currency: "USD",
+      recorded_at: "2026-10-15T12:00:00Z"
+    }] });
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing }));
+      await Promise.resolve();
+    });
+
+    const history = container.querySelector<HTMLElement>("[data-testid='listing-price-history']");
+    expect(historyLoader).toHaveBeenCalledWith(listing.id);
+    expect(history?.textContent).toContain("История цены");
+    expect(history?.textContent).toContain("Цена изменена");
+    expect(history?.textContent).toContain("USD");
+    expect(history?.querySelector("time")?.getAttribute("datetime")).toBe("2026-10-15T12:00:00Z");
   });
 });

@@ -109,6 +109,7 @@ export type ConversationThread = {
 };
 
 export type Seller = { type: "private" | "company"; id: string; name: string; slug?: string };
+export type PhotoBadge = "verified" | "free_history" | "best_price";
 export type Money = {
   amount: string;
   currency: "BYN" | "USD";
@@ -139,6 +140,7 @@ export type ListingSummary = {
   manual_city?: string | null;
   cover_url?: string | null;
   photo_urls?: string[];
+  photo_badges?: PhotoBadge[];
   seller: Seller;
   created_at: string;
   updated_at: string;
@@ -146,11 +148,16 @@ export type ListingSummary = {
   parts_only: boolean;
 };
 
-export type FavoriteListing = ListingSummary & Pick<
-  components["schemas"]["FavoriteListingOut"],
-  "price_drop_notifications_enabled"
->;
-export type ListingPriceHistoryItem = components["schemas"]["ListingPriceHistoryItemOut"];
+export type FavoriteListing = ListingSummary & { price_drop_notifications_enabled: boolean };
+export type ListingPriceHistoryItem = {
+  id: string;
+  event_type: "baseline" | "published" | "added" | "changed" | "removed";
+  amount: string | null;
+  currency: "BYN" | "USD" | null;
+  previous_amount: string | null;
+  previous_currency: "BYN" | "USD" | null;
+  recorded_at: string;
+};
 
 export type Listing = ListingSummary & {
   status: "draft" | "pending_review" | "rejected" | "active" | "paused" | "sold" | "archived" | "blocked";
@@ -178,6 +185,7 @@ export type Listing = ListingSummary & {
   equipment?: string[];
   district?: string | null;
   call_hours?: string | null;
+  verified_evidence?: { id: string; label: string; summary: string; source: string; checked_at: string; scope: string }[];
 };
 
 export type ListingPhoto = {
@@ -196,11 +204,28 @@ export type ListResponse<T> = {
 
 export type Company = Omit<components["schemas"]["PrivateCompanyOut"], "status"> & {
   status: "pending" | "approved" | "rejected" | "blocked";
+  logo_url?: string | null;
 };
 
 export type CompanySummary = Omit<components["schemas"]["PublicCompanyOut"], "status"> & {
   status: "pending" | "approved" | "rejected" | "blocked";
   listing_count?: number;
+  logo_url?: string | null;
+};
+
+export type DealerReview = { id: string; rating: number; text: string; created_at: string };
+export type DealerReviewPrivate = DealerReview & { status: "pending" | "published" | "rejected" | "hidden"; revision: number; moderation_reason: string | null };
+export type DealerReviews = { items: DealerReview[]; count: number; average_rating: number | null };
+export type ModerationDealerReview = DealerReviewPrivate & { company_id: string; author_id: string };
+export type DealerReviewReport = {
+  id: string;
+  review_id: string;
+  company_name: string;
+  review_rating: number;
+  review_text: string;
+  reason: string;
+  status: "open" | "resolved";
+  created_at: string;
 };
 
 export type Report = {

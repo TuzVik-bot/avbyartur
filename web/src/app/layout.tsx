@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/auth-provider";
+import { CompareProvider } from "@/components/compare-provider";
+import { ContactClickConsentProvider } from "@/components/contact-click-consent";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { SiteAssistant } from "@/components/site-assistant";
+import { InstallPrompt } from "@/components/install-prompt";
 import { DEFAULT_LOCALE, getMessage } from "@/lib/i18n";
 import { isPublicIndexingEnabled, rootRobots } from "@/lib/pilot-visibility";
 import { buildOrganizationJsonLd, buildWebsiteJsonLd, serializeJsonLd } from "@/lib/seo";
@@ -29,6 +32,7 @@ export const metadata: Metadata = {
   description: layoutDescription,
   robots: rootRobots(),
   applicationName: SITE_NAME,
+  appleWebApp: { capable: true, statusBarStyle: "default", title: SITE_NAME },
   referrer: "strict-origin-when-cross-origin",
   openGraph: {
     type: "website",
@@ -57,15 +61,18 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={DEFAULT_LOCALE} suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
-    <body>
-      <AuthProvider initialSession={initialSession}>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildWebsiteJsonLd()) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildOrganizationJsonLd()) }} />
-        <a className="skip-link" href="#main-content">{getMessage("layout.skipToMainContent", DEFAULT_LOCALE)}</a>
-          <SiteHeader />
-          <main id="main-content">{children}</main>
-          <SiteFooter />
-          <SiteAssistant />
+      <body>
+        <AuthProvider initialSession={initialSession}>
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildWebsiteJsonLd()) }} />
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildOrganizationJsonLd()) }} />
+          <ContactClickConsentProvider><CompareProvider>
+            <a className="skip-link" href="#main-content">{getMessage("layout.skipToMainContent", DEFAULT_LOCALE)}</a>
+            <SiteHeader />
+            <main id="main-content">{children}</main>
+            <SiteFooter />
+            <SiteAssistant />
+            <InstallPrompt />
+          </CompareProvider></ContactClickConsentProvider>
         </AuthProvider>
       </body>
     </html>

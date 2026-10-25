@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { reportFrontendError, type FrontendErrorType } from "@/lib/analytics";
 
 type DealersErrorProps = {
   error: Error & { digest?: string };
@@ -10,7 +11,12 @@ type DealersErrorProps = {
 
 export default function DealersError({ error, reset }: DealersErrorProps) {
   useEffect(() => {
-    console.error("Dealer directory route failed", error);
+    console.error("Dealer directory route failed");
+    void reportFrontendError({
+      errorType: error.name as FrontendErrorType,
+      releaseId: process.env.NEXT_PUBLIC_RELEASE_ID ?? "",
+      breadcrumbs: [],
+    });
   }, [error]);
 
   return (

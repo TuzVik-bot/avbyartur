@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { CategoryLanding } from "@/components/category-landing";
-import { getListingSubcategories } from "@/lib/listing-subcategories";
+import { CategoryLanding, MachineIllustration } from "@/components/category-landing";
 
 vi.mock("@/components/search-route", () => ({ SearchRoute: () => null }));
 
@@ -25,28 +24,15 @@ describe("category landing navigation", () => {
     expect(html).toContain("Колёсные диски");
   });
 
-  it("maps every visible subcategory to its own generated image", () => {
-    const routes = [
-      ["motorcycles", "motorcycles", "motorcycles"],
-      ["special-equipment", "special_equipment", "special-equipment"],
-      ["agricultural-equipment", "agricultural_equipment", "agricultural-equipment"],
-      ["watercraft", "watercraft", "watercraft"],
-      ["tires", "tires", "tires"]
-    ] as const;
-    let mapped = 0;
-    for (const [slug, code, folder] of routes) {
-      const html = renderToStaticMarkup(<CategoryLanding slug={slug} />);
-      expect(html).not.toContain('viewBox="0 0 112 72"');
-      for (const { value } of getListingSubcategories(code)) {
-        const name = code === "tires" ? `${value}-tire`
-          : code === "watercraft" ? ({ jet_ski: "jetski", motor: "outboard-motor", other: "other-watercraft" } as Record<string, string>)[value] || value
-          : value.replace(/_/g, "-");
-        expect(html).toContain(`src="/category-art/${folder}/${name}.webp"`);
-        mapped += 1;
-      }
-    }
-    const tiresHtml = renderToStaticMarkup(<CategoryLanding slug="tires" />);
-    expect(tiresHtml).toContain('src="/category-art/wheels/alloy-wheel.webp"');
-    expect(mapped).toBe(33);
+  it("renders distinct, decorative SVG silhouettes for each subcategory illustration", () => {
+    const variants = [
+      ...Array.from({ length: 4 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="moto" index={index} />)),
+      ...Array.from({ length: 12 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="agri" index={index} />)),
+      ...Array.from({ length: 10 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="special" index={index} />)),
+      ...Array.from({ length: 4 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="water" index={index} />)),
+      ...Array.from({ length: 4 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="tires" index={index} />))
+    ];
+    expect(new Set(variants).size).toBe(variants.length);
+    expect(variants.every((svg) => svg.includes('aria-hidden="true"') && svg.includes('viewBox="0 0 112 72"'))).toBe(true);
   });
 });

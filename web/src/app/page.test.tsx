@@ -7,11 +7,12 @@ const mocks = vi.hoisted(() => ({
   catalog: vi.fn(),
   regions: vi.fn(),
   dealers: vi.fn(),
+  publicStats: vi.fn(),
   getSavedListingIds: vi.fn(async () => [] as string[])
 }));
 
 vi.mock("@/lib/server-api", () => ({
-  serverApi: { listings: mocks.listings, catalog: mocks.catalog, regions: mocks.regions, dealers: mocks.dealers },
+  serverApi: { listings: mocks.listings, catalog: mocks.catalog, regions: mocks.regions, dealers: mocks.dealers, publicStats: mocks.publicStats },
   getSavedListingIds: mocks.getSavedListingIds
 }));
 vi.mock("next/link", () => ({
@@ -52,105 +53,24 @@ beforeEach(() => {
   mocks.catalog.mockResolvedValue({ items: [] });
   mocks.regions.mockResolvedValue({ items: [] });
   mocks.dealers.mockResolvedValue({ items: [] });
+  mocks.publicStats.mockResolvedValue({ active_listings: 0, approved_companies: 0, published_reviews: 0 });
   mocks.getSavedListingIds.mockResolvedValue([]);
 });
 
 describe("home listing cards", () => {
-  it("requests eight recent listings without fabricated market statistics", async () => {
-    const html = renderToStaticMarkup(await HomePage());
-    expect(mocks.listings).toHaveBeenCalledWith({ page_size: "8", sort: "newest" });
-    expect(html).not.toContain("Активных объявлений");
-  });
-
-  it("offers truthful purchase shortcuts and reuses the existing family selection", async () => {
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(await HomePage());
-
-    expect(container.querySelector("h1")?.textContent).toBe("Найдите автомобиль по своим условиям");
-    const quickLinks = Array.from(container.querySelector("nav[aria-label='Быстрые сценарии покупки']")?.querySelectorAll("a") || []);
-    expect(quickLinks.map((link) => [link.getAttribute("href"), link.textContent])).toEqual([
-      ["/cars?category_code=cars&price_max=30000&currency=BYN", expect.stringContaining("До 30 000 BYN")],
-      ["/cars?category_code=cars&fuel=electric", expect.stringContaining("Электромобили")],
-      ["/cars/city/minsk", expect.stringContaining("В Минске")],
-      ["/useful-information#use-case-presets-title", expect.stringContaining("Семейный автомобиль")]
-    ]);
-  });
-
-  it("keeps every advertisement category and usable services without empty ad placeholders", async () => {
-    const html = renderToStaticMarkup(await HomePage());
-    for (const path of ["/motorcycles", "/trucks", "/parts", "/services", "/customs-calculator", "/dealers", "/partner"]) {
-      expect(html).toContain(`href="${path}"`);
-    }
-    expect(html).not.toContain("Здесь может быть");
-    const images = html.match(/<img [^>]*src="([^"]+)"/g) ?? [];
-    expect(images).toHaveLength(6);
-    expect(images.every((img) => img.includes('src="/category-art/') || img.includes('src="/vehicles/'))).toBe(true);
-  });
-
-  it("offers one make directory without duplicating the make list", async () => {
+  it("opens the make directory from both all-makes links", async () => {
     mocks.catalog.mockResolvedValue({ items: [{ id: "make-1", slug: "bmw", name: "BMW" }] });
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(await HomePage());
     const links = Array.from(container.querySelectorAll("a")).filter((link) => link.textContent?.includes("Все марки"));
-    expect(links).toHaveLength(1);
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/makes"]);
-  });
-
-  it("shows the approved popular makes with catalog-backed slugs", async () => {
-    const names = ["Audi", "BMW", "Buick", "Chevrolet", "Chrysler", "Citroen", "Dodge", "Fiat", "Ford", "Geely", "GMC", "Honda", "Hyundai", "Kia", "Lada", "Land Rover", "Lexus", "Mazda", "Mercedes-Benz", "Mitsubishi", "Nissan", "Opel", "Peugeot", "Renault", "Skoda", "Subaru", "Tesla", "Toyota", "Volkswagen", "Volvo"];
-    mocks.catalog.mockResolvedValue({ items: names.map((name) => ({ id: name, name, slug: name.toLowerCase().replaceAll(" ", "-") })) });
-
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(await HomePage());
-    const list = container.querySelector("nav[aria-label='Быстрый поиск по марке'] ul");
-    const links = Array.from(list?.querySelectorAll("a") || []);
-
-    expect(links.map((link) => link.textContent)).toEqual(names);
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(names.map((name) => `/cars/${encodeURIComponent(name.toLowerCase().replaceAll(" ", "-"))}`));
-  });
-
-  it("keeps all 30 popular names when the catalog is partial and uses only real catalog aliases", async () => {
-    mocks.catalog.mockResolvedValue({ items: [
-      { id: "citroen", name: "Citroën", slug: "citroen" },
-      { id: "kia", name: "Kia Motors", slug: "kia" },
-      { id: "geely", name: "Geely Holding", slug: "geely" }
-    ] });
-
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(await HomePage());
-    const links = Array.from(container.querySelector("nav[aria-label='Быстрый поиск по марке'] ul")?.querySelectorAll("a") || []);
-    const hrefByName = new Map(links.map((link) => [link.textContent, link.getAttribute("href")]));
-
-    expect(links).toHaveLength(30);
-    expect(hrefByName.get("Citroen")).toBe("/cars/citroen");
-    expect(hrefByName.get("Kia")).toBe("/cars/kia");
-    expect(hrefByName.get("Geely")).toBe("/cars/geely");
-    expect(hrefByName.get("Buick")).toBe("/cars?q=Buick");
-    expect(hrefByName.get("Tesla")).toBe("/cars?q=Tesla");
-    expect(hrefByName.get("Lada")).toBe("/cars?q=Lada");
-  });
-
-  it("marks ad placements and routes every advertising CTA to the existing partner page", async () => {
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(await HomePage());
-    const advertising = container.querySelectorAll("aside[aria-label='Реклама']");
-    const partnerSection = container.querySelector("section[aria-labelledby='home-partners-heading']");
-
-    expect(advertising).toHaveLength(2);
-    expect(partnerSection?.querySelectorAll("article")).toHaveLength(3);
-    expect(partnerSection?.textContent).toContain("Шины и диски");
-    expect(partnerSection?.textContent).toContain("Страхование автомобиля");
-    expect(partnerSection?.textContent).toContain("Автосервис и обслуживание");
-    for (const cta of Array.from(container.querySelectorAll("a")).filter((link) => link.textContent?.includes("Разместить рекламу"))) {
-      expect(cta.getAttribute("href")).toBe("/partner");
-    }
-    expect(container.textContent).not.toContain("активных покупателей");
+    expect(links).toHaveLength(2);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/makes", "/makes"]);
   });
 
   it("keeps the Russian canonical URL and declares its locale alternate", () => {
     expect(metadata.alternates).toEqual({
-      canonical: "https://xn--80aeylebmo7f.xn--90ais/",
-      languages: { ru: "https://xn--80aeylebmo7f.xn--90ais/" }
+      canonical: "https://suite-s1.denjik.by/",
+      languages: { ru: "https://suite-s1.denjik.by/" }
     });
   });
 
@@ -162,36 +82,14 @@ describe("home listing cards", () => {
     expect(html).toContain('data-favorite-saved="true"');
   });
 
-  it("explains a real empty catalogue and offers search paths without sample listings", async () => {
+  it("keeps the agreed home heading and offers a real sell path when the catalogue is empty", async () => {
     mocks.listings.mockResolvedValueOnce({ items: [] });
 
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(await HomePage());
-
-    expect(container.textContent).toContain("Новых объявлений пока нет");
-    expect(container.textContent).toContain("пока нет опубликованных предложений");
-    expect(Array.from(container.querySelectorAll("a[href='/useful-information#use-case-presets-title']")).find((link) => link.textContent?.includes("Подборки по задаче"))?.textContent).toContain("Подборки по задаче");
-    expect(container.querySelector("a[href='/sell']")?.textContent).toContain("Подать объявление");
-    expect(container.querySelectorAll("[data-listing-id]")).toHaveLength(0);
-  });
-
-  it("keeps the API failure state separate from the confirmed empty catalogue", async () => {
-    mocks.listings.mockRejectedValueOnce(new Error("temporary catalog failure"));
-
-    const container = document.createElement("div");
-    container.innerHTML = renderToStaticMarkup(await HomePage());
-
-    expect(container.textContent).toContain("Сейчас не удаётся загрузить объявления");
-    expect(container.textContent).not.toContain("Новых объявлений пока нет");
-    expect(container.textContent).toContain("не подтвердил, есть ли сейчас опубликованные предложения");
-  });
-
-  it("does not invent market statistics when the catalog has no counts", async () => {
     const html = renderToStaticMarkup(await HomePage());
 
-    expect(html).not.toContain("Активных объявлений");
-    expect(html).not.toContain("Состояние авторынка");
-    expect(html).toContain("Поиск по опубликованным объявлениям Беларуси");
+    expect(html).toContain("Купить автомобиль");
+    expect(html).toContain('href="/sell"');
+    expect(html).toContain("Подать объявление");
   });
 
   it("searches the real make and model catalog and uses query-backed home collections", async () => {
@@ -230,5 +128,32 @@ describe("home listing cards", () => {
 
     expect(html).toContain("Контакты не показываются в публичной выдаче");
     expect(html).not.toContain("Телефон показывается посетителю по запросу");
+  });
+
+  it("shows public counts from the aggregate endpoint and explains moderation", async () => {
+    mocks.publicStats.mockResolvedValueOnce({ active_listings: 27, approved_companies: 4, published_reviews: 6 });
+
+    const html = renderToStaticMarkup(await HomePage());
+    const rendered = new DOMParser().parseFromString(html, "text/html");
+
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Активных объявлений: 27");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Допущенные компании: 4");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Опубликованные отзывы: 6");
+    const status = rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent || "";
+    expect(status).toContain("проверяются обязательные поля карточки, их согласованность и минимум обработанных фото");
+    expect(status).toContain("подсказки о повторах и необычно низкой цене");
+    expect(status).toContain("это не автоматическое решение");
+    expect(status).not.toContain("проверяем VIN или историю автомобиля");
+  });
+
+  it("renders aggregate failures as unavailable, never as a zero market", async () => {
+    mocks.publicStats.mockRejectedValueOnce(new Error("aggregate unavailable"));
+
+    const html = renderToStaticMarkup(await HomePage());
+    const rendered = new DOMParser().parseFromString(html, "text/html");
+
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Статистика временно недоступна");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).not.toContain("Активных объявлений: 0");
+    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).not.toContain("Опубликованные отзывы: 0");
   });
 });

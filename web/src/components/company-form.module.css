@@ -1,0 +1,8 @@
+.logoControl { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; }
+.logoControl h3 { margin: 0 0 4px; }
+.logoControl p { margin: 0; }
+.logoPreview { width: 96px; height: 96px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.logoControl label { cursor: pointer; }
+.logoPicker { position: relative; }
+.logoInput { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+.logoPicker:focus-within { outline: 3px solid var(--accent-dark); outline-offset: 3px; }

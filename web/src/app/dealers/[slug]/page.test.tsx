@@ -8,6 +8,9 @@ vi.mock("@/lib/server-api", () => ({ serverApi: mocks, getSavedListingIds: mocks
 vi.mock("@/components/listing-card", () => ({
   ListingCard: ({ listing, saved = false }: { listing: { id: string }; saved?: boolean }) => <div data-listing-id={listing.id} data-favorite-saved={String(saved)} />
 }));
+vi.mock("@/components/dealer-reviews", () => ({
+  DealerReviews: ({ reviews }: { reviews?: { count: number; average_rating: number | null; items: { id: string; text: string }[] } }) => <section aria-label="Отзывы о компании"><h2>Отзывы о компании</h2>{reviews?.count ? <><p>{reviews.average_rating?.toFixed(2)}</p>{reviews.items.map((item) => <p key={item.id}>{item.text}</p>)}</> : <p>Отзывов пока нет</p>}<p>Факт покупки не подтверждается</p></section>
+}));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
 
 import DealerPage from "./page";
@@ -104,6 +107,31 @@ describe("dealer page public company details", () => {
     const html = await renderDealerPage();
 
     expect(html).toContain("Режим работы не указан");
+  });
+
+  it("shows an honest empty review state and no invented rating when there are no published reviews", async () => {
+    mocks.dealer.mockResolvedValueOnce({ ...dealerResult(), reviews: { items: [], count: 0, average_rating: null } });
+
+    const html = await renderDealerPage();
+
+    expect(html).toContain("Отзывы о компании");
+    expect(html).toContain("Отзывов пока нет");
+    expect(html).not.toContain("★★★★★");
+    expect(html).toContain("Факт покупки не подтверждается");
+  });
+
+  it("renders the real uploaded logo and published review aggregate only", async () => {
+    mocks.dealer.mockResolvedValueOnce({
+      ...dealerResult(),
+      company: { ...company, logo_url: "/api/v1/company-logos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp" },
+      reviews: { items: [{ id: "review-1", rating: 4, text: "Вежливо ответили", created_at: "2026-10-12T00:00:00Z" }], count: 1, average_rating: 4 }
+    });
+
+    const html = await renderDealerPage();
+
+    expect(html).toContain("/api/v1/company-logos/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp");
+    expect(html).toContain("Вежливо ответили");
+    expect(html).toContain("4.00");
   });
 
   it("shows a temporary error instead of a 404 when the API is unavailable", async () => {

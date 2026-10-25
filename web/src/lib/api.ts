@@ -7,16 +7,20 @@ import type {
   ConversationMessage,
   ConversationSummary,
   ConversationThread,
-  FavoriteListing,
   Listing,
   ListingDraftInput,
-  ListingPriceHistoryItem,
   ListingPhoto,
+  FavoriteListing,
+  ListingPriceHistoryItem,
+  PhotoBadge,
   ListingSearch,
   ListingSummary,
   ListResponse,
   Report,
   ReportCategory,
+  DealerReviewReport,
+  DealerReviewPrivate,
+  ModerationDealerReview,
   UserNotificationList
 } from "@/lib/types";
 import type { components } from "@/lib/types.generated";
@@ -153,6 +157,12 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
 type GuestContactCapabilities = components["schemas"]["ListingPublicCapabilitiesOut"];
 
+export type ListingMessengerChannel = {
+  channel: "telegram" | "viber";
+  uri: string;
+  opted_in: boolean;
+};
+
 async function loadGuestContactCapabilities(): Promise<GuestContactCapabilities> {
   const base = typeof window === "undefined" ? internalApiBase() : API_PREFIX;
   const response = await fetch(`${base}/listings/public-capabilities`, {
@@ -169,21 +179,24 @@ async function loadGuestContactCapabilities(): Promise<GuestContactCapabilities>
   return capabilities;
 }
 
-async function revealListingPhone(id: string, asGuest: boolean): Promise<{ phone: string }> {
+async function revealListingPhone(id: string, asGuest: boolean): Promise<{ phone: string; messengers?: ListingMessengerChannel[] }> {
   if (asGuest && (!guestContactRequestToken || Date.now() >= guestContactRequestTokenExpiresAt)) {
     await loadGuestContactCapabilities();
   }
 
-  const request = () => apiRequest<{ phone: string }>(
-    `listings/${encodeURIComponent(id)}/phone-reveal`,
-    {
+  const request = async () => {
+    const result = await apiRequest<{ phone: string; messengers?: ListingMessengerChannel[] }>(
+      `listings/${encodeURIComponent(id)}/phone-reveal`,
+      {
       method: "POST",
       body: JSON.stringify({}),
       headers: asGuest && guestContactRequestToken
         ? { "X-Guest-Contact-Token": guestContactRequestToken }
         : undefined
-    }
-  );
+      }
+    );
+    return { phone: result.phone, messengers: result.messengers ?? [] };
+  };
 
   try {
     return await request();
@@ -233,13 +246,6 @@ export const api = {
   listingCount: (search: ListingSearch = {}) => apiRequest<{ total: number }>(
     searchPath(search).replace(/^\/api\/v1\/listings(?=\?|$)/, "listings/count")
   ),
-  recentListings: (ids: string[]) => {
-    const params = new URLSearchParams();
-    for (const id of [...new Set(ids)].slice(0, 12)) params.append("ids", id);
-    const query = params.toString();
-    if (!query) return Promise.resolve({ items: [] as ListingSummary[] });
-    return apiRequest<{ items: ListingSummary[] }>(`listings/recent?${query}`);
-  },
   notifications: (options: { unreadOnly?: boolean; limit?: number } = {}) => {
     const params = new URLSearchParams();
     if (options.unreadOnly) params.set("unread_only", "true");
@@ -261,6 +267,13 @@ export const api = {
   blockConversation: (id: string, idempotencyKey?: string) => apiRequest<{ ok: true }>(`conversations/${encodeURIComponent(id)}/block`, { method: "POST", body: JSON.stringify({}), headers: idempotencyHeaders(idempotencyKey) }),
   markNotificationRead: (id: string) => apiRequest<{ ok: true }>(`me/notifications/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({}) }),
   listings: (search: ListingSearch = {}) => apiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
+  recentListings: (ids: string[]) => {
+    const params = new URLSearchParams();
+    for (const id of [...new Set(ids)].slice(0, 12)) params.append("ids", id);
+    const query = params.toString();
+    if (!query) return Promise.resolve({ items: [] as ListingSummary[] });
+    return apiRequest<{ items: ListingSummary[] }>(`listings/recent?${query}`);
+  },
   listing: (id: string) => apiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: Record<string, string> = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -268,15 +281,17 @@ export const api = {
   },
   listingOptions: () => apiRequest<ListingOptions>("listing-options"),
   listingValidationPolicy: () => apiRequest<ListingValidationPolicy>("listing-validation-policy"),
+  listingMarketEstimate: (data: { seller_type: "private" | "company"; make_id: string; model_id: string; generation_id?: string | null; body_type_id: string; year: number; mileage_km: number; condition: "new" | "used"; fuel: "petrol" | "diesel" | "hybrid" | "electric" | "lpg" | "other"; transmission: "manual" | "automatic" | "robot" | "cvt" | "other"; damaged: boolean; parts_only: boolean }) => apiRequest<{ available: boolean; median_byn: string | null; sample_size: number; seller_count: number; as_of: string | null; rate_date: string | null }>("listings/market-price-estimate", { method: "POST", body: JSON.stringify(data) }),
   createBillingOrder: (data: components["schemas"]["BillingOrderCreate"], idempotencyKey?: string) => apiRequest<components["schemas"]["BillingCheckoutOut"]>("billing/orders", { method: "POST", body: JSON.stringify(data), headers: idempotencyHeaders(idempotencyKey) }),
+  listingPromotionEligibility: (listingId: string) => apiRequest<{ promotable: boolean }>(`billing/listings/${encodeURIComponent(listingId)}/eligibility`),
   regions: () => apiRequest<{ items: CatalogItem[] }>("locations/regions"),
   cities: (regionId: string) => apiRequest<{ items: CatalogItem[] }>(`locations/cities?region_id=${encodeURIComponent(regionId)}`),
   myListings: () => apiRequest<ListResponse<Listing>>("me/listings"),
   favorites: () => apiRequest<{ items: FavoriteListing[] }>("me/favorites"),
-  addFavorite: (id: string) => apiRequest<{ ok: true }>(`me/favorites/${encodeURIComponent(id)}`, { method: "PUT" }),
-  removeFavorite: (id: string) => apiRequest<{ ok: true }>(`me/favorites/${encodeURIComponent(id)}`, { method: "DELETE" }),
   setFavoritePriceDropAlert: (id: string, enabled: boolean) => apiRequest<{ enabled: boolean }>(`me/favorites/${encodeURIComponent(id)}/price-drop-alert`, { method: "PUT", body: JSON.stringify({ enabled }) }),
   listingPriceHistory: (id: string) => apiRequest<{ items: ListingPriceHistoryItem[] }>(`listings/${encodeURIComponent(id)}/price-history`),
+  addFavorite: (id: string) => apiRequest<{ ok: true }>(`me/favorites/${encodeURIComponent(id)}`, { method: "PUT" }),
+  removeFavorite: (id: string) => apiRequest<{ ok: true }>(`me/favorites/${encodeURIComponent(id)}`, { method: "DELETE" }),
   guestContactEnabled: () => loadGuestContactCapabilities(),
   revealPhone: (id: string, asGuest = false) => revealListingPhone(id, asGuest),
   createReport: (id: string, data: { category: ReportCategory; comment: string }) => apiRequest<{ id: string; status: string }>(`listings/${encodeURIComponent(id)}/reports`, { method: "POST", body: JSON.stringify(data) }),
@@ -298,11 +313,25 @@ export const api = {
   updateCompany: (id: string, revision: number, data: components["schemas"]["CompanyInput"]) => apiRequest<{ company: Company }>(`companies/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ ...data, expected_revision: revision }) }),
   dealers: () => apiRequest<ListResponse<CompanySummary>>("dealers"),
   dealer: (slug: string) => apiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary> }>(`dealers/${encodeURIComponent(slug)}`),
+  myDealerReview: (slug: string) => apiRequest<{ review: import("@/lib/types").DealerReviewPrivate | null }>(`dealers/${encodeURIComponent(slug)}/reviews/mine`),
+  createDealerReview: (slug: string, data: { rating: number; text: string }) => apiRequest<{ review: import("@/lib/types").DealerReviewPrivate }>(`dealers/${encodeURIComponent(slug)}/reviews`, { method: "POST", body: JSON.stringify(data) }),
+  updateDealerReview: (id: string, data: { expected_revision: number; rating: number; text: string }) => apiRequest<{ review: import("@/lib/types").DealerReviewPrivate }>(`dealer-reviews/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(data) }),
+  reportDealerReview: (id: string, reason: string) => apiRequest<{ id: string; status: "open" | "resolved" }>(`dealer-reviews/${encodeURIComponent(id)}/reports`, { method: "POST", body: JSON.stringify({ reason }) }),
+  uploadCompanyLogo: (companyId: string, expectedRevision: number, file: File) => {
+    const data = new FormData();
+    data.set("expected_revision", String(expectedRevision));
+    data.set("file", file);
+    return apiRequest<{ logo_url: string; revision: number }>(`companies/${encodeURIComponent(companyId)}/logo`, { method: "PUT", body: data });
+  },
   trackDealerClick: (listingId: string) => apiRequest<{ accepted: true }>("dealer/clicks", { method: "POST", body: JSON.stringify({ listing_id: listingId, source: "listing_detail" }) }),
   moderationListings: () => apiRequest<{ items: Listing[] }>("moderation/listings"),
   moderateListing: (id: string, action: "approve" | "reject" | "block", revision: number, reason?: string) => apiRequest<{ listing: Listing }>(`moderation/listings/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify({ expected_revision: revision, ...(reason ? { reason } : {}) }) }),
+  setListingPhotoBadges: (id: string, revision: number, photo_badges: PhotoBadge[]) => apiRequest<{ listing: Listing }>(`moderation/listings/${encodeURIComponent(id)}/photo-badges`, { method: "PUT", body: JSON.stringify({ expected_revision: revision, photo_badges }) }),
   moderationCompanies: () => apiRequest<{ items: Company[] }>("moderation/companies"),
   moderateCompany: (id: string, action: "approve" | "reject" | "block", revision: number, reason?: string) => apiRequest<{ company: Company }>(`moderation/companies/${encodeURIComponent(id)}/${action}`, { method: "POST", body: JSON.stringify({ expected_revision: revision, ...(reason ? { reason } : {}) }) }),
   moderationReports: () => apiRequest<{ items: Report[] }>("moderation/reports"),
-  resolveReport: (id: string, resolution: string) => apiRequest<{ report: Report }>(`moderation/reports/${encodeURIComponent(id)}/resolve`, { method: "POST", body: JSON.stringify({ resolution }) })
+  moderationDealerReviews: (status: "pending" | "published" | "rejected" | "hidden" = "pending") => apiRequest<{ items: ModerationDealerReview[] }>(`moderation/dealer-reviews?${new URLSearchParams({ status })}`),
+  moderateDealerReview: (id: string, expected_revision: number, status: "published" | "rejected", reason: string) => apiRequest<{ review: DealerReviewPrivate }>(`moderation/dealer-reviews/${encodeURIComponent(id)}/review`, { method: "POST", body: JSON.stringify({ expected_revision, status, reason }) }),
+  resolveReport: (id: string, resolution: string) => apiRequest<{ report: Report }>(`moderation/reports/${encodeURIComponent(id)}/resolve`, { method: "POST", body: JSON.stringify({ resolution }) }),
+  resolveDealerReviewReport: (id: string, resolution: string) => apiRequest<{ report: DealerReviewReport & { resolution: string } }>(`moderation/dealer-review-reports/${encodeURIComponent(id)}/resolve`, { method: "POST", body: JSON.stringify({ resolution }) })
 };

@@ -2,9 +2,9 @@
 .toolbar { flex-wrap: wrap; }
 .toolbar :global(.results-toolbar-actions) { flex-wrap: wrap; }
 .switcher { display: inline-flex; flex: none; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-.switcher button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 7px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; }
+.switcher button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 7px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; }
 .switcher button:hover { background: var(--surface-muted); color: var(--ink); }
-.switcher button[aria-pressed="true"] { background: var(--soft-accent); color: var(--accent); }
+.switcher button[aria-pressed="true"] { background: var(--soft-accent); color: var(--accent-dark); }
 .switcher button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .grid :global(.listing-card) { display: flex; flex-direction: column; min-width: 0; }

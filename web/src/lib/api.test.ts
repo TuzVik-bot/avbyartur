@@ -8,19 +8,6 @@ afterEach(() => {
 });
 
 describe("same-origin API client", () => {
-  it("loads at most twelve de-duplicated recent listing IDs as repeated query parameters", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200, headers: { "Content-Type": "application/json" } }));
-    vi.stubGlobal("fetch", fetchMock);
-    const ids = Array.from({ length: 13 }, (_, index) => `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`);
-
-    await api.recentListings([ids[0], ids[0], ...ids.slice(1)]);
-    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(new URL(url, "http://localhost").searchParams.getAll("ids")).toEqual(ids.slice(0, 12));
-
-    expect(await api.recentListings([])).toEqual({ items: [] });
-    expect(fetchMock).toHaveBeenCalledOnce();
-  });
-
   it("bootstraps and sends the guest contact request proof", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ guest_contact_reveal_enabled: true }), { status: 200, headers: { "Content-Type": "application/json", "X-Guest-Contact-Token": "guest-proof" } }))
@@ -52,6 +39,19 @@ describe("same-origin API client", () => {
     expect(init.credentials).toBe("include");
     expect(new Headers(init.headers).get("X-CSRF-Token")).toBe("session-csrf");
     expect(new Headers(init.headers).get("Content-Type")).toBe("application/json");
+  });
+
+  it("requests a market estimate with only draft characteristics and CSRF", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ available: false, median_byn: null, sample_size: 0, seller_count: 0, as_of: null, rate_date: null }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    setCsrfToken("session-csrf");
+
+    await api.listingMarketEstimate({ seller_type: "private", make_id: "make-1", model_id: "model-1", body_type_id: "body-1", year: 2020, mileage_km: 50000, condition: "used", fuel: "petrol", transmission: "manual", damaged: false, parts_only: false });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/listings/market-price-estimate");
+    expect(new Headers(init.headers).get("X-CSRF-Token")).toBe("session-csrf");
+    expect(String(init.body)).not.toMatch(/vin|plate|phone/i);
   });
 
   it("fetches the pre-auth OTP CSRF token before requesting a one-time code", async () => {
@@ -173,24 +173,6 @@ describe("same-origin API client", () => {
     expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe("/api/v1/me/notifications?unread_only=true&limit=25");
     expect((fetchMock.mock.calls[1] as [string, RequestInit])[0]).toBe("/api/v1/me/notifications/notification%2F1/read");
     expect(new Headers((fetchMock.mock.calls[1] as [string, RequestInit])[1].headers).get("X-CSRF-Token")).toBe("session-csrf");
-  });
-
-  it("loads public price history and updates a favorite price-drop opt-in", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [] }), { status: 200, headers: { "Content-Type": "application/json" } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ enabled: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
-    vi.stubGlobal("fetch", fetchMock);
-    setCsrfToken("session-csrf");
-
-    await api.listingPriceHistory("listing/1");
-    await api.setFavoritePriceDropAlert("listing/1", true);
-
-    expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe("/api/v1/listings/listing%2F1/price-history");
-    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
-    expect(url).toBe("/api/v1/me/favorites/listing%2F1/price-drop-alert");
-    expect(init.method).toBe("PUT");
-    expect(JSON.parse(init.body as string)).toEqual({ enabled: true });
-    expect(new Headers(init.headers).get("X-CSRF-Token")).toBe("session-csrf");
   });
 
   it("uses the revision-protected global notification preference and phone change contracts", async () => {

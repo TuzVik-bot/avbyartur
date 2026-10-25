@@ -248,6 +248,10 @@ export function buildDealerJsonLd(dealer: CompanySummary) {
     url: siteUrl(`/dealers/${encodeURIComponent(dealer.slug)}`),
   };
   if (dealer.address) schema.address = { "@type": "PostalAddress", streetAddress: dealer.address, addressCountry: "BY" };
+  if (dealer.logo_url) {
+    const logo = validImageUrl(dealer.logo_url);
+    if (logo) schema.image = logo;
+  }
   return schema;
 }
 

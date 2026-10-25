@@ -3,7 +3,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ListingCard } from "@/components/listing-card";
 import { api } from "@/lib/api";
-import { clearComparisonIds } from "@/lib/comparison-state";
 import type { ListingSummary } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
@@ -20,14 +19,13 @@ vi.mock("next/image", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }));
 vi.mock("@/components/auth-provider", () => ({ useAuth: () => ({ user: mocks.user }) }));
+vi.mock("@/components/compare-button", () => ({ CompareButton: ({ listingId }: { listingId: string }) => <button data-compare-listing={listingId}>Сравнить</button> }));
 
 let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  localStorage.clear();
-  clearComparisonIds();
   container = document.createElement("div");
   document.body.append(container);
   act(() => { root = createRoot(container); });
@@ -39,11 +37,11 @@ afterEach(() => {
   mocks.user = null;
   mocks.push.mockReset();
   mocks.refresh.mockReset();
-  clearComparisonIds();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
-function listing(overrides: Partial<ListingSummary & { published_at?: string | null; engine_volume_l?: string | null; power_hp?: number | null }> = {}): ListingSummary {
+function listing(overrides: Partial<ListingSummary & { published_at?: string | null; engine_volume_l?: string | number | null; power_hp?: number | null }> = {}): ListingSummary {
   return {
     id: "listing-1",
     slug: "listing-1",
@@ -68,6 +66,11 @@ function listing(overrides: Partial<ListingSummary & { published_at?: string | n
 }
 
 describe("listing card city navigation", () => {
+  it("offers comparison for the current listing", () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing() })));
+    expect(container.querySelector('[data-compare-listing="listing-1"]')?.textContent).toBe("Сравнить");
+  });
+
   it("links catalog locations to the planned city route", () => {
     act(() => root.render(createElement(ListingCard, { listing: listing() })));
 
@@ -92,19 +95,6 @@ describe("listing card city navigation", () => {
 
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("Временно недоступно");
     expect(container.querySelector(".favorite-error")?.classList.contains("sr-only")).toBe(false);
-  });
-});
-
-describe("listing card comparison", () => {
-  it("adds a listing and exposes the selected comparison from its card", async () => {
-    await act(async () => root.render(createElement(ListingCard, { listing: listing() })));
-    const addButton = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Добавить к сравнению"));
-    expect(addButton).not.toBeNull();
-    expect(container.querySelector('a[href="/compare"]')?.textContent).toBe("Сравнение");
-
-    await act(async () => addButton!.click());
-    expect(addButton!.getAttribute("aria-pressed")).toBe("true");
-    expect(container.querySelector('a[href="/compare"]')?.textContent).toBe("Сравнение (1)");
   });
 });
 
@@ -150,6 +140,12 @@ describe("listing card photos", () => {
 });
 
 describe("listing card facts", () => {
+  it("shows an active urgent promotion badge", () => {
+    act(() => root.render(createElement(ListingCard, { listing: { ...listing(), promotion_badges: ["urgent"] } as ListingSummary })));
+
+    expect(container.querySelector("[data-urgent-badge]")?.textContent).toBe("Срочно");
+  });
+
   it("shows only supplied specs and reports Minsk publication age and market comparison source", () => {
     vi.setSystemTime(new Date("2026-10-09T21:30:00.000Z"));
     const detailed = {
@@ -179,15 +175,69 @@ describe("listing card facts", () => {
     expect(marketBadge?.title).toContain("По предложениям Авторынка");
     expect(marketBadge?.title).toContain("14 объявлениям");
     expect(marketBadge?.title).toContain("08.10.2026");
+    const specs = Array.from(container.querySelectorAll(".card-specs > span"), (element) => element.textContent ?? "");
+    expect(specs).toHaveLength(6);
+    expect(specs[0]).toBe("2020 г.");
+    expect(specs[1]).toContain("км");
+    expect(specs[2]).toBe("1,6 л");
+    expect(specs[3]).toBe("120 л.с.");
+    expect(container.querySelector('.card-footer a[href="/cars/city/minsk"]')?.textContent).toBe("Минск");
+    expect(container.querySelector(".card-published")?.textContent).toBe("Опубликовано сегодня");
 
     const withoutAge = listing({ created_at: "2026-10-09T21:30:00.000Z" });
     act(() => root.render(createElement(ListingCard, { listing: withoutAge })));
     expect(container.textContent).not.toContain("Опубликовано");
     expect(container.textContent).not.toContain("л.с.");
+    expect(container.querySelector("[data-market-comparison]")).toBeNull();
 
     act(() => root.render(createElement(ListingCard, { listing: listing({ published_at: "2026-10-07T21:30:00.000Z" }) })));
     expect(container.textContent).toContain("Опубликовано 2 дня назад");
     vi.useRealTimers();
+  });
+
+  it("does not invent missing facts or show combustion volume for an electric car", () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing({
+      year: null,
+      mileage_km: null,
+      engine_volume_l: null,
+      power_hp: null,
+      fuel: null,
+      transmission: null,
+      city: null,
+      manual_city: null,
+      published_at: null
+    }) })));
+
+    const specs = Array.from(container.querySelectorAll(".card-specs > span"), (element) => element.textContent ?? "");
+    expect(specs).toContain("Год не указан");
+    expect(specs).toContain("Пробег не указан");
+    expect(specs.filter((value) => value === "Не указан")).toHaveLength(2);
+    expect(specs.some((value) => value.includes("л.с."))).toBe(false);
+    expect(specs.some((value) => value.includes(" л"))).toBe(false);
+    expect(container.querySelector(".card-published")).toBeNull();
+    expect(container.querySelector(".card-footer")?.textContent).toContain("Населённый пункт не указан");
+
+    act(() => root.render(createElement(ListingCard, { listing: listing({ engine_volume_l: " " }) })));
+    expect(container.querySelector(".card-specs")?.textContent).not.toContain("0 л");
+
+    act(() => root.render(createElement(ListingCard, { listing: listing({ fuel: "electric", engine_volume_l: "1.6", power_hp: 125 }) })));
+    expect(container.querySelector(".card-specs")?.textContent).not.toContain("1,6 л");
+    expect(container.querySelector(".card-specs")?.textContent).toContain("125 л.с.");
+  });
+
+  it("uses Minsk calendar days and omits a future publication date", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-09T20:59:00.000Z"));
+    const publishedAt = "2026-10-09T20:58:00.000Z";
+    act(() => root.render(createElement(ListingCard, { listing: listing({ published_at: publishedAt }) })));
+    expect(container.querySelector(".card-published")?.textContent).toBe("Опубликовано сегодня");
+
+    vi.setSystemTime(new Date("2026-10-09T21:01:00.000Z"));
+    act(() => root.render(createElement(ListingCard, { listing: listing({ published_at: publishedAt }) })));
+    expect(container.querySelector(".card-published")?.textContent).toBe("Опубликовано вчера");
+
+    act(() => root.render(createElement(ListingCard, { listing: listing({ published_at: "2026-10-10T22:00:00.000Z" }) })));
+    expect(container.querySelector(".card-published")).toBeNull();
   });
 });
 
@@ -203,5 +253,25 @@ describe("favorite removal", () => {
     expect(removeFavorite).toHaveBeenCalledWith("listing-1");
     expect(button.getAttribute("aria-pressed")).toBe("false");
     expect(mocks.refresh).toHaveBeenCalledOnce();
+  });
+});
+
+
+describe("photo labels", () => {
+  it("shows assigned labels over real photos in grid and row layouts", () => {
+    const labelled = listing({ photo_urls: ["/car.jpg"], photo_badges: ["verified", "free_history", "best_price"] });
+    for (const variant of ["grid", "row"] as const) {
+      act(() => root.render(createElement(ListingCard, { listing: labelled, variant })));
+      const overlay = container.querySelector(".listing-card-media .listing-photo-badges");
+      expect(overlay?.textContent).toContain("Проверено Авторынок");
+      expect(overlay?.textContent).toContain("История бесплатно");
+      expect(overlay?.textContent).toContain("Лучшая цена");
+      expect(overlay?.querySelectorAll(".listing-photo-badge")).toHaveLength(3);
+    }
+  });
+
+  it("does not show labels on the synthetic fallback", () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing({ photo_badges: ["verified"] }) })));
+    expect(container.querySelector(".listing-photo-badges")).toBeNull();
   });
 });

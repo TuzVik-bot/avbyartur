@@ -7,8 +7,13 @@ describe("pro subscription page", () => {
     const html = renderToStaticMarkup(<ProSubscriptionPage />);
 
     expect(metadata.title).toBe("Pro для компаний");
-    expect(html).toContain("Тарифы, счета, платежи и управление подпиской пока не реализованы");
-    expect(html).toContain("Командные роли и управление сотрудниками компании");
+    expect(html).toContain("Создать заказ и оплатить подписку сейчас нельзя");
+    expect(html).toContain("состав и стоимость ещё не утверждены");
+    expect(html).toContain("Управление командой компании: сотрудники и их роли в кабинете");
+    expect(html).toContain("Аналитика объявлений с отдельными счётчиками просмотров");
+    expect(html).toContain("не связывают действия одного посетителя");
+    expect(html).not.toContain("следующему этапу");
+    expect(html).toContain('href="/account/billing"');
     expect(html).toContain('href="/account/company"');
     expect(html).toContain('href="/dealers"');
     expect(html).not.toMatch(/\b(?:BYN|USD|руб(?:лей|\.)?)\b/i);

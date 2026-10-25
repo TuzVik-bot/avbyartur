@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Filter, SlidersHorizontal, X } from "lucide-react";
+import Link from "next/link";
 import { api } from "@/lib/api";
-import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch } from "@/lib/types";
 import { getListingSubcategories } from "@/lib/listing-subcategories";
+import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch } from "@/lib/types";
 
 const emptyCatalogItems: CatalogItem[] = [];
 const emptyModifications: CatalogModification[] = [];
@@ -45,10 +46,6 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
   priceOperationsAvailable?: boolean;
   initialCount?: number | null;
 }) {
-  const categoryCode = search.category_code || "cars";
-  const subcategories = getListingSubcategories(categoryCode);
-  const isCarCategory = categoryCode === "cars";
-  const hasVehicleYear = ["cars", "trucks", "buses", "motorcycles", "special_equipment", "agricultural_equipment", "trailers", "watercraft"].includes(categoryCode);
   const initialRegionId = search.region_id || initialCities.find((city) => city.id === search.city_id)?.region_id || "";
   const [open, setOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -100,15 +97,12 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const updateCount = () => {
       if (timeout) clearTimeout(timeout);
-      const nextSearch = searchFromFilterForm(form);
       const currentRequest = ++countRequestId.current;
       setCountLoading(false);
-      if (!Object.keys(nextSearch).length) {
-        setResultCount(initialCount ?? null);
-        return;
-      }
       setResultCount(null);
       timeout = setTimeout(async () => {
+        // Read after React has applied dependent-field resets from this event.
+        const nextSearch = searchFromFilterForm(form);
         setCountLoading(true);
         try {
           const response = await api.listingCount(nextSearch);
@@ -387,15 +381,7 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
         </div>
         <form key={JSON.stringify(search)} action="/cars" method="get" className="filter-form" onSubmit={() => { if (mobileDialogOpen) setOpen(false); }}>
           <div className="filter-grid">
-          {subcategories.length > 0 && <label className="field filter-wide">
-            <span>Подкатегория</span>
-            <select name="subcategory" defaultValue={search.subcategory || ""}>
-              <option value="">Все подкатегории</option>
-              {subcategories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-          </label>}
-          <input type="hidden" name="category_code" value={categoryCode} />
-          {isCarCategory && <>
+          {search.category_code && getListingSubcategories(search.category_code).length > 0 && <label className="field filter-wide"><span>Подкатегория</span><select name="subcategory" defaultValue={search.subcategory || ""}><option value="">Все варианты</option>{getListingSubcategories(search.category_code).map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select></label>}
           <label className="field filter-wide">
             <span>Марка</span>
             <select name="make_id" value={makeId} onChange={(event) => {
@@ -462,7 +448,6 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <label className="field"><span>Таможенный статус</span><select name="customs_status" defaultValue={search.customs_status || ""}><option value="">Любой</option><option value="cleared_rb">Оформлен в РБ</option><option value="eaeu_import">Ввезён из ЕАЭС</option><option value="uncleared">Не растаможен</option><option value="unknown">Не указан</option></select></label>
           <label className="field"><span>Техническое состояние</span><select name="technical_condition" defaultValue={search.technical_condition || ""}><option value="">Любое</option><option value="good">Исправен</option><option value="needs_repair">Требует ремонта</option><option value="non_operational">Не на ходу</option></select></label>
           <label className="field"><span>Состояние кузова</span><select name="body_condition" defaultValue={search.body_condition || ""}><option value="">Любое</option><option value="good">Без заметных повреждений</option><option value="minor_damage">Есть небольшие повреждения</option><option value="significant_damage">Есть серьёзные повреждения</option><option value="repaired">Был в ремонте</option></select></label>
-          </>}
           <fieldset className="filter-wide" disabled={!priceOperationsAvailable}>
             <legend className="field-label">Цена, BYN</legend>
             <div className="range-fields">
@@ -471,29 +456,28 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
             </div>
           </fieldset>
           <input type="hidden" name="currency" value={search.currency || "BYN"} />
+          {search.category_code && <input type="hidden" name="category_code" value={search.category_code} />}
           {search.q && <input type="hidden" name="q" value={search.q} />}
           {search.sort && <input type="hidden" name="sort" value={search.sort} />}
-          {hasVehicleYear && <fieldset className="filter-wide">
+          <fieldset className="filter-wide">
             <legend className="field-label">Год выпуска</legend>
             <div className="range-fields">
               <input name="year_min" inputMode="numeric" type="number" min="1886" aria-label="Год от" placeholder="От" defaultValue={search.year_min || ""} />
               <input name="year_max" inputMode="numeric" type="number" min="1886" aria-label="Год до" placeholder="До" defaultValue={search.year_max || ""} />
             </div>
-          </fieldset>}
-          {isCarCategory && <fieldset className="filter-wide">
+          </fieldset>
+          <fieldset className="filter-wide">
             <legend className="field-label">Пробег, км</legend>
             <div className="range-fields">
               <input name="mileage_min" inputMode="numeric" type="number" min="0" aria-label="Пробег от, км" placeholder="От" defaultValue={search.mileage_min || ""} />
               <input name="mileage_max" inputMode="numeric" type="number" min="0" aria-label="Пробег до, км" placeholder="До" defaultValue={search.mileage_max || ""} />
             </div>
-          </fieldset>}
-          {isCarCategory && <fieldset className="filter-wide"><legend className="field-label">Объём двигателя, л</legend><div className="range-fields"><input name="engine_volume_min" inputMode="decimal" type="number" min="0" max="20" step="0.1" aria-label="Объём двигателя от, л" placeholder="От" defaultValue={search.engine_volume_min || ""} /><input name="engine_volume_max" inputMode="decimal" type="number" min="0" max="20" step="0.1" aria-label="Объём двигателя до, л" placeholder="До" defaultValue={search.engine_volume_max || ""} /></div></fieldset>}
-          {isCarCategory && <fieldset className="filter-wide"><legend className="field-label">Мощность, л.с.</legend><div className="range-fields"><input name="power_min" inputMode="numeric" type="number" min="1" max="2500" aria-label="Мощность от, л.с." placeholder="От" defaultValue={search.power_min || ""} /><input name="power_max" inputMode="numeric" type="number" min="1" max="2500" aria-label="Мощность до, л.с." placeholder="До" defaultValue={search.power_max || ""} /></div></fieldset>}
-          {isCarCategory && <>
+          </fieldset>
+          <fieldset className="filter-wide"><legend className="field-label">Объём двигателя, л</legend><div className="range-fields"><input name="engine_volume_min" inputMode="decimal" type="number" min="0" max="20" step="0.1" aria-label="Объём двигателя от, л" placeholder="От" defaultValue={search.engine_volume_min || ""} /><input name="engine_volume_max" inputMode="decimal" type="number" min="0" max="20" step="0.1" aria-label="Объём двигателя до, л" placeholder="До" defaultValue={search.engine_volume_max || ""} /></div></fieldset>
+          <fieldset className="filter-wide"><legend className="field-label">Мощность, л.с.</legend><div className="range-fields"><input name="power_min" inputMode="numeric" type="number" min="1" max="2500" aria-label="Мощность от, л.с." placeholder="От" defaultValue={search.power_min || ""} /><input name="power_max" inputMode="numeric" type="number" min="1" max="2500" aria-label="Мощность до, л.с." placeholder="До" defaultValue={search.power_max || ""} /></div></fieldset>
           <label className="field"><span>Топливо</span><select name="fuel" defaultValue={search.fuel || ""}><option value="">Любое</option><option value="petrol">Бензин</option><option value="diesel">Дизель</option><option value="hybrid">Гибрид</option><option value="electric">Электро</option><option value="lpg">Газ</option><option value="other">Другое</option></select></label>
           <label className="field"><span>Коробка</span><select name="transmission" defaultValue={search.transmission || ""}><option value="">Любая</option><option value="manual">Механика</option><option value="automatic">Автомат</option><option value="robot">Робот</option><option value="cvt">Вариатор</option><option value="other">Другое</option></select></label>
           <label className="field"><span>Привод</span><select name="drive" defaultValue={search.drive || ""}><option value="">Любой</option><option value="front">Передний</option><option value="rear">Задний</option><option value="all">Полный</option><option value="other">Другое</option></select></label>
-          </>}
           <label className="field"><span>Состояние</span><select name="condition" defaultValue={search.condition || ""}><option value="">Любое</option><option value="new">Новый</option><option value="used">С пробегом</option></select></label>
           <label className="field"><span>Область</span><select name="region_id" value={regionId} onChange={(event) => {
             setRegionId(event.target.value);
@@ -516,15 +500,18 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <label className="check-field filter-wide"><input type="checkbox" name="bargaining" value="true" defaultChecked={search.bargaining === "true"} /> Возможен торг</label>
           <label className="check-field filter-wide"><input type="checkbox" name="credit" value="true" defaultChecked={search.credit === "true"} /> Возможен кредит</label>
           <label className="check-field filter-wide"><input type="checkbox" name="leasing" value="true" defaultChecked={search.leasing === "true"} /> Возможен лизинг</label>
-          {isCarCategory && <label className="check-field filter-wide"><input type="checkbox" name="has_vin" value="true" defaultChecked={search.has_vin === "true"} /> Есть VIN</label>}
+          <label className="check-field filter-wide"><input type="checkbox" name="has_vin" value="true" defaultChecked={search.has_vin === "true"} /> Есть VIN</label>
           <label className="check-field filter-wide"><input type="checkbox" name="has_photos" value="true" defaultChecked={search.has_photos === "true"} /> Есть фотографии</label>
-          {isCarCategory && <label className="field filter-wide"><span>Комплектация</span><select name="equipment" multiple size={5} defaultValue={search.equipment || []}><option value="abs">ABS</option><option value="esp">ESP</option><option value="airbags">Подушки безопасности</option><option value="air_conditioning">Кондиционер</option><option value="climate_control">Климат-контроль</option><option value="heated_seats">Подогрев сидений</option><option value="cruise_control">Круиз-контроль</option><option value="parking_sensors">Парктроники</option><option value="rear_camera">Камера заднего вида</option><option value="leather_seats">Кожаный салон</option><option value="carplay">Apple CarPlay</option><option value="android_auto">Android Auto</option></select><small className="muted">Можно выбрать несколько значений.</small></label>}
+          <label className="field filter-wide"><span>Комплектация</span><select name="equipment" multiple size={5} defaultValue={search.equipment || []}><option value="abs">ABS</option><option value="esp">ESP</option><option value="airbags">Подушки безопасности</option><option value="air_conditioning">Кондиционер</option><option value="climate_control">Климат-контроль</option><option value="heated_seats">Подогрев сидений</option><option value="cruise_control">Круиз-контроль</option><option value="parking_sensors">Парктроники</option><option value="rear_camera">Камера заднего вида</option><option value="leather_seats">Кожаный салон</option><option value="carplay">Apple CarPlay</option><option value="android_auto">Android Auto</option></select><small className="muted">Можно выбрать несколько значений.</small></label>
           <label className="field"><span>Район</span><input name="district" maxLength={120} defaultValue={search.district || ""} /></label>
           <label className="field"><span>Время звонков</span><input name="call_hours" maxLength={80} defaultValue={search.call_hours || ""} /></label>
           <input type="hidden" name="page_size" value={search.page_size || "25"} />
           </div>
           <div className="filter-wide filter-apply-wrap">
-            <button className="button button-primary filter-apply" type="submit">{countLoading ? "Подбираем…" : resultCount === null ? `Показать ${categoryCode === "cars" ? "автомобили" : "предложения"}` : `Показать ${offerLabel(resultCount)}`}</button>
+            <div className="filter-actions">
+              <Link className="button button-secondary filter-reset" href="/cars">Сбросить фильтры</Link>
+              <button className="button button-primary filter-apply" type="submit">{countLoading ? "Подбираем…" : resultCount === null ? "Показать автомобили" : `Показать ${offerLabel(resultCount)}`}</button>
+            </div>
             <span className="filter-result-count" role="status" aria-live="polite" data-count-state={resultCount === null ? "generic" : "count"}>
               {countLoading ? "Подбираем подходящие предложения" : resultCount === null ? "Количество уточнится после применения фильтров" : `Найдено ${offerLabel(resultCount)}`}
             </span>

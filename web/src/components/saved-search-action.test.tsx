@@ -61,8 +61,8 @@ describe("SavedSearchAction", () => {
     const body = JSON.parse(String(options.body));
     expect(path).toBe("me/saved-searches");
     expect(new Headers(options.headers).get("Idempotency-Key")).toBeTruthy();
-    expect(body.url).toBe("/cars?equipment=abs&equipment=heated_seats&q=Audi+A4&sort=newest");
-    expect(body.filters).toEqual({ equipment: ["abs", "heated_seats"], q: "Audi A4", sort: "newest" });
+    expect(body.url).toBe("/cars?equipment=abs&equipment=heated_seats&q=Audi+A4");
+    expect(body.filters).toEqual({ equipment: ["abs", "heated_seats"], q: "Audi A4" });
     expect(body.notifications_enabled).toBe(false);
     expect(body.notification_channel).toBeNull();
     expect(body.notification_frequency).toBe("daily");
@@ -95,7 +95,7 @@ describe("SavedSearchAction", () => {
 
   it("routes signed-out save choices back to the canonical current search", async () => {
     mocks.user = null;
-    await render({ q: "Audi", equipment: ["rear_camera", "abs"], page: "3" });
+    await render({ q: "Audi", equipment: ["rear_camera", "abs"], page: "3", page_size: "50", sort: "newest" });
 
     const links = [...container.querySelectorAll<HTMLAnchorElement>("a.button")];
     expect(links.map((link) => link.textContent?.trim())).toEqual([
@@ -129,6 +129,6 @@ describe("SavedSearchAction", () => {
 
     await act(async () => { container.querySelector<HTMLButtonElement>(".saved-search-form button[type=submit]")?.click(); });
 
-    expect(mocks.push).toHaveBeenCalledWith("/login?next=%2Fcars%3Fq%3DAudi%26sort%3Dnewest");
+    expect(mocks.push).toHaveBeenCalledWith("/login?next=%2Fcars%3Fq%3DAudi");
   });
 });

@@ -46,6 +46,3 @@
 @keyframes pulse { to { opacity: .3; } }
 @media (max-width: 540px) { .launcher { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); min-height: 58px; padding-right: 12px; } .launcher img { width: 48px; height: 48px; } .panel { right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); width: calc(100% - 16px); height: min(690px, calc(100dvh - 16px)); } .header { gap: 5px; padding: 10px; } .header strong { font-size: 14px; } .header img { width: 40px; height: 40px; } .header .icon { width: 32px; height: 36px; } .composer textarea { font-size: 16px; } }
 @media (prefers-reduced-motion: reduce) { .pending span { animation: none; } .thread { scroll-behavior: auto; } }
-@media (max-width: 540px) {
-  .launcher { position: relative; inset: auto; width: max-content; max-width: calc(100% - 24px); margin: 12px 12px 12px auto; }
-}

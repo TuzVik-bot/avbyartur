@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { ApiClientError, internalApiBase, searchPath } from "@/lib/api";
 import type { components } from "@/lib/types.generated";
-import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, FavoriteListing, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, Report, UserNotificationList } from "@/lib/types";
+import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, DealerReviewReport, DealerReviews, FavoriteListing, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, ModerationDealerReview, Report, UserNotificationList } from "@/lib/types";
 import type { NotificationPreferences } from "@/lib/api";
 
 export async function serverApiRequest<T>(path: string): Promise<T> {
@@ -27,6 +27,7 @@ export const serverApi = {
   listings: (search: ListingSearch = {}) => serverApiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
   listing: (id: string) => serverApiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   relatedListings: (id: string) => serverApiRequest<{ items: ListingSummary[] }>(`listings/${encodeURIComponent(id)}/related`),
+  sellerListings: (id: string) => serverApiRequest<{ items: (ListingSummary & { status: "active" })[] }>(`listings/${encodeURIComponent(id)}/seller-listings`),
   listingAnalytics: (id: string, options: { dateFrom?: string; dateTo?: string } = {}) => {
     const params = new URLSearchParams();
     if (options.dateFrom) params.set("date_from", options.dateFrom);
@@ -35,6 +36,7 @@ export const serverApi = {
     return serverApiRequest<components["schemas"]["ListingAnalyticsOut"]>(`listings/${encodeURIComponent(id)}/analytics${query ? `?${query}` : ""}`);
   },
   billingTariffs: () => serverApiRequest<components["schemas"]["BillingTariffOut"][]>("billing/tariffs"),
+  listingPromotionEligibility: (listingId: string) => serverApiRequest<{ promotable: boolean }>(`billing/listings/${encodeURIComponent(listingId)}/eligibility`),
   billingOrders: (page = 1, pageSize = 25) => serverApiRequest<components["schemas"]["BillingOrderListOut"]>(`billing/orders?page=${page}&page_size=${pageSize}`),
   billingOrder: (id: string) => serverApiRequest<components["schemas"]["BillingOrderOut"]>(`billing/orders/${encodeURIComponent(id)}`),
   catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: Record<string, string> = {}) => {
@@ -42,7 +44,8 @@ export const serverApi = {
     return serverApiRequest<{ items: CatalogItem[] }>(`catalog/${kind}${query ? `?${query}` : ""}`);
   },
   dealers: (page = 1) => serverApiRequest<ListResponse<CompanySummary>>(`dealers?${new URLSearchParams({ page: String(page) })}`),
-  dealer: (slug: string, page = 1) => serverApiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary> }>(`dealers/${encodeURIComponent(slug)}?${new URLSearchParams({ page: String(page) })}`),
+  publicStats: () => serverApiRequest<{ active_listings: number; approved_companies: number; published_reviews: number }>("public-stats"),
+  dealer: (slug: string, page = 1) => serverApiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary>; reviews: DealerReviews }>(`dealers/${encodeURIComponent(slug)}?${new URLSearchParams({ page: String(page) })}`),
   meListings: (page = 1, pageSize = 25) => {
     const query = new URLSearchParams({ page: String(page), page_size: String(pageSize) }).toString();
     return serverApiRequest<ListResponse<Listing>>(`me/listings?${query}`);
@@ -63,6 +66,8 @@ export const serverApi = {
   },
   moderationCompanies: () => serverApiRequest<{ items: Company[] }>("moderation/companies"),
   moderationReports: () => serverApiRequest<{ items: Report[] }>("moderation/reports"),
+  moderationDealerReviews: (status: "pending" | "published" | "rejected" | "hidden" = "pending") => serverApiRequest<{ items: ModerationDealerReview[] }>(`moderation/dealer-reviews?${new URLSearchParams({ status })}`),
+  moderationDealerReviewReports: (status: "open" | "resolved" = "open") => serverApiRequest<{ items: DealerReviewReport[] }>(`moderation/dealer-review-reports?${new URLSearchParams({ status })}`),
   regions: () => serverApiRequest<{ items: CatalogItem[] }>("locations/regions"),
   cities: (regionId = "") => serverApiRequest<{ items: CatalogItem[] }>(`locations/cities?region_id=${encodeURIComponent(regionId)}`),
   photos: (id: string) => serverApiRequest<{ items: ListingPhoto[] }>(`listings/${encodeURIComponent(id)}/photos`),
