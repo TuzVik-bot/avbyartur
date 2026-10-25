@@ -41,3 +41,4 @@ export const editorialGuideActions: Record<EditorialArticle["slug"], readonly Ed
 };
 
 export const editorialContentUpdated = "22 октября 2026";
+export const editorialContentUpdatedISO = "2026-10-22";

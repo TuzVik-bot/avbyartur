@@ -5,6 +5,7 @@ export const DEFAULT_LOCALE: Locale = "ru";
 const russianMessages = {
   "layout.titleSuffix": "автомобили Беларуси",
   "layout.description": "Поиск автомобилей в Беларуси и подача объявлений в закрытом пилоте.",
+  "layout.descriptionPublic": "Каталог автомобилей с пробегом и новых в Беларуси: объявления от владельцев и дилеров, цены в BYN и USD, таможенный калькулятор и инструкции для покупателей.",
   "layout.skipToMainContent": "Перейти к основному содержимому",
   "home.metadataTitle": "Автомобили Беларуси",
   "header.brandHome": "Авторынок, главная",

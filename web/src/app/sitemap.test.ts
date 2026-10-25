@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SITE_ORIGIN } from "@/lib/site-config";
 import { editorialArticlePaths } from "@/lib/editorial-articles";
+import { STATIC_SITEMAP_PATHS } from "@/lib/seo";
 
 const PUBLIC_INDEXING_ENV = "AVTORINOK_PUBLIC_INDEXING_ENABLED";
+const staticSitemapUrls = STATIC_SITEMAP_PATHS.map((path) => `${SITE_ORIGIN}${path}`);
 const mocks = vi.hoisted(() => ({ listings: vi.fn(), dealers: vi.fn(), connection: vi.fn() }));
 
 vi.mock("@/lib/server-api", () => ({
@@ -160,6 +162,7 @@ describe("closed pilot sitemap", () => {
       `${SITE_ORIGIN}/`,
       `${SITE_ORIGIN}/cars`,
       `${SITE_ORIGIN}/dealers`,
+      ...staticSitemapUrls,
       ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
     ]);
     expect(entries.every((entry) => !("lastModified" in entry))).toBe(true);
@@ -207,6 +210,7 @@ describe("closed pilot sitemap", () => {
       `${SITE_ORIGIN}/`,
       `${SITE_ORIGIN}/cars`,
       `${SITE_ORIGIN}/dealers`,
+      ...staticSitemapUrls,
       ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
     ]);
     expect(mocks.listings).toHaveBeenCalledTimes(2);

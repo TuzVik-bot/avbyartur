@@ -1,11 +1,14 @@
 export type EditorialBlock =
   | { type: "paragraph"; text: string }
-  | { type: "list"; items: readonly string[] };
+  | { type: "list"; items: readonly string[] }
+  | { type: "image"; src: string; alt: string; caption?: string };
 
 export type EditorialSection = {
   heading: string;
   blocks: readonly EditorialBlock[];
 };
+
+export type EditorialArticleSource = { name: string; url: string };
 
 export type EditorialArticle = {
   slug: string;
@@ -15,6 +18,10 @@ export type EditorialArticle = {
   sections: readonly EditorialSection[];
   closingLabel: string;
   closingText: string;
+  // Present on imported licensed articles; absent on the original editorial pack.
+  publishedOn?: string;
+  source?: EditorialArticleSource;
+  leadImage?: { src: string; alt: string; caption?: string };
 };
 
 /** Published static articles drawn from the prepared first-articles editorial pack. */

@@ -1,11 +1,36 @@
 import type { Metadata, MetadataRoute } from "next";
 import { listingHref } from "@/lib/format";
-import { SITE_ORIGIN, siteUrl } from "@/lib/site-config";
+import { DEFAULT_LOCALE } from "@/lib/i18n";
+import { SITE_NAME, SITE_ORIGIN, siteUrl } from "@/lib/site-config";
 import type { CompanySummary, Listing, ListingSummary } from "@/lib/types";
+import type { EditorialArticle } from "@/lib/editorial-articles";
 
 const MAX_SITEMAP_URLS = 50_000;
 const MIN_LISTINGS_FOR_MAKE_OR_MODEL_PAGE = 3;
 const MIN_LISTINGS_FOR_CITY_PAGE = 10;
+
+const DEFAULT_OG_IMAGE = { url: "/og-default.jpg", width: 1200, height: 630, alt: SITE_NAME };
+
+// Public pages that belong in the sitemap regardless of catalog content.
+export const STATIC_SITEMAP_PATHS = [
+  "/makes",
+  "/motorcycles",
+  "/special-equipment",
+  "/agricultural-equipment",
+  "/watercraft",
+  "/tires-and-wheels",
+  "/useful-information",
+  "/customs-calculator",
+  "/currency-converter",
+  "/sale-contract",
+  "/vin-check",
+  "/services",
+  "/about",
+  "/faq",
+  "/help",
+  "/support",
+  "/partner",
+] as const;
 
 export type SitemapListing = ListingSummary & { status?: Listing["status"] };
 
@@ -56,12 +81,22 @@ export function buildListingMetadata(listing: Listing): Metadata {
     listing.mileage_km !== null ? `${new Intl.NumberFormat("ru-BY").format(listing.mileage_km)} км` : null,
     listing.city?.name || listing.manual_city || listing.region?.name,
   ].filter((part): part is string => Boolean(part));
+  const description = details.length ? `${details.join(" · ")} — объявление об автомобиле в Беларуси.`.slice(0, 160) : "Объявление об автомобиле в Беларуси.";
   const canonical = siteUrl(listingHref(listing));
+  const ogImageCandidates = [...new Set([listing.cover_url, ...(listing.photo_urls || [])])].slice(0, 3);
+  const ogImagePaths = ogImageCandidates.filter((value): value is string => Boolean(value && value.startsWith("/") && !value.startsWith("//")));
 
   return {
     title,
-    description: details.length ? `${details.join(" · ")} — объявление об автомобиле в Беларуси.`.slice(0, 160) : "Объявление об автомобиле в Беларуси.",
+    description,
     alternates: { canonical },
+    openGraph: buildOpenGraph({ title, description, path: listingHref(listing), images: ogImagePaths }),
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ogImagePaths.length ? ogImagePaths : [DEFAULT_OG_IMAGE.url],
+    },
     ...(listing.status === "sold" ? {
       robots: {
         index: false,
@@ -70,6 +105,31 @@ export function buildListingMetadata(listing: Listing): Metadata {
         googleBot: { index: false, follow: false, noimageindex: true },
       },
     } : {}),
+  };
+}
+
+export type OpenGraphInput = {
+  title: string;
+  description: string;
+  path: string;
+  images?: string[];
+  type?: "website" | "article";
+};
+
+export function buildOpenGraph({ title, description, path, images, type = "website" }: OpenGraphInput): NonNullable<Metadata["openGraph"]> {
+  const resolvedImages = (images ?? [])
+    .map(validImageUrl)
+    .filter((url): url is string => url !== null)
+    .slice(0, 3)
+    .map((url) => ({ url }));
+  return {
+    type,
+    siteName: SITE_NAME,
+    locale: DEFAULT_LOCALE,
+    url: siteUrl(path),
+    title,
+    description,
+    images: resolvedImages.length ? resolvedImages : [DEFAULT_OG_IMAGE],
   };
 }
 
@@ -120,8 +180,79 @@ export function serializeJsonLd(value: unknown) {
     .replace(/\u2029/g, "\\u2029");
 }
 
+export function buildWebsiteJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE_NAME,
+    url: siteUrl("/"),
+    inLanguage: DEFAULT_LOCALE,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${siteUrl("/cars")}?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+}
+
+export function buildOrganizationJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: siteUrl("/"),
+    image: siteUrl(DEFAULT_OG_IMAGE.url),
+  };
+}
+
+export function buildBreadcrumbJsonLd(items: { name: string; path: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: siteUrl(item.path),
+    })),
+  };
+}
+
+export function buildArticleJsonLd(article: EditorialArticle, updatedISO: string) {
+  const path = `/useful-information/articles/${article.slug}`;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: article.title,
+    description: article.description,
+    articleSection: article.section,
+    inLanguage: DEFAULT_LOCALE,
+    url: siteUrl(path),
+    mainEntityOfPage: siteUrl(path),
+    datePublished: updatedISO,
+    dateModified: updatedISO,
+    author: { "@type": "Organization", name: SITE_NAME, url: siteUrl("/") },
+    publisher: { "@type": "Organization", name: SITE_NAME, url: siteUrl("/") },
+    image: siteUrl(DEFAULT_OG_IMAGE.url),
+  };
+}
+
+export function buildDealerJsonLd(dealer: CompanySummary) {
+  const schema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "AutoDealer",
+    name: dealer.name,
+    url: siteUrl(`/dealers/${encodeURIComponent(dealer.slug)}`),
+  };
+  if (dealer.address) schema.address = { "@type": "PostalAddress", streetAddress: dealer.address, addressCountry: "BY" };
+  return schema;
+}
+
 export function buildSitemapEntries(listings: SitemapListing[], dealers: CompanySummary[]): MetadataRoute.Sitemap {
-  const urls = new Set<string>([siteUrl("/"), siteUrl("/cars"), siteUrl("/dealers")]);
+  const urls = new Set<string>([siteUrl("/"), siteUrl("/cars"), siteUrl("/dealers"), ...STATIC_SITEMAP_PATHS.map((path) => siteUrl(path))]);
   const listingCompanyIds = new Set<string>();
   const makeListings = new Map<string, ListingAggregate>();
   const modelListings = new Map<string, ListingAggregate>();
