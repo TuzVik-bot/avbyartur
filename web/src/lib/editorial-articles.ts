@@ -1,3 +1,5 @@
+import { carsRuArticles } from "@/lib/editorial-articles-carsru";
+
 export type EditorialBlock =
   | { type: "paragraph"; text: string }
   | { type: "list"; items: readonly string[] }
@@ -25,7 +27,7 @@ export type EditorialArticle = {
 };
 
 /** Published static articles drawn from the prepared first-articles editorial pack. */
-export const editorialArticles: readonly EditorialArticle[] = [
+const ownEditorialArticles: readonly EditorialArticle[] = [
   {
     slug: "pokupka-avtomobilya-s-probegom",
     title: "Как подготовиться к покупке автомобиля с пробегом",
@@ -180,6 +182,12 @@ export const editorialArticles: readonly EditorialArticle[] = [
     closingLabel: "Перед записью:",
     closingText: "сервис выполняет нужную работу, стоимость диагностики известна, дополнительные расходы согласуются, условия ремонта и выдаваемые документы понятны.",
   },
+];
+
+/** All published articles: the own editorial pack plus licensed adapted materials. */
+export const editorialArticles: readonly EditorialArticle[] = [
+  ...ownEditorialArticles,
+  ...carsRuArticles,
 ];
 
 export const editorialArticlePaths = [

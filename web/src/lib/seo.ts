@@ -232,11 +232,11 @@ export function buildArticleJsonLd(article: EditorialArticle, updatedISO: string
     inLanguage: DEFAULT_LOCALE,
     url: siteUrl(path),
     mainEntityOfPage: siteUrl(path),
-    datePublished: updatedISO,
+    datePublished: article.publishedOn ?? updatedISO,
     dateModified: updatedISO,
     author: { "@type": "Organization", name: SITE_NAME, url: siteUrl("/") },
     publisher: { "@type": "Organization", name: SITE_NAME, url: siteUrl("/") },
-    image: siteUrl(DEFAULT_OG_IMAGE.url),
+    image: article.leadImage ? siteUrl(article.leadImage.src) : siteUrl(DEFAULT_OG_IMAGE.url),
   };
 }
 

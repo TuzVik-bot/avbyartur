@@ -33,6 +33,12 @@ export default function ArticlesPage() {
         <div className={styles.articleGrid}>
           {editorialArticles.map((article) => (
             <article className={`info-card ${styles.articleCard}`} key={article.slug}>
+              {article.leadImage ? (
+                <Link href={`/useful-information/articles/${article.slug}`} aria-label={article.title}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- статические файлы из public с неизвестными размерами */}
+                  <img className={styles.articleThumb} src={article.leadImage.src} alt={article.leadImage.alt} />
+                </Link>
+              ) : null}
               <p className={styles.articleSection}>{article.section}</p>
               <h2><Link href={`/useful-information/articles/${article.slug}`}>{article.title}</Link></h2>
               <p>{article.description}</p>

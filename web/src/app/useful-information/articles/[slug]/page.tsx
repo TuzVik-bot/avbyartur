@@ -27,7 +27,13 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
     title: article.title,
     description: article.description,
     alternates: { canonical: siteUrl(path) },
-    openGraph: buildOpenGraph({ title: article.title, description: article.description, path, type: "article" }),
+    openGraph: buildOpenGraph({
+      title: article.title,
+      description: article.description,
+      path,
+      images: article.leadImage ? [article.leadImage.src] : undefined,
+      type: "article",
+    }),
   };
 }
 
@@ -45,20 +51,49 @@ export default async function ArticleDetailPage({ params }: ArticlePageProps) {
         <Link href="/useful-information/articles"><ArrowLeft size={15} aria-hidden="true" /> Все статьи</Link>
       </nav>
 
-      <p className={styles.articleByline}>Редакционный материал · Обновлено {editorialContentUpdated}</p>
+      <p className={styles.articleByline}>
+        {article.source
+          ? <>Материал по лицензии {article.source.name} · Опубликован {article.publishedOn} · Обновлено {editorialContentUpdated}</>
+          : <>Редакционный материал · Обновлено {editorialContentUpdated}</>}
+      </p>
+
+      {article.leadImage ? (
+        <figure className={styles.articleLeadImage}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- статические файлы из public с неизвестными размерами */}
+          <img src={article.leadImage.src} alt={article.leadImage.alt} />
+          {article.leadImage.caption ? <figcaption>{article.leadImage.caption}</figcaption> : null}
+        </figure>
+      ) : null}
 
       <article className={styles.articleBody}>
         {article.sections.map((section) => (
           <section key={section.heading}>
             <h2>{section.heading}</h2>
-            {section.blocks.map((block, index) => block.type === "paragraph"
-              ? <p key={`${section.heading}-paragraph-${index}`}>{block.text}</p>
-              : block.type === "list"
-                ? <ul key={`${section.heading}-list-${index}`}>{block.items.map((item) => <li key={item}>{item}</li>)}</ul>
-                : null)}
+            {section.blocks.map((block, index) => {
+              if (block.type === "paragraph") {
+                return <p key={`${section.heading}-paragraph-${index}`}>{block.text}</p>;
+              }
+              if (block.type === "list") {
+                return <ul key={`${section.heading}-list-${index}`}>{block.items.map((item) => <li key={item}>{item}</li>)}</ul>;
+              }
+              return (
+                <figure key={`${section.heading}-image-${index}`} className={styles.articleImage}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- статические файлы из public с неизвестными размерами */}
+                  <img src={block.src} alt={block.alt} />
+                  {block.caption ? <figcaption>{block.caption}</figcaption> : null}
+                </figure>
+              );
+            })}
           </section>
         ))}
         <p className={styles.closingNote}><strong>{article.closingLabel}</strong> {article.closingText}</p>
+        {article.source ? (
+          <p className={styles.sourceNote}>
+            По материалам{" "}
+            <a href={article.source.url} target="_blank" rel="noopener nofollow">{article.source.name}</a>.
+            Текст адаптирован для белорусских автомобилистов; фотографии — {article.source.name}.
+          </p>
+        ) : null}
       </article>
 
       <section className={`info-section ${styles.articleNextSteps}`} aria-labelledby="article-next-steps-title">
