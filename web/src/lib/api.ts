@@ -282,8 +282,17 @@ export const api = {
   listingOptions: () => apiRequest<ListingOptions>("listing-options"),
   listingValidationPolicy: () => apiRequest<ListingValidationPolicy>("listing-validation-policy"),
   listingMarketEstimate: (data: { seller_type: "private" | "company"; make_id: string; model_id: string; generation_id?: string | null; body_type_id: string; year: number; mileage_km: number; condition: "new" | "used"; fuel: "petrol" | "diesel" | "hybrid" | "electric" | "lpg" | "other"; transmission: "manual" | "automatic" | "robot" | "cvt" | "other"; damaged: boolean; parts_only: boolean }) => apiRequest<{ available: boolean; median_byn: string | null; sample_size: number; seller_count: number; as_of: string | null; rate_date: string | null }>("listings/market-price-estimate", { method: "POST", body: JSON.stringify(data) }),
+  marketValuation: (params: { make_id: string; model_id: string; generation_id?: string | null; body_type_id: string; year: number; mileage_km: number; condition: "new" | "used"; fuel: string; transmission: string }) => {
+    const query = new URLSearchParams({ make_id: params.make_id, model_id: params.model_id, body_type_id: params.body_type_id, year: String(params.year), mileage_km: String(params.mileage_km), condition: params.condition, fuel: params.fuel, transmission: params.transmission });
+    if (params.generation_id) query.set("generation_id", params.generation_id);
+    return apiRequest<{ status: "none" | "unsupported_rate" | "low" | "high"; median_byn: string | null; p25_byn: string | null; p75_byn: string | null; sample_size: number; seller_count: number; as_of: string; rate_date: string | null }>(`market/valuation?${query.toString()}`);
+  },
   createBillingOrder: (data: components["schemas"]["BillingOrderCreate"], idempotencyKey?: string) => apiRequest<components["schemas"]["BillingCheckoutOut"]>("billing/orders", { method: "POST", body: JSON.stringify(data), headers: idempotencyHeaders(idempotencyKey) }),
   listingPromotionEligibility: (listingId: string) => apiRequest<{ promotable: boolean }>(`billing/listings/${encodeURIComponent(listingId)}/eligibility`),
+  telegramStatus: () => apiRequest<{ linked: boolean; linked_at: string | null; bot_username: string; channel_available: boolean }>("me/telegram"),
+  telegramLinkStart: () => apiRequest<{ code: string; bot_username: string }>("me/telegram/link-start", { method: "POST", body: JSON.stringify({}) }),
+  telegramUnlink: () => apiRequest<{ linked: boolean; linked_at: string | null; bot_username: string; channel_available: boolean }>("me/telegram/unlink", { method: "POST", body: JSON.stringify({}) }),
+  billingCapabilities: () => apiRequest<{ orders_enabled: boolean; provider: string | null }>("billing/capabilities"),
   regions: () => apiRequest<{ items: CatalogItem[] }>("locations/regions"),
   cities: (regionId: string) => apiRequest<{ items: CatalogItem[] }>(`locations/cities?region_id=${encodeURIComponent(regionId)}`),
   myListings: () => apiRequest<ListResponse<Listing>>("me/listings"),

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiRequest, ApiClientError } from "@/lib/api";
 
 export type SavedSearchStatus = "active" | "paused";
-export type SavedSearchChannel = "email" | "web";
+export type SavedSearchChannel = "email" | "web" | "telegram";
 export type SavedSearchFrequency = "instant" | "daily" | "weekly";
 
 export type SavedSearch = {
@@ -143,6 +143,7 @@ export function SavedSearches({ initialItems, initialUrl = "/cars" }: { initialI
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [emailAvailable, setEmailAvailable] = useState(false);
+  const [telegramAvailable, setTelegramAvailable] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -151,6 +152,11 @@ export function SavedSearches({ initialItems, initialUrl = "/cars" }: { initialI
         if (active) setEmailAvailable(preferences.email_verified && preferences.email_delivery_configured);
       })
       .catch(() => { if (active) setEmailAvailable(false); });
+    void Promise.resolve(apiRequest<{ linked: boolean; channel_available: boolean }>("me/telegram"))
+      .then((status) => {
+        if (active) setTelegramAvailable(status.linked && status.channel_available);
+      })
+      .catch(() => { if (active) setTelegramAvailable(false); });
     return () => { active = false; };
   }, []);
 
@@ -227,7 +233,7 @@ export function SavedSearches({ initialItems, initialUrl = "/cars" }: { initialI
   return <div className="saved-searches">
     <section className="form-section" aria-labelledby="new-saved-search-title">
       <div className="section-heading"><div><p className="eyebrow">Уведомления о новых авто</p><h2 id="new-saved-search-title">Сохранить поиск</h2></div><Bell size={21} aria-hidden="true" /></div>
-      <p className="muted">Скопируйте ссылку из поиска автомобилей или начните с раздела <a className="text-link" href="/cars">все автомобили</a>. Web-инбокс работает. {emailAvailable ? "Email доступен при подтверждённом адресе и настроенной доставке." : "Email пока недоступен: нужен подтверждённый адрес и настроенная доставка."} SMS и Telegram пока не поддерживаются.</p>
+      <p className="muted">Скопируйте ссылку из поиска автомобилей или начните с раздела <a className="text-link" href="/cars">все автомобили</a>. Web-инбокс работает. {emailAvailable ? "Email доступен при подтверждённом адресе и настроенной доставке." : "Email пока недоступен: нужен подтверждённый адрес и настроенная доставка."} {telegramAvailable ? "Telegram подключён — выбирайте его каналом." : <><a className="text-link" href="/account/settings">Привяжите Telegram в настройках</a>, чтобы получать уведомления в мессенджер.</>}</p>
       <form className="form-grid" onSubmit={submitCreate}>
         <label className="field"><span>Название поиска</span><input name="name" value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder="Например, семейный кроссовер" required /></label>
         <label className="field"><span>Ссылка на результаты</span><input name="url" value={url} onChange={(event) => setUrl(event.target.value)} maxLength={2048} inputMode="url" required /></label>
@@ -249,7 +255,7 @@ export function SavedSearches({ initialItems, initialUrl = "/cars" }: { initialI
           {filters.length > 0 && <div className="active-filters" aria-label="Фильтры поиска">{filters.map((filter) => <span className="filter-chip" key={filter}>{filter}</span>)}</div>}
           <form className="form-grid saved-search-preferences" onSubmit={(event) => { event.preventDefault(); void submitPreferences(item); }}>
             <label className="check-field"><input type="checkbox" checked={draft.notifications_enabled} onChange={(event) => updateDraft(item.id, event.target.checked ? { notifications_enabled: true, notification_channel: draft.notification_channel || "web", notification_frequency: draft.notification_frequency || "daily" } : { notifications_enabled: false })} /> Получать уведомления</label>
-            <label className="field"><span>Канал</span><select value={draft.notification_channel || ""} onChange={(event) => updateDraft(item.id, { notification_channel: (event.target.value || null) as SavedSearchChannel | null })} disabled={!draft.notifications_enabled}><option value="">Не выбран</option><option value="web">В кабинете</option>{(emailAvailable || draft.notification_channel === "email") && <option value="email" disabled={!emailAvailable}>{emailAvailable ? "Email" : "Email — временно недоступен"}</option>}</select></label>
+            <label className="field"><span>Канал</span><select value={draft.notification_channel || ""} onChange={(event) => updateDraft(item.id, { notification_channel: (event.target.value || null) as SavedSearchChannel | null })} disabled={!draft.notifications_enabled}><option value="">Не выбран</option><option value="web">В кабинете</option>{(emailAvailable || draft.notification_channel === "email") && <option value="email" disabled={!emailAvailable}>{emailAvailable ? "Email" : "Email — временно недоступен"}</option>}{(telegramAvailable || draft.notification_channel === "telegram") && <option value="telegram" disabled={!telegramAvailable}>{telegramAvailable ? "Telegram" : "Telegram — привяжите аккаунт в настройках"}</option>}</select></label>
             <label className="field"><span>Частота</span><select value={draft.notification_frequency} onChange={(event) => updateDraft(item.id, { notification_frequency: event.target.value as SavedSearchFrequency })} disabled={!draft.notifications_enabled}>{draft.notification_frequency === "weekly" && <option value="weekly" disabled>Раз в неделю — сохранённая настройка</option>}{Object.entries(frequencyLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <div className="wide account-item-actions"><button className="button button-secondary button-small" type="submit" disabled={Boolean(itemBusy)}><Save size={14} /> {busy === `save:${item.id}` ? "Сохраняем…" : "Сохранить уведомления"}</button><button className="button button-secondary button-small" type="button" disabled={Boolean(itemBusy)} onClick={() => void toggleStatus(item)}>{item.status === "active" ? <><Pause size={14} /> Пауза</> : <><Play size={14} /> Возобновить</>}</button><button className="button button-danger button-small" type="button" disabled={Boolean(itemBusy)} onClick={() => void remove(item)}><Trash2 size={14} /> Удалить</button></div>
           </form>

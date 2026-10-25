@@ -230,6 +230,11 @@ h3 { font-size: 17px; margin-bottom: 8px; }
 .detail-panel { position: sticky; top: 90px; }
 .detail-title { margin: 2px 0 10px; font-size: 27px; }
 .detail-price { margin-bottom: 14px; font-size: 28px; font-weight: 850; }
+.detail-market-line { margin: -8px 0 12px; }
+.detail-market-line .market-badge { margin-bottom: 0; }
+.valuation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; }
+.valuation-range { font-size: 24px; font-weight: 800; margin: 10px 0 6px; }
+.telegram-code { display: inline-block; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-muted); font-family: ui-monospace, monospace; user-select: all; }
 .detail-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; border-top: 1px solid var(--line); }
 .detail-fact { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .detail-fact span { display: block; color: var(--muted); font-size: 12px; }

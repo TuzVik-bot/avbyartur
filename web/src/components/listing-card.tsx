@@ -11,18 +11,10 @@ import { ListingPhotoBadges } from "@/components/listing-photo-badges";
 import { api, ApiClientError } from "@/lib/api";
 import { formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import type { ListingSummary, Money } from "@/lib/types";
+import { MarketBadge, marketTooltip, type MarketComparison } from "@/components/market-badge";
 import styles from "./listing-card.module.css";
 
 const fallbackPhoto = "/vehicles/silver-wagon.png";
-
-type MarketComparison = {
-  label: "below_market" | "above_market";
-  median_byn: string;
-  sample_size: number;
-  seller_count: number;
-  as_of: string;
-  rate_date: string | null;
-};
 
 type CardListing = Omit<ListingSummary, "promotion_badges"> & {
   promotion_badges?: ("bump" | "highlight" | "top" | "urgent")[];
@@ -60,17 +52,6 @@ function russianCount(value: number, one: string, few: string, many: string) {
   return `${value} ${noun}`;
 }
 
-function marketTooltip(comparison: MarketComparison) {
-  const asOf = new Date(/^\d{4}-\d{2}-\d{2}$/.test(comparison.as_of) ? `${comparison.as_of}T12:00:00+03:00` : comparison.as_of);
-  const date = Number.isFinite(asOf.getTime())
-    ? new Intl.DateTimeFormat("ru-BY", { timeZone: "Europe/Minsk", day: "2-digit", month: "2-digit", year: "numeric" }).format(asOf)
-    : comparison.as_of;
-  const sample = russianCount(comparison.sample_size, "объявлению", "объявлениям", "объявлениям");
-  const sellers = russianCount(comparison.seller_count, "продавца", "продавцов", "продавцов");
-  const median = formatMoney({ amount: comparison.median_byn, currency: "BYN" });
-  return `По предложениям Авторынка: медианная цена по ${sample} (от ${sellers}): ${median}. Дата расчёта: ${date}.`;
-}
-
 function listingImageSizes(variant: "grid" | "row") {
   if (variant === "row") return "(max-width: 520px) 118px, 220px";
   return "(max-width: 520px) calc(100vw - 24px), (max-width: 800px) calc((100vw - 42px) / 2), (max-width: 1020px) calc((100vw - 54px) / 2), min(431px, calc((100vw - 68px) / 3))";
@@ -102,7 +83,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
         <Link className="card-title" href={href}>{title}</Link>
         <div className="card-price-line">
           <p className="card-price">{formatMoney(listing.price)}</p>
-          {comparison && <span className={`market-badge ${comparison.label}`} data-market-comparison title={marketTooltip(comparison)} tabIndex={0} aria-label={`${comparison.label === "below_market" ? "Цена ниже рынка" : "Цена выше рынка"}. ${marketTooltip(comparison)}`}>{comparison.label === "below_market" ? "Цена ниже рынка" : "Цена выше рынка"}</span>}
+          {comparison && <MarketBadge comparison={comparison} />}
         </div>
         <div className="card-specs">
           <span>{listing.year ? `${listing.year} г.` : "Год не указан"}</span>

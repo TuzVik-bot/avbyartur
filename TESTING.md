@@ -2,6 +2,53 @@
 
 Running log: что проверено, чем и когда. Дополняется при каждом изменении.
 
+## 2026-10-26 — ростовые функции: instant-оценка, Telegram-канал, платёжный шов
+
+Изменения: дизайн-док `docs/superpowers/specs/2026-10-25-growth-features-design.md`;
+backend (`app/valuation.py`, `app/api/market.py`, `app/market_schemas.py`,
+`app/telegram_delivery.py`, `app/billing_services.py` ConfiguredPaymentProvider,
+`app/api/billing.py` capabilities, воркер: telegram-канал доставки + link-poll,
+миграция `0026_telegram_channel`); web (`/market-valuation`, бейдж рынка на
+детальной, Telegram-блок в настройках, канал в сохранённых поисках, кнопка
+оформления в биллинге).
+
+- Backend: полный сьют на disposable-БД (контейнер PostgreSQL 17.11
+  `127.0.0.1:55433`, `avtorinok_growth_20261026_test`): **746 passed**, 4
+  deselected. Падение `test_public_detail_views_feed_owner_scoped_analytics`
+  воспроизведено на чистом HEAD-worktree — предсуществующее в main (след
+  откаченной analytics-фичи), к ростовым изменениям не относится; там же
+  воспроизведены 3 контрактных падения (`route-error-status`,
+  `listing-currency` analog-query, `listing-response` favorites).
+- Новые тесты: `test_market_valuation.py` 5 passed (когорты high/low/none,
+  несвежий курс USD → `unsupported_rate`, авторизованный
+  `POST /listings/market-price-estimate`, CSRF-гейт для анонима);
+  `test_telegram_notifications.py` 6 passed (link-start/unlink, 422
+  `telegram_not_linked`, доставка outbox→sendMessage + in-app, `unsupported`
+  без токена, link-poll по `/start <code>`); `test_payment_provider_config.py`
+  6 passed (шаблон чекаута, ValueError без `{order_id}`, фабрика
+  disabled/configured/bad-template, `/billing/capabilities`).
+- Web: `corepack pnpm typecheck` PASS; полный сьют **719 passed / 26 failed** —
+  все 26 воспроизведены 1:1 на чистом HEAD-worktree (предсуществующие).
+  Новые тесты: `market-badge` (2), `billing-order-button` (4), `account-telegram`
+  (3), `market-valuation` (3) — все зелёные.
+- Проверено на моках SimpleNamespace (без новых полей Settings) — чтение
+  telegram-настроек сделано через `token_from_settings`/getattr, тесты
+  подмены настроек не ломаются.
+- Найдено и восстановлено: sell-форма вызывала несуществующий
+  `POST /api/v1/listings/market-price-estimate` (эндпоинт присутствовал только
+  в устаревшем `types.generated.ts`); реализован на движке valuation.
+- `types.generated.ts` НЕ перегенерирован: regen от текущего OpenAPI удаляет
+  поля `telegram_contact_url`/`viber_contact_url`, на которые опирается
+  sell-form (след откаченной фичи) и ломает typecheck. Перегенерация возможна
+  только после возврата мессенджер-полей в бэкенд; новые API типизированы
+  инлайн в `lib/api.ts`.
+- Ruff: новые файлы — 0 замечаний; в изменённых файлах исправлены только
+  сортировки импортов (I001), остальные замечания предсуществующие на HEAD.
+- Деплой не выполнялся (требует отдельного явного запроса). Для прод-включения
+  Telegram и оплаты достаточно переменных окружения: `TELEGRAM_BOT_TOKEN`,
+  `TELEGRAM_BOT_USERNAME`, `PUBLIC_APP_URL`; `PAYMENT_PROVIDER_NAME`,
+  `PAYMENT_CALLBACK_SECRET`, `PAYMENT_CHECKOUT_URL_TEMPLATE`.
+
 ## 2026-10-25 — деплой зеркала Onlíner (backend + прод-перенос)
 
 Изменения: коммит `e7ce0d4` (ingest_onliner, worker job, CLI, httpx в main).

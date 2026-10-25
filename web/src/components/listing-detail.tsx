@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { AlertTriangle, Building2, ChevronRight, CircleUserRound, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { FavoriteButton, ListingCard } from "@/components/listing-card";
@@ -13,6 +13,7 @@ import { ListingContactActions } from "@/components/listing-contact-actions";
 import { useContactClickConsent } from "@/components/contact-click-consent";
 import { ListingTrust } from "@/components/listing-trust";
 import { ListingPhotoBadges } from "@/components/listing-photo-badges";
+import { MarketBadge } from "@/components/market-badge";
 import { SellerListings, type PublicSellerListing } from "@/components/seller-listings";
 import { ComparisonAction } from "@/components/comparison/comparison-action";
 import { ShareButton } from "@/components/share-button";
@@ -20,6 +21,7 @@ import { api, ApiClientError } from "@/lib/api";
 import type { ListingMessengerChannel } from "@/lib/api";
 import { formatDate, formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
 import { trackContactClick, type ContactChannel } from "@/lib/analytics";
+import { listingCatalogBreadcrumbs } from "@/lib/listing-breadcrumbs";
 import type { Listing, ReportCategory } from "@/lib/types";
 
 const fallbackPhoto = "/vehicles/silver-wagon.png";
@@ -158,9 +160,8 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   return (
     <div className="page-width detail-page">
       <nav className="breadcrumb" aria-label="Хлебные крошки">
-        <Link href="/">Главная</Link><ChevronRight size={14} /><Link href="/cars">Автомобили</Link><ChevronRight size={14} />
-        {listing.make && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}`}>{listing.make.name}</Link></>}
-        {listing.make && listing.model && <><ChevronRight size={14} /><Link href={`/cars/${encodeURIComponent(listing.make.slug)}/${encodeURIComponent(listing.model.slug)}`}>{listing.model.name}</Link></>}
+        <Link href="/">Главная</Link><ChevronRight size={14} /><Link href="/cars">Автомобили</Link>
+        {listingCatalogBreadcrumbs(listing).map((item) => <Fragment key={item.path}><ChevronRight size={14} /><Link href={item.path}>{item.name}</Link></Fragment>)}
       </nav>
       <div className="detail-layout">
         <div className="detail-main-column">
@@ -189,7 +190,9 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
         <aside className="detail-panel" aria-label="Цена и продавец">
           {listing.status === "sold" && <p className="status-pill">Продано</p>}
           <p className="detail-price">{formatMoney(listing.price)}</p>
+          {listing.price?.market_comparison && <p className="detail-market-line"><MarketBadge comparison={listing.price.market_comparison} /></p>}
           {listing.price?.currency === "USD" && listing.price.display_byn && listing.price.rate_date && <p className="muted">В BYN по курсу на {formatDate(listing.price.rate_date)}</p>}
+          <Link className="button button-secondary ownership-calculator-link" href={`/ownership-calculator?listing=${encodeURIComponent(listing.id)}`}>Рассчитать стоимость владения</Link>
           {listing.status === "active" ? <>
             <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} messengers={messengers} onContactClick={recordContactClick} />
             {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref} onClick={() => recordContactClick("internal_chat")}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}

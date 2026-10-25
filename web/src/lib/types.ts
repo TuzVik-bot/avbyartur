@@ -117,6 +117,7 @@ export type Money = {
   display_currency?: "BYN" | "USD" | null;
   display_byn?: string | null;
   rate_date?: string | null;
+  market_comparison?: import("@/components/market-badge").MarketComparison | null;
 };
 
 export type ListingSummary = {

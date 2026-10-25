@@ -25,6 +25,7 @@ const featuredCategories = [
 ];
 
 const tools = [
+  { href: "/ownership-calculator", title: "Стоимость владения", description: "Расходы на содержание, топливо и кредит", icon: Calculator },
   { href: "/customs-calculator", title: "Таможенный калькулятор", description: "Пошлина, сборы и льготы", icon: Calculator },
   { href: "/currency-converter", title: "Конвертер валют", description: "Пересчёт по официальным курсам", icon: Repeat2 },
   { href: "/sale-contract", title: "Договор купли-продажи", description: "Образец для ознакомления", icon: FileText },
@@ -138,7 +139,7 @@ export default async function HomePage() {
       <section className={`page-width ${styles.section}`} aria-labelledby="home-seller-heading">
         <div className={styles.seller}>
           <div className={styles.sellerMain}>
-            <div className={styles.sellerCopy}><p className={styles.eyebrow}>Для продавцов</p><h2 id="home-seller-heading">Подача объявления — в личном кабинете</h2><p>Заполните карточку автомобиля, сохраните черновик и отправьте объявление на проверку.</p>
+            <div className={styles.sellerCopy}><p className={styles.eyebrow}>Для продавцов</p><h2 id="home-seller-heading">Подача объявления — в личном кабинете</h2><p>Заполните карточку автомобиля, сохраните черновик и отправьте объявление на проверку. Не знаете, какую цену указать? <Link className="text-link" href="/market-valuation">Узнайте, сколько стоит ваша машина</Link>.</p>
               <ul className={styles.benefits}><li><Check size={16} aria-hidden="true" />Черновик можно продолжить позже</li><li><Check size={16} aria-hidden="true" />Перед публикацией объявление проходит проверку</li><li><Check size={16} aria-hidden="true" />Контакты не показываются в публичной выдаче</li></ul>
               <Link className="button button-primary" href="/sell">Подать объявление <ArrowRight size={16} aria-hidden="true" /></Link>
             </div>
