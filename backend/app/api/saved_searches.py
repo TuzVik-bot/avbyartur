@@ -24,10 +24,17 @@ from app.db import get_db
 from app.email_delivery import get_email_sender
 from app.listing_categories import CATEGORY_CODES
 from app.listing_options import LISTING_OPTIONS
-from app.models import IdempotencyRecord, NotificationOutbox, SavedSearch, User, UserSession, WorkerJob
+from app.models import (
+    IdempotencyRecord,
+    NotificationOutbox,
+    SavedSearch,
+    User,
+    UserSession,
+    WorkerJob,
+)
 from app.profile_identity_service import verified_email
 from app.services import check_revision, consume_rate_limit, fail, lock_owner
-
+from app.telegram_delivery import token_from_settings
 
 router = APIRouter(prefix="/api/v1", tags=["saved-searches"])
 
@@ -135,7 +142,9 @@ def _normalise_url(value: str) -> str:
         raise ValueError("URL fragments are not supported")
     if parsed.path not in {"/cars", "/cars/"}:
         raise ValueError("URL must point to the /cars search")
-    query_values = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=_MAX_FILTER_KEYS)
+    query_values = parse_qs(
+        parsed.query, keep_blank_values=True, max_num_fields=_MAX_FILTER_KEYS
+    )
     unknown_query = sorted(set(query_values) - _ALLOWED_FILTERS)
     if unknown_query:
         raise ValueError(f"Unsupported URL filter: {unknown_query[0]}")
@@ -144,7 +153,9 @@ def _normalise_url(value: str) -> str:
 
 def _filters_from_url(value: str) -> dict[str, Any]:
     parsed = urlsplit(_normalise_url(value))
-    query_values = parse_qs(parsed.query, keep_blank_values=True, max_num_fields=_MAX_FILTER_KEYS)
+    query_values = parse_qs(
+        parsed.query, keep_blank_values=True, max_num_fields=_MAX_FILTER_KEYS
+    )
     filters: dict[str, Any] = {}
     for key, values in query_values.items():
         if key in {"page", "page_size"}:
@@ -210,7 +221,9 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"Unsupported filter: {unknown[0]}")
     _validate_filter_value(value)
     try:
-        encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+        encoded = json.dumps(
+            value, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        )
     except (TypeError, ValueError) as exc:
         raise ValueError("Filters must contain JSON values") from exc
     if len(encoded.encode("utf-8")) > _MAX_FILTER_BYTES:
@@ -228,7 +241,10 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
 
     if "category_code" in normalized:
         category_code = normalized["category_code"]
-        if not isinstance(category_code, str) or category_code.strip().casefold() not in CATEGORY_CODES:
+        if (
+            not isinstance(category_code, str)
+            or category_code.strip().casefold() not in CATEGORY_CODES
+        ):
             raise ValueError("Unsupported category_code filter")
         normalized["category_code"] = category_code.strip().casefold()
 
@@ -237,7 +253,11 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
 
         category_code = normalized.get("category_code")
         subcategory = normalized["subcategory"]
-        if not isinstance(category_code, str) or not isinstance(subcategory, str) or subcategory not in SUBCATEGORY_VALUES.get(category_code, frozenset()):
+        if (
+            not isinstance(category_code, str)
+            or not isinstance(subcategory, str)
+            or subcategory not in SUBCATEGORY_VALUES.get(category_code, frozenset())
+        ):
             raise ValueError("Unsupported subcategory filter")
 
     # URL query values are strings while equivalent JSON filters can be numbers.
@@ -286,7 +306,9 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
         requested = normalized["equipment"]
         if isinstance(requested, str):
             requested = [requested]
-        if not isinstance(requested, list) or any(not isinstance(item, str) for item in requested):
+        if not isinstance(requested, list) or any(
+            not isinstance(item, str) for item in requested
+        ):
             raise ValueError("equipment must be a list of supported codes")
         codes = [item.strip().casefold() for item in requested]
         if any(code not in _FILTER_EQUIPMENT for code in codes):
@@ -307,7 +329,11 @@ def _normalise_filters(value: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"{field} is outside the supported range")
         if integer_only and number != number.to_integral_value():
             raise ValueError(f"{field} must be an integer")
-        normalized[field] = int(number) if integer_only or number == number.to_integral_value() else float(number)
+        normalized[field] = (
+            int(number)
+            if integer_only or number == number.to_integral_value()
+            else float(number)
+        )
 
     for field in ("district", "call_hours"):
         if field not in normalized:
@@ -337,7 +363,7 @@ class SavedSearchCreate(BaseModel):
     url: str = Field(min_length=1, max_length=_MAX_URL_LENGTH)
     filters: dict[str, Any] = Field(default_factory=dict)
     notifications_enabled: bool = False
-    notification_channel: Literal["email", "web"] | None = None
+    notification_channel: Literal["email", "web", "telegram"] | None = None
     notification_frequency: Literal["instant", "daily", "weekly"] = "daily"
 
     @field_validator("name")
@@ -361,10 +387,13 @@ class SavedSearchCreate(BaseModel):
         if "filters" in self.model_fields_set and self.filters != derived_filters:
             raise ValueError("Filters contradict the canonical search URL")
         if self.notifications_enabled or self.notification_channel is not None:
-            raise ValueError("Save the search first, then explicitly subscribe to notifications")
+            raise ValueError(
+                "Save the search first, then explicitly subscribe to notifications"
+            )
         self.url = canonical_url
         self.filters = derived_filters
         return self
+
 
 class SavedSearchPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -374,7 +403,7 @@ class SavedSearchPatch(BaseModel):
     filters: dict[str, Any] | None = None
     status: Literal["active", "paused"] | None = None
     notifications_enabled: bool | None = None
-    notification_channel: Literal["email", "web"] | None = None
+    notification_channel: Literal["email", "web", "telegram"] | None = None
     notification_frequency: Literal["instant", "daily", "weekly"] | None = None
     expected_revision: int | None = Field(default=None, ge=1)
 
@@ -404,7 +433,7 @@ class SavedSearchNotificationOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool
-    channel: Literal["email", "web"] | None
+    channel: Literal["email", "web", "telegram"] | None
     frequency: Literal["instant", "daily", "weekly"]
 
 
@@ -418,7 +447,7 @@ class SavedSearchOut(BaseModel):
     status: Literal["active", "paused"]
     revision: int
     notifications_enabled: bool
-    notification_channel: Literal["email", "web"] | None
+    notification_channel: Literal["email", "web", "telegram"] | None
     notification_frequency: Literal["instant", "daily", "weekly"]
     notification: SavedSearchNotificationOut
     created_at: datetime
@@ -471,7 +500,9 @@ def _serialize(saved_search: SavedSearch) -> dict[str, Any]:
     }
 
 
-def _owned_saved_search(db: Session, saved_search_id: UUID, user: User, *, lock: bool = False) -> SavedSearch:
+def _owned_saved_search(
+    db: Session, saved_search_id: UUID, user: User, *, lock: bool = False
+) -> SavedSearch:
     query = select(SavedSearch).where(SavedSearch.id == saved_search_id)
     if lock:
         query = query.with_for_update()
@@ -498,36 +529,64 @@ def _check_revision(saved_search: SavedSearch, expected_revision: int | None) ->
         check_revision(saved_search, expected_revision, "Saved search")
 
 
-def _require_channel_available(db: Session, user: User, channel: str | None, *, enabled: bool) -> None:
-    if not enabled or channel != "email":
+def _require_channel_available(
+    db: Session, user: User, channel: str | None, *, enabled: bool
+) -> None:
+    if not enabled or channel is None:
         return
     settings = get_settings()
+    if channel == "telegram":
+        if not token_from_settings(settings):
+            fail(
+                422,
+                "telegram_delivery_unconfigured",
+                "Telegram notifications are not configured",
+            )
+        if user.telegram_chat_id is None:
+            fail(
+                422,
+                "telegram_not_linked",
+                "Link your Telegram account before subscribing",
+            )
+        return
+    if channel != "email":
+        return
     if not get_email_sender(settings).is_configured or not settings.public_app_url:
-        fail(422, "email_delivery_unconfigured", "Email notifications are not configured")
+        fail(
+            422, "email_delivery_unconfigured", "Email notifications are not configured"
+        )
     if verified_email(db, user.id) is None:
         fail(422, "email_unverified", "Verify your email before subscribing by email")
 
 
 def _cancel_queued_notifications(db: Session, saved_search: SavedSearch) -> None:
     rows = db.scalars(
-        select(NotificationOutbox).where(
+        select(NotificationOutbox)
+        .where(
             NotificationOutbox.saved_search_id == saved_search.id,
             NotificationOutbox.status == "queued",
-        ).with_for_update()
+        )
+        .with_for_update()
     ).all()
     for row in rows:
         is_batch = bool(dict(row.payload or {}).get("batch"))
-        error_code = "notification_batch_cancelled" if is_batch else "notification_preference_changed"
+        error_code = (
+            "notification_batch_cancelled"
+            if is_batch
+            else "notification_preference_changed"
+        )
         row.status = "cancelled"
         row.last_error = error_code
         row.locked_by = None
         row.lease_until = None
         jobs = db.scalars(
-            select(WorkerJob).where(
+            select(WorkerJob)
+            .where(
                 WorkerJob.kind == "notification.deliver",
                 WorkerJob.payload["outbox_id"].as_string() == str(row.id),
                 WorkerJob.status.in_(["queued", "running"]),
-            ).with_for_update()
+            )
+            .with_for_update()
         ).all()
         for job in jobs:
             job.status = "failed"
@@ -565,7 +624,12 @@ def create_saved_search(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> dict[str, Any]:
     del csrf
-    if not idempotency_key or not idempotency_key.strip() or len(idempotency_key.strip()) > 120 or any(ord(c) < 0x20 for c in idempotency_key):
+    if (
+        not idempotency_key
+        or not idempotency_key.strip()
+        or len(idempotency_key.strip()) > 120
+        or any(ord(c) < 0x20 for c in idempotency_key)
+    ):
         fail(422, "idempotency_required", "Idempotency-Key header is required")
     idempotency_key = idempotency_key.strip()
 
@@ -582,7 +646,11 @@ def create_saved_search(
     if prior is not None:
         saved_search = db.get(SavedSearch, prior.resource_id)
         if saved_search is None:
-            fail(409, "idempotency_resource_missing", "The idempotent saved search no longer exists")
+            fail(
+                409,
+                "idempotency_resource_missing",
+                "The idempotent saved search no longer exists",
+            )
         return {"saved_search": _serialize(saved_search)}
 
     _mutation_limit(db, user)
@@ -597,13 +665,24 @@ def create_saved_search(
     if prior is not None:
         saved_search = db.get(SavedSearch, prior.resource_id)
         if saved_search is None:
-            fail(409, "idempotency_resource_missing", "The idempotent saved search no longer exists")
+            fail(
+                409,
+                "idempotency_resource_missing",
+                "The idempotent saved search no longer exists",
+            )
         return {"saved_search": _serialize(saved_search)}
 
-    current_count = int(db.scalar(select(func.count(SavedSearch.id)).where(SavedSearch.user_id == user.id)) or 0)
+    current_count = int(
+        db.scalar(
+            select(func.count(SavedSearch.id)).where(SavedSearch.user_id == user.id)
+        )
+        or 0
+    )
     from app.runtime_settings import runtime_limit
 
-    if current_count >= runtime_limit(db, "saved_search_limit", fallback=get_settings().saved_search_limit):
+    if current_count >= runtime_limit(
+        db, "saved_search_limit", fallback=get_settings().saved_search_limit
+    ):
         fail(409, "saved_search_limit", "Saved search limit reached")
 
     _validate_notification(payload.notifications_enabled, payload.notification_channel)
@@ -643,7 +722,11 @@ def create_saved_search(
             raise
         saved_search = db.get(SavedSearch, prior.resource_id)
         if saved_search is None:
-            fail(409, "idempotency_resource_missing", "The idempotent saved search no longer exists")
+            fail(
+                409,
+                "idempotency_resource_missing",
+                "The idempotent saved search no longer exists",
+            )
     db.refresh(saved_search)
     return {"saved_search": _serialize(saved_search)}
 
@@ -674,17 +757,31 @@ def update_saved_search(
     try:
         canonical_url, derived_filters = _canonical_search(requested_url)
     except ValueError as exc:
-        fail(422, "validation_error", "Saved search filters are invalid", {"url": str(exc)})
+        fail(
+            422,
+            "validation_error",
+            "Saved search filters are invalid",
+            {"url": str(exc)},
+        )
     if "filters" in values and values["filters"] != derived_filters:
-        fail(422, "validation_error", "Filters contradict the canonical search URL", {"filters": "Use the URL filters"})
+        fail(
+            422,
+            "validation_error",
+            "Filters contradict the canonical search URL",
+            {"filters": "Use the URL filters"},
+        )
     search_changed = canonical_url != current_url or derived_filters != current_filters
     if "url" in values or "filters" in values:
         values.pop("filters", None)
         values["url"] = canonical_url
         values["filters"] = derived_filters
 
-    merged_enabled = values.get("notifications_enabled", saved_search.notifications_enabled)
-    merged_channel = values.get("notification_channel", saved_search.notification_channel)
+    merged_enabled = values.get(
+        "notifications_enabled", saved_search.notifications_enabled
+    )
+    merged_channel = values.get(
+        "notification_channel", saved_search.notification_channel
+    )
     _validate_notification(merged_enabled, merged_channel)
     _require_channel_available(db, user, merged_channel, enabled=merged_enabled)
     old_enabled = saved_search.notifications_enabled
@@ -766,7 +863,11 @@ def _set_status(
         if previous_status == "active" and status == "paused":
             saved_search.subscription_started_at = None
             _cancel_queued_notifications(db, saved_search)
-        elif previous_status == "paused" and status == "active" and saved_search.notifications_enabled:
+        elif (
+            previous_status == "paused"
+            and status == "active"
+            and saved_search.notifications_enabled
+        ):
             saved_search.subscription_started_at = db.scalar(select(func.now()))
         saved_search.revision += 1
         db.commit()

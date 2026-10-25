@@ -10,10 +10,32 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import account, admin, admin_catalog, admin_settings, auth, billing, catalog, companies, conversations, dealer, feeds, listings, managed_content, media, moderation, monitoring, notifications, profile_identity, saved_searches
-from app.api import admin_tariffs, catalog_requests
-from app.api import customs_calculator
-from app.api import test_mail
+from app.api import (
+    account,
+    admin,
+    admin_catalog,
+    admin_settings,
+    admin_tariffs,
+    auth,
+    billing,
+    catalog,
+    catalog_requests,
+    companies,
+    conversations,
+    customs_calculator,
+    dealer,
+    feeds,
+    listings,
+    managed_content,
+    market,
+    media,
+    moderation,
+    monitoring,
+    notifications,
+    profile_identity,
+    saved_searches,
+    test_mail,
+)
 from app.config import get_settings
 from app.db import SessionLocal
 from app.health_schemas import HealthResponse
@@ -239,7 +261,7 @@ def document_api_error_response(
     json_content = response.setdefault("content", {}).setdefault("application/json", {})
     json_content["schema"] = {"$ref": "#/components/schemas/ApiErrorOut"}
 
-for route_module in (auth, catalog, listings, media, companies, moderation, saved_searches, notifications, conversations, admin, admin_tariffs, admin_catalog, admin_settings, dealer, feeds, account, billing, managed_content, monitoring, profile_identity, catalog_requests, customs_calculator, test_mail):
+for route_module in (auth, catalog, listings, media, companies, moderation, saved_searches, notifications, conversations, admin, admin_tariffs, admin_catalog, admin_settings, dealer, feeds, account, billing, managed_content, monitoring, profile_identity, catalog_requests, customs_calculator, test_mail, market):
     app.include_router(route_module.router)
 
 

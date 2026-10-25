@@ -84,6 +84,14 @@ class Settings(BaseSettings):
     onliner_sync_owner_email: str = ""
     onliner_sync_interval_hours: int = Field(default=6, ge=1, le=48)
     onliner_sync_manufacturers: str = "all"
+    telegram_bot_token: SecretStr = SecretStr("")
+    telegram_bot_username: str = ""
+    telegram_api_url: str = "https://api.telegram.org"
+    telegram_timeout_seconds: int = Field(default=10, ge=1, le=60)
+    telegram_poll_interval_seconds: int = Field(default=15, ge=5, le=600)
+    payment_provider_name: str = ""
+    payment_callback_secret: SecretStr = SecretStr("")
+    payment_checkout_url_template: str = ""
 
     @model_validator(mode="after")
     def validate_listing_year_range(self) -> "Settings":

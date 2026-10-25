@@ -100,3 +100,19 @@ class AccountDeletionRequestedResponse(BaseModel):
     status: Literal["requested"]
     revoked_sessions: int = Field(ge=0)
     withdrawn_listings: int = Field(ge=0)
+
+
+class TelegramStatusOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    linked: bool
+    linked_at: datetime | None
+    bot_username: str
+    channel_available: bool
+
+
+class TelegramLinkStartOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    bot_username: str

@@ -3,8 +3,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-
+from pydantic import BaseModel, ConfigDict, model_validator
 
 ServiceCode = Literal["bump", "highlight", "top", "dealer_package"]
 CurrencyCode = Literal["BYN", "USD"]
@@ -77,3 +76,10 @@ class BillingCallbackOut(BaseModel):
     duplicate: bool
     order_id: UUID
     status: OrderStatus
+
+
+class BillingCapabilitiesOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    orders_enabled: bool
+    provider: str | None

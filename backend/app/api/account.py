@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
@@ -14,22 +15,24 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.account_schemas import (
-    AccountDeletionRequestInput,
     AccountDeletionRequestedResponse,
+    AccountDeletionRequestInput,
     ConsentHistoryResponse,
     EmailRequestInput,
     EmailVerifiedResponse,
     ProfileEnvelope,
     ProfilePatchInput,
-    RecoveryConfirmInput,
     RecoveryConfirmedResponse,
+    RecoveryConfirmInput,
+    TelegramLinkStartOut,
+    TelegramStatusOut,
     TokenInput,
 )
 from app.api.auth import CSRF_COOKIE, _prevent_session_caching
 from app.api.dependencies import get_current_user, require_csrf
 from app.config import get_settings
 from app.db import get_db
-from app.email_delivery import EmailDeliveryUnavailable, get_email_sender
+from app.email_delivery import get_email_sender
 from app.identity_models import (
     AccountDeletionRequest,
     AccountRecoveryChallenge,
@@ -37,11 +40,25 @@ from app.identity_models import (
     IdentityEmailOutbox,
     VerifiedEmailContact,
 )
-from app.models import AuditEvent, Listing, ListingStatusEvent, User, UserConsent, UserSession
-from app.security import client_ip, hash_password, new_secret, normalize_email, secret_hash
+from app.managed_content import render_notification_template
+from app.models import (
+    AuditEvent,
+    Listing,
+    ListingStatusEvent,
+    User,
+    UserConsent,
+    UserSession,
+)
+from app.security import (
+    client_ip,
+    hash_password,
+    new_secret,
+    normalize_email,
+    secret_hash,
+)
 from app.services import consume_rate_limit, enqueue_job, fail
 from app.sms_auth_schemas import OtpAcceptedResponse
-from app.managed_content import render_notification_template
+from app.telegram_delivery import token_from_settings
 
 router = APIRouter(prefix="/api/v1", tags=["identity"])
 EMAIL_CHALLENGE_LIFETIME = timedelta(minutes=30)
@@ -560,3 +577,54 @@ def request_account_deletion(
         "revoked_sessions": len(sessions),
         "withdrawn_listings": len(listings),
     }
+
+
+def _telegram_status_payload(user: User) -> dict:
+    settings = get_settings()
+    token = token_from_settings(settings)
+    return {
+        "linked": user.telegram_chat_id is not None,
+        "linked_at": user.telegram_linked_at,
+        "bot_username": settings.telegram_bot_username,
+        "channel_available": bool(token),
+    }
+
+
+@router.get("/me/telegram", response_model=TelegramStatusOut)
+def telegram_status(
+    user: Annotated[User, Depends(get_current_user)],
+) -> TelegramStatusOut:
+    return TelegramStatusOut(**_telegram_status_payload(user))
+
+
+@router.post("/me/telegram/link-start", response_model=TelegramLinkStartOut)
+def telegram_link_start(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    csrf: Annotated[UserSession, Depends(require_csrf)],
+    db: Annotated[Session, Depends(get_db)],
+) -> TelegramLinkStartOut:
+    settings = get_settings()
+    token = token_from_settings(settings)
+    if not token:
+        fail(503, "telegram_provider_unconfigured", "Telegram notifications are not configured")
+    if user.telegram_chat_id is not None:
+        fail(409, "telegram_already_linked", "Telegram is already linked to this account")
+    _rate_limit(db, client_ip(request), "telegram-link", f"user:{user.id}", 5)
+    code = secrets.token_urlsafe(24)
+    user.telegram_link_code = code
+    db.commit()
+    return TelegramLinkStartOut(code=code, bot_username=settings.telegram_bot_username)
+
+
+@router.post("/me/telegram/unlink", response_model=TelegramStatusOut)
+def telegram_unlink(
+    user: Annotated[User, Depends(get_current_user)],
+    csrf: Annotated[UserSession, Depends(require_csrf)],
+    db: Annotated[Session, Depends(get_db)],
+) -> TelegramStatusOut:
+    user.telegram_chat_id = None
+    user.telegram_link_code = None
+    user.telegram_linked_at = None
+    db.commit()
+    return TelegramStatusOut(**_telegram_status_payload(user))
