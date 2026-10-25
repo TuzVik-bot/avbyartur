@@ -2,6 +2,28 @@
 
 Running log: что проверено, чем и когда. Дополняется при каждом изменении.
 
+## 2026-10-25 — деплой зеркала Onlíner (backend + прод-перенос)
+
+Изменения: коммит `e7ce0d4` (ingest_onliner, worker job, CLI, httpx в main).
+Реализация и 19/19 тестов — в docs/runtime/ONLINER_IMPORT_2026-10-24.md.
+
+- Backend-сьют на disposable-БД (loopback-контейнер PostgreSQL 17.11,
+  `avtorinok_rel_20261025_test`): прохождение целиком; 3 падения контрактов
+  (route-error / listing-currency / listing-response) воспроизведены на
+  чистом HEAD в отдельном worktree ДО onliner-правок — тестовый долг от
+  ранее закоммиченных фич (маршруты compare/price-history/feed-imports), не
+  связанный с зеркалом. Onliner-тесты и остальной сьют — зелёные.
+- Прод-перенос: collect с хоста VPS — 233 марки / 703 объявления / 0 ошибок;
+  import в API-контейнере — failed 0, без фото 0, 15 050 фото через
+  WebP-пайплайн, все 703 `active` с атрибуцией «Источник: Onlíner»;
+  идемпотентность по slug `onliner-<id>` подтверждена счётчиками
+  existing/imported. `/api/v1/listings` и SSR-карточка `/cars/<uuid>` — 200.
+- Синхронизация: `ONLINER_SYNC_ENABLED=true` (дубликаты ключей в общем
+  `.env` вычищены до одного блока), worker перезапущен; джоба «paused by
+  operator» планировщику не мешает (по коду фильтр только queued/running);
+  первая периодическая синхронизация — в следующем 6-часовом бакете.
+- Полный отчёт: docs/runtime/ONLINER_DEPLOY_2026-10-25.md.
+
 ## 2026-10-25 — 21 лицензированная статья cars.ru в разделе «Статьи» (web/)
 
 Изменения: `editorial-articles-carsru.ts` (21 адаптированная статья; лицензия
