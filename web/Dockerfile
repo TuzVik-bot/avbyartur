@@ -12,6 +12,11 @@ FROM base AS builder
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY web/ .
 ENV NEXT_TELEMETRY_DISABLED=1
+# next.config headers are evaluated at build time, so the deployment mode must
+# be baked into the image. Empty/absent keeps the closed-pilot noindex header
+# (fail-safe on build/runtime mode mismatch).
+ARG AVTORINOK_PUBLIC_INDEXING_ENABLED=""
+ENV AVTORINOK_PUBLIC_INDEXING_ENABLED=${AVTORINOK_PUBLIC_INDEXING_ENABLED}
 RUN pnpm build
 
 FROM node:22.23.3-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c AS runner
