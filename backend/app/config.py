@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     )
 
     app_env: str = "development"
-    database_url: str = "postgresql+psycopg://avtorinok:avtorinok@localhost:5432/avtorinok"
+    database_url: str = (
+        "postgresql+psycopg://avtorinok:avtorinok@localhost:5432/avtorinok"
+    )
     session_secret: SecretStr = SecretStr("development-only-change-me")
     session_cookie_name: str = "avtorinok_session"
     session_cookie_secure: bool = True
@@ -74,6 +76,14 @@ class Settings(BaseSettings):
     minimum_photos_parts: int = Field(default=1, ge=1, le=30)
     listing_year_min: int = Field(default=1886, ge=1886, le=2100)
     listing_future_new_years: int = Field(default=1, ge=0, le=1)
+    onliner_base_url: str = "https://ab.onliner.by/sdapi/ab.api"
+    onliner_request_interval_seconds: float = Field(default=1.0, ge=0.1, le=60.0)
+    onliner_per_make_limit: int = Field(default=10, ge=1, le=50)
+    onliner_max_photos: int = Field(default=30, ge=1, le=30)
+    onliner_sync_enabled: bool = False
+    onliner_sync_owner_email: str = ""
+    onliner_sync_interval_hours: int = Field(default=6, ge=1, le=48)
+    onliner_sync_manufacturers: str = "all"
 
     @model_validator(mode="after")
     def validate_listing_year_range(self) -> "Settings":
@@ -102,7 +112,9 @@ class Settings(BaseSettings):
                 raise ValueError("SESSION_COOKIE_SECURE must be true in production")
             secret = self.session_secret.get_secret_value()
             if secret == "development-only-change-me" or len(secret) < 32:
-                raise ValueError("SESSION_SECRET must contain at least 32 characters outside development")
+                raise ValueError(
+                    "SESSION_SECRET must contain at least 32 characters outside development"
+                )
         if self.session_days < 1 or self.session_days > 30:
             raise ValueError("SESSION_DAYS must be between 1 and 30")
         if not 60 <= self.sms_otp_lifetime_seconds <= 900:
@@ -112,24 +124,42 @@ class Settings(BaseSettings):
         if not 1 <= self.sms_otp_sends_per_hour <= 20:
             raise ValueError("SMS_OTP_SENDS_PER_HOUR must be between 1 and 20")
         if not 30 <= self.sms_otp_resend_cooldown_seconds <= 3600:
-            raise ValueError("SMS_OTP_RESEND_COOLDOWN_SECONDS must be between 30 and 3600")
+            raise ValueError(
+                "SMS_OTP_RESEND_COOLDOWN_SECONDS must be between 30 and 3600"
+            )
         if not 1 <= self.sms_otp_ip_requests_per_hour <= 100:
             raise ValueError("SMS_OTP_IP_REQUESTS_PER_HOUR must be between 1 and 100")
         if not 1 <= self.sms_otp_ip_verifications_per_hour <= 100:
-            raise ValueError("SMS_OTP_IP_VERIFICATIONS_PER_HOUR must be between 1 and 100")
+            raise ValueError(
+                "SMS_OTP_IP_VERIFICATIONS_PER_HOUR must be between 1 and 100"
+            )
         if not 1 <= self.sms_otp_phone_verifications_per_hour <= 20:
-            raise ValueError("SMS_OTP_PHONE_VERIFICATIONS_PER_HOUR must be between 1 and 20")
+            raise ValueError(
+                "SMS_OTP_PHONE_VERIFICATIONS_PER_HOUR must be between 1 and 20"
+            )
         if self.sms_login_enabled:
             otp_secret = self.sms_otp_secret.get_secret_value()
             if len(otp_secret) < 32:
-                raise ValueError("SMS_OTP_SECRET must contain at least 32 characters when SMS login is enabled")
-        if self.email_registration_enabled and (not self.registration_terms_version.strip() or not self.registration_privacy_version.strip()):
+                raise ValueError(
+                    "SMS_OTP_SECRET must contain at least 32 characters when SMS login is enabled"
+                )
+        if self.email_registration_enabled and (
+            not self.registration_terms_version.strip()
+            or not self.registration_privacy_version.strip()
+        ):
             raise ValueError("Email registration requires consent document versions")
         if self.public_registration_enabled:
             if not self.sms_login_enabled:
-                raise ValueError("PUBLIC_REGISTRATION_ENABLED requires SMS_LOGIN_ENABLED")
-            if not self.registration_terms_version.strip() or not self.registration_privacy_version.strip():
-                raise ValueError("Registration consent document versions must be configured before public registration")
+                raise ValueError(
+                    "PUBLIC_REGISTRATION_ENABLED requires SMS_LOGIN_ENABLED"
+                )
+            if (
+                not self.registration_terms_version.strip()
+                or not self.registration_privacy_version.strip()
+            ):
+                raise ValueError(
+                    "Registration consent document versions must be configured before public registration"
+                )
         if self.sms_provider not in {"disabled", "smsc"}:
             raise ValueError("SMS_PROVIDER must be disabled or smsc")
         if not self.smsc_api_url.startswith("https://"):
@@ -142,8 +172,12 @@ class Settings(BaseSettings):
             raise ValueError("SMTP_TIMEOUT_SECONDS must be between 1 and 60")
         if self.smtp_ssl and self.smtp_starttls:
             raise ValueError("SMTP_SSL and SMTP_STARTTLS cannot both be enabled")
-        if bool(self.smtp_username.strip()) != bool(self.smtp_password.get_secret_value().strip()):
-            raise ValueError("SMTP_USERNAME and SMTP_PASSWORD must be configured together")
+        if bool(self.smtp_username.strip()) != bool(
+            self.smtp_password.get_secret_value().strip()
+        ):
+            raise ValueError(
+                "SMTP_USERNAME and SMTP_PASSWORD must be configured together"
+            )
         public_app_url = self.public_app_url.strip()
         if public_app_url:
             try:
@@ -164,6 +198,15 @@ class Settings(BaseSettings):
                     "PUBLIC_APP_URL must be an HTTPS origin without credentials, path, query, or fragment"
                 )
             self.public_app_url = f"https://{parsed_url.netloc}"
+        if not self.onliner_base_url.startswith("https://"):
+            raise ValueError("ONLINER_BASE_URL must use HTTPS")
+        if self.onliner_sync_enabled and not self.onliner_sync_owner_email.strip():
+            raise ValueError(
+                "ONLINER_SYNC_OWNER_EMAIL is required when onliner sync is enabled"
+            )
+        onliner_manufacturers = self.onliner_sync_manufacturers.strip().lower()
+        if onliner_manufacturers not in {"all", "top"} and not onliner_manufacturers.startswith("top:"):
+            raise ValueError("ONLINER_SYNC_MANUFACTURERS must be all, top, or top:N")
         return self
 
 

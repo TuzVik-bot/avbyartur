@@ -15,18 +15,25 @@ from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import get_settings
 from app.db import SessionLocal, engine
 from app.email_delivery import EmailDeliveryUnavailable, get_email_sender
+from app.ingest_onliner import (
+    OnlinerBlockedError,
+    OnlinerClient,
+    discover_new,
+    sync_existing,
+)
 from app.identity_models import (
     AccountRecoveryChallenge,
     EmailVerificationChallenge,
     IdentityEmailOutbox,
     VerifiedEmailContact,
 )
+from app.listing_price_history import is_same_currency_price_drop
 from app.logging_config import configure_json_logger, log_event
 from app.models import (
     Company,
@@ -52,7 +59,6 @@ from app.notification_service import (
     saved_search_matches,
 )
 from app.profile_identity_service import notification_delivery_allowed
-from app.listing_price_history import is_same_currency_price_drop
 from app.services import enqueue_job
 
 register_heif_opener()
@@ -78,7 +84,10 @@ def perceptual_hash(image: Image.Image) -> str:
     grayscale = image.convert("L").resize((32, 32), Image.Resampling.LANCZOS)
     pixels = list(grayscale.getdata())
     cosine = [
-        [math.cos((2 * position + 1) * frequency * math.pi / 64) for position in range(32)]
+        [
+            math.cos((2 * position + 1) * frequency * math.pi / 64)
+            for position in range(32)
+        ]
         for frequency in range(8)
     ]
     horizontal = [
@@ -133,7 +142,15 @@ def _variants_are_valid(target_dir: Path) -> bool:
                 if variant.format != "WEBP":
                     return False
                 variant.verify()
-        except (UnidentifiedImageError, OSError, ValueError, SyntaxError, EOFError, Image.DecompressionBombError, Image.DecompressionBombWarning):
+        except (
+            UnidentifiedImageError,
+            OSError,
+            ValueError,
+            SyntaxError,
+            EOFError,
+            Image.DecompressionBombError,
+            Image.DecompressionBombWarning,
+        ):
             return False
     return True
 
@@ -150,7 +167,11 @@ def _make_variants(photo_id: uuid.UUID) -> None:
         quarantine = root / ".quarantine"
         source = (quarantine / photo.original_name).resolve()
         target_dir = (root / photo.storage_name).resolve()
-        if not source.is_relative_to(quarantine.resolve()) or target_dir == root or not target_dir.is_relative_to(root):
+        if (
+            not source.is_relative_to(quarantine.resolve())
+            or target_dir == root
+            or not target_dir.is_relative_to(root)
+        ):
             raise PermanentJobError("Invalid photo storage location")
         staging_dir = root / f".photo-{photo.id.hex}-{uuid.uuid4().hex}.tmp"
         try:
@@ -162,8 +183,16 @@ def _make_variants(photo_id: uuid.UUID) -> None:
                                 ready_image.load()
                                 photo.perceptual_hash = perceptual_hash(ready_image)
                             db.commit()
-                        except (UnidentifiedImageError, OSError, ValueError, SyntaxError, EOFError) as exc:
-                            raise PermanentJobError("Ready photo fingerprint could not be computed") from exc
+                        except (
+                            UnidentifiedImageError,
+                            OSError,
+                            ValueError,
+                            SyntaxError,
+                            EOFError,
+                        ) as exc:
+                            raise PermanentJobError(
+                                "Ready photo fingerprint could not be computed"
+                            ) from exc
                     try:
                         source.unlink(missing_ok=True)
                     except OSError as exc:
@@ -180,19 +209,35 @@ def _make_variants(photo_id: uuid.UUID) -> None:
                 photo.status = "processing"
             try:
                 raw = Image.open(source)
-            except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+            except (
+                UnidentifiedImageError,
+                OSError,
+                Image.DecompressionBombError,
+                Image.DecompressionBombWarning,
+            ) as exc:
                 raise PermanentJobError("Image data is invalid") from exc
             with raw:
                 if raw.format not in {"JPEG", "MPO", "PNG", "WEBP", "HEIF", "HEIC"}:
                     raise PermanentJobError("Unsupported image format")
                 # Decode only the primary still from HEIF/MPO collections, as at upload.
-                if raw.format not in {"HEIF", "HEIC", "MPO"} and (getattr(raw, "is_animated", False) or getattr(raw, "n_frames", 1) > 1):
+                if raw.format not in {"HEIF", "HEIC", "MPO"} and (
+                    getattr(raw, "is_animated", False)
+                    or getattr(raw, "n_frames", 1) > 1
+                ):
                     raise PermanentJobError("Animated images are not supported")
                 if raw.width * raw.height > settings.upload_max_pixels:
                     raise PermanentJobError("Image pixel limit exceeded")
                 try:
                     raw.load()
-                except (UnidentifiedImageError, OSError, ValueError, SyntaxError, EOFError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+                except (
+                    UnidentifiedImageError,
+                    OSError,
+                    ValueError,
+                    SyntaxError,
+                    EOFError,
+                    Image.DecompressionBombError,
+                    Image.DecompressionBombWarning,
+                ) as exc:
                     raise PermanentJobError("Image data is invalid") from exc
                 if raw.width * raw.height > settings.upload_max_pixels:
                     raise PermanentJobError("Image pixel limit exceeded")
@@ -205,9 +250,13 @@ def _make_variants(photo_id: uuid.UUID) -> None:
                     and exif_orientation == 1
                     and original_orientation in HEIF_ORIENTATION_TRANSPOSE
                 ):
-                    image = image.transpose(HEIF_ORIENTATION_TRANSPOSE[original_orientation])
+                    image = image.transpose(
+                        HEIF_ORIENTATION_TRANSPOSE[original_orientation]
+                    )
                 if image.mode not in {"RGB", "RGBA"}:
-                    image = image.convert("RGBA" if "transparency" in image.info else "RGB")
+                    image = image.convert(
+                        "RGBA" if "transparency" in image.info else "RGB"
+                    )
                 photo.width, photo.height = image.size
                 photo.perceptual_hash = perceptual_hash(image)
                 staging_dir.mkdir(mode=0o700)
@@ -217,7 +266,10 @@ def _make_variants(photo_id: uuid.UUID) -> None:
                         variant = image
                     else:
                         scale = edge / longest
-                        size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
+                        size = (
+                            max(1, round(image.width * scale)),
+                            max(1, round(image.height * scale)),
+                        )
                         variant = image.resize(size, Image.Resampling.LANCZOS)
                     tmp = staging_dir / f"{edge}.webp.tmp"
                     final = staging_dir / f"{edge}.webp"
@@ -261,26 +313,43 @@ def _make_variants(photo_id: uuid.UUID) -> None:
 
 def _refresh_usd_rate() -> None:
     endpoint = "https://api.nbrb.by/exrates/rates/USD?parammode=2"
-    request = urllib.request.Request(endpoint, headers={"Accept": "application/json", "User-Agent": "AvtorinokPilot/1.0"})
+    request = urllib.request.Request(
+        endpoint,
+        headers={"Accept": "application/json", "User-Agent": "AvtorinokPilot/1.0"},
+    )
     with urllib.request.urlopen(request, timeout=12) as response:
         payload = json.load(response)
     rate_date, official_rate, scale = _parse_nbrb_usd_rate(payload)
     values = {
-        "id": uuid.uuid4(), "currency": "USD", "rate_date": rate_date,
+        "id": uuid.uuid4(),
+        "currency": "USD",
+        "rate_date": rate_date,
         "official_rate": official_rate,
-        "scale": scale, "source": endpoint,
+        "scale": scale,
+        "source": endpoint,
         "fetched_at": datetime.now(timezone.utc),
     }
     with SessionLocal() as db:
-        statement = pg_insert(ExchangeRate).values(**values).on_conflict_do_update(
-            constraint="uq_exchange_rate_currency_date",
-            set_={"official_rate": values["official_rate"], "scale": values["scale"], "source": endpoint, "fetched_at": values["fetched_at"]},
+        statement = (
+            pg_insert(ExchangeRate)
+            .values(**values)
+            .on_conflict_do_update(
+                constraint="uq_exchange_rate_currency_date",
+                set_={
+                    "official_rate": values["official_rate"],
+                    "scale": values["scale"],
+                    "source": endpoint,
+                    "fetched_at": values["fetched_at"],
+                },
+            )
         )
         db.execute(statement)
         db.commit()
 
 
-def _parse_nbrb_usd_rate(payload: object, *, today: date | None = None) -> tuple[str, Decimal, int]:
+def _parse_nbrb_usd_rate(
+    payload: object, *, today: date | None = None
+) -> tuple[str, Decimal, int]:
     """Validate the NBRB response before it can become a price-conversion input."""
 
     if not isinstance(payload, dict):
@@ -290,7 +359,9 @@ def _parse_nbrb_usd_rate(payload: object, *, today: date | None = None) -> tuple
     if not isinstance(raw_date, str) or not raw_date.strip():
         raise ValueError("NBRB USD rate response has no valid date")
     try:
-        rate_date = datetime.fromisoformat(raw_date.strip().replace("Z", "+00:00")).date()
+        rate_date = datetime.fromisoformat(
+            raw_date.strip().replace("Z", "+00:00")
+        ).date()
     except ValueError as exc:
         raise ValueError("NBRB USD rate response has no valid date") from exc
     current_date = today or datetime.now(timezone.utc).date()
@@ -316,7 +387,9 @@ def _latest_usd_rate_statement(as_of: date):
 
     return (
         select(ExchangeRate)
-        .where(ExchangeRate.currency == "USD", ExchangeRate.rate_date <= as_of.isoformat())
+        .where(
+            ExchangeRate.currency == "USD", ExchangeRate.rate_date <= as_of.isoformat()
+        )
         .order_by(ExchangeRate.rate_date.desc())
         .limit(1)
     )
@@ -327,31 +400,56 @@ def _cleanup_retention() -> None:
     sold_cutoff = now - timedelta(days=30)
     upload_cutoff = now - timedelta(hours=24)
     with SessionLocal() as db:
-        sold = db.scalars(select(Listing).where(
-            Listing.status == "sold", Listing.sold_at.is_not(None), Listing.sold_at <= sold_cutoff,
-        ).with_for_update(skip_locked=True)).all()
+        sold = db.scalars(
+            select(Listing)
+            .where(
+                Listing.status == "sold",
+                Listing.sold_at.is_not(None),
+                Listing.sold_at <= sold_cutoff,
+            )
+            .with_for_update(skip_locked=True)
+        ).all()
         for listing in sold:
             old_status = listing.status
             listing.status = "archived"
             listing.revision += 1
-            db.add(ListingStatusEvent(
-                listing_id=listing.id, actor_id=None, actor_kind="system", from_status=old_status,
-                to_status="archived", revision=listing.revision, reason="sold_retention_expired",
-            ))
-        stale_photos = db.scalars(select(ListingPhoto).where(
-            ListingPhoto.status.in_(["processing", "failed"]), ListingPhoto.created_at <= upload_cutoff,
-        ).with_for_update(skip_locked=True)).all()
+            db.add(
+                ListingStatusEvent(
+                    listing_id=listing.id,
+                    actor_id=None,
+                    actor_kind="system",
+                    from_status=old_status,
+                    to_status="archived",
+                    revision=listing.revision,
+                    reason="sold_retention_expired",
+                )
+            )
+        stale_photos = db.scalars(
+            select(ListingPhoto)
+            .where(
+                ListingPhoto.status.in_(["processing", "failed"]),
+                ListingPhoto.created_at <= upload_cutoff,
+            )
+            .with_for_update(skip_locked=True)
+        ).all()
         expired_names: set[str] = set()
         expired_storage_names: set[str] = set()
         for photo in stale_photos:
-            related_jobs = db.scalars(select(WorkerJob).where(
-                WorkerJob.kind == "photo.process",
-                WorkerJob.payload["photo_id"].as_string() == str(photo.id),
-            ).with_for_update()).all()
+            related_jobs = db.scalars(
+                select(WorkerJob)
+                .where(
+                    WorkerJob.kind == "photo.process",
+                    WorkerJob.payload["photo_id"].as_string() == str(photo.id),
+                )
+                .with_for_update()
+            ).all()
             # A worker with a live lease may still be processing this row. Leave
             # it for the next retention pass rather than deleting its DB record
             # while the worker can still commit variants.
-            if any(job.status == "running" and job.lease_until and job.lease_until > now for job in related_jobs):
+            if any(
+                job.status == "running" and job.lease_until and job.lease_until > now
+                for job in related_jobs
+            ):
                 continue
             # Remove jobs before the photo row so cleanup remains valid if a
             # foreign key is added later, and never leaves dangling photo jobs.
@@ -363,7 +461,8 @@ def _cleanup_retention() -> None:
             expired_names.add(photo.original_name)
             expired_storage_names.add(photo.storage_name)
         db.query(WorkerJob).filter(
-            WorkerJob.status.in_(["succeeded", "failed"]), WorkerJob.created_at < now - timedelta(days=30),
+            WorkerJob.status.in_(["succeeded", "failed"]),
+            WorkerJob.created_at < now - timedelta(days=30),
         ).delete(synchronize_session=False)
         # Current abuse-control windows are at most one hour. Keep two days
         # of keys so cleanup cannot reset a live quota, while expired random
@@ -382,7 +481,11 @@ def _cleanup_retention() -> None:
                     shutil.rmtree(path, ignore_errors=True)
                 else:
                     path.unlink(missing_ok=True)
-            elif path.is_file() and datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < upload_cutoff:
+            elif (
+                path.is_file()
+                and datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+                < upload_cutoff
+            ):
                 path.unlink(missing_ok=True)
 
     for name in expired_storage_names:
@@ -408,7 +511,10 @@ def _cleanup_retention() -> None:
             except ValueError:
                 pass
         try:
-            stale = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < upload_cutoff
+            stale = (
+                datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+                < upload_cutoff
+            )
         except OSError:
             continue
         if is_photo_dir and stale:
@@ -434,7 +540,10 @@ def _next_notification_at(now: datetime, frequency: str) -> datetime:
 def _first_publication_at(db, listing: Listing) -> datetime | None:
     first = db.scalar(
         select(ListingStatusEvent.created_at)
-        .where(ListingStatusEvent.listing_id == listing.id, ListingStatusEvent.to_status == "active")
+        .where(
+            ListingStatusEvent.listing_id == listing.id,
+            ListingStatusEvent.to_status == "active",
+        )
         .order_by(ListingStatusEvent.created_at, ListingStatusEvent.id)
         .limit(1)
     )
@@ -448,7 +557,13 @@ def _listing_url(listing: Listing) -> str:
     return f"/cars/{segment}/{segment}/{listing.id}"
 
 
-def _enqueue_daily_notification_batch(db, saved_search: SavedSearch, listing: Listing, channel: str, available_at: datetime) -> None:
+def _enqueue_daily_notification_batch(
+    db,
+    saved_search: SavedSearch,
+    listing: Listing,
+    channel: str,
+    available_at: datetime,
+) -> None:
     period_date = available_at.astimezone(MINSK).date()
     period = period_date.isoformat()
     started_at = saved_search.subscription_started_at
@@ -456,7 +571,9 @@ def _enqueue_daily_notification_batch(db, saved_search: SavedSearch, listing: Li
         return
     if started_at.tzinfo is None:
         started_at = started_at.replace(tzinfo=timezone.utc)
-    subscription_started_at = started_at.astimezone(timezone.utc).isoformat(timespec="microseconds")
+    subscription_started_at = started_at.astimezone(timezone.utc).isoformat(
+        timespec="microseconds"
+    )
     subscription_key = started_at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     dedupe_key = f"saved-search:{saved_search.id}:channel:{channel}:daily:{period}:subscription:{subscription_key}"
 
@@ -472,13 +589,15 @@ def _enqueue_daily_notification_batch(db, saved_search: SavedSearch, listing: Li
         return
 
     db.execute(
-        pg_insert(SavedSearchNotificationBatch).values(
+        pg_insert(SavedSearchNotificationBatch)
+        .values(
             id=uuid.uuid4(),
             saved_search_id=saved_search.id,
             channel=channel,
             period=period_date,
             outbox_id=None,
-        ).on_conflict_do_nothing(constraint="uq_saved_search_notification_batch_period")
+        )
+        .on_conflict_do_nothing(constraint="uq_saved_search_notification_batch_period")
     )
     batch = db.scalar(
         select(SavedSearchNotificationBatch)
@@ -503,7 +622,8 @@ def _enqueue_daily_notification_batch(db, saved_search: SavedSearch, listing: Li
         current_filters = saved_search_filters(saved_search)
         prior_payload = dict(outbox.payload or {})
         same_snapshot = (
-            prior_payload.get("notification_frequency") == saved_search.notification_frequency
+            prior_payload.get("notification_frequency")
+            == saved_search.notification_frequency
             and prior_payload.get("search_url") == saved_search.search_url
             and prior_payload.get("filters") == current_filters
             and prior_payload.get("subscription_started_at") == subscription_started_at
@@ -548,19 +668,23 @@ def _enqueue_daily_notification_batch(db, saved_search: SavedSearch, listing: Li
         "listings": [],
     }
     if outbox is None:
-        insert = pg_insert(NotificationOutbox).values(
-            id=uuid.uuid4(),
-            dedupe_key=dedupe_key,
-            saved_search_id=saved_search.id,
-            conversation_id=None,
-            user_id=saved_search.user_id,
-            listing_id=None,
-            channel=channel,
-            status="queued",
-            payload=base_payload,
-            attempts=0,
-            available_at=available_at,
-        ).on_conflict_do_nothing(constraint="uq_notification_outbox_dedupe")
+        insert = (
+            pg_insert(NotificationOutbox)
+            .values(
+                id=uuid.uuid4(),
+                dedupe_key=dedupe_key,
+                saved_search_id=saved_search.id,
+                conversation_id=None,
+                user_id=saved_search.user_id,
+                listing_id=None,
+                channel=channel,
+                status="queued",
+                payload=base_payload,
+                attempts=0,
+                available_at=available_at,
+            )
+            .on_conflict_do_nothing(constraint="uq_notification_outbox_dedupe")
+        )
         db.execute(insert)
         outbox = db.scalar(
             select(NotificationOutbox)
@@ -572,25 +696,34 @@ def _enqueue_daily_notification_batch(db, saved_search: SavedSearch, listing: Li
     batch.outbox_id = outbox.id
 
     listing_title = (listing.title or "Новое объявление").strip() or "Новое объявление"
-    match_insert = pg_insert(SavedSearchNotificationMatch).values(
-        id=uuid.uuid4(),
-        saved_search_id=saved_search.id,
-        listing_id=listing.id,
-        listing_revision=listing.revision,
-        outbox_id=outbox.id,
-        title=listing_title[:240],
-        url=_listing_url(listing),
-    ).on_conflict_do_nothing(constraint="uq_saved_search_notification_match").returning(
-        SavedSearchNotificationMatch.id
+    match_insert = (
+        pg_insert(SavedSearchNotificationMatch)
+        .values(
+            id=uuid.uuid4(),
+            saved_search_id=saved_search.id,
+            listing_id=listing.id,
+            listing_revision=listing.revision,
+            outbox_id=outbox.id,
+            title=listing_title[:240],
+            url=_listing_url(listing),
+        )
+        .on_conflict_do_nothing(constraint="uq_saved_search_notification_match")
+        .returning(SavedSearchNotificationMatch.id)
     )
     match_id = db.scalar(match_insert)
     if match_id is None:
         return
 
     matches = db.execute(
-        select(SavedSearchNotificationMatch.listing_id, SavedSearchNotificationMatch.title, SavedSearchNotificationMatch.url)
+        select(
+            SavedSearchNotificationMatch.listing_id,
+            SavedSearchNotificationMatch.title,
+            SavedSearchNotificationMatch.url,
+        )
         .where(SavedSearchNotificationMatch.outbox_id == outbox.id)
-        .order_by(SavedSearchNotificationMatch.created_at, SavedSearchNotificationMatch.id)
+        .order_by(
+            SavedSearchNotificationMatch.created_at, SavedSearchNotificationMatch.id
+        )
         .limit(20)
     ).all()
     total_count = int(
@@ -624,7 +757,11 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
         listing = db.get(Listing, listing_id)
         # A seller edit turns a listing back into a draft and increments the
         # revision. In that case the publication event is no longer current.
-        if listing is None or listing.status != "active" or listing.revision != listing_revision:
+        if (
+            listing is None
+            or listing.status != "active"
+            or listing.revision != listing_revision
+        ):
             return
         now = db.scalar(select(func.now()))
         if now is None:
@@ -645,7 +782,9 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
         ).all()
         email_settings = get_settings()
         email_sender = get_email_sender(email_settings)
-        public_app_url = str(getattr(email_settings, "public_app_url", "") or "").strip()
+        public_app_url = str(
+            getattr(email_settings, "public_app_url", "") or ""
+        ).strip()
         title = (listing.title or "Новое объявление").strip() or "Новое объявление"
         for saved_search in searches:
             # Older rows predate subscription_started_at. Preserve their
@@ -662,12 +801,21 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
             channel = saved_search.notification_channel
             if channel not in {"web", "email"}:
                 continue
-            available_at = _next_notification_at(now, saved_search.notification_frequency)
-            if saved_search.notification_frequency == "daily" and saved_search.subscription_started_at is not None:
-                _enqueue_daily_notification_batch(db, saved_search, listing, channel, available_at)
+            available_at = _next_notification_at(
+                now, saved_search.notification_frequency
+            )
+            if (
+                saved_search.notification_frequency == "daily"
+                and saved_search.subscription_started_at is not None
+            ):
+                _enqueue_daily_notification_batch(
+                    db, saved_search, listing, channel, available_at
+                )
                 continue
 
-            dedupe_key = f"saved-search:{saved_search.id}:listing:{listing.id}:channel:{channel}"
+            dedupe_key = (
+                f"saved-search:{saved_search.id}:listing:{listing.id}:channel:{channel}"
+            )
             payload = {
                 "title": f"Новое объявление по поиску «{saved_search.name}»",
                 "body": title,
@@ -702,23 +850,29 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
                             else:
                                 email_ready = True
             status = "queued" if channel == "web" or email_ready else "unsupported"
-            insert = pg_insert(NotificationOutbox).values(
-                id=uuid.uuid4(),
-                dedupe_key=dedupe_key,
-                saved_search_id=saved_search.id,
-                user_id=saved_search.user_id,
-                listing_id=listing.id,
-                channel=channel,
-                status=status,
-                payload=payload,
-                attempts=0,
-                available_at=available_at,
-                last_error=None if channel == "web" or email_ready else email_error,
-            ).on_conflict_do_nothing(constraint="uq_notification_outbox_dedupe").returning(NotificationOutbox.id)
+            insert = (
+                pg_insert(NotificationOutbox)
+                .values(
+                    id=uuid.uuid4(),
+                    dedupe_key=dedupe_key,
+                    saved_search_id=saved_search.id,
+                    user_id=saved_search.user_id,
+                    listing_id=listing.id,
+                    channel=channel,
+                    status=status,
+                    payload=payload,
+                    attempts=0,
+                    available_at=available_at,
+                    last_error=None if channel == "web" or email_ready else email_error,
+                )
+                .on_conflict_do_nothing(constraint="uq_notification_outbox_dedupe")
+                .returning(NotificationOutbox.id)
+            )
             outbox_id = db.scalar(insert)
             if outbox_id is not None and (channel == "web" or email_ready):
                 db.execute(
-                    pg_insert(SavedSearchNotificationMatch).values(
+                    pg_insert(SavedSearchNotificationMatch)
+                    .values(
                         id=uuid.uuid4(),
                         saved_search_id=saved_search.id,
                         listing_id=listing.id,
@@ -726,7 +880,10 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
                         outbox_id=outbox_id,
                         title=title[:240],
                         url=_listing_url(listing),
-                    ).on_conflict_do_nothing(constraint="uq_saved_search_notification_match")
+                    )
+                    .on_conflict_do_nothing(
+                        constraint="uq_saved_search_notification_match"
+                    )
                 )
                 enqueue_job(
                     db,
@@ -775,7 +932,9 @@ def _saved_search_delivery_snapshot(
     }
 
 
-def _cancel_running_notification(db, outbox: NotificationOutbox, error_code: str) -> None:
+def _cancel_running_notification(
+    db, outbox: NotificationOutbox, error_code: str
+) -> None:
     outbox.status = "cancelled"
     outbox.last_error = error_code
     outbox.locked_by = None
@@ -783,16 +942,22 @@ def _cancel_running_notification(db, outbox: NotificationOutbox, error_code: str
     db.commit()
 
 
-def _batch_listing_snapshot(db, outbox: NotificationOutbox, saved_search: SavedSearch) -> tuple[list[dict[str, str]], int]:
+def _batch_listing_snapshot(
+    db, outbox: NotificationOutbox, saved_search: SavedSearch
+) -> tuple[list[dict[str, str]], int]:
     matches = db.scalars(
         select(SavedSearchNotificationMatch)
         .where(SavedSearchNotificationMatch.outbox_id == outbox.id)
-        .order_by(SavedSearchNotificationMatch.created_at, SavedSearchNotificationMatch.id)
+        .order_by(
+            SavedSearchNotificationMatch.created_at, SavedSearchNotificationMatch.id
+        )
         .with_for_update()
     ).all()
     valid: list[SavedSearchNotificationMatch] = []
     for match in matches:
-        listing = db.scalar(select(Listing).where(Listing.id == match.listing_id).with_for_update())
+        listing = db.scalar(
+            select(Listing).where(Listing.id == match.listing_id).with_for_update()
+        )
         if (
             listing is None
             or listing.status != "active"
@@ -805,7 +970,10 @@ def _batch_listing_snapshot(db, outbox: NotificationOutbox, saved_search: SavedS
             continue
         valid.append(match)
     total_count = len(valid)
-    payload_listings = [{"id": str(item.listing_id), "title": item.title, "url": item.url} for item in valid[:20]]
+    payload_listings = [
+        {"id": str(item.listing_id), "title": item.title, "url": item.url}
+        for item in valid[:20]
+    ]
     payload = dict(outbox.payload or {})
     payload["total_count"] = total_count
     payload["listings"] = payload_listings
@@ -937,7 +1105,12 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
 
     with SessionLocal() as db:
         probe = db.get(NotificationOutbox, outbox_id)
-        if probe is None or probe.status in {"delivered", "failed", "unsupported", "cancelled"}:
+        if probe is None or probe.status in {
+            "delivered",
+            "failed",
+            "unsupported",
+            "cancelled",
+        }:
             return
         saved_search = None
         if probe.saved_search_id is not None:
@@ -951,7 +1124,12 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
             .where(NotificationOutbox.id == outbox_id)
             .with_for_update()
         )
-        if outbox is None or outbox.status in {"delivered", "failed", "unsupported", "cancelled"}:
+        if outbox is None or outbox.status in {
+            "delivered",
+            "failed",
+            "unsupported",
+            "cancelled",
+        }:
             return
         saved_search_id = outbox.saved_search_id
         if outbox.status == "running" and outbox.lease_until is not None:
@@ -965,7 +1143,11 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
         if user is None or user.status != "active":
             is_price_drop = outbox.price_event_id is not None
             outbox.status = "cancelled" if is_price_drop else "failed"
-            outbox.last_error = "price_drop_no_longer_eligible" if is_price_drop else "notification_recipient_inactive"
+            outbox.last_error = (
+                "price_drop_no_longer_eligible"
+                if is_price_drop
+                else "notification_recipient_inactive"
+            )
             outbox.locked_by = None
             outbox.lease_until = None
             db.commit()
@@ -980,11 +1162,17 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
         digest_total = 0
         if outbox.saved_search_id is not None:
             try:
-                current_filters = saved_search_filters(saved_search) if saved_search is not None else None
+                current_filters = (
+                    saved_search_filters(saved_search)
+                    if saved_search is not None
+                    else None
+                )
             except ValueError:
                 current_filters = None
             current_subscription_started_at = (
-                _subscription_started_at_snapshot(saved_search) if saved_search is not None else None
+                _subscription_started_at_snapshot(saved_search)
+                if saved_search is not None
+                else None
             )
             if (
                 saved_search is None
@@ -993,10 +1181,24 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 or saved_search.status != "active"
                 or not saved_search.notifications_enabled
                 or saved_search.notification_channel != outbox.channel
-                or (payload.get("notification_frequency") is not None and saved_search.notification_frequency != payload["notification_frequency"])
-                or (payload.get("search_url") is not None and saved_search.search_url != payload["search_url"])
-                or (payload.get("filters") is not None and current_filters != payload["filters"])
-                or ("subscription_started_at" in payload and current_subscription_started_at != payload["subscription_started_at"])
+                or (
+                    payload.get("notification_frequency") is not None
+                    and saved_search.notification_frequency
+                    != payload["notification_frequency"]
+                )
+                or (
+                    payload.get("search_url") is not None
+                    and saved_search.search_url != payload["search_url"]
+                )
+                or (
+                    payload.get("filters") is not None
+                    and current_filters != payload["filters"]
+                )
+                or (
+                    "subscription_started_at" in payload
+                    and current_subscription_started_at
+                    != payload["subscription_started_at"]
+                )
             ):
                 outbox.status = "cancelled" if is_batch else "unsupported"
                 outbox.last_error = "notification_preference_changed"
@@ -1004,9 +1206,13 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 outbox.lease_until = None
                 db.commit()
                 return
-            saved_search_snapshot = _saved_search_delivery_snapshot(saved_search, current_filters)
+            saved_search_snapshot = _saved_search_delivery_snapshot(
+                saved_search, current_filters
+            )
             if is_batch:
-                digest_listings, digest_total = _batch_listing_snapshot(db, outbox, saved_search)
+                digest_listings, digest_total = _batch_listing_snapshot(
+                    db, outbox, saved_search
+                )
                 if digest_total < 1:
                     outbox.status = "unsupported"
                     outbox.last_error = "notification_batch_empty"
@@ -1015,12 +1221,19 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                     db.commit()
                     return
             elif outbox.listing_id is not None:
-                listing = db.scalar(select(Listing).where(Listing.id == outbox.listing_id).with_for_update())
+                listing = db.scalar(
+                    select(Listing)
+                    .where(Listing.id == outbox.listing_id)
+                    .with_for_update()
+                )
                 expected_revision = payload.get("listing_revision")
                 if (
                     listing is None
                     or listing.status != "active"
-                    or (expected_revision is not None and listing.revision != int(expected_revision))
+                    or (
+                        expected_revision is not None
+                        and listing.revision != int(expected_revision)
+                    )
                     or not saved_search_matches(db, saved_search, listing)
                 ):
                     outbox.status = "unsupported"
@@ -1030,23 +1243,45 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                     db.commit()
                     return
                 single_listing_revision = listing.revision
-                single_listing_snapshot = [{
-                    "id": str(listing.id),
-                    "title": " ".join(str(listing.title or payload.get("body") or "Новое объявление").split())[:240],
-                    "url": _listing_url(listing),
-                }]
+                single_listing_snapshot = [
+                    {
+                        "id": str(listing.id),
+                        "title": " ".join(
+                            str(
+                                listing.title
+                                or payload.get("body")
+                                or "Новое объявление"
+                            ).split()
+                        )[:240],
+                        "url": _listing_url(listing),
+                    }
+                ]
 
         if outbox.price_event_id is not None:
             price_event = db.get(ListingPriceEvent, outbox.price_event_id)
-            listing = db.get(Listing, outbox.listing_id) if outbox.listing_id is not None else None
-            favorite = db.scalar(
-                select(Favorite).where(
-                    Favorite.user_id == user.id,
-                    Favorite.listing_id == outbox.listing_id,
+            listing = (
+                db.get(Listing, outbox.listing_id)
+                if outbox.listing_id is not None
+                else None
+            )
+            favorite = (
+                db.scalar(
+                    select(Favorite).where(
+                        Favorite.user_id == user.id,
+                        Favorite.listing_id == outbox.listing_id,
+                    )
                 )
-            ) if outbox.listing_id is not None else None
-            listing_owner = db.get(User, listing.owner_id) if listing is not None else None
-            company = db.get(Company, listing.company_id) if listing is not None and listing.company_id else None
+                if outbox.listing_id is not None
+                else None
+            )
+            listing_owner = (
+                db.get(User, listing.owner_id) if listing is not None else None
+            )
+            company = (
+                db.get(Company, listing.company_id)
+                if listing is not None and listing.company_id
+                else None
+            )
             if (
                 outbox.channel != "web"
                 or price_event is None
@@ -1060,7 +1295,10 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 or user.id == listing.owner_id
                 or listing_owner is None
                 or listing_owner.status != "active"
-                or (listing.company_id is not None and (company is None or company.status != "approved"))
+                or (
+                    listing.company_id is not None
+                    and (company is None or company.status != "approved")
+                )
                 or not is_same_currency_price_drop(
                     price_event.previous_price_amount,
                     price_event.previous_currency,
@@ -1134,7 +1372,9 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
             try:
                 if is_batch:
                     payload["listings"] = digest_listings
-                    subject, body = saved_search_digest_email_content(payload, public_app_url, digest_total)
+                    subject, body = saved_search_digest_email_content(
+                        payload, public_app_url, digest_total
+                    )
                 else:
                     subject, body = saved_search_email_content(payload, public_app_url)
             except ValueError:
@@ -1147,11 +1387,21 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
 
             if not is_batch:
                 from app.managed_content import render_notification_template
-                subject, body = render_notification_template(db, "saved_search_email", {
-                    "listing_title": " ".join(str(payload.get("body") or "Новое объявление").split())[:2000],
-                    "listing_url": public_app_url.rstrip("/") + str(payload.get("url") or "/cars"),
-                    "search_name": saved_search.name,
-                }, default_subject=subject, default_body=body)
+
+                subject, body = render_notification_template(
+                    db,
+                    "saved_search_email",
+                    {
+                        "listing_title": " ".join(
+                            str(payload.get("body") or "Новое объявление").split()
+                        )[:2000],
+                        "listing_url": public_app_url.rstrip("/")
+                        + str(payload.get("url") or "/cars"),
+                        "search_name": saved_search.name,
+                    },
+                    default_subject=subject,
+                    default_body=body,
+                )
 
             outbox.status = "running"
             outbox.attempts += 1
@@ -1305,7 +1555,11 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
         if not notification_delivery_allowed(db, outbox.user_id, "web"):
             is_price_drop = outbox.price_event_id is not None
             outbox.status = "cancelled" if is_price_drop else "unsupported"
-            outbox.last_error = "price_drop_web_disabled" if is_price_drop else "web_preference_disabled"
+            outbox.last_error = (
+                "price_drop_web_disabled"
+                if is_price_drop
+                else "web_preference_disabled"
+            )
             outbox.locked_by = None
             outbox.lease_until = None
             db.commit()
@@ -1316,7 +1570,8 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
         outbox.locked_by = f"worker:{os.getpid()}"
         outbox.lease_until = datetime.now(timezone.utc) + LEASE
         db.execute(
-            pg_insert(UserNotification).values(
+            pg_insert(UserNotification)
+            .values(
                 id=uuid.uuid4(),
                 outbox_id=outbox.id,
                 user_id=outbox.user_id,
@@ -1329,7 +1584,8 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 url=str(payload.get("url") or "/cars")[:2048],
                 listings=digest_listings if is_batch else single_listing_snapshot,
                 total_count=digest_total if is_batch else 1,
-            ).on_conflict_do_nothing(constraint="uq_user_notification_outbox")
+            )
+            .on_conflict_do_nothing(constraint="uq_user_notification_outbox")
         )
         outbox.status = "delivered"
         outbox.delivered_at = datetime.now(timezone.utc)
@@ -1353,11 +1609,15 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
         elif kind == "cleanup.retention":
             _cleanup_retention()
         elif kind == "saved-search.match":
-            _match_saved_searches(uuid.UUID(payload["listing_id"]), int(payload["listing_revision"]))
+            _match_saved_searches(
+                uuid.UUID(payload["listing_id"]), int(payload["listing_revision"])
+            )
         elif kind == "notification.deliver":
             _deliver_notification(uuid.UUID(payload["outbox_id"]))
         elif kind == "identity.email.deliver":
             _deliver_identity_email(uuid.UUID(payload["outbox_id"]))
+        elif kind == "onliner.sync":
+            _onliner_sync(job_id)
         else:
             raise PermanentJobError(f"Unsupported job kind: {kind}")
     except Exception as exc:
@@ -1368,7 +1628,9 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
             notification_outbox = None
             if kind == "notification.deliver":
                 try:
-                    notification_outbox = db.get(NotificationOutbox, uuid.UUID(payload["outbox_id"]))
+                    notification_outbox = db.get(
+                        NotificationOutbox, uuid.UUID(payload["outbox_id"])
+                    )
                 except (KeyError, ValueError):
                     notification_outbox = None
             is_saved_search_email = bool(
@@ -1383,7 +1645,9 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
             job.last_error = delivery_error or str(exc)[:500]
             job.locked_by = None
             job.lease_until = None
-            terminal_failure = isinstance(exc, PermanentJobError) or job.attempts >= job.max_attempts
+            terminal_failure = (
+                isinstance(exc, PermanentJobError) or job.attempts >= job.max_attempts
+            )
             if terminal_failure:
                 job.status = "failed"
                 if kind == "photo.process":
@@ -1392,7 +1656,9 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
                         photo.status = "failed"
                 elif kind == "identity.email.deliver":
                     try:
-                        outbox = db.get(IdentityEmailOutbox, uuid.UUID(payload["outbox_id"]))
+                        outbox = db.get(
+                            IdentityEmailOutbox, uuid.UUID(payload["outbox_id"])
+                        )
                     except (KeyError, ValueError):
                         outbox = None
                     if outbox is not None and outbox.status != "delivered":
@@ -1403,13 +1669,17 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
                 elif is_saved_search_email and notification_outbox is not None:
                     if notification_outbox.status != "delivered":
                         notification_outbox.status = "failed"
-                        notification_outbox.last_error = delivery_error or "email_delivery_failed"
+                        notification_outbox.last_error = (
+                            delivery_error or "email_delivery_failed"
+                        )
                         notification_outbox.locked_by = None
                         notification_outbox.lease_until = None
             else:
                 job.status = "queued"
                 database_now = db.scalar(select(func.now()))
-                job.run_after = database_now + timedelta(seconds=min(60 * (2 ** (job.attempts - 1)), 3600))
+                job.run_after = database_now + timedelta(
+                    seconds=min(60 * (2 ** (job.attempts - 1)), 3600)
+                )
             db.commit()
         log_event(
             logger,
@@ -1421,6 +1691,7 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
             error_type=type(exc).__name__,
         )
         from app.error_monitoring import capture_safe_error
+
         capture_safe_error("worker", type(exc).__name__)
         return
     with SessionLocal() as db:
@@ -1433,13 +1704,110 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
             db.commit()
 
 
+def _onliner_sync(job_id: uuid.UUID) -> None:
+    """Periodic onliner.by mirror refresh: prices, closures, new adverts."""
+
+    settings = get_settings()
+    if not settings.onliner_sync_enabled:
+        raise PermanentJobError("Onliner sync is disabled")
+    owner_email = settings.onliner_sync_owner_email.strip()
+    if not owner_email:
+        raise PermanentJobError("ONLINER_SYNC_OWNER_EMAIL is required for onliner sync")
+
+    def renew_lease() -> None:
+        with SessionLocal() as lease_db:
+            database_now = lease_db.scalar(select(func.now()))
+            lease_db.execute(
+                update(WorkerJob)
+                .where(WorkerJob.id == job_id)
+                .values(lease_until=database_now + LEASE)
+            )
+            lease_db.commit()
+
+    with SessionLocal() as db:
+        owner = db.scalar(
+            select(User).where(User.email == owner_email, User.status == "active")
+        )
+        if owner is None:
+            raise PermanentJobError(f"Onliner sync owner {owner_email!r} not found")
+        client = OnlinerClient()
+        try:
+            refresh = sync_existing(db, client, lease_renew=renew_lease)
+            db.commit()
+            discover = discover_new(
+                db,
+                client,
+                owner,
+                per_make_limit=settings.onliner_per_make_limit,
+                manufacturers=settings.onliner_sync_manufacturers,
+                lease_renew=renew_lease,
+            )
+            db.commit()
+        except OnlinerBlockedError as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "onliner_sync_blocked",
+                job_id=str(job_id),
+                error=str(exc)[:200],
+            )
+            raise PermanentJobError("Onliner answered 403; sync stopped") from exc
+        finally:
+            client.close()
+    log_event(
+        logger,
+        logging.INFO,
+        "onliner_sync_completed",
+        job_id=str(job_id),
+        **{**refresh, **discover},
+    )
+
+
+def _schedule_onliner_sync() -> None:
+    settings = get_settings()
+    if not settings.onliner_sync_enabled:
+        return
+    with SessionLocal() as db:
+        now = datetime.now(timezone.utc)
+        pending = db.scalar(
+            select(WorkerJob.id)
+            .where(
+                WorkerJob.kind == "onliner.sync",
+                WorkerJob.status.in_(["queued", "running"]),
+            )
+            .limit(1)
+        )
+        if pending is None:
+            bucket = now.hour // settings.onliner_sync_interval_hours
+            key = f"onliner.sync:{now.date().isoformat()}:{bucket}"
+            db.execute(
+                pg_insert(WorkerJob)
+                .values(
+                    id=uuid.uuid4(),
+                    job_key=key,
+                    kind="onliner.sync",
+                    payload={},
+                    status="queued",
+                    attempts=0,
+                    max_attempts=2,
+                    run_after=now,
+                )
+                .on_conflict_do_nothing(constraint="uq_worker_job_key")
+            )
+            db.commit()
+
+
 def _schedule_daily_rates() -> None:
     with SessionLocal() as db:
         now = datetime.now(timezone.utc)
-        rate_pending = db.scalar(select(WorkerJob.id).where(
-            WorkerJob.kind == "rates.refresh",
-            WorkerJob.status.in_(["queued", "running"]),
-        ).limit(1))
+        rate_pending = db.scalar(
+            select(WorkerJob.id)
+            .where(
+                WorkerJob.kind == "rates.refresh",
+                WorkerJob.status.in_(["queued", "running"]),
+            )
+            .limit(1)
+        )
         latest = db.scalar(_latest_usd_rate_statement(now.date()))
         refresh_rate = not rate_pending
         if refresh_rate and latest:
@@ -1450,8 +1818,14 @@ def _schedule_daily_rates() -> None:
         if refresh_rate:
             key = f"rates.refresh:{now.date().isoformat()}"
             insert = pg_insert(WorkerJob).values(
-                id=uuid.uuid4(), job_key=key, kind="rates.refresh", payload={}, status="queued", attempts=0,
-                max_attempts=6, run_after=now,
+                id=uuid.uuid4(),
+                job_key=key,
+                kind="rates.refresh",
+                payload={},
+                status="queued",
+                attempts=0,
+                max_attempts=6,
+                run_after=now,
             )
             if latest is None:
                 statement = insert.on_conflict_do_update(
@@ -1468,17 +1842,34 @@ def _schedule_daily_rates() -> None:
                     where=WorkerJob.status == "succeeded",
                 )
             else:
-                statement = insert.on_conflict_do_nothing(constraint="uq_worker_job_key")
+                statement = insert.on_conflict_do_nothing(
+                    constraint="uq_worker_job_key"
+                )
             db.execute(statement)
-        cleanup_pending = db.scalar(select(WorkerJob.id).where(
-            WorkerJob.kind == "cleanup.retention", WorkerJob.status.in_(["queued", "running"]),
-        ).limit(1))
+        cleanup_pending = db.scalar(
+            select(WorkerJob.id)
+            .where(
+                WorkerJob.kind == "cleanup.retention",
+                WorkerJob.status.in_(["queued", "running"]),
+            )
+            .limit(1)
+        )
         if not cleanup_pending:
             cleanup_key = f"cleanup.retention:{now.date().isoformat()}"
-            db.execute(pg_insert(WorkerJob).values(
-                id=uuid.uuid4(), job_key=cleanup_key, kind="cleanup.retention", payload={}, status="queued",
-                attempts=0, max_attempts=4, run_after=now,
-            ).on_conflict_do_nothing(constraint="uq_worker_job_key"))
+            db.execute(
+                pg_insert(WorkerJob)
+                .values(
+                    id=uuid.uuid4(),
+                    job_key=cleanup_key,
+                    kind="cleanup.retention",
+                    payload={},
+                    status="queued",
+                    attempts=0,
+                    max_attempts=4,
+                    run_after=now,
+                )
+                .on_conflict_do_nothing(constraint="uq_worker_job_key")
+            )
         db.commit()
 
 
@@ -1488,8 +1879,12 @@ def run_forever() -> None:
     while True:
         try:
             _schedule_daily_rates()
+            _schedule_onliner_sync()
             with engine.connect() as lock_connection:
-                got_lock = lock_connection.scalar(text("SELECT pg_try_advisory_lock(:key)"), {"key": ADVISORY_LOCK_KEY})
+                got_lock = lock_connection.scalar(
+                    text("SELECT pg_try_advisory_lock(:key)"),
+                    {"key": ADVISORY_LOCK_KEY},
+                )
                 if not got_lock:
                     time.sleep(2)
                     continue
@@ -1500,7 +1895,10 @@ def run_forever() -> None:
                     else:
                         _run_job(job_id, worker_id)
                 finally:
-                    lock_connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": ADVISORY_LOCK_KEY})
+                    lock_connection.execute(
+                        text("SELECT pg_advisory_unlock(:key)"),
+                        {"key": ADVISORY_LOCK_KEY},
+                    )
                     lock_connection.commit()
         except Exception as exc:
             log_event(
