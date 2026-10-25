@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ListingCard } from "@/components/listing-card";
 import { ApiClientError } from "@/lib/api";
 import { getSavedListingIds, serverApi } from "@/lib/server-api";
+import { buildBreadcrumbJsonLd, buildDealerJsonLd, buildOpenGraph, serializeJsonLd } from "@/lib/seo";
+import { isPublicIndexingEnabled } from "@/lib/pilot-visibility";
 import { SITE_ORIGIN } from "@/lib/site-config";
 
 export const dynamic = "force-dynamic";
@@ -33,9 +35,13 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const page = Array.isArray(paramsQuery.page) ? 1 : parsePage(paramsQuery.page) ?? 1;
   try {
     const result = await serverApi.dealer(slug);
+    const path = pageUrl(slug, page);
+    const description = `${result.company.name}: автомобили в наличии, адрес и режим работы компании на Авторынке.`;
     return {
       title: result.company.name,
-      alternates: { canonical: new URL(pageUrl(slug, page), `${SITE_ORIGIN}/`).toString() },
+      description,
+      alternates: { canonical: new URL(path, `${SITE_ORIGIN}/`).toString() },
+      openGraph: buildOpenGraph({ title: result.company.name, description, path }),
     };
   } catch {
     return { title: "Компания" };
@@ -60,11 +66,17 @@ export default async function DealerPage({ params, searchParams }: { params: Pro
   const page = Math.min(listings.pagination?.page ?? requestedPage, pageCount);
   return (
     <div className="page-width">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildDealerJsonLd(company)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildBreadcrumbJsonLd([
+        { name: "Главная", path: "/" },
+        { name: "Компании", path: "/dealers" },
+        { name: company.name, path: `/dealers/${encodeURIComponent(slug)}` },
+      ])) }} />
       <nav className="breadcrumb" aria-label="Хлебные крошки"><Link href="/">Главная</Link><span aria-hidden="true">›</span><Link href="/dealers">Компании</Link><span aria-hidden="true">›</span><span>{company.name}</span></nav>
       <header className="page-head">
         <p className="eyebrow">Автокомпания</p>
         <h1>{company.name}</h1>
-        {company.status === "approved" && <p className="verified-state" role="status">Допущена к пилоту</p>}
+        {company.status === "approved" && <p className="verified-state" role="status">{isPublicIndexingEnabled() ? "Проверенная компания" : "Допущена к пилоту"}</p>}
         <address className="dealer-address">{company.address || "Адрес не указан"}</address>
       </header>
       <section className="section" aria-labelledby="dealer-business-hours-title">

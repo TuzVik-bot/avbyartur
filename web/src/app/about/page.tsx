@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { InformationalPage } from "@/components/informational-page";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 
-export const metadata: Metadata = { title: "О проекте" };
+const description = "Авторынок BY — площадка объявлений об автомобилях в Беларуси от частных владельцев и проверенных компаний: история цены, сравнение и сохранённые поиски.";
+export const metadata: Metadata = {
+  title: "О проекте",
+  description,
+  alternates: { canonical: siteUrl("/about") },
+  openGraph: buildOpenGraph({ title: "О проекте", description, path: "/about" }),
+};
 
 export default function AboutPage() {
   return (

@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import { InformationalPage } from "@/components/informational-page";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 
-export const metadata: Metadata = { title: "Партнёрам" };
+const description = "Сотрудничество с Авторынком для автосалонов, дилеров, автосервисов и медиа в Беларуси.";
+export const metadata: Metadata = {
+  title: "Партнёрам",
+  description,
+  alternates: { canonical: siteUrl("/partner") },
+  openGraph: buildOpenGraph({ title: "Партнёрам", description, path: "/partner" }),
+};
 
 export default function PartnerPage() {
   return (

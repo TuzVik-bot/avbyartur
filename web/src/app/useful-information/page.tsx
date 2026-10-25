@@ -4,10 +4,18 @@ import Link from "next/link";
 import { InformationalPage } from "@/components/informational-page";
 import { UseCaseSearchCard } from "@/components/use-case-search-card";
 import { editorialArticles } from "@/lib/editorial-articles";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 import { useCasePresets } from "@/lib/use-case-presets";
 import styles from "./useful-information.module.css";
 
-export const metadata: Metadata = { title: "Полезная информация" };
+const description = "Статьи и инструкции для автомобилистов Беларуси: покупка, продажа, обслуживание и полезные инструменты.";
+export const metadata: Metadata = {
+  title: "Полезная информация",
+  description,
+  alternates: { canonical: siteUrl("/useful-information") },
+  openGraph: buildOpenGraph({ title: "Полезная информация", description, path: "/useful-information" }),
+};
 
 const directories = [
   {

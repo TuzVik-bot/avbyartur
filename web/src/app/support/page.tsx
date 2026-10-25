@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { InformationalPage } from "@/components/informational-page";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 
-export const metadata: Metadata = { title: "Поддержка" };
+const description = "Поддержка Авторынка: как обратиться в службу поддержки, сообщить о проблеме или недобросовестном объявлении.";
+export const metadata: Metadata = {
+  title: "Поддержка",
+  description,
+  alternates: { canonical: siteUrl("/support") },
+  openGraph: buildOpenGraph({ title: "Поддержка", description, path: "/support" }),
+};
 
 export default function SupportPage() {
   return (

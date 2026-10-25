@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { cache, Fragment } from "react";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import { ListingDetail } from "@/components/listing-detail";
 import { getCatalogCities, SearchRoute } from "@/components/search-route";
 import { ApiClientError } from "@/lib/api";
 import { getSessionServer, serverApi } from "@/lib/server-api";
 import { listingHref } from "@/lib/format";
-import { buildListingMetadata, buildVehicleJsonLd, serializeJsonLd } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildListingMetadata, buildVehicleJsonLd, serializeJsonLd } from "@/lib/seo";
 import { siteUrl } from "@/lib/site-config";
 import type { CatalogCity, CatalogItem, ListingSearch } from "@/lib/types";
 
@@ -116,7 +116,7 @@ export default async function CarsBySlugPage({ params }: { params: Promise<{ slu
     if (listing.status === "archived") return gone();
     if (listing.status !== "active" && listing.status !== "sold") notFound();
     const canonical = listingHref(listing);
-    if (canonical !== `/cars/${slug.map(encodeURIComponent).join("/")}`) redirect(canonical);
+    if (canonical !== `/cars/${slug.map(encodeURIComponent).join("/")}`) permanentRedirect(canonical);
     let initialSaved = false;
     try {
       if (await getSessionServer()) {
@@ -127,9 +127,19 @@ export default async function CarsBySlugPage({ params }: { params: Promise<{ slu
     try { relatedListings = (await serverApi.relatedListings(listing.id)).items; }
     catch { /* A related-listing outage does not block the primary detail page. */ }
     const vehicleJsonLd = buildVehicleJsonLd(listing);
+    const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+      { name: "Главная", path: "/" },
+      { name: "Автомобили", path: "/cars" },
+      ...(listing.make?.slug && listing.make?.name ? [{ name: listing.make.name, path: `/cars/${listing.make.slug}` }] : []),
+      ...(listing.make?.slug && listing.model?.slug && listing.model?.name
+        ? [{ name: `${listing.make.name} ${listing.model.name}`, path: `/cars/${listing.make.slug}/${listing.model.slug}` }]
+        : []),
+      { name: listing.title || "Объявление", path: listingHref(listing) },
+    ]);
     return (
       <Fragment key={listing.id}>
         {vehicleJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(vehicleJsonLd) }} />}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }} />
         <ListingDetail listing={listing} initialSaved={initialSaved} relatedListings={relatedListings} />
       </Fragment>
     );

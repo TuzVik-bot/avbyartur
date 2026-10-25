@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
 import { InformationalPage } from "@/components/informational-page";
 import { VinFormatCheck } from "@/components/vin-format-check";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 
 export const metadata: Metadata = {
   title: "Проверка авто по VIN",
-  description: "Статус сервиса проверки автомобиля по VIN на Авторынке."
+  description: "Статус сервиса проверки автомобиля по VIN на Авторынке.",
+  alternates: { canonical: siteUrl("/vin-check") },
+  openGraph: buildOpenGraph({
+    title: "Проверка авто по VIN",
+    description: "Статус сервиса проверки автомобиля по VIN на Авторынке.",
+    path: "/vin-check",
+  }),
 };
 
 export default function VinCheckPage() {

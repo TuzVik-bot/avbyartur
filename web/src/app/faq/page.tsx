@@ -2,8 +2,16 @@ import type { Metadata } from "next";
 import { BookOpen, Cookie, FileText, MessageCircleQuestion, ShieldCheck } from "lucide-react";
 import { FAQ_TOPICS } from "@/components/faq-topics";
 import { InformationalPage } from "@/components/informational-page";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 
-export const metadata: Metadata = { title: "Частые вопросы" };
+const description = "Ответы на частые вопросы об Авторынке: подача и модерация объявлений, безопасность сделки, контакты продавцов и работа с компанией.";
+export const metadata: Metadata = {
+  title: "Частые вопросы",
+  description,
+  alternates: { canonical: siteUrl("/faq") },
+  openGraph: buildOpenGraph({ title: "Частые вопросы", description, path: "/faq" }),
+};
 
 function iconForTopic(index: number) {
   if (index === 0) return <BookOpen size={17} aria-hidden="true" />;

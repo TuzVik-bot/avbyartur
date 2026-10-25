@@ -82,7 +82,9 @@ describe("home listing cards", () => {
       expect(html).toContain(`href="${path}"`);
     }
     expect(html).not.toContain("Здесь может быть");
-    expect(html.match(/<img/g)).toHaveLength(1);
+    const images = html.match(/<img [^>]*src="([^"]+)"/g) ?? [];
+    expect(images).toHaveLength(6);
+    expect(images.every((img) => img.includes('src="/category-art/') || img.includes('src="/vehicles/'))).toBe(true);
   });
 
   it("offers one make directory without duplicating the make list", async () => {

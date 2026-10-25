@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
 import { InformationalPage } from "@/components/informational-page";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 import styles from "./sale-contract.module.css";
 
 export const metadata: Metadata = {
   title: "Договор купли-продажи",
-  description: "Раздел договора купли-продажи автомобиля на Авторынке."
+  description: "Раздел договора купли-продажи автомобиля на Авторынке.",
+  alternates: { canonical: siteUrl("/sale-contract") },
+  openGraph: buildOpenGraph({
+    title: "Договор купли-продажи",
+    description: "Раздел договора купли-продажи автомобиля на Авторынке.",
+    path: "/sale-contract",
+  }),
 };
 
 export default function SaleContractPage() {

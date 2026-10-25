@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import { InformationalPage } from "@/components/informational-page";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 
-export const metadata: Metadata = { title: "Услуги" };
+const description = "Каталог автоуслуг Беларуси: автосервисы и СТО, техническое обслуживание, ремонт, шиномонтаж и другие автоуслуги.";
+export const metadata: Metadata = {
+  title: "Услуги",
+  description,
+  alternates: { canonical: siteUrl("/services") },
+  openGraph: buildOpenGraph({ title: "Услуги", description, path: "/services" }),
+};
 
 export default function ServicesPage() {
   return <InformationalPage eyebrow="Для автомобилистов" title="Услуги" description="Автосервисы и СТО: техническое обслуживание, ремонт, шиномонтаж и другие автоуслуги.">

@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
 import { CurrencyConverter } from "@/components/currency-converter";
 import { serverApi } from "@/lib/server-api";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 
-export const metadata: Metadata = { title: "Конвертер валют НБРБ" };
+const description = "Пересчёт цен автомобилей между BYN, USD и EUR по официальному курсу Нацбанка Беларуси с историей курсов.";
+export const metadata: Metadata = {
+  title: "Конвертер валют НБРБ",
+  description,
+  alternates: { canonical: siteUrl("/currency-converter") },
+  openGraph: buildOpenGraph({ title: "Конвертер валют НБРБ", description, path: "/currency-converter" }),
+};
 
 export default async function CurrencyConverterPage() {
   const [ratesResult, historyResult] = await Promise.allSettled([

@@ -85,7 +85,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
     <article className={`listing-card ${variant === "row" ? "listing-row" : ""}`}>
       <div className="listing-card-media">
         <Link href={href} aria-label={`Открыть объявление ${title}`}>
-          <Image src={photo} alt={hasActualPhoto ? `Фотография: ${title}` : `Синтетическое изображение для объявления «${title}»`} width={900} height={563} sizes={listingImageSizes(variant)} unoptimized priority={false} />
+          <Image src={photo} alt={hasActualPhoto ? `Фотография: ${title}` : `Синтетическое изображение для объявления «${title}»`} width={900} height={563} sizes={listingImageSizes(variant)} priority={false} />
         </Link>
         {!hasActualPhoto && <span className="synthetic-label">Синтетическое фото</span>}
         <FavoriteButton listingId={listing.id} href={href} initialSaved={saved} />

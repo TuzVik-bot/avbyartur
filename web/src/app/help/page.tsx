@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
 import { BookOpen, FileText, ShieldCheck } from "lucide-react";
 import { FAQ_TOPICS } from "@/components/faq-topics";
+import { buildOpenGraph } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-config";
 
-export const metadata: Metadata = { title: "Помощь" };
+const description = "Помощь покупателям и продавцам Авторынка: как искать автомобиль, подать объявление, управлять избранным и сохранёнными поисками.";
+export const metadata: Metadata = {
+  title: "Помощь",
+  description,
+  alternates: { canonical: siteUrl("/help") },
+  openGraph: buildOpenGraph({ title: "Помощь", description, path: "/help" }),
+};
 
 export default function HelpPage() {
   return (

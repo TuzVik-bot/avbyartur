@@ -2,12 +2,19 @@ import Link from "next/link";
 import { serverApi } from "@/lib/server-api";
 import { DEFAULT_LOCALE } from "@/lib/i18n";
 import { localeMetadata } from "@/lib/site-config";
+import { buildOpenGraph } from "@/lib/seo";
 import type { CatalogItem } from "@/lib/types";
 import styles from "./page.module.css";
 
 export const metadata = {
   title: "Все марки автомобилей",
-  alternates: localeMetadata("/makes", DEFAULT_LOCALE)
+  description: "Каталог марок автомобилей на Авторынке: легковые, грузовые и мототехника по маркам и моделям.",
+  alternates: localeMetadata("/makes", DEFAULT_LOCALE),
+  openGraph: buildOpenGraph({
+    title: "Все марки автомобилей",
+    description: "Каталог марок автомобилей на Авторынке: легковые, грузовые и мототехника по маркам и моделям.",
+    path: "/makes",
+  }),
 };
 
 export default async function MakesPage() {

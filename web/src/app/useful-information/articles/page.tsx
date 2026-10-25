@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { InformationalPage } from "@/components/informational-page";
 import { editorialArticles } from "@/lib/editorial-articles";
+import { buildOpenGraph } from "@/lib/seo";
 import { siteUrl } from "@/lib/site-config";
 import styles from "./articles.module.css";
 
@@ -10,6 +11,11 @@ export const metadata: Metadata = {
   title: "Статьи и инструкции для автомобилистов",
   description: "Памятки о покупке автомобиля с пробегом, подготовке объявления к продаже и выборе автосервиса.",
   alternates: { canonical: siteUrl("/useful-information/articles") },
+  openGraph: buildOpenGraph({
+    title: "Статьи и инструкции для автомобилистов",
+    description: "Памятки о покупке автомобиля с пробегом, подготовке объявления к продаже и выборе автосервиса.",
+    path: "/useful-information/articles",
+  }),
 };
 
 export default function ArticlesPage() {

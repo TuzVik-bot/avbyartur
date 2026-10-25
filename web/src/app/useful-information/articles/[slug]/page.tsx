@@ -4,7 +4,8 @@ import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { InformationalPage } from "@/components/informational-page";
 import { editorialArticles, getEditorialArticle } from "@/lib/editorial-articles";
-import { editorialContentUpdated, editorialGuideActions } from "@/lib/editorial-guide-actions";
+import { editorialContentUpdated, editorialContentUpdatedISO, editorialGuideActions } from "@/lib/editorial-guide-actions";
+import { buildArticleJsonLd, buildOpenGraph, serializeJsonLd } from "@/lib/seo";
 import { siteUrl } from "@/lib/site-config";
 import styles from "../articles.module.css";
 
@@ -21,10 +22,12 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
   const article = getEditorialArticle(slug);
   if (!article) return { title: "Статья не найдена", robots: { index: false, follow: false } };
 
+  const path = `/useful-information/articles/${article.slug}`;
   return {
     title: article.title,
     description: article.description,
-    alternates: { canonical: siteUrl(`/useful-information/articles/${article.slug}`) },
+    alternates: { canonical: siteUrl(path) },
+    openGraph: buildOpenGraph({ title: article.title, description: article.description, path, type: "article" }),
   };
 }
 
@@ -37,6 +40,7 @@ export default async function ArticleDetailPage({ params }: ArticlePageProps) {
 
   return (
     <InformationalPage eyebrow={article.section} title={article.title} description={article.description}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildArticleJsonLd(article, editorialContentUpdatedISO)) }} />
       <nav className={styles.breadcrumbs} aria-label="Хлебные крошки">
         <Link href="/useful-information/articles"><ArrowLeft size={15} aria-hidden="true" /> Все статьи</Link>
       </nav>
@@ -49,7 +53,9 @@ export default async function ArticleDetailPage({ params }: ArticlePageProps) {
             <h2>{section.heading}</h2>
             {section.blocks.map((block, index) => block.type === "paragraph"
               ? <p key={`${section.heading}-paragraph-${index}`}>{block.text}</p>
-              : <ul key={`${section.heading}-list-${index}`}>{block.items.map((item) => <li key={item}>{item}</li>)}</ul>)}
+              : block.type === "list"
+                ? <ul key={`${section.heading}-list-${index}`}>{block.items.map((item) => <li key={item}>{item}</li>)}</ul>
+                : null)}
           </section>
         ))}
         <p className={styles.closingNote}><strong>{article.closingLabel}</strong> {article.closingText}</p>
