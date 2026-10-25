@@ -92,3 +92,23 @@ HSTS и верификационные мета-теги в публичном �
   (по релизной процедуре) и после переключения флага.
 - В рабочем дереве параллельная сессия ведёт backend-WIP по onliner-импорту
   (`ingest_onliner.py` и др.) — в эту серию и релиз не входит.
+
+## 2026-10-25 — деплой публичной индексации на прод
+
+Деплой-линия параллельной сессии ушла вперёд (editorial-articles-20261025),
+поэтому SEO-дельта перебазирована на неё в worktree и закоммичена как
+`aba8bd3` (main). Проверки merge-дерева:
+
+- `corepack pnpm typecheck` — PASS.
+- `corepack pnpm test`: 657 PASS / 27 FAIL — все 27 существуют и в чистом
+  контексте деплоя (WIP параллельной сессии: customs-calculator 7,
+  sell-form 6, compare 4, page 3 и др.); внесённых падений 0; 24/24
+  SEO-контракт-теста (layout/robots/sitemap/public-seo) зелёные в обоих
+  режимах флага.
+- Локальный production build + start + curl: закрытый режим (noindex
+  заголовок+мета, пустой robots-sitemap) и публичный (нет заголовка, HSTS,
+  index/follow, sitemap 45 URL, Article JSON-LD) — PASS.
+- Прод: образ `avtorinok-web:public-indexing-20261025-r1` (build-arg флага)
+  переключён под flock; edge-проверки — см.
+  `docs/runtime/PUBLIC_INDEXING_2026-10-25.md`. Дамп БД до переключения:
+  `pre-public-indexing-20261025T131005Z` (542 TOC).
