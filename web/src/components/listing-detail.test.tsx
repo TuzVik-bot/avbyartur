@@ -70,6 +70,17 @@ const listing: Listing = {
 };
 
 describe("contact reveal", () => {
+  it("links manual UAZ and Patriot breadcrumbs to search instead of missing categories", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing,
+      make: { id: "zero", slug: "manual-uaz", name: "УАЗ" },
+      model: { id: "zero", slug: "manual-patriot", name: "Patriot" },
+    } })));
+    const links = [...container.querySelectorAll<HTMLAnchorElement>(".breadcrumb a")];
+    expect(links.map((link) => link.textContent)).toEqual(["Главная", "Автомобили", "УАЗ", "Patriot"]);
+    expect(new URL(links[2].href).searchParams.get("q")).toBe("УАЗ");
+    expect(new URL(links[3].href).searchParams.get("q")).toBe("УАЗ Patriot");
+  });
+
   it("renders only the verified evidence attached to the public detail payload", async () => {
     await act(async () => root.render(createElement(ListingDetail, { listing: {
       ...listing,
@@ -78,6 +89,12 @@ describe("contact reveal", () => {
     expect(container.textContent).toContain("Документы проверены");
     expect(container.textContent).toContain("Сверены регистрационные документы");
     expect(container.textContent).toContain("Реестр документов");
+  });
+
+  it("offers a car-specific ownership calculation seeded by the listing id", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+    const link = [...container.querySelectorAll<HTMLAnchorElement>("a")].find((item) => item.textContent?.includes("Рассчитать стоимость владения"));
+    expect(link?.getAttribute("href")).toBe("/ownership-calculator?listing=listing-1");
   });
 
   it("takes a guest to login with the new chat route as the next path", async () => {

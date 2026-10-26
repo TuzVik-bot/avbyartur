@@ -608,3 +608,13 @@ docker compose stop
 Развёрнут `full-registration-20261005-r2`: регистрация по email/паролю, подтверждение адреса и восстановление через **тестовый SMTP**, защищённый просмотр писем `/admin/test-mail`. На внешние адреса письма не отправляются. Исправлен общий лимит пяти регистраций за прокси. Все пять сервисов healthy, данные и тома сохранены, noindex и пользовательская авторизация действуют.
 
 Проверки, backup/rollback, временные условия и инструкция: [отчёт полного цикла аккаунта](docs/runtime/FULL_REGISTRATION_2026-10-05.md).
+
+## 25 октября 2026: зеркало автобарахолки Onlíner
+
+Развёрнут `onliner-mirror-20261025-r1` (api/worker; web не пересобирался — остался на `category-art-20261024-r2`). База — работавший прод-код; поверх только файлы задачи: `backend/app/ingest_onliner.py`, CLI `scripts/import_onliner_listings.py`, job kind `onliner.sync`, `httpx` перенесён в prod-зависимости, `COPY scripts` в Dockerfile, `ONLINER_*` в compose. Основание — письменное разрешение Onliner; параметры: 10 б/у на марку, вся РБ, фото+описания+контакты, публикация сразу, постоянная синхронизация с возможностью отключения (`ONLINER_SYNC_ENABLED=false`).
+
+- Pre-deploy backup `avtorinok-20261025T120930Z`; данные, тома, noindex и авторизация сохранены. Откат: symlink на `homepage-ads-20261024-r1` + `docker compose up -d --no-build --wait` (миграций нет — схема не менялась).
+- Сбор: 233 марки → 704 б/у объявления, 0 ошибок, 11 951 фото (все ready). По запросу пользователя 25 октября постоянная синхронизация была включена, проверена (джоба `onliner.sync` обновила цены и поставила на паузу 8 закрытых у источника) и затем **приостановлена**: `ONLINER_SYNC_ENABLED=false` в `.env`, джобы отменены. Повторное включение — вернуть флаг в `true` и пересоздать worker.
+- Исправленный по smoke матчинг города (источник «Минская обл.» vs каталог «Минская область») и скип фото свыше 60 МП (DecompressionBombWarning у воркера превращается в ошибку).
+- Владелец зеркала: `onliner-mirror@suite-s1.denjik.by`, доступ в `/home/suite/.config/avtorinok/onliner-mirror-access.json` (600).
+- Детали и формат API: [docs/runtime/ONLINER_IMPORT_2026-10-24.md](docs/runtime/ONLINER_IMPORT_2026-10-24.md).

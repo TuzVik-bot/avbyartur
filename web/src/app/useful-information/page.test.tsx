@@ -14,6 +14,8 @@ describe("useful information landing page", () => {
     expect(html).toContain("Для семьи");
     expect(html).toContain("Сравнить электромобили");
     expect(html).toContain("Для работы и перевозок");
+    expect(html).toContain('href="/ownership-calculator"');
+    expect(html).toContain("Стоимость владения автомобилем");
     expect(html).toContain("Категория");
     expect(html).toContain("Год выпуска от");
     expect(html).toContain("Цена до, BYN");

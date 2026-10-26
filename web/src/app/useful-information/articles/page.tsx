@@ -1,3 +1,4 @@
+import { articleReadingMinutes } from "@/lib/article-reading-time";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
@@ -39,7 +40,7 @@ export default function ArticlesPage() {
                   <img className={styles.articleThumb} src={article.leadImage.src} alt={article.leadImage.alt} />
                 </Link>
               ) : null}
-              <p className={styles.articleSection}>{article.section}</p>
+              <p className={styles.articleSection}>{article.section} · ≈ {articleReadingMinutes(article)} мин чтения</p>
               <h2><Link href={`/useful-information/articles/${article.slug}`}>{article.title}</Link></h2>
               <p>{article.description}</p>
               <Link className="text-link" href={`/useful-information/articles/${article.slug}`}>

@@ -212,12 +212,17 @@ export function buildBreadcrumbJsonLd(items: { name: string; path: string }[]) {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: items.map((item, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
-      name: item.name,
-      item: siteUrl(item.path),
-    })),
+    itemListElement: items.map((item, index) => {
+      const queryIndex = item.path.indexOf("?");
+      const pathname = queryIndex < 0 ? item.path : item.path.slice(0, queryIndex);
+      const query = queryIndex < 0 ? "" : `?${new URLSearchParams(item.path.slice(queryIndex + 1))}`;
+      return {
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.name,
+        item: `${siteUrl(pathname)}${query}`,
+      };
+    }),
   };
 }
 

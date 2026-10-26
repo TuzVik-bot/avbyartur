@@ -17,6 +17,7 @@ describe("public editorial pages", () => {
       expect(html).toContain(article.title);
       expect(html).toContain(`/useful-information/articles/${article.slug}`);
       expect(html).toContain(article.section);
+      expect(html).toContain("мин чтения");
     }
   });
 
@@ -32,6 +33,7 @@ describe("public editorial pages", () => {
 
     expect(html).toContain(article.title);
     expect(html).toContain(article.closingText);
+    expect(html).toContain("мин чтения");
     expect(html).toContain("Организуйте независимую диагностику");
     expect(html).toContain("/useful-information/articles/kak-vybrat-avtoservis");
   });

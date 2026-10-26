@@ -6,6 +6,7 @@ import { ListingDetail } from "@/components/listing-detail";
 import { getCatalogCities, SearchRoute } from "@/components/search-route";
 import { ApiClientError } from "@/lib/api";
 import { getSessionServer, serverApi } from "@/lib/server-api";
+import { listingCatalogBreadcrumbs } from "@/lib/listing-breadcrumbs";
 import { listingHref } from "@/lib/format";
 import { buildBreadcrumbJsonLd, buildListingMetadata, buildVehicleJsonLd, serializeJsonLd } from "@/lib/seo";
 import { siteUrl } from "@/lib/site-config";
@@ -133,10 +134,7 @@ export default async function CarsBySlugPage({ params }: { params: Promise<{ slu
     const breadcrumbJsonLd = buildBreadcrumbJsonLd([
       { name: "Главная", path: "/" },
       { name: "Автомобили", path: "/cars" },
-      ...(listing.make?.slug && listing.make?.name ? [{ name: listing.make.name, path: `/cars/${listing.make.slug}` }] : []),
-      ...(listing.make?.slug && listing.model?.slug && listing.model?.name
-        ? [{ name: `${listing.make.name} ${listing.model.name}`, path: `/cars/${listing.make.slug}/${listing.model.slug}` }]
-        : []),
+      ...listingCatalogBreadcrumbs(listing),
       { name: listing.title || "Объявление", path: listingHref(listing) },
     ]);
     return (

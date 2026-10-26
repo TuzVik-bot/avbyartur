@@ -81,6 +81,12 @@ export default function UsefulInformationPage() {
         </div>
       </section>
 
+      <section className="info-section" aria-labelledby="ownership-calculator-title">
+        <h2 id="ownership-calculator-title">Стоимость владения автомобилем</h2>
+        <p>Сравните расходы на энергию, обслуживание, ремонт и кредит за выбранный срок. Результат зависит от введённых вами значений и не является прогнозом затрат.</p>
+        <Link className="text-link" href="/ownership-calculator">Открыть калькулятор <ArrowUpRight size={16} aria-hidden="true" /></Link>
+      </section>
+
       <section className="info-section" aria-labelledby="use-case-presets-title">
         <div className={styles.sectionHeading}>
           <h2 id="use-case-presets-title">Подборки по задаче</h2>

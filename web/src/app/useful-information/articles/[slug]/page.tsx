@@ -1,3 +1,4 @@
+import { articleReadingMinutes } from "@/lib/article-reading-time";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
@@ -52,6 +53,7 @@ export default async function ArticleDetailPage({ params }: ArticlePageProps) {
       </nav>
 
       <p className={styles.articleByline}>
+        ≈ {articleReadingMinutes(article)} мин чтения · {" "}
         {article.source
           ? <>Материал по лицензии {article.source.name} · Опубликован {article.publishedOn} · Обновлено {editorialContentUpdated}</>
           : <>Редакционный материал · Обновлено {editorialContentUpdated}</>}
