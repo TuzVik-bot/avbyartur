@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SITE_ORIGIN } from "@/lib/site-config";
 import { editorialArticlePaths } from "@/lib/editorial-articles";
+import { editorialContentUpdatedISO } from "@/lib/editorial-guide-actions";
+import { localeMetadata } from "@/lib/site-config";
 import { STATIC_SITEMAP_PATHS } from "@/lib/seo";
 
 const PUBLIC_INDEXING_ENV = "AVTORINOK_PUBLIC_INDEXING_ENABLED";
@@ -50,6 +52,41 @@ function routedListing(id: string, makeSlug: string, modelSlug: string, citySlug
 }
 
 describe("closed pilot sitemap", () => {
+  it("excludes fallback and unnamed category pages while retaining valid ads and Cyrillic brands", async () => {
+    vi.stubEnv(PUBLIC_INDEXING_ENV, "true");
+    const groups = [
+      ["belgee", "manual-9b704f4e9546", "Belgee", "X50"],
+      ["manual-123", "model", "Марка вручную", "Модель"],
+      ["empty", "model", "  ", "Модель"],
+      ["cur-unicode-9ce7a3a923", "gazelle", "ГАЗ", "Газель"],
+    ];
+    const items = groups.flatMap(([makeSlug, modelSlug, makeName, modelName]) => Array.from({ length: 3 }, (_, index) => listing(`${makeSlug}-${index}`, {
+      make: { id: makeSlug, slug: makeSlug, name: makeName },
+      model: { id: modelSlug, slug: modelSlug, name: modelName },
+    })));
+    mocks.listings.mockResolvedValue({ items, pagination: { pages: 1 } });
+    mocks.dealers.mockResolvedValue({ items: [], pagination: { pages: 1 } });
+    const urls = (await sitemap()).map(({ url }) => url);
+    expect(urls).not.toContain(`${SITE_ORIGIN}/cars/belgee/manual-9b704f4e9546`);
+    expect(urls).not.toContain(`${SITE_ORIGIN}/cars/manual-123`);
+    expect(urls).not.toContain(`${SITE_ORIGIN}/cars/empty`);
+    expect(urls).not.toContain(`${SITE_ORIGIN}/cars/empty/model`);
+    expect(urls).toContain(`${SITE_ORIGIN}/cars/belgee/manual-9b704f4e9546/belgee-0`);
+    expect(urls).toContain(`${SITE_ORIGIN}/cars/cur-unicode-9ce7a3a923`);
+    expect(urls).toContain(`${SITE_ORIGIN}/cars/cur-unicode-9ce7a3a923/gazelle`);
+  });
+
+  it("publishes known article and catalog modification dates and consistent home canonical", async () => {
+    vi.stubEnv(PUBLIC_INDEXING_ENV, "true");
+    mocks.listings.mockResolvedValue({ items: [listing("current")], pagination: { pages: 1 } });
+    mocks.dealers.mockResolvedValue({ items: [], pagination: { pages: 1 } });
+    const entries = await sitemap();
+    expect(entries.find(({ url }) => url === SITE_ORIGIN )?.url).toBe(localeMetadata("/").canonical?.replace(/\/$/, ""));
+    expect(entries.find(({ url }) => url === `${SITE_ORIGIN}/cars`)).toMatchObject({ lastModified: new Date("2026-09-28T12:00:00Z"), changeFrequency: "daily" });
+    for (const path of editorialArticlePaths) {
+      expect(entries.find(({ url }) => url === `${SITE_ORIGIN}${path}`)).toMatchObject({ lastModified: new Date(editorialContentUpdatedISO), changeFrequency: "monthly" });
+    }
+  });
   it("keeps the sitemap empty and omits its robots advertisement until opt-in", async () => {
     expect(await sitemap()).toEqual([]);
     expect(await robots()).toEqual({ rules: { userAgent: "*", disallow: "/api/v1/" } });
@@ -118,7 +155,7 @@ describe("closed pilot sitemap", () => {
     const entriesByUrl = new Map(entries.map((entry) => [entry.url, entry]));
 
     expect(urls).toEqual(expect.arrayContaining([
-      `${SITE_ORIGIN}/`,
+      SITE_ORIGIN,
       `${SITE_ORIGIN}/cars`,
       `${SITE_ORIGIN}/dealers`,
       `${SITE_ORIGIN}/cars/bmw`,
@@ -146,7 +183,7 @@ describe("closed pilot sitemap", () => {
     expect(entriesByUrl.get(`${SITE_ORIGIN}/cars/bmw`)?.lastModified).toEqual(new Date("2026-09-29T10:00:00Z"));
     expect(entriesByUrl.get(`${SITE_ORIGIN}/cars/bmw/3-series`)?.lastModified).toEqual(new Date("2026-09-29T10:00:00Z"));
     expect(entriesByUrl.get(`${SITE_ORIGIN}/cars/city/minsk`)?.lastModified).toEqual(new Date("2026-09-30T10:00:00Z"));
-    expect(entriesByUrl.get(`${SITE_ORIGIN}/`)).not.toHaveProperty("lastModified");
+    expect(entriesByUrl.get(SITE_ORIGIN)).not.toHaveProperty("lastModified");
     expect(entriesByUrl.get(`${SITE_ORIGIN}/cars/manual-1/manual-1/manual-1`)).not.toHaveProperty("lastModified");
     expect(mocks.listings).toHaveBeenCalledTimes(2);
   });
@@ -159,13 +196,14 @@ describe("closed pilot sitemap", () => {
     const entries = await sitemap();
     const urls = entries.map(({ url }) => url);
     expect(urls).toEqual([
-      `${SITE_ORIGIN}/`,
+      SITE_ORIGIN,
       `${SITE_ORIGIN}/cars`,
       `${SITE_ORIGIN}/dealers`,
       ...staticSitemapUrls,
       ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
     ]);
-    expect(entries.every((entry) => !("lastModified" in entry))).toBe(true);
+    const articleUrls = new Set(editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`));
+    expect(entries.filter((entry) => !articleUrls.has(entry.url)).every((entry) => !("lastModified" in entry))).toBe(true);
   });
 
   it("advertises the sitemap without weakening the API disallow rule when enabled", async () => {
@@ -207,7 +245,7 @@ describe("closed pilot sitemap", () => {
     const entries = await sitemap();
 
     expect(entries.map(({ url }) => url)).toEqual([
-      `${SITE_ORIGIN}/`,
+      SITE_ORIGIN,
       `${SITE_ORIGIN}/cars`,
       `${SITE_ORIGIN}/dealers`,
       ...staticSitemapUrls,

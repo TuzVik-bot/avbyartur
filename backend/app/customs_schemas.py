@@ -28,10 +28,9 @@ class _CustomsModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class CustomsCalculationRequest(_CustomsModel):
+class CustomsCalculationInput(_CustomsModel):
     price_amount: InputDecimalText
     currency: SupportedCurrency
-    manufacture_date: date
     engine_type: SupportedEngine
     engine_volume_cc: int = Field(ge=1, le=100_000, strict=True)
     benefit_140: bool = Field(default=False, strict=True)
@@ -50,6 +49,14 @@ class CustomsCalculationRequest(_CustomsModel):
         if not amount.is_finite() or amount <= 0 or amount > Decimal("1e18"):
             raise ValueError("Price amount must be positive and no greater than 1000000000000000000")
         return value
+
+
+class CustomsCalculationRequest(CustomsCalculationInput):
+    manufacture_date: date
+
+
+class CustomsYearCalculationRequest(CustomsCalculationInput):
+    manufacture_year: int = Field(ge=1, le=9999, strict=True)
 
 
 class CustomsRateUsed(_CustomsModel):
@@ -107,3 +114,8 @@ class CustomsCalculationResponse(_CustomsModel):
     rates_used: list[CustomsRateUsed]
     sources: list[str]
     warnings: list[str]
+
+
+class CustomsYearCalculationResponse(_CustomsModel):
+    manufacture_year: int
+    scenarios: list[CustomsCalculationResponse]

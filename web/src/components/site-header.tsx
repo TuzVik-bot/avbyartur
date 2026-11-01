@@ -83,6 +83,7 @@ export function SiteHeader() {
           {user && <button className="mobile-signout" type="button" onClick={onSignOut}><LogOut size={17} /> {message("header.signOut")}</button>}
         </nav>
         <div className={`header-actions ${styles.actions}`}>
+          <Link className={`icon-button ${styles.accountShortcut}`} href={user ? localizedPath("/account") : `${localizedPath("/login")}?next=%2Faccount`} aria-label={message("header.account")} title={message("header.account")} onClick={closeNavigation}><UserRound size={18} aria-hidden="true" /></Link>
           <ThemeSwitcher />
           {user && <button className="icon-button signout-button" type="button" title={message("header.signOut")} aria-label={message("header.signOut")} onClick={onSignOut}><LogOut size={18} /></button>}
           <Link className="button button-primary header-sell" href={localizedPath("/sell")} aria-label={message("header.sellListing")} onClick={closeNavigation}><Plus size={17} /> {message("header.sellListing")}</Link>

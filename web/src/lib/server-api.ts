@@ -38,9 +38,8 @@ export const serverApi = {
   billingTariffs: () => serverApiRequest<components["schemas"]["BillingTariffOut"][]>("billing/tariffs"),
   listingPromotionEligibility: (listingId: string) => serverApiRequest<{ promotable: boolean }>(`billing/listings/${encodeURIComponent(listingId)}/eligibility`),
   billingOrders: (page = 1, pageSize = 25) => serverApiRequest<components["schemas"]["BillingOrderListOut"]>(`billing/orders?page=${page}&page_size=${pageSize}`),
-  billingCapabilities: () => serverApiRequest<{ orders_enabled: boolean; provider: string | null }>("billing/capabilities"),
   billingOrder: (id: string) => serverApiRequest<components["schemas"]["BillingOrderOut"]>(`billing/orders/${encodeURIComponent(id)}`),
-  catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: Record<string, string> = {}) => {
+  catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: { category_code?: ListingSearch["category_code"]; make_id?: string; model_id?: string; model_ids?: string; generation_id?: string; q?: string } = {}) => {
     const query = new URLSearchParams(params).toString();
     return serverApiRequest<{ items: CatalogItem[] }>(`catalog/${kind}${query ? `?${query}` : ""}`);
   },

@@ -7,13 +7,14 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import String, case, cast, func, inspect as sa_inspect, or_, select
+from sqlalchemy import String, and_, case, cast, false, func, inspect as sa_inspect, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 
 from app.config import get_settings
+from app.contact_channels import validated_contact_channels
 from app.listing_validation_policy import (
     MAXIMUM_LISTING_PHOTOS,
     is_listing_year_allowed,
@@ -38,6 +39,7 @@ from app.models import (
     ListingPhoto,
     ListingPromotion,
     ListingStatusEvent,
+    ListingViewEvent,
     LocationCity,
     LocationRegion,
     RateLimitBucket,
@@ -108,8 +110,32 @@ def build_public_listing_query(
                 CatalogMake.name.ilike(term), cast(CatalogMake.aliases, String).ilike(term), CatalogModel.name.ilike(term), cast(CatalogModel.aliases, String).ilike(term),
                 Listing.manual_city.ilike(term), Listing.district.ilike(term))
         )
+    # The multi-select matches selected models per make; a make without selected
+    # models includes all its models. Unknown or mismatched models match nothing.
+    if filters.make_ids is not None or filters.model_ids is not None:
+        make_ids = [UUID(item) for item in filters.make_ids.split(",")] if filters.make_ids else ([filters.make_id] if filters.make_id else [])
+        model_ids = [UUID(item) for item in filters.model_ids.split(",")] if filters.model_ids else ([filters.model_id] if filters.model_id else [])
+        if model_ids:
+            models = db.execute(select(CatalogModel.id, CatalogModel.make_id).where(CatalogModel.id.in_(model_ids))).all()
+            if len(models) != len(model_ids) or any(model.make_id not in make_ids for model in models):
+                query = query.where(false())
+            else:
+                by_make: dict[UUID, list[UUID]] = defaultdict(list)
+                for model in models:
+                    by_make[model.make_id].append(model.id)
+                query = query.where(or_(*(
+                    and_(Listing.make_id == make_id, Listing.model_id.in_(by_make[make_id]))
+                    if by_make[make_id] else Listing.make_id == make_id
+                    for make_id in make_ids
+                )))
+        elif make_ids:
+            query = query.where(Listing.make_id.in_(make_ids))
+    else:
+        if filters.make_id is not None:
+            query = query.where(Listing.make_id == filters.make_id)
+        if filters.model_id is not None:
+            query = query.where(Listing.model_id == filters.model_id)
     for field, value in (
-        (Listing.make_id, filters.make_id), (Listing.model_id, filters.model_id),
         (Listing.generation_id, filters.generation_id), (Listing.body_variant_id, filters.body_variant_id),
         (Listing.modification_id, filters.modification_id), (Listing.region_id, filters.region_id),
         (Listing.city_id, filters.city_id), (Listing.fuel, filters.fuel),
@@ -121,6 +147,7 @@ def build_public_listing_query(
         (Listing.bargaining, filters.bargaining), (Listing.credit, filters.credit),
         (Listing.leasing, filters.leasing), (Listing.damaged, filters.damaged),
         (Listing.parts_only, filters.parts_only),
+        (Listing.in_transit, filters.in_transit),
     ):
         if value is not None:
             query = query.where(field == value)
@@ -452,8 +479,6 @@ def validate_listing_for_submit(db: Session, listing: Listing) -> None:
                 errors.update(category_submission_errors(category_code, details))
     if listing.price_amount is None or listing.price_amount <= Decimal(0):
         errors["price_amount"] = "Price must be greater than zero"
-    if not listing.contact_phone or not listing.contact_phone.strip():
-        errors["contact_phone"] = "Contact phone is required"
     if not listing.description.strip():
         errors["description"] = "Description is required"
     if category_code == "cars" and not listing.fuel:
@@ -573,7 +598,7 @@ def serialize_listing(
     include_contact: bool = False,
 ) -> dict:
     badges = _active_promotion_badges(db, [listing.id]).get(listing.id, [])
-    return _serialize_listing(
+    item = _serialize_listing(
         db,
         listing,
         public=public,
@@ -581,6 +606,20 @@ def serialize_listing(
         include_contact=include_contact,
         promotion_badges=badges,
     )
+    _attach_view_counts(db, [listing], [item], public=public)
+    return item
+
+
+def _attach_view_counts(db: Session, listings: list[Listing], items: list[dict], *, public: bool) -> None:
+    if not public or not listings or not sa_inspect(db.get_bind()).has_table("listing_view_events"):
+        return
+    counts = dict(db.execute(
+        select(ListingViewEvent.listing_id, func.count(ListingViewEvent.id))
+        .where(ListingViewEvent.listing_id.in_([listing.id for listing in listings]))
+        .group_by(ListingViewEvent.listing_id)
+    ).all())
+    for listing, item in zip(listings, items, strict=True):
+        item["view_count"] = counts.get(listing.id, 0)
 
 
 def listing_publication_dates(db: Session, listings: list[Listing]) -> dict[UUID, datetime]:
@@ -608,7 +647,7 @@ def serialize_listings(
 ) -> list[dict]:
     badges_by_listing = _active_promotion_badges(db, [listing.id for listing in listings])
     if len(listings) < 2:
-        return [
+        items = [
             _serialize_listing(
                 db,
                 listing,
@@ -619,6 +658,8 @@ def serialize_listings(
             )
             for listing in listings
         ]
+        _attach_view_counts(db, listings, items, public=public)
+        return items
 
     listing_ids = {listing.id for listing in listings}
     references = {
@@ -650,7 +691,7 @@ def serialize_listings(
     for photo in photos:
         photos_by_listing[photo.listing_id].append(photo)
 
-    return [
+    items = [
         _serialize_listing(
             db,
             listing,
@@ -663,6 +704,8 @@ def serialize_listings(
         )
         for listing in listings
     ]
+    _attach_view_counts(db, listings, items, public=public)
+    return items
 
 
 def _active_promotion_badges(db: Session, listing_ids: list[UUID]) -> dict[UUID, list[str]]:
@@ -770,7 +813,7 @@ def _serialize_listing(
         "region": catalog_item(region), "city": catalog_item(city), "manual_city": listing.manual_city, "seller": seller,
         "created_at": created_at.isoformat(), "updated_at": updated_at.isoformat(),
         "published_at": None,
-        "damaged": listing.damaged, "parts_only": listing.parts_only,
+        "damaged": listing.damaged, "parts_only": listing.parts_only, "in_transit": listing.in_transit,
         "description": listing.description, "engine_volume_l": str(listing.engine_volume_l) if listing.engine_volume_l is not None else None,
         "power_hp": listing.power_hp, "condition": listing.condition,
         "color": listing.color,
@@ -784,6 +827,8 @@ def _serialize_listing(
         "equipment": list(listing.equipment or []),
         "district": listing.district,
         "call_hours": listing.call_hours,
+        "has_phone": bool(listing.contact_phone and listing.contact_phone.strip()),
+        "has_external_contacts": bool(validated_contact_channels(listing.telegram_contact_url, listing.viber_contact_url)),
         "promotion_badges": list(promotion_badges or []),
         "vin": None if public else listing.vin, "moderation_reason": None if public else listing.moderation_reason,
         "photo_urls": photo_urls,
@@ -801,6 +846,8 @@ def _serialize_listing(
         result["modification"] = catalog_modification_item(modification, include_aliases=False) if modification else None
     if include_contact:
         result["contact_phone"] = listing.contact_phone
+        result["telegram_contact_url"] = listing.telegram_contact_url
+        result["viber_contact_url"] = listing.viber_contact_url
     return result
 
 

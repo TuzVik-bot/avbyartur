@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
-    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -16,12 +15,12 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    text,
     UniqueConstraint,
     Uuid,
     event,
     func,
     inspect,
-    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -37,7 +36,6 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         UniqueConstraint("phone_e164", name="uq_user_phone_e164"),
-        UniqueConstraint("telegram_chat_id", name="uq_users_telegram_chat_id"),
         CheckConstraint(
             "phone_e164 IS NULL OR phone_e164 ~ '^\\+375(25|29|33|44)[0-9]{7}$'",
             name="ck_user_phone_e164_supported",
@@ -56,9 +54,6 @@ class User(Base):
     phone_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     role: Mapped[str] = mapped_column(String(20), default="user")
     status: Mapped[str] = mapped_column(String(20), default="active")
-    telegram_chat_id: Mapped[int | None] = mapped_column(BigInteger(), nullable=True)
-    telegram_link_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    telegram_linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -420,6 +415,7 @@ class Listing(Base):
     call_hours: Mapped[str | None] = mapped_column(String(120), nullable=True)
     damaged: Mapped[bool] = mapped_column(Boolean, default=False)
     parts_only: Mapped[bool] = mapped_column(Boolean, default=False)
+    in_transit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     engine_volume_l: Mapped[Decimal | None] = mapped_column(Numeric(4, 1), nullable=True)
     power_hp: Mapped[int | None] = mapped_column(Integer, nullable=True)
     description: Mapped[str] = mapped_column(Text, default="")
@@ -430,6 +426,8 @@ class Listing(Base):
     city_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("location_cities.id", ondelete="SET NULL"), nullable=True, index=True)
     manual_city: Mapped[str | None] = mapped_column(String(160), nullable=True)
     contact_phone: Mapped[str] = mapped_column(String(40), default="")
+    telegram_contact_url: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    viber_contact_url: Mapped[str | None] = mapped_column(String(320), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -628,7 +626,7 @@ class SavedSearch(Base):
     __table_args__ = (
         CheckConstraint("status IN ('active', 'paused')", name="ck_saved_search_status"),
         CheckConstraint(
-            "notification_channel IS NULL OR notification_channel IN ('email', 'web', 'telegram')",
+            "notification_channel IS NULL OR notification_channel IN ('email', 'web')",
             name="ck_saved_search_notification_channel",
         ),
         CheckConstraint(
@@ -664,7 +662,7 @@ class NotificationOutbox(Base):
     __tablename__ = "notification_outbox"
     __table_args__ = (
         UniqueConstraint("dedupe_key", name="uq_notification_outbox_dedupe"),
-        CheckConstraint("channel IN ('web', 'email', 'telegram')", name="ck_notification_outbox_channel"),
+        CheckConstraint("channel IN ('web', 'email')", name="ck_notification_outbox_channel"),
         CheckConstraint(
             "status IN ('queued', 'running', 'delivered', 'failed', 'unsupported', 'cancelled')",
             name="ck_notification_outbox_status",
@@ -706,7 +704,7 @@ class SavedSearchNotificationBatch(Base):
     __table_args__ = (
         UniqueConstraint("saved_search_id", "channel", "period", name="uq_saved_search_notification_batch_period"),
         UniqueConstraint("outbox_id", name="uq_saved_search_notification_batch_outbox"),
-        CheckConstraint("channel IN ('web', 'email', 'telegram')", name="ck_saved_search_notification_batch_channel"),
+        CheckConstraint("channel IN ('web', 'email')", name="ck_saved_search_notification_batch_channel"),
         Index("ix_saved_search_notification_batches_outbox", "outbox_id"),
     )
 

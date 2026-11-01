@@ -112,6 +112,30 @@ def add_rate(db, *, rate_date: str, fetched_at: datetime) -> None:
     db.flush()
 
 
+@pytest.mark.parametrize("sort,expected", [
+    ("published_desc", [1, 2, 0]),
+    ("oldest", [0, 2, 1]),
+    ("year_asc", [1, 0, 2]),
+    ("year_desc", [0, 1, 2]),
+    ("mileage_asc", [1, 0, 2]),
+])
+def test_explicit_catalog_sort_modes(currency_api, sort, expected):
+    with currency_api["SessionLocal"]() as db:
+        owner = add_owner(db)
+        rows = [add_listing(db, owner, "10000", "BYN") for _ in range(3)]
+        for index, row in enumerate(rows):
+            row.created_at = datetime(2026, 1, 3 - index, tzinfo=timezone.utc)
+            row.year = [2020, 2010, None][index]
+            row.mileage_km = [90000, 10000, None][index]
+            db.add(ListingStatusEvent(listing_id=row.id, from_status="pending_review", to_status="active", revision=1,
+                                      created_at=datetime(2026, 2, [1, 3, 2][index], tzinfo=timezone.utc)))
+        ids = [str(row.id) for row in rows]
+        db.commit()
+    response = currency_api["client"].get("/api/v1/listings", params={"sort": sort})
+    assert response.status_code == 200, response.text
+    assert [item["id"] for item in response.json()["items"]] == [ids[index] for index in expected]
+
+
 def test_search_converts_mixed_currency_for_filter_sort_and_display(currency_api):
     factory = currency_api["SessionLocal"]
     today = datetime.now(timezone.utc).date().isoformat()

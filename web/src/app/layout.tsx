@@ -54,13 +54,24 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
+const GOOGLE_TAG_INIT_SCRIPT = `
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-48P5WKB0Z5');
+`;
+
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Keep public pages available if the API is temporarily offline. Protected
   // route guards call the same lookup without swallowing service failures.
   const initialSession = await getSessionServer().catch(() => null);
   return (
     <html lang={DEFAULT_LOCALE} suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-48P5WKB0Z5" />
+        <script dangerouslySetInnerHTML={{ __html: GOOGLE_TAG_INIT_SCRIPT }} />
+      </head>
       <body>
         <AuthProvider initialSession={initialSession}>
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildWebsiteJsonLd()) }} />

@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_user, require_csrf
 from app.billing_schemas import (
     BillingCallbackOut,
-    BillingCapabilitiesOut,
     BillingCheckoutOut,
     BillingOrderCreate,
     BillingOrderListOut,
@@ -28,17 +27,9 @@ from app.db import get_db
 from app.models import User, UserSession
 from app.services import fail
 
+
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 MAX_PAYMENT_CALLBACK_BYTES = 64 * 1024
-
-
-@router.get("/capabilities", response_model=BillingCapabilitiesOut)
-def billing_capabilities(
-    provider: Annotated[PaymentProvider, Depends(get_payment_provider)],
-) -> dict:
-    """Public read of whether order creation is currently enabled."""
-
-    return {"orders_enabled": provider.is_configured, "provider": provider.name if provider.is_configured else None}
 
 
 @router.get("/tariffs", response_model=list[BillingTariffOut])

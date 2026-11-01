@@ -5,7 +5,7 @@
  */
 export default function AppLoading() {
   return (
-    <div className="page-width route-loading" aria-busy="true" aria-label="Загрузка страницы">
+    <div className="page-width route-loading" aria-busy="true" role="group" aria-label="Загрузка страницы">
       <div className="route-skeleton app-loading-skeleton" aria-hidden="true">
         <span />
         <span />

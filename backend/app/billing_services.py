@@ -9,13 +9,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Protocol
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.dealer_services import MANAGER_ROLES, resolve_company_for_user
 from app.models import (
     AuditEvent,
@@ -29,6 +28,7 @@ from app.models import (
     User,
 )
 from app.services import fail, lock_owner, require_owned_listing
+
 
 ORDER_TTL = timedelta(minutes=30)
 SUPPORTED_SERVICES = frozenset({"bump", "highlight", "top", "dealer_package"})
@@ -173,57 +173,10 @@ class HmacPaymentProvider:
         )
 
 
-class ConfiguredPaymentProvider(HmacPaymentProvider):
-    """Environment-configured adapter: HMAC callbacks and template checkout URLs.
-
-    The owner enables real payments entirely through settings: a provider
-    name, a shared callback secret and an https checkout URL template with
-    ``{order_id}``, ``{amount}``, ``{currency}`` and ``{description}``
-    placeholders. A concrete provider can later replace this class without
-    changing the order/callback contract.
-    """
-
-    def __init__(self, *, name: str, secret: bytes, checkout_url_template: str) -> None:
-        super().__init__(name=name, secret=secret)
-        if "{order_id}" not in checkout_url_template:
-            raise ValueError("checkout_url_template must contain {order_id}")
-        self._checkout_url_template = checkout_url_template
-
-    def create_checkout(self, order: BillingOrder, *, idempotency_key: str) -> CheckoutResult:
-        url = self._checkout_url_template
-        url = url.replace("{order_id}", quote(str(order.id), safe=""))
-        url = url.replace("{amount}", str(order.amount))
-        url = url.replace("{currency}", quote(str(order.currency), safe=""))
-        url = url.replace("{description}", quote(f"avtorinok-order:{order.id}", safe=""))
-        return CheckoutResult(
-            provider=self.name,
-            provider_reference=str(order.id),
-            checkout_url=url,
-        )
-
-
-def payment_orders_enabled() -> bool:
-    provider = get_payment_provider()
-    return provider.is_configured
-
-
 def get_payment_provider() -> PaymentProvider:
-    """Dependency seam; opens only when the owner configures all three values."""
+    """Dependency seam; stays closed until an owner-selected adapter is wired."""
 
-    settings = get_settings()
-    name = settings.payment_provider_name.strip()
-    secret = settings.payment_callback_secret.get_secret_value()
-    template = settings.payment_checkout_url_template.strip()
-    if not name or not secret.strip() or not template:
-        return DisabledPaymentProvider()
-    try:
-        return ConfiguredPaymentProvider(
-            name=name,
-            secret=secret.encode("utf-8"),
-            checkout_url_template=template,
-        )
-    except ValueError:
-        return DisabledPaymentProvider()
+    return DisabledPaymentProvider()
 
 
 def _now() -> datetime:

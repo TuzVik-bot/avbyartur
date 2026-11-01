@@ -19,6 +19,14 @@ afterEach(() => {
 });
 
 describe("search sorting", () => {
+  it("offers the eight agreed sorting modes", async () => {
+    await act(async () => root.render(createElement(SearchSort, { search: {} })));
+    expect([...container.querySelectorAll("option")].map((option) => [option.value, option.textContent])).toEqual([
+      ["newest", "Актуальные"], ["price_asc", "Дешёвые"], ["price_desc", "Дорогие"],
+      ["published_desc", "Новые объявления"], ["oldest", "Старые объявления"],
+      ["mileage_asc", "С наименьшим пробегом"], ["year_desc", "Новые по году"], ["year_asc", "Старые по году"],
+    ]);
+  });
   it("keeps active filters, carries currency, and submits the chosen sort", async () => {
     await act(async () => root.render(createElement(SearchSort, {
       search: { q: "BMW 3", make_id: "make-1", city_id: "city-1", category_code: "parts", page: "3", page_size: "50", currency: "USD", sort: "newest" }
@@ -28,7 +36,7 @@ describe("search sorting", () => {
     const requestSubmit = vi.spyOn(form, "requestSubmit").mockImplementation(() => undefined);
     const select = container.querySelector<HTMLSelectElement>('select[name="sort"]')!;
     expect([...select.options].map((option) => option.value)).toEqual([
-      "newest", "price_asc", "price_desc", "year_desc", "mileage_asc"
+      "newest", "price_asc", "price_desc", "published_desc", "oldest", "mileage_asc", "year_desc", "year_asc"
     ]);
     expect(new FormData(form).get("q")).toBe("BMW 3");
     expect(new FormData(form).get("city_id")).toBe("city-1");

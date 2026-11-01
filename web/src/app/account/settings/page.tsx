@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { AccountNav } from "@/components/account-nav";
 import { AccountSessions, type AccountSessionList } from "@/components/account-sessions";
 import { AccountIdentityControls } from "@/components/account-identity-controls";
-import { AccountTelegram } from "@/components/account-telegram";
 import type { ConsentHistoryItem, UserProfile } from "@/lib/api";
 import { requireSession } from "@/lib/server";
 import { serverApiRequest } from "@/lib/server-api";
@@ -29,7 +28,6 @@ export default async function AccountSettingsPage() {
       </header>
       <AccountNav current="/account/settings" />
       <AccountIdentityControls initialProfile={profile} initialConsents={consents} />
-      <AccountTelegram />
       <AccountSessions initialSessions={sessions?.items ?? null} />
     </div>
   );

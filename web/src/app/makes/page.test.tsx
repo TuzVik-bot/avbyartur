@@ -22,7 +22,17 @@ describe("make directory", () => {
     for (const make of makes) {
       expect(links.some((link) => link.textContent === make.name && link.getAttribute("href") === `/cars/${make.slug}`)).toBe(true);
     }
-    expect(mocks.catalog).toHaveBeenCalledWith("makes");
+    expect(mocks.catalog).toHaveBeenCalledWith("makes", { category_code: "cars" });
+  });
+
+  it("filters watercraft makes and links them into the same category", async () => {
+    const make = { id: "orca-id", slug: "orca", name: "Orca" };
+    mocks.catalog.mockResolvedValue({ items: [make] });
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(await MakesPage({ searchParams: Promise.resolve({ category_code: "watercraft" }) }));
+    expect(mocks.catalog).toHaveBeenCalledWith("makes", { category_code: "watercraft" });
+    expect(container.querySelector('ul a')?.getAttribute("href")).toBe("/cars?category_code=watercraft&make_id=orca-id");
+    expect(container.querySelector('a[href="/makes?category_code=motorcycles"]')).not.toBeNull();
   });
 
   it("shows an empty state when no makes exist", async () => {

@@ -15,6 +15,15 @@ vi.mock("@/lib/server-api", () => ({ serverApi: { listing: mocks.listing } }));
 import NewMessagePage from "./page";
 
 describe("new message page", () => {
+  it("preserves exchange intent through login and prefills only verified exchange listings", async () => {
+    mocks.listing.mockReset().mockResolvedValue({ listing: { title: "BMW 320d", status: "active", exchange: true } });
+    const html = renderToStaticMarkup(await NewMessagePage({ searchParams: Promise.resolve({ listing_id: "listing-1", intent: "exchange" }) }));
+    expect(mocks.requireSession).toHaveBeenCalledWith("/account/messages/new?listing_id=listing-1&intent=exchange");
+    expect(html).toContain("Здравствуйте! Хочу предложить обмен. Рассмотрите мой автомобиль?");
+    mocks.listing.mockResolvedValue({ listing: { title: "BMW 320d", status: "active", exchange: false } });
+    const ordinary = renderToStaticMarkup(await NewMessagePage({ searchParams: Promise.resolve({ listing_id: "listing-1", intent: "exchange" }) }));
+    expect(ordinary).not.toContain("Хочу предложить обмен");
+  });
   it("keeps the listing query in the login return path and loads its active title", async () => {
     mocks.listing.mockReset().mockResolvedValue({ listing: { id: "listing-1", slug: "bmw-320d", title: "BMW 320d", status: "active" } });
     const html = renderToStaticMarkup(await NewMessagePage({ searchParams: Promise.resolve({ listing_id: "listing-1" }) }));

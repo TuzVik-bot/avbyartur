@@ -420,6 +420,12 @@ def test_paid_promotions_are_badged_and_boost_only_newest_sort(integration):
     promoted_item = next(item for item in promoted.json()["items"] if item["id"] == str(boosted.id))
     assert promoted_item["promotion_badges"] == ["top"]
 
+    for sort, first, second in [("published_desc", newest, boosted), ("oldest", boosted, newest)]:
+        response = client.get("/api/v1/listings", params={"sort": sort})
+        assert response.status_code == 200, response.text
+        ordered_ids = [item["id"] for item in response.json()["items"]]
+        assert ordered_ids.index(str(first.id)) < ordered_ids.index(str(second.id))
+
     year_sorted = client.get("/api/v1/listings", params={"sort": "year_desc"})
     assert year_sorted.status_code == 200, year_sorted.text
     year_ids = [item["id"] for item in year_sorted.json()["items"]]

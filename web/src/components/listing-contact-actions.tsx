@@ -15,11 +15,12 @@ function safeMessengerUri(channel: ListingMessengerChannel["channel"], rawUri: s
 }
 
 export function ListingContactActions({
-  active, guestContactRevealEnabled, phone, busy, error, onReveal, messengers = [], onContactClick
+  active, guestContactRevealEnabled, phone, busy, error, onReveal, messengers = [], onContactClick, revealed = false
 }: {
   active: boolean;
   guestContactRevealEnabled: boolean;
   phone: string;
+  revealed?: boolean;
   busy: boolean;
   error: string;
   onReveal: () => void;
@@ -27,15 +28,15 @@ export function ListingContactActions({
   onContactClick?: (channel: "phone" | "telegram" | "viber") => void;
 }) {
   if (!active) return <p className="muted">Контакт недоступен для проданного автомобиля.</p>;
-  const channels = phone ? messengers.flatMap((item) => {
+  const channels = revealed ? messengers.flatMap((item) => {
     if (item.opted_in !== true) return [];
     const href = safeMessengerUri(item.channel, item.uri);
     return href ? [{ ...item, href }] : [];
   }) : [];
 
   return <>
-    {!phone && !busy && guestContactRevealEnabled && <p className="muted">Телефон можно посмотреть без входа в аккаунт.</p>}
-    {phone ? <div className="phone-revealed"><a href={`tel:${phone.replace(/[^+\d]/g, "")}`} onClick={() => onContactClick?.("phone")}><strong>{phone}</strong></a><span className="muted">Контакт продавца</span></div> : <button className="button button-primary contact-reveal" type="button" aria-busy={busy} disabled={busy} onClick={onReveal}><Phone size={17} /> {busy ? "Загружаем телефон…" : "Показать телефон"}</button>}
+    {!revealed && !busy && guestContactRevealEnabled && <p className="muted">Контакты можно посмотреть без входа в аккаунт.</p>}
+    {revealed ? (phone && <div className="phone-revealed"><a href={`tel:${phone.replace(/[^+\d]/g, "")}`} onClick={() => onContactClick?.("phone")}><strong>{phone}</strong></a><span className="muted">Контакт продавца</span></div>) : <button className="button button-primary contact-reveal" type="button" aria-busy={busy} disabled={busy} onClick={onReveal}><Phone size={17} /> {busy ? "Загружаем контакты…" : "Показать контакты"}</button>}
     {error && <p className="inline-error" role="alert">{error}</p>}
     {channels.map((item) => <a className="button button-secondary" href={item.href} key={item.channel} target="_blank" rel="noopener noreferrer" onClick={() => onContactClick?.(item.channel)}>
       <MessageCircle size={17} aria-hidden="true" /> {item.channel === "telegram" ? "Telegram" : "Viber"}

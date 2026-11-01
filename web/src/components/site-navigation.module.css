@@ -34,6 +34,7 @@
 .group li a:hover, .group li a:focus-visible { background: var(--soft-accent); color: var(--accent-dark); }
 .group li a:hover svg, .group li a:focus-visible svg { opacity: 1; }
 .header .actions { flex: none; }
+.header .actions .accountShortcut { padding: 0; flex: none; }
 .header .actions a { white-space: nowrap; font-size: 14px; padding-inline: 16px; }
 @media (max-width: 1200px) {
  .header .inner { gap: 16px; }
@@ -74,7 +75,7 @@
  .header .brand :global(.brand-country) { display: none; }
  .header .mainNav { padding: 12px; }
 }
-@media (max-width: 360px) {
+@media (max-width: 400px) {
  .header .brand { font-size: 15px; gap: 4px; }
  .header .brand > span:nth-child(2) { display: none; }
  .header .brand :global(.brand-mark) { width: 24px; height: 24px; }

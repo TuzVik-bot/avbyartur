@@ -66,6 +66,10 @@ function listing(overrides: Partial<ListingSummary & { published_at?: string | n
 }
 
 describe("listing card city navigation", () => {
+  it("gives the views indicator a role that supports its accessible name", () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing({ view_count: 118 }) })));
+    expect(container.querySelector('.listing-views[role="img"]')?.getAttribute("aria-label")).toBe("Просмотры: 118");
+  });
   it("offers comparison for the current listing", () => {
     act(() => root.render(createElement(ListingCard, { listing: listing() })));
     expect(container.querySelector('[data-compare-listing="listing-1"]')?.textContent).toBe("Сравнить");

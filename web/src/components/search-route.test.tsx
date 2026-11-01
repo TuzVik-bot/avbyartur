@@ -117,6 +117,7 @@ describe("city search route", () => {
 
     expect(catalog).toHaveBeenCalledWith("body-variants", { generation_id: "generation-1" });
     expect(listings).toHaveBeenCalledWith({
+      category_code: "cars",
       generation_id: "generation-1",
       body_variant_id: variant.id,
       page_size: "25"

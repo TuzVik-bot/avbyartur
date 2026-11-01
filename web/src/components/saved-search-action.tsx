@@ -7,6 +7,7 @@ import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
 import type { ListingSearch } from "@/lib/types";
 import { ApiClientError, apiRequest } from "@/lib/api";
+import { savedSearchLimitMessage } from "@/lib/saved-search-limits";
 
 type SavedSearchActionProps = {
   search: ListingSearch;
@@ -69,6 +70,8 @@ export function SavedSearchAction({ search, title }: SavedSearchActionProps) {
       setError("Укажите название поиска.");
       return;
     }
+    const limitMessage = savedSearchLimitMessage(canonical.url);
+    if (limitMessage) { setError(limitMessage); return; }
     setBusy(true);
     try {
       const created = await apiRequest<{ saved_search: { id: string; revision: number } }>("me/saved-searches", {

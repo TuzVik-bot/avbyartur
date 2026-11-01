@@ -32,6 +32,12 @@ afterEach(() => {
 });
 
 describe("moderation navigation", () => {
+  it("provides direct account access outside the collapsed menu for guests and members", () => {
+    act(() => root.render(createElement(AuthProvider, { key: "guest", initialSession: null, children: createElement(SiteHeader) })));
+    expect(container.querySelector('.header-actions a[aria-label="Кабинет"]')?.getAttribute("href")).toBe("/login?next=%2Faccount");
+    act(() => root.render(createElement(AuthProvider, { key: "member", initialSession: makeSession("user"), children: createElement(SiteHeader) })));
+    expect(container.querySelector('.header-actions a[aria-label="Кабинет"]')?.getAttribute("href")).toBe("/account");
+  });
   it("opens catalog navigation and restores focus when Escape closes it", () => {
     act(() => root.render(createElement(AuthProvider, { initialSession: null, children: createElement(SiteHeader) })));
     const trigger = container.querySelector<HTMLButtonElement>('button[aria-controls="catalog-navigation"]');

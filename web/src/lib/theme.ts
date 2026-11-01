@@ -17,4 +17,4 @@ export function applyTheme(preference: ThemePreference, systemDark: boolean) {
 }
 
 // Runs before the first paint; only validated, fixed values reach the DOM.
-export const THEME_INIT_SCRIPT = `(function(){var t="system";try{var s=localStorage.getItem("${THEME_STORAGE_KEY}");if(s==="light"||s==="dark")t=s}catch(e){}document.documentElement.dataset.theme=t==="system"?(window.matchMedia("${SYSTEM_THEME_QUERY}").matches?"dark":"light"):t})()`;
+export const THEME_INIT_SCRIPT = `(function(){var t="system";try{var s=localStorage.getItem("${THEME_STORAGE_KEY}");if(s==="light"||s==="dark")t=s}catch(e){}var d=false;try{d=!!(window.matchMedia&&window.matchMedia("${SYSTEM_THEME_QUERY}").matches)}catch(e){}document.documentElement.dataset.theme=t==="system"?(d?"dark":"light"):t})()`;

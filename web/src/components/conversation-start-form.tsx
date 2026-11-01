@@ -7,10 +7,10 @@ import { AlertTriangle, Send } from "lucide-react";
 import { api, ApiClientError, createIdempotencyKey } from "@/lib/api";
 import { MAX_CONVERSATION_MESSAGE_LENGTH } from "@/lib/types";
 
-export function ConversationStartForm({ listingId, listingTitle }: { listingId: string; listingTitle: string }) {
+export function ConversationStartForm({ listingId, listingTitle, exchange = false }: { listingId: string; listingTitle: string; exchange?: boolean }) {
   const router = useRouter();
-  const nextPath = `/account/messages/new?listing_id=${encodeURIComponent(listingId)}`;
-  const [message, setMessage] = useState("");
+  const nextPath = `/account/messages/new?listing_id=${encodeURIComponent(listingId)}${exchange ? "&intent=exchange" : ""}`;
+  const [message, setMessage] = useState(exchange ? "Здравствуйте! Хочу предложить обмен. Рассмотрите мой автомобиль?" : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const actionKey = useRef<{ body: string; key: string } | null>(null);

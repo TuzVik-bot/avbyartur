@@ -5,9 +5,9 @@
     "makes": 25,
     "makes_with_labeled_models": 25,
     "labeled_models_available_before_cap": 1780,
-    "models_in_seed": 253,
+    "models_in_seed": 294,
     "generations": 16,
-    "manual_models_added": 6,
+    "manual_models_added": 47,
     "manual_generation_rows_added": 16,
     "manual_body_variant_rows_added": 24,
     "makes_verified_as_brand_entities": 24,
@@ -66,7 +66,7 @@
       "brand_class_verified": true,
       "brand_relation_verified": true,
       "labeled_models_available": 5,
-      "models_in_seed": 5
+      "models_in_seed": 46
     },
     {
       "qid": "Q125544573",

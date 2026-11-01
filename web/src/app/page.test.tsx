@@ -58,6 +58,13 @@ beforeEach(() => {
 });
 
 describe("home listing cards", () => {
+  it("gives named generic containers an accessible group role", async () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(await HomePage());
+    const namedContainers = container.querySelectorAll("div[aria-label], span[aria-label]");
+    expect(namedContainers.length).toBeGreaterThan(0);
+    for (const element of namedContainers) expect(element.getAttribute("role")).toBe("group");
+  });
   it("opens the make directory from both all-makes links", async () => {
     mocks.catalog.mockResolvedValue({ items: [{ id: "make-1", slug: "bmw", name: "BMW" }] });
     const container = document.createElement("div");

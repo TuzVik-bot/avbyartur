@@ -147,7 +147,11 @@ h3 { font-size: 17px; margin-bottom: 8px; }
 .card-specs { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: 12px; }
 .card-footer { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .card-footer a { min-height: 44px; display: inline-flex; align-items: center; }
+.listing-views { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.card-actions .listing-views { margin-left: auto; }
 .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.listing-views { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.card-actions .listing-views { margin-left: auto; }
 .detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 10px; }
 .compare-action, .share-action { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .seller-tag { display: inline-flex; align-items: center; gap: 5px; color: var(--green); font-weight: 700; }
@@ -196,6 +200,11 @@ h3 { font-size: 17px; margin-bottom: 8px; }
 .detail-gallery:focus-visible { outline: 3px solid #365dc5; outline-offset: 3px; border-radius: var(--radius); }
 .detail-photo-wrap { position: relative; }
 .detail-main-image { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--surface-muted); border-radius: var(--radius); }
+.detail-photo-arrow { position: absolute; z-index: 3; top: 50%; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; transform: translateY(-50%); border: 1px solid #ffffff80; border-radius: 50%; background: #17212ebf; color: #fff; cursor: pointer; }
+.detail-photo-arrow:hover { background: #17212e; }
+.detail-photo-arrow:focus-visible, .detail-thumbnail:focus-visible, .detail-photos-toggle:focus-visible { outline: 3px solid #365dc5; outline-offset: 2px; }
+.detail-photo-arrow-prev { left: 12px; }
+.detail-photo-arrow-next { right: 12px; }
 .detail-synthetic-label { z-index: 1; }
 .listing-photo-badges { position: absolute; z-index: 2; left: 8px; right: 8px; bottom: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
 .listing-photo-badge { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 5px 9px; border-radius: 16px; font-size: 12px; font-weight: 650; line-height: 1.2; box-shadow: 0 1px 4px #0003; }
@@ -218,19 +227,27 @@ h3 { font-size: 17px; margin-bottom: 8px; }
   .listing-row .listing-photo-badge svg { width: 12px; height: 12px; }
 }
 .detail-panel .favorite-button { position: static; width: 44px; margin-block: 8px; }
-.location-line { display: flex; align-items: center; gap: 5px; }
+.location-line { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .phone-revealed { display: grid; gap: 2px; margin-bottom: 9px; padding: 10px; border: 1px solid var(--green-line); border-radius: 5px; background: var(--soft-green); font-size: 18px; }
 .privacy-note { display: flex; align-items: flex-start; gap: 6px; margin: 12px 0 0; color: var(--muted); font-size: 11px; }
-.detail-thumbnails { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+.detail-thumbnails { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 24px) / 4); gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; }
+.detail-thumbnails-expanded { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0,1fr)); overflow: visible; }
 .detail-thumbnail { min-width: 0; min-height: 44px; padding: 2px; border: 2px solid transparent; border-radius: 7px; background: transparent; cursor: pointer; }
+.detail-thumbnails:not(.detail-thumbnails-expanded) .detail-thumbnail { scroll-snap-align: start; }
 .detail-thumbnail:hover { border-color: var(--line-strong); }
 .detail-thumbnail.is-selected { border-color: var(--accent); }
 .detail-thumbnail img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 4px; background: var(--surface-muted); }
+.detail-photos-toggle { justify-self: start; min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 650; cursor: pointer; }
+.detail-photos-toggle:hover { text-decoration: underline; }
 .detail-summary, .detail-panel { padding: 17px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .detail-panel { position: sticky; top: 90px; }
 .detail-title { margin: 2px 0 10px; font-size: 27px; }
-.detail-price { margin-bottom: 14px; font-size: 28px; font-weight: 850; }
-.detail-market-line { margin: -8px 0 12px; }
+.detail-price-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 18px; margin-bottom: 14px; }
+.detail-price { margin: 0; font-size: 28px; font-weight: 850; }
+.detail-conversions { min-width: 0; }
+.detail-conversion-values { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--accent); font-size: 15px; font-weight: 700; }
+.detail-conversion-note { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.detail-market-line { margin: 0 0 12px; }
 .detail-market-line .market-badge { margin-bottom: 0; }
 .valuation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; }
 .valuation-range { font-size: 24px; font-weight: 800; margin: 10px 0 6px; }
@@ -772,7 +789,9 @@ h3 { font-size: 17px; margin-bottom: 8px; }
   .company-form-heading { flex-direction: column; gap: 8px; }
   .company-status-panel { padding: 12px; }
   .company-links { display: grid; gap: 2px; }
-  .form-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .form-page .form-grid > * { min-width: 0; }
+  .form-page .field input, .form-page .field select, .form-page .field textarea { font-size: 16px; max-width: 100%; }
   .form-grid .wide { grid-column: auto; }
   .form-actions { align-items: stretch; flex-direction: column-reverse; }
   .form-actions .button { width: 100%; }

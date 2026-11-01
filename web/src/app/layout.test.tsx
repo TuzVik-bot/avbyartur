@@ -22,6 +22,18 @@ afterEach(() => {
 });
 
 describe("closed-pilot root layout", () => {
+  it("includes the requested Google tag once in the shared head", async () => {
+    const html = renderToStaticMarkup(await RootLayout({ children: createElement("h1", null, "Содержимое") }));
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const scripts = document.querySelectorAll('script[src="https://www.googletagmanager.com/gtag/js?id=G-48P5WKB0Z5"]');
+    expect(scripts).toHaveLength(1);
+    expect(scripts[0].hasAttribute("async")).toBe(true);
+    expect(scripts[0].parentElement?.tagName).toBe("HEAD");
+    const initializers = [...document.head.querySelectorAll("script:not([src])")].filter((script) => script.textContent?.includes("gtag('config', 'G-48P5WKB0Z5')"));
+    expect(initializers).toHaveLength(1);
+    expect(initializers[0].textContent).toContain("window.dataLayer = window.dataLayer || []");
+    expect(initializers[0].textContent).toContain("gtag('js', new Date())");
+  });
   it("provides a keyboard skip link and keeps the closed pilot unindexable by default", async () => {
     const html = renderToStaticMarkup(await RootLayout({ children: createElement("h1", null, "Содержимое") }));
 

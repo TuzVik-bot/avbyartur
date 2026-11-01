@@ -54,7 +54,7 @@ function SellLanding({ nextPath, categoryCode, subcategory }: { nextPath: string
       </section>
 
       <section className={styles.trustStrip} aria-label="Как устроена подача объявления">
-        <div className={styles.trustItem}><ShieldCheck size={21} aria-hidden="true" /><p><strong>Телефон скрыт в выдаче</strong><span>Покупатель открывает номер отдельной кнопкой.</span></p></div>
+        <div className={styles.trustItem}><ShieldCheck size={21} aria-hidden="true" /><p><strong>Вы выбираете способ связи</strong><span>Можно оставить только переписку или указать телефон.</span></p></div>
         <div className={styles.trustItem}><ClipboardCheck size={21} aria-hidden="true" /><p><strong>Проверка перед публикацией</strong><span>Перед отправкой форма покажет обязательные поля и фото.</span></p></div>
         <div className={styles.trustItem}><MessageCircle size={21} aria-hidden="true" /><p><strong>Объявление под контролем</strong><span>Статус, правки и статистика доступны в кабинете.</span></p></div>
       </section>
@@ -93,14 +93,12 @@ export default async function SellPage({ searchParams }: { searchParams: Promise
   const requestedPath = search.size ? `/sell?${search.toString()}` : "/sell";
   if (!session) return <SellLanding nextPath={requestedPath} categoryCode={categoryCode} subcategory={subcategory} />;
 
-  const [makesResult, regionsResult, typesResult, companyResult, listingResult] = await Promise.allSettled([
-    serverApi.catalog("makes"),
+  const [regionsResult, typesResult, companyResult, listingResult] = await Promise.allSettled([
     serverApi.regions(),
     serverApi.catalog("body-types"),
     serverApi.company(),
     id ? serverApi.listing(id) : Promise.resolve({ listing: null as Listing | null })
   ]);
-  const makes: CatalogItem[] = makesResult.status === "fulfilled" ? makesResult.value.items : [];
   const regions: CatalogItem[] = regionsResult.status === "fulfilled" ? regionsResult.value.items : [];
   const bodyTypes: CatalogItem[] = typesResult.status === "fulfilled" ? typesResult.value.items : [];
   const company: Company | null = companyResult.status === "fulfilled" ? companyResult.value.company : null;
@@ -111,11 +109,14 @@ export default async function SellPage({ searchParams }: { searchParams: Promise
     return <div className="page-width"><p className="notice" role="alert">Не удалось загрузить объявление для редактирования. Повторите попытку позже.</p><Link className="button button-secondary" href={`/sell?listing=${encodeURIComponent(id)}`}>Повторить загрузку</Link></div>;
   }
   if (id && (!initialListing || ["sold", "archived", "blocked"].includes(initialListing.status))) notFound();
+  const catalogCategoryCode = (initialListing as (Listing & { category_code?: ListingCategoryCode }) | null)?.category_code || categoryCode;
+  const makesResult = await Promise.allSettled([serverApi.catalog("makes", { category_code: catalogCategoryCode })]).then(([result]) => result);
+  const makes: CatalogItem[] = makesResult.status === "fulfilled" ? makesResult.value.items : [];
   const makeId = initialListing?.make?.id;
   const modelId = initialListing?.model?.id;
   const regionId = initialListing?.region?.id;
   const [modelsResult, generationsResult, citiesResult, photosResult] = await Promise.allSettled([
-    makeId ? serverApi.catalog("models", { make_id: makeId }) : Promise.resolve({ items: [] as CatalogItem[] }),
+    makeId ? serverApi.catalog("models", { make_id: makeId, category_code: catalogCategoryCode }) : Promise.resolve({ items: [] as CatalogItem[] }),
     modelId ? serverApi.catalog("generations", { model_id: modelId }) : Promise.resolve({ items: [] as CatalogItem[] }),
     regionId ? serverApi.cities(regionId) : Promise.resolve({ items: [] as CatalogItem[] }),
     id ? serverApi.photos(id) : Promise.resolve({ items: [] as ListingPhoto[] })

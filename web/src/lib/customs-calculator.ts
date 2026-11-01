@@ -5,6 +5,8 @@ import type { components } from "@/lib/types.generated";
 export type CustomsCalculatorMeta = components["schemas"]["CustomsMetaResponse"];
 export type CustomsCalculationRequest = components["schemas"]["CustomsCalculationRequest"];
 export type CustomsCalculationResult = components["schemas"]["CustomsCalculationResponse"];
+export type CustomsYearCalculationRequest = Omit<CustomsCalculationRequest, "manufacture_date"> & { manufacture_year: number };
+export type CustomsYearCalculationResult = { manufacture_year: number; scenarios: CustomsCalculationResult[] };
 
 const API_PREFIX = "/api/v1/customs-calculator";
 
@@ -47,6 +49,14 @@ export function getCustomsCalculatorMeta(): Promise<CustomsCalculatorMeta> {
 
 export function calculateCustoms(payload: CustomsCalculationRequest): Promise<CustomsCalculationResult> {
   return publicRequest<CustomsCalculationResult>("calculate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function calculateCustomsByYear(payload: CustomsYearCalculationRequest): Promise<CustomsYearCalculationResult> {
+  return publicRequest<CustomsYearCalculationResult>("calculate-year", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)

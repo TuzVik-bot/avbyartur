@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiClientError } from "@/lib/api";
 import {
-  calculateCustoms,
+  calculateCustomsByYear,
   getCustomsCalculatorMeta,
-  type CustomsCalculationRequest,
+  type CustomsYearCalculationRequest,
+  type CustomsYearCalculationResult,
   type CustomsCalculationResult,
   type CustomsCalculatorMeta
 } from "@/lib/customs-calculator";
@@ -16,7 +17,7 @@ type RequestIssue = { summary: string; fields: Record<string, string> };
 const fieldLabels: Record<string, string> = {
   price_amount: "сумму цены",
   currency: "валюту цены",
-  manufacture_date: "дату выпуска",
+  manufacture_year: "год выпуска",
   engine_type: "тип двигателя",
   engine_volume_cc: "объём двигателя",
   personal_use: "подтверждение личного пользования",
@@ -46,7 +47,7 @@ function fieldIssueText(field: string): string | null {
   switch (field) {
     case "price_amount": return "Введите положительную цену цифрами и десятичной точкой.";
     case "currency": return "Выберите валюту цены.";
-    case "manufacture_date": return "Введите точную дату выпуска автомобиля.";
+    case "manufacture_year": return "Введите год выпуска, не позднее текущего года.";
     case "engine_type": return "Выберите бензиновый или дизельный двигатель.";
     case "engine_volume_cc": return "Введите целый объём двигателя от 1 до 100 000 см³.";
     case "personal_use": return "Подтвердите личное пользование автомобилем.";
@@ -161,7 +162,7 @@ export function CustomsCalculator() {
   const [metaLoading, setMetaLoading] = useState(true);
   const [metaError, setMetaError] = useState(false);
   const [metaRetry, setMetaRetry] = useState(0);
-  const [result, setResult] = useState<CustomsCalculationResult | null>(null);
+  const [result, setResult] = useState<CustomsYearCalculationResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [issue, setIssue] = useState<RequestIssue | null>(null);
   const [price, setPrice] = useState("");
@@ -208,15 +209,15 @@ export function CustomsCalculator() {
       return;
     }
 
-    const manufactureDate = String(data.get("manufacture_date") || "");
+    const manufactureYear = Number(String(data.get("manufacture_year") || ""));
     const engineVolume = Number(String(data.get("engine_volume_cc") || ""));
     if (!Number.isSafeInteger(engineVolume) || engineVolume < 1 || engineVolume > 100_000) return;
 
-    const payload: CustomsCalculationRequest = {
+    const payload: CustomsYearCalculationRequest = {
       price_amount: rawPrice,
-      currency: String(data.get("currency")) as CustomsCalculationRequest["currency"],
-      manufacture_date: manufactureDate,
-      engine_type: String(data.get("engine_type")) as CustomsCalculationRequest["engine_type"],
+      currency: String(data.get("currency")) as CustomsYearCalculationRequest["currency"],
+      manufacture_year: manufactureYear,
+      engine_type: String(data.get("engine_type")) as CustomsYearCalculationRequest["engine_type"],
       engine_volume_cc: engineVolume,
       benefit_140: data.get("benefit_140") === "yes",
       personal_use: true,
@@ -229,7 +230,7 @@ export function CustomsCalculator() {
     setResult(null);
 
     try {
-      const value = await calculateCustoms(payload);
+      const value = await calculateCustomsByYear(payload);
       if (requestVersion.current === version) setResult(value);
     } catch (error) {
       if (requestVersion.current === version) setIssue(issueFor(error));
@@ -311,10 +312,10 @@ export function CustomsCalculator() {
               </div>
 
               <div className="field">
-                <label htmlFor="customs-manufacture-date">Точная дата выпуска *</label>
-                <input id="customs-manufacture-date" name="manufacture_date" type="date" required onChange={invalidatePreviousRequest} aria-describedby={`${getFieldHelpId("manufacture_date")} ${issue?.fields.manufacture_date ? "customs-manufacture-date-error" : ""}`.trim()} aria-invalid={issue?.fields.manufacture_date ? true : undefined} />
-                <span className={styles.help} id={getFieldHelpId("manufacture_date")}>Укажите число, месяц и год по документам. Одного года выпуска недостаточно.</span>
-                {issue?.fields.manufacture_date && <span className={styles.fieldError} id="customs-manufacture-date-error">{issue.fields.manufacture_date}</span>}
+                <label htmlFor="customs-manufacture-year">Год выпуска *</label>
+                <input id="customs-manufacture-year" name="manufacture_year" type="number" inputMode="numeric" min="1" max="9999" step="1" required onChange={invalidatePreviousRequest} aria-describedby={`${getFieldHelpId("manufacture_year")} ${issue?.fields.manufacture_year ? "customs-manufacture-year-error" : ""}`.trim()} aria-invalid={issue?.fields.manufacture_year ? true : undefined} />
+                <span className={styles.help} id={getFieldHelpId("manufacture_year")}>Если возрастная категория зависит от точной даты, покажем возможные варианты расчёта.</span>
+                {issue?.fields.manufacture_year && <span className={styles.fieldError} id="customs-manufacture-year-error">{issue.fields.manufacture_year}</span>}
               </div>
 
               <fieldset className={styles.engine} aria-describedby={issue?.fields.engine_type ? "customs-engine-error" : undefined}>
@@ -371,36 +372,37 @@ export function CustomsCalculator() {
         </aside>
       </div>
 
-      {result && <section className={styles.result} aria-labelledby="customs-result-title" aria-live="polite">
+      {result && result.scenarios.length > 0 && <section className={styles.result} aria-labelledby="customs-result-title" aria-live="polite">
         <div className={styles.resultHeading}>
           <div>
             <p className="eyebrow">Результат от сервера</p>
             <h2 id="customs-result-title">Предварительная оценка платежей</h2>
           </div>
-          <span className={styles.resultVersion}>Версия правил {result.rules_version}</span>
+          <span className={styles.resultVersion}>Версия правил {result.scenarios[0].rules_version}</span>
         </div>
-        <dl className={styles.resultFacts}>
-          <div><dt>Таможенная стоимость для расчёта</dt><dd>{result.customs_value_eur} EUR</dd></div>
-          <div><dt>Возрастная категория по точной дате</dt><dd>{ageBandLabels[result.age_band]}</dd></div>
-          <div><dt>Единая пошлина и налоги</dt><dd>{result.duty_eur} EUR · {result.duty_byn} BYN</dd></div>
-          <div><dt>Утилизационный сбор</dt><dd>{result.recycling_fee_byn} BYN</dd></div>
-          <div><dt>Обязательный сбор за таможенные операции</dt><dd>{result.customs_fee_byn} BYN</dd></div>
-          <div className={styles.total}><dt>Итого таможенные платежи</dt><dd>{result.total_byn} BYN</dd></div>
-        </dl>
+        {result.scenarios.length > 1 && <p className={styles.priceNote}>Для {result.manufacture_year} года возможны разные возрастные категории. Итог зависит от точной даты выпуска и даты оформления: показаны варианты на дату расчёта.</p>}
+        {result.scenarios.map((scenario) => <div key={scenario.age_band}>
+          <h3>{ageBandLabels[scenario.age_band]}</h3>
+          <dl className={styles.resultFacts}>
+            <div><dt>Таможенная стоимость для расчёта</dt><dd>{scenario.customs_value_eur} EUR</dd></div>
+            <div><dt>Единая пошлина и налоги</dt><dd>{scenario.duty_eur} EUR · {scenario.duty_byn} BYN</dd></div>
+            <div><dt>Утилизационный сбор</dt><dd>{scenario.recycling_fee_byn} BYN</dd></div>
+            <div><dt>Обязательный сбор за таможенные операции</dt><dd>{scenario.customs_fee_byn} BYN</dd></div>
+            <div className={styles.total}><dt>Итого таможенные платежи</dt><dd>{scenario.total_byn} BYN</dd></div>
+          </dl>
+        </div>)}
         <p className={styles.priceNote}>Цена покупки — только оценка таможенной стоимости; она не прибавляется к итогу таможенных платежей. Окончательную таможенную стоимость определяет таможня.</p>
         <section className={styles.rateDetails} aria-label="Использованные официальные курсы">
-          <h3>Курсы НБРБ на {result.rate_date}</h3>
-          <ul>
-            {result.rates_used.map((rate) => <li key={rate.currency}>{rate.byn_per_unit} BYN за 1 {rate.currency} · официальный курс {rate.official_rate} / {rate.scale}</li>)}
-          </ul>
+          <h3>Курсы НБРБ на {result.scenarios[0].rate_date}</h3>
+          <ul>{result.scenarios[0].rates_used.map((rate) => <li key={rate.currency}>{rate.byn_per_unit} BYN за 1 {rate.currency} · официальный курс {rate.official_rate} / {rate.scale}</li>)}</ul>
         </section>
         <p className={styles.priceNote}>Окончательные платежи в BYN рассчитываются по курсу НБРБ на день регистрации пассажирской таможенной декларации.</p>
-        {result.warnings.length > 0 && <section className={styles.warnings} aria-label="Предупреждения">
+        {result.scenarios[0].warnings.length > 0 && <section className={styles.warnings} aria-label="Предупреждения">
           <h3>Обратите внимание</h3>
-          <ul>{result.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+          <ul>{result.scenarios[0].warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
         </section>}
-        <div className={styles.resultMeta}>Дата расчёта: {result.calculation_date}{meta?.verified_on ? ` · дата сверки правил: ${meta.verified_on}` : ""}</div>
-        <SourceLinks sources={result.sources} label="Источники расчёта" />
+        <div className={styles.resultMeta}>Дата расчёта: {result.scenarios[0].calculation_date}{meta?.verified_on ? ` · дата сверки правил: ${meta.verified_on}` : ""}</div>
+        <SourceLinks sources={[...new Set(result.scenarios.flatMap((scenario) => scenario.sources))]} label="Источники расчёта" />
       </section>}
     </div>
   );

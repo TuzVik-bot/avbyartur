@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from app.listing_categories import CategoryCode
 from app.listing_subcategories import SUBCATEGORY_VALUES
@@ -49,12 +49,25 @@ class ListingMarketComparisonOut(BaseModel):
     rate_date: str | None
 
 
+def canonical_catalog_ids(value: str) -> str:
+    """Normalize a bounded comma-separated list of catalog UUIDs."""
+    entries = value.split(",")
+    if len(entries) > 50 or not entries or any(not entry.strip() for entry in entries):
+        raise ValueError("Expected 1 to 50 comma-separated UUIDs")
+    try:
+        return ",".join(sorted({str(UUID(entry.strip())) for entry in entries}))
+    except ValueError:
+        raise ValueError("Expected comma-separated UUIDs") from None
+
+
 class ListingSearchFilters(BaseModel):
     category_code: CategoryCode = "cars"
     subcategory: str | None = None
     q: str | None = None
     make_id: UUID | None = None
     model_id: UUID | None = None
+    make_ids: str | None = None
+    model_ids: str | None = None
     generation_id: UUID | None = None
     body_variant_id: UUID | None = None
     modification_id: UUID | None = None
@@ -71,6 +84,7 @@ class ListingSearchFilters(BaseModel):
     body_type: str | None = None
     damaged: bool | None = None
     parts_only: bool | None = None
+    in_transit: bool | None = None
     condition: str | None = None
     color: Literal[
         "black", "white", "gray", "silver", "red", "blue", "green", "yellow", "brown", "beige", "orange", "purple", "other",
@@ -97,6 +111,21 @@ class ListingSearchFilters(BaseModel):
     region_id: UUID | None = None
     city_id: UUID | None = None
     seller_type: Literal["private", "company"] | None = None
+
+    @field_validator("make_ids", "model_ids")
+    @classmethod
+    def validate_catalog_ids(cls, value: str | None) -> str | None:
+        return canonical_catalog_ids(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def validate_catalog_selection(self):
+        if self.make_id is not None and self.make_ids is not None:
+            raise ValueError("Use either make_id or make_ids")
+        if self.model_id is not None and self.model_ids is not None:
+            raise ValueError("Use either model_id or model_ids")
+        if self.model_ids is not None and self.make_id is None and self.make_ids is None:
+            raise ValueError("model_ids requires selected makes")
+        return self
 
     @field_validator("subcategory")
     @classmethod
@@ -193,6 +222,7 @@ class ListingPublicOut(BaseModel):
     published_at: datetime | None = None
     damaged: bool
     parts_only: bool
+    in_transit: bool = False
     description: str
     engine_volume_l: str | None
     power_hp: int | None
@@ -210,6 +240,9 @@ class ListingPublicOut(BaseModel):
     equipment: list[str] = Field(default_factory=list)
     district: str | None = None
     call_hours: str | None = None
+    has_phone: bool = False
+    has_external_contacts: bool = False
+    view_count: int | None = None
     promotion_badges: list[Literal["bump", "highlight", "top"]] = Field(default_factory=list)
     photo_urls: list[str]
     photos: list[ListingPhotoOut]
@@ -220,6 +253,8 @@ class ListingOwnerOut(ListingPublicOut):
     vin: str | None = None
     moderation_reason: str | None = None
     contact_phone: str | None = None
+    telegram_contact_url: str | None = None
+    viber_contact_url: str | None = None
 
 
 class ListingPaginationOut(BaseModel):
@@ -306,10 +341,19 @@ class ListingComparisonOut(BaseModel):
     items: list[ListingPublicOut]
 
 
+class ListingContactChannelOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    channel: Literal["telegram", "viber"]
+    uri: str
+    opted_in: bool
+
+
 class PhoneRevealOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     phone: str
+    messengers: list[ListingContactChannelOut] = Field(default_factory=list)
 
 
 class ListingReportOut(BaseModel):

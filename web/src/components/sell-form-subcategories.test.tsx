@@ -28,7 +28,7 @@ const fields = {
   seller_type: "private", make_mode: "catalog", model_mode: "catalog", make_id: "", model_id: "", manual_make: "", manual_model: "",
   generation_id: "", modification_id: "", body_type_id: "", body_variant_id: "", year: "", mileage_km: "", fuel: "", transmission: "", drive: "",
   engine_volume_l: "", power_hp: "", condition: "used", color: "", customs_status: "", technical_condition: "", body_condition: "",
-  exchange: false, bargaining: false, credit: false, leasing: false, equipment: [], district: "", call_hours: "", damaged: false, parts_only: false,
+  exchange: false, bargaining: false, credit: false, leasing: false, equipment: [], district: "", call_hours: "", damaged: false, parts_only: false, in_transit: false,
   vin: "", description: "", price_amount: "100", currency: "BYN", region_id: "", city_mode: "catalog", city_id: "", manual_city: "", contact_phone: "", telegram_contact_url: "", viber_contact_url: ""
 } as Parameters<typeof payloadFor>[0];
 

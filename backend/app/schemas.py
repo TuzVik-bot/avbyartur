@@ -3,8 +3,9 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, ValidationInfo, field_validator, model_validator
 
+from app.contact_channels import normalize_contact_url
 from app.listing_categories import CategoryCode, ListingCategoryDetailsInput
 
 
@@ -84,6 +85,7 @@ class ListingForm(BaseModel):
     call_hours: str | None = Field(default=None, max_length=120)
     damaged: bool | None = None
     parts_only: bool | None = None
+    in_transit: bool | None = None
     engine_volume_l: Decimal | None = Field(default=None, ge=0, le=30, decimal_places=1)
     power_hp: int | None = Field(default=None, ge=1, le=3000)
     description: str | None = Field(default=None, max_length=10000)
@@ -93,6 +95,22 @@ class ListingForm(BaseModel):
     city_id: UUID | None = None
     manual_city: str | None = Field(default=None, max_length=160)
     contact_phone: str | None = Field(default=None, min_length=5, max_length=40)
+    telegram_contact_url: str | None = Field(default=None, max_length=320)
+    viber_contact_url: str | None = Field(default=None, max_length=320)
+
+    @field_validator("telegram_contact_url", "viber_contact_url")
+    @classmethod
+    def validate_contact_url(cls, value: str | None, info: ValidationInfo) -> str | None:
+        if value is None or not value.strip():
+            return None
+        return normalize_contact_url(value, info.field_name.split("_", 1)[0])
+
+    @field_validator("in_transit", mode="before")
+    @classmethod
+    def reject_null_in_transit(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("in_transit cannot be null; omit it to preserve the current status")
+        return value
 
     @model_validator(mode="after")
     def category_details_match_category(self) -> "ListingForm":

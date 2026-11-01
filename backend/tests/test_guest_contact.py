@@ -132,7 +132,7 @@ def test_guest_can_reveal_only_by_post_and_contact_event_has_no_user_or_raw_ip(i
         headers={"X-Guest-Contact-Token": token},
     )
     assert reveal.status_code == 200, reveal.text
-    assert reveal.json() == {"phone": PHONE}
+    assert reveal.json() == {"phone": PHONE, "messengers": []}
     assert reveal.headers["cache-control"] == "no-store, private, max-age=0"
     assert reveal.headers["pragma"] == "no-cache"
 
@@ -289,7 +289,7 @@ def test_authenticated_reveals_still_require_csrf_when_guest_mode_is_enabled(int
     assert without_csrf.status_code == 403, without_csrf.text
     with_csrf = client.post(path, headers={"X-CSRF-Token": login.json()["csrf_token"]})
     assert with_csrf.status_code == 200, with_csrf.text
-    assert with_csrf.json() == {"phone": PHONE}
+    assert with_csrf.json() == {"phone": PHONE, "messengers": []}
     with factory() as db:
         event = db.scalar(select(ContactReveal))
         assert event is not None
@@ -454,3 +454,27 @@ def test_authenticated_reveal_rechecks_actor_and_session_after_rate_commit(integ
     assert response.json()["code"] == "invalid_session"
     with factory() as db:
         assert db.scalar(select(ContactReveal.id)) is None
+
+
+def test_shared_proxy_ip_limit_is_configurable_without_removing_device_limit(integration, monkeypatch):
+    factory = integration["SessionLocal"]
+    owner = _add_user(factory)
+    listing = _add_listing(factory, owner.id)
+    _enable_guest_contact(monkeypatch, True)
+    settings = listings_api.get_settings()
+    settings.guest_contact_ip_hourly_limit = 2
+    monkeypatch.setattr(listings_api, "get_settings", lambda: settings)
+    monkeypatch.setattr(listings_api, "GUEST_PHONE_REVEAL_IP_LIMIT", 1)
+    monkeypatch.setattr(listings_api, "GUEST_PHONE_REVEAL_DEVICE_LIMIT", 1)
+    first = _client(integration, "198.51.100.90")
+    second = _client(integration, "198.51.100.90")
+    first_token = _bootstrap_guest(first)
+    second_token = _bootstrap_guest(second)
+    path = f"/api/v1/listings/{listing.id}/phone-reveal"
+    assert first.post(path, headers={"X-Guest-Contact-Token": first_token}).status_code == 200
+    assert second.post(path, headers={"X-Guest-Contact-Token": second_token}).status_code == 200
+    assert second.post(path, headers={"X-Guest-Contact-Token": second_token}).status_code == 429
+    other_ip = _client(integration, "198.51.100.91")
+    token = _bootstrap_guest(other_ip)
+    assert other_ip.post(path, headers={"X-Guest-Contact-Token": token}).status_code == 200
+    assert other_ip.post(path, headers={"X-Guest-Contact-Token": token}).status_code == 429

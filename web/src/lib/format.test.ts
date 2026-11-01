@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { formatMileage, formatMoney } from "@/lib/format";
+import { formatMileage, formatMoney, listingPhotoAlt } from "@/lib/format";
 import type { Money } from "@/lib/types";
+
+describe("automatic listing photo alt", () => {
+  it("uses the current listing heading and an optional photo number", () => {
+    expect(listingPhotoAlt(" BMW 530d 2020 ")).toBe("Продажа авто — BMW 530d 2020");
+    expect(listingPhotoAlt("BMW 530d 2020", 2)).toBe("Продажа авто — BMW 530d 2020 — фото 2");
+    expect(listingPhotoAlt(" ")).toBe("Продажа авто — объявление");
+  });
+});
 
 function formatted(amount: string, currency: Money["currency"]) {
   return `${new Intl.NumberFormat("ru-BY", { maximumFractionDigits: 0 }).format(Number(amount))} ${currency}`;

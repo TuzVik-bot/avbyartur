@@ -21,17 +21,17 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.config import get_settings
 from app.db import SessionLocal, engine
 from app.email_delivery import EmailDeliveryUnavailable, get_email_sender
-from app.identity_models import (
-    AccountRecoveryChallenge,
-    EmailVerificationChallenge,
-    IdentityEmailOutbox,
-    VerifiedEmailContact,
-)
 from app.ingest_onliner import (
     OnlinerBlockedError,
     OnlinerClient,
     discover_new,
     sync_existing,
+)
+from app.identity_models import (
+    AccountRecoveryChallenge,
+    EmailVerificationChallenge,
+    IdentityEmailOutbox,
+    VerifiedEmailContact,
 )
 from app.listing_price_history import is_same_currency_price_drop
 from app.logging_config import configure_json_logger, log_event
@@ -60,12 +60,6 @@ from app.notification_service import (
 )
 from app.profile_identity_service import notification_delivery_allowed
 from app.services import enqueue_job
-from app.telegram_delivery import (
-    TelegramDeliveryError,
-    fetch_telegram_updates,
-    send_telegram_message,
-    token_from_settings,
-)
 
 register_heif_opener()
 Image.MAX_IMAGE_PIXELS = 60_000_000
@@ -788,7 +782,6 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
         ).all()
         email_settings = get_settings()
         email_sender = get_email_sender(email_settings)
-        telegram_bot_configured = bool(token_from_settings(email_settings))
         public_app_url = str(
             getattr(email_settings, "public_app_url", "") or ""
         ).strip()
@@ -806,7 +799,7 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
             if not saved_search_matches(db, saved_search, listing):
                 continue
             channel = saved_search.notification_channel
-            if channel not in {"web", "email", "telegram"}:
+            if channel not in {"web", "email"}:
                 continue
             available_at = _next_notification_at(
                 now, saved_search.notification_frequency
@@ -856,22 +849,7 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
                                 email_error = "invalid_notification_url"
                             else:
                                 email_ready = True
-            telegram_ready = False
-            telegram_error = "telegram_provider_unconfigured"
-            if channel == "telegram":
-                if telegram_bot_configured:
-                    linked_user = db.get(User, saved_search.user_id)
-                    if linked_user is not None and linked_user.telegram_chat_id is not None:
-                        telegram_ready = True
-                    else:
-                        telegram_error = "telegram_not_linked"
-            delivery_ready = channel == "web" or email_ready or telegram_ready
-            delivery_error = None
-            if not delivery_ready:
-                delivery_error = (
-                    telegram_error if channel == "telegram" else email_error
-                )
-            status = "queued" if delivery_ready else "unsupported"
+            status = "queued" if channel == "web" or email_ready else "unsupported"
             insert = (
                 pg_insert(NotificationOutbox)
                 .values(
@@ -885,13 +863,13 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
                     payload=payload,
                     attempts=0,
                     available_at=available_at,
-                    last_error=delivery_error,
+                    last_error=None if channel == "web" or email_ready else email_error,
                 )
                 .on_conflict_do_nothing(constraint="uq_notification_outbox_dedupe")
                 .returning(NotificationOutbox.id)
             )
             outbox_id = db.scalar(insert)
-            if outbox_id is not None and delivery_ready:
+            if outbox_id is not None and (channel == "web" or email_ready):
                 db.execute(
                     pg_insert(SavedSearchNotificationMatch)
                     .values(
@@ -915,12 +893,6 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
                     run_after=available_at,
                 )
         db.commit()
-
-
-def _safe_notification_error_code(error: Exception) -> str:
-    if isinstance(error, TelegramDeliveryError) and error.code:
-        return error.code
-    return _safe_email_error_code(error)
 
 
 def _safe_email_error_code(error: Exception) -> str:
@@ -1574,196 +1546,6 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                 guard_db.commit()
             return
 
-        if outbox.channel == "telegram":
-            settings = get_settings()
-            telegram_token = token_from_settings(settings)
-            public_app_url = str(
-                getattr(settings, "public_app_url", "") or ""
-            ).strip()
-            if not telegram_token:
-                outbox.status = "unsupported"
-                outbox.last_error = "telegram_provider_unconfigured"
-                outbox.locked_by = None
-                outbox.lease_until = None
-                db.commit()
-                return
-            if user.telegram_chat_id is None:
-                outbox.status = "unsupported"
-                outbox.last_error = "telegram_not_linked"
-                outbox.locked_by = None
-                outbox.lease_until = None
-                db.commit()
-                return
-            if not public_app_url:
-                outbox.status = "unsupported"
-                outbox.last_error = "telegram_public_url_unconfigured"
-                outbox.locked_by = None
-                outbox.lease_until = None
-                db.commit()
-                return
-            if (
-                saved_search is None
-                or saved_search.user_id != user.id
-                or saved_search.status != "active"
-                or not saved_search.notifications_enabled
-                or saved_search.notification_channel != "telegram"
-            ):
-                outbox.status = "unsupported"
-                outbox.last_error = "telegram_preference_disabled"
-                outbox.locked_by = None
-                outbox.lease_until = None
-                db.commit()
-                return
-
-            def _absolute(path: str) -> str:
-                return public_app_url.rstrip("/") + (path or "/cars")
-
-            headline = str(payload.get("title") or "Новые объявления").strip() or "Новые объявления"
-            if is_batch:
-                shown = digest_listings[:5]
-                lines = [
-                    f"• {' '.join(str(item.get('title') or '').split())[:200]}\n{_absolute(str(item.get('url') or '/cars'))}"
-                    for item in shown
-                ]
-                parts = [f"🔔 {headline}", "", "\n\n".join(lines)]
-                if digest_total > len(shown):
-                    parts.append(f"и ещё {digest_total - len(shown)} объявлений")
-                message_text = "\n".join(parts)
-            else:
-                summary = " ".join(str(payload.get("body") or "").split())[:400]
-                message_text = "\n".join(
-                    [f"🔔 {headline}", "", summary, "", _absolute(str(payload.get("url") or "/cars"))]
-                )
-
-            outbox.status = "running"
-            outbox.attempts += 1
-            delivery_worker_id = f"worker:{os.getpid()}"
-            outbox.locked_by = delivery_worker_id
-            outbox.lease_until = datetime.now(timezone.utc) + LEASE
-            db.commit()
-
-            with SessionLocal() as guard_db:
-                guarded_search = guard_db.scalar(
-                    select(SavedSearch)
-                    .where(SavedSearch.id == saved_search_id)
-                    .with_for_update()
-                )
-                guarded_outbox = guard_db.scalar(
-                    select(NotificationOutbox)
-                    .where(NotificationOutbox.id == outbox_id)
-                    .with_for_update()
-                )
-                if (
-                    guarded_outbox is None
-                    or guarded_outbox.status != "running"
-                    or guarded_outbox.locked_by != delivery_worker_id
-                ):
-                    return
-
-                try:
-                    guarded_filters = (
-                        saved_search_filters(guarded_search)
-                        if guarded_search is not None
-                        else None
-                    )
-                except ValueError:
-                    guarded_filters = None
-                guarded_snapshot = (
-                    _saved_search_delivery_snapshot(guarded_search, guarded_filters)
-                    if guarded_search is not None and guarded_filters is not None
-                    else None
-                )
-                if (
-                    saved_search_snapshot is None
-                    or guarded_snapshot != saved_search_snapshot
-                ):
-                    _cancel_running_notification(
-                        guard_db, guarded_outbox, "notification_preference_changed"
-                    )
-                    return
-
-                guarded_user = guard_db.scalar(
-                    select(User)
-                    .where(User.id == guarded_outbox.user_id)
-                    .with_for_update()
-                )
-                if (
-                    guarded_user is None
-                    or guarded_user.status != "active"
-                    or guarded_user.telegram_chat_id is None
-                ):
-                    _cancel_running_notification(
-                        guard_db, guarded_outbox, "telegram_not_linked"
-                    )
-                    return
-
-                try:
-                    send_telegram_message(
-                        api_url=settings.telegram_api_url,
-                        token=telegram_token,
-                        chat_id=guarded_user.telegram_chat_id,
-                        text=message_text,
-                        timeout=settings.telegram_timeout_seconds,
-                    )
-                except TelegramDeliveryError as exc:
-                    guard_db.rollback()
-                    if exc.retryable:
-                        with SessionLocal() as retry_db:
-                            retry_outbox = retry_db.scalar(
-                                select(NotificationOutbox)
-                                .where(NotificationOutbox.id == outbox_id)
-                                .with_for_update()
-                            )
-                            if (
-                                retry_outbox is not None
-                                and retry_outbox.status == "running"
-                            ):
-                                retry_outbox.status = "queued"
-                                retry_outbox.last_error = exc.code
-                                retry_outbox.locked_by = None
-                                retry_outbox.lease_until = None
-                                retry_db.commit()
-                        raise EmailDeliveryUnavailable(exc.code) from None
-                    with SessionLocal() as fail_db:
-                        fail_outbox = fail_db.scalar(
-                            select(NotificationOutbox)
-                            .where(NotificationOutbox.id == outbox_id)
-                            .with_for_update()
-                        )
-                        if fail_outbox is not None and fail_outbox.status == "running":
-                            fail_outbox.status = "failed"
-                            fail_outbox.last_error = exc.code
-                            fail_outbox.locked_by = None
-                            fail_outbox.lease_until = None
-                            fail_db.commit()
-                    return
-
-                guard_db.execute(
-                    pg_insert(UserNotification)
-                    .values(
-                        id=uuid.uuid4(),
-                        outbox_id=guarded_outbox.id,
-                        user_id=guarded_outbox.user_id,
-                        saved_search_id=guarded_outbox.saved_search_id,
-                        conversation_id=guarded_outbox.conversation_id,
-                        price_event_id=guarded_outbox.price_event_id,
-                        listing_id=guarded_outbox.listing_id,
-                        title=str(payload.get("title") or "Новое объявление")[:240],
-                        body=str(payload.get("body") or "Новое объявление"),
-                        url=str(payload.get("url") or "/cars")[:2048],
-                        listings=digest_listings if is_batch else single_listing_snapshot,
-                        total_count=digest_total if is_batch else 1,
-                    )
-                    .on_conflict_do_nothing(constraint="uq_user_notification_outbox")
-                )
-                guarded_outbox.status = "delivered"
-                guarded_outbox.last_error = None
-                guarded_outbox.delivered_at = datetime.now(timezone.utc)
-                guarded_outbox.locked_by = None
-                guarded_outbox.lease_until = None
-                guard_db.commit()
-            return
-
         if outbox.channel != "web":
             outbox.status = "unsupported"
             outbox.last_error = "notification_channel_not_supported"
@@ -1855,15 +1637,9 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
                 notification_outbox is not None
                 and notification_outbox.channel == "email"
             )
-            is_saved_search_telegram = bool(
-                notification_outbox is not None
-                and notification_outbox.channel == "telegram"
-            )
             delivery_error = (
-                _safe_notification_error_code(exc)
-                if kind == "identity.email.deliver"
-                or is_saved_search_email
-                or is_saved_search_telegram
+                _safe_email_error_code(exc)
+                if kind == "identity.email.deliver" or is_saved_search_email
                 else None
             )
             job.last_error = delivery_error or str(exc)[:500]
@@ -1890,10 +1666,7 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
                         outbox.last_error = delivery_error or "email_delivery_failed"
                         outbox.locked_by = None
                         outbox.lease_until = None
-                elif (
-                    (is_saved_search_email or is_saved_search_telegram)
-                    and notification_outbox is not None
-                ):
+                elif is_saved_search_email and notification_outbox is not None:
                     if notification_outbox.status != "delivered":
                         notification_outbox.status = "failed"
                         notification_outbox.last_error = (
@@ -2100,74 +1873,6 @@ def _schedule_daily_rates() -> None:
         db.commit()
 
 
-_telegram_update_offset: int | None = None
-_telegram_last_poll: float = 0.0
-
-
-def _telegram_link_poll() -> None:
-    """Link Telegram chats for users who sent /start <code> to the bot.
-
-    Runs inside the advisory lock so a single worker process polls at a
-    time; Telegram answers 409 Conflict to concurrent getUpdates clients.
-    """
-
-    global _telegram_update_offset, _telegram_last_poll
-
-    settings = get_settings()
-    token = token_from_settings(settings)
-    if not token:
-        return
-    now = time.monotonic()
-    if now - _telegram_last_poll < settings.telegram_poll_interval_seconds:
-        return
-    _telegram_last_poll = now
-    try:
-        updates = fetch_telegram_updates(
-            api_url=settings.telegram_api_url,
-            token=token,
-            offset=_telegram_update_offset,
-            timeout=settings.telegram_timeout_seconds,
-            poll_seconds=0,
-        )
-    except TelegramDeliveryError:
-        return
-    for update in updates:
-        update_id = update.get("update_id")
-        if isinstance(update_id, int):
-            _telegram_update_offset = update_id + 1
-        message = update.get("message") or {}
-        text = str(message.get("text") or "").strip()
-        chat = message.get("chat") or {}
-        chat_id = chat.get("id")
-        if not text.startswith("/start") or not isinstance(chat_id, int):
-            continue
-        parts = text.split(maxsplit=1)
-        code = parts[1].strip() if len(parts) > 1 else ""
-        if not code:
-            continue
-        with SessionLocal() as db:
-            user = db.scalar(
-                select(User).where(User.telegram_link_code == code).with_for_update()
-            )
-            if user is None:
-                continue
-            if user.telegram_chat_id is None:
-                user.telegram_chat_id = chat_id
-                user.telegram_linked_at = datetime.now(timezone.utc)
-                user.telegram_link_code = None
-                db.commit()
-                try:
-                    send_telegram_message(
-                        api_url=settings.telegram_api_url,
-                        token=token,
-                        chat_id=chat_id,
-                        text="Аккаунт Авторынка.бел привязан. Теперь подключите Telegram-уведомления в сохранённых поисках.",
-                        timeout=settings.telegram_timeout_seconds,
-                    )
-                except TelegramDeliveryError:
-                    pass
-
-
 def run_forever() -> None:
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     log_event(logger, logging.INFO, "worker_started", worker_id=worker_id)
@@ -2184,7 +1889,6 @@ def run_forever() -> None:
                     time.sleep(2)
                     continue
                 try:
-                    _telegram_link_poll()
                     job_id = _claim_one(worker_id)
                     if job_id is None:
                         time.sleep(2)

@@ -6,6 +6,7 @@ import { serverApi } from "@/lib/server-api";
 import type { CompanySummary, ListResponse } from "@/lib/types";
 import { siteUrl } from "@/lib/site-config";
 import { isPublicIndexingEnabled } from "@/lib/pilot-visibility";
+import { editorialContentUpdatedISO } from "@/lib/editorial-guide-actions";
 
 const PAGE_SIZE = "25";
 const PAGE_BATCH_SIZE = 5;
@@ -58,6 +59,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     ...entries,
-    ...editorialArticlePaths.map((path) => ({ url: siteUrl(path) })),
+    ...editorialArticlePaths.map((path) => ({
+      url: siteUrl(path),
+      lastModified: new Date(editorialContentUpdatedISO),
+      changeFrequency: "monthly" as const,
+    })),
   ];
 }

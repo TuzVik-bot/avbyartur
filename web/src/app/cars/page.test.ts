@@ -2,6 +2,20 @@ import { describe, expect, it } from "vitest";
 import { generateMetadata } from "./page";
 
 describe("cars search canonical", () => {
+  it.each([
+    { condition: "used" }, { fuel: "electric" }, { page: "2" },
+    { sort: "newest" }, { page: "1", condition: "used" },
+    { page: ["1", "2"] }, { unknown: "value" },
+  ])("noindexes query variants %j while following their links", async (params) => {
+    const metadata = await generateMetadata({ searchParams: Promise.resolve(params) });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true, googleBot: { index: false, follow: true } });
+  });
+
+  it.each([{}, { page: "1" }])("keeps the clean catalog canonical for %j", async (params) => {
+    const metadata = await generateMetadata({ searchParams: Promise.resolve(params) });
+    expect(metadata.robots).toBeUndefined();
+    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars");
+  });
   it("preserves page and supported filters while dropping tracking parameters", async () => {
     const metadata = await generateMetadata({
       searchParams: Promise.resolve({ page: "2", sort: "newest", make_id: "make-1", utm_source: "newsletter" })

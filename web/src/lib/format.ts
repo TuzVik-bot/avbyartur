@@ -1,5 +1,15 @@
 import type { Money } from "@/lib/types";
 
+export function modelDisplayName(makeName: string, modelName: string): string {
+  const make = makeName.trim().replace(/\s+/g, " ");
+  const model = modelName.trim().replace(/\s+/g, " ");
+  const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const prefix = normalize(make);
+  const name = normalize(model);
+  if (!make || name === prefix || name.startsWith(`${prefix} `) || name.startsWith(`${prefix}-`)) return model;
+  return `${make} ${model}`.trim();
+}
+
 export function formatMoney(price: Money | null) {
   if (!price) return "Цена не указана";
   const displayAmount = price.display_amount?.trim();
@@ -43,4 +53,9 @@ export function listingHref(listing: { id: string; slug: string; make: { slug: s
   const makeSlug = listing.make?.slug || fallback;
   const modelSlug = listing.model?.slug || fallback;
   return `/cars/${encodeURIComponent(makeSlug)}/${encodeURIComponent(modelSlug)}/${encodeURIComponent(listing.id)}`;
+}
+
+export function listingPhotoAlt(title: string, photoNumber?: number): string {
+  const heading = title.trim().replace(/\s+/g, " ") || "объявление";
+  return `Продажа авто — ${heading}${photoNumber ? ` — фото ${photoNumber}` : ""}`;
 }

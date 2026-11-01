@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useState } from "react";
-import { AlertTriangle, Building2, ChevronRight, CircleUserRound, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { AlertTriangle, Building2, ChevronLeft, ChevronRight, CircleUserRound, Eye, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { FavoriteButton, ListingCard } from "@/components/listing-card";
 import { ListingPriceHistory } from "@/components/listing-price-history";
@@ -13,19 +13,18 @@ import { ListingContactActions } from "@/components/listing-contact-actions";
 import { useContactClickConsent } from "@/components/contact-click-consent";
 import { ListingTrust } from "@/components/listing-trust";
 import { ListingPhotoBadges } from "@/components/listing-photo-badges";
-import { MarketBadge } from "@/components/market-badge";
 import { SellerListings, type PublicSellerListing } from "@/components/seller-listings";
 import { ComparisonAction } from "@/components/comparison/comparison-action";
 import { ShareButton } from "@/components/share-button";
 import { api, ApiClientError } from "@/lib/api";
 import type { ListingMessengerChannel } from "@/lib/api";
-import { formatDate, formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
+import { formatDate, formatMileage, formatMoney, listingHref, listingPhotoAlt, vehicleLabel } from "@/lib/format";
 import { trackContactClick, type ContactChannel } from "@/lib/analytics";
 import { listingCatalogBreadcrumbs } from "@/lib/listing-breadcrumbs";
 import type { Listing, ReportCategory } from "@/lib/types";
+import type { components } from "@/lib/types.generated";
 
 const fallbackPhoto = "/vehicles/silver-wagon.png";
-const MAX_GALLERY_PHOTOS = 30;
 const reportCategories: { value: ReportCategory; label: string }[] = [
   { value: "incorrect_info", label: "Недостоверная информация" },
   { value: "duplicate", label: "Повторное объявление" },
@@ -33,31 +32,77 @@ const reportCategories: { value: ReportCategory; label: string }[] = [
   { value: "prohibited", label: "Запрещённое объявление" },
   { value: "other", label: "Другое" }
 ];
+const equipmentLabels: Record<string, string> = {
+  abs: "Антиблокировочная система тормозов (ABS)", esp: "Система курсовой устойчивости (ESP)", airbags: "Подушки безопасности", air_conditioning: "Кондиционер", climate_control: "Климат-контроль", heated_seats: "Подогрев сидений", cruise_control: "Круиз-контроль", parking_sensors: "Парктроники", rear_camera: "Камера заднего вида", leather_seats: "Кожаный салон", carplay: "Apple CarPlay", android_auto: "Android Auto"
+};
 const optionLabels: Record<string, string> = {
   black: "Чёрный", white: "Белый", gray: "Серый", silver: "Серебристый", red: "Красный", blue: "Синий", green: "Зелёный", yellow: "Жёлтый", brown: "Коричневый", beige: "Бежевый", orange: "Оранжевый", purple: "Фиолетовый", other: "Другой",
   cleared_rb: "Оформлен в РБ (со слов продавца)", eaeu_import: "Ввезён из ЕАЭС (со слов продавца)", uncleared: "Не растаможен (со слов продавца)", unknown: "Не указано",
   good: "Исправен", needs_repair: "Требует ремонта", non_operational: "Не на ходу", minor_damage: "Есть небольшие повреждения", significant_damage: "Есть серьёзные повреждения", repaired: "Был в ремонте",
-  abs: "ABS", esp: "ESP", airbags: "Подушки безопасности", air_conditioning: "Кондиционер", climate_control: "Климат-контроль", heated_seats: "Подогрев сидений", cruise_control: "Круиз-контроль", parking_sensors: "Парктроники", rear_camera: "Камера заднего вида", leather_seats: "Кожаный салон", carplay: "Apple CarPlay", android_auto: "Android Auto"
+  ...equipmentLabels
 };
+
+function PriceConversions({ price }: { price: Listing["price"] }) {
+  const [rates, setRates] = useState<components["schemas"]["CustomsRatesResponse"] | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+
+  useEffect(() => {
+    if (!price) return;
+    const controller = new AbortController();
+    setRates(null);
+    setUnavailable(false);
+    fetch("/api/v1/customs-calculator/rates", { cache: "no-store", signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("Rates unavailable");
+        return response.json() as Promise<components["schemas"]["CustomsRatesResponse"]>;
+      })
+      .then(setRates)
+      .catch(() => { if (!controller.signal.aborted) setUnavailable(true); });
+    return () => controller.abort();
+  }, [price?.amount, price?.currency]);
+
+  if (!price) return null;
+  if (unavailable) return <p className="detail-conversion-note">Курс валют временно недоступен</p>;
+  if (!rates) return null;
+
+  const amount = Number(price.amount);
+  const usdRate = Number(rates.rates.find((rate) => rate.currency === "USD")?.byn_per_unit);
+  const eurRate = Number(rates.rates.find((rate) => rate.currency === "EUR")?.byn_per_unit);
+  if (![amount, usdRate, eurRate].every((value) => Number.isFinite(value) && value > 0)) {
+    return <p className="detail-conversion-note">Курс валют временно недоступен</p>;
+  }
+  const byn = price.currency === "USD" ? amount * usdRate : amount;
+  const format = (value: number) => new Intl.NumberFormat("ru-BY", { maximumFractionDigits: 0 }).format(value);
+
+  return <div className="detail-conversions" role="group" aria-label="Цена в других валютах">
+    <div className="detail-conversion-values"><span>≈ {format(byn / usdRate)} USD</span><span>≈ {format(byn / eurRate)} EUR</span></div>
+    <p className="detail-conversion-note">По курсу НБРБ на {formatDate(rates.rate_date)}</p>
+  </div>;
+}
 
 export function ListingDetail({ listing, initialSaved = false, relatedListings = [], sellerListings = [] }: { listing: Listing; initialSaved?: boolean; relatedListings?: import("@/lib/types").ListingSummary[]; sellerListings?: PublicSellerListing[] }) {
   const router = useRouter();
   const { user } = useAuth();
   const { consent } = useContactClickConsent();
   const [phone, setPhone] = useState("");
+  const [contactsRevealed, setContactsRevealed] = useState(false);
   const [messengers, setMessengers] = useState<ListingMessengerChannel[]>([]);
   const [phoneError, setPhoneError] = useState("");
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [guestContactRevealEnabled, setGuestContactRevealEnabled] = useState(false);
   const [canManageActiveListing, setCanManageActiveListing] = useState(false);
-  const actualPhotos = listing.photo_urls.filter(Boolean).slice(0, MAX_GALLERY_PHOTOS);
+  const actualPhotos = listing.photo_urls.filter(Boolean);
   const photos = actualPhotos.length ? actualPhotos : [listing.cover_url || fallbackPhoto];
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
+  const thumbnailsRef = useRef<HTMLDivElement>(null);
   const safeSelectedPhotoIndex = Math.min(selectedPhotoIndex, photos.length - 1);
   const selectedPhoto = photos[safeSelectedPhotoIndex];
   const hasSyntheticPhoto = !actualPhotos.length && !listing.cover_url;
   const href = listingHref(listing);
   const conversationStartPath = `/account/messages/new?listing_id=${encodeURIComponent(listing.id)}`;
+  const exchangeStartPath = `${conversationStartPath}&intent=exchange`;
+  const exchangeStartHref = user ? exchangeStartPath : `/login?next=${encodeURIComponent(exchangeStartPath)}`;
   const conversationStartHref = user ? conversationStartPath : `/login?next=${encodeURIComponent(conversationStartPath)}`;
   const location = `${listing.manual_city || listing.city?.name || "Населённый пункт не указан"}, ${listing.region?.name || "Область не указана"}`;
   const powerHp = listing.power_hp ?? listing.modification?.specs?.power_hp;
@@ -79,7 +124,15 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   if (listing.body_condition) facts.push(["Состояние кузова", optionLabels[listing.body_condition] || listing.body_condition]);
   if (listing.district) facts.push(["Район", listing.district]);
   if (listing.call_hours) facts.push(["Время звонков", listing.call_hours]);
-  if (listing.equipment?.length) facts.push(["Комплектация", listing.equipment.map((value) => optionLabels[value] || value).join(", ")]);
+  if (listing.equipment?.length) {
+    // Onlíner imports retain option IDs but not their values, so those IDs
+    // cannot reliably establish which equipment the car actually has.
+    const labels = listing.equipment.flatMap((value) => Object.hasOwn(equipmentLabels, value) ? [equipmentLabels[value]] : []);
+    const equipment = /^onliner-\d+$/.test(listing.slug) || !labels.length
+      ? "Уточняйте комплектацию у продавца"
+      : [...new Set(labels)].join(", ") + (labels.length < listing.equipment.length ? ". Остальную комплектацию уточняйте у продавца" : "");
+    facts.push(["Комплектация", equipment]);
+  }
   const sellerClaims = [
     ...(listing.exchange ? [{ label: "Обмен", value: "Рассматривается" }] : []),
     ...(listing.bargaining ? [{ label: "Торг", value: "Возможен" }] : []),
@@ -121,6 +174,16 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
     setSelectedPhotoIndex((current) => Math.min(current, photos.length - 1));
   }, [photos.length]);
 
+  useEffect(() => {
+    const strip = thumbnailsRef.current;
+    const selected = strip?.querySelector<HTMLElement>(".is-selected");
+    if (!strip || !selected || showAllPhotos) return;
+    if (selected.offsetLeft < strip.scrollLeft) strip.scrollLeft = selected.offsetLeft;
+    else if (selected.offsetLeft + selected.offsetWidth > strip.scrollLeft + strip.clientWidth) {
+      strip.scrollLeft = selected.offsetLeft + selected.offsetWidth - strip.clientWidth;
+    }
+  }, [safeSelectedPhotoIndex, showAllPhotos]);
+
   function selectPhoto(index: number) {
     setSelectedPhotoIndex(Math.max(0, Math.min(index, photos.length - 1)));
   }
@@ -145,8 +208,10 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
       const result = await api.revealPhone(listing.id, !user);
       setPhone(result.phone);
       setMessengers(result.messengers ?? []);
+      setContactsRevealed(true);
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 401) router.push(`/login?next=${encodeURIComponent(href)}`);
+      else if (error instanceof ApiClientError && error.status === 429) setPhoneError("Слишком много запросов на показ телефона. Попробуйте позже или напишите продавцу.");
       else setPhoneError(error instanceof Error ? error.message : "Не удалось показать контакт");
     } finally {
       setPhoneBusy(false);
@@ -167,15 +232,23 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
         <div className="detail-main-column">
           <div className="detail-gallery" role="region" aria-label={`Фотографии автомобиля «${listing.title}»`} tabIndex={0} onKeyDown={handleGalleryKeyDown}>
             <div className="detail-photo-wrap">
-              <Image id="detail-main-image" className="detail-main-image" src={selectedPhoto} alt={hasSyntheticPhoto ? `Синтетическое изображение для объявления «${listing.title}»` : `Фотография ${safeSelectedPhotoIndex + 1} из ${photos.length}: ${listing.title}`} width={1448} height={1086} sizes="(max-width: 800px) calc(100vw - 28px), min(792px, 62vw)" priority />
+              <Image id="detail-main-image" className="detail-main-image" src={selectedPhoto} alt={hasSyntheticPhoto ? `Синтетическое изображение для объявления «${listing.title}»` : listingPhotoAlt(listing.title, safeSelectedPhotoIndex + 1)} width={1448} height={1086} sizes="(max-width: 800px) calc(100vw - 28px), min(792px, 62vw)" priority />
               {hasSyntheticPhoto && <span className="synthetic-label detail-synthetic-label">Синтетическое фото</span>}
               {!hasSyntheticPhoto && <ListingPhotoBadges badges={listing.photo_badges} />}
+              {photos.length > 1 && <>
+                <button className="detail-photo-arrow detail-photo-arrow-prev" type="button" aria-label="Предыдущее фото" aria-controls="detail-main-image" onClick={() => selectPhoto((safeSelectedPhotoIndex - 1 + photos.length) % photos.length)}><ChevronLeft aria-hidden="true" /></button>
+                <button className="detail-photo-arrow detail-photo-arrow-next" type="button" aria-label="Следующее фото" aria-controls="detail-main-image" onClick={() => selectPhoto((safeSelectedPhotoIndex + 1) % photos.length)}><ChevronRight aria-hidden="true" /></button>
+              </>}
             </div>
-            {photos.length > 1 && <div className="detail-thumbnails" role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt={`Фото ${index + 1} автомобиля: ${listing.title}`} width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" /></button>)}</div>}
+            {photos.length > 1 && <>
+              <div ref={thumbnailsRef} id="detail-photo-list" className={`detail-thumbnails${showAllPhotos ? " detail-thumbnails-expanded" : ""}`} role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt={listingPhotoAlt(listing.title, index + 1)} width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" /></button>)}</div>
+              <button className="detail-photos-toggle" type="button" aria-expanded={showAllPhotos} aria-controls="detail-photo-list" onClick={() => setShowAllPhotos((current) => !current)}>{showAllPhotos ? "Свернуть фотографии" : `Показать все фото (${photos.length})`}</button>
+            </>}
           </div>
           <section className="detail-summary section">
             <h1 className="detail-title">{listing.title}</h1>
-            <p className="muted location-line"><MapPin size={15} aria-hidden="true" /> {location} · добавлено {formatDate(listing.created_at)}</p>
+            {listing.in_transit && <p className="status-pill">Авто в пути · указано продавцом</p>}
+            <p className="muted location-line"><MapPin size={15} aria-hidden="true" /> {location} · добавлено {formatDate(listing.created_at)} {listing.view_count != null && <span className="listing-views" role="img" aria-label={`Просмотры: ${listing.view_count}`}><Eye size={15} aria-hidden="true" /> {listing.view_count.toLocaleString("ru-BY")}</span>}</p>
             <h2>Характеристики</h2>
             <div className="detail-facts">{facts.map(([name, value]) => <div className="detail-fact" key={name}><span>{name}</span><strong>{value}</strong></div>)}</div>
             {listing.damaged && <p className="notice">Продавец указал повреждения.</p>}
@@ -189,13 +262,16 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
         </div>
         <aside className="detail-panel" aria-label="Цена и продавец">
           {listing.status === "sold" && <p className="status-pill">Продано</p>}
-          <p className="detail-price">{formatMoney(listing.price)}</p>
-          {listing.price?.market_comparison && <p className="detail-market-line"><MarketBadge comparison={listing.price.market_comparison} /></p>}
+          <div className="detail-price-row">
+            <p className="detail-price">{formatMoney(listing.price)}</p>
+            <PriceConversions price={listing.price} />
+          </div>
           {listing.price?.currency === "USD" && listing.price.display_byn && listing.price.rate_date && <p className="muted">В BYN по курсу на {formatDate(listing.price.rate_date)}</p>}
           <Link className="button button-secondary ownership-calculator-link" href={`/ownership-calculator?listing=${encodeURIComponent(listing.id)}`}>Рассчитать стоимость владения</Link>
           {listing.status === "active" ? <>
-            <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} messengers={messengers} onContactClick={recordContactClick} />
-            {user?.id !== listing.seller.id && <Link className="button button-secondary contact-chat" href={conversationStartHref} onClick={() => recordContactClick("internal_chat")}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
+            {(listing.has_phone !== false || listing.has_external_contacts === true) ? <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} revealed={contactsRevealed} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} messengers={messengers} onContactClick={recordContactClick} /> : <p className="muted">Продавец предпочитает общаться в переписке.</p>}
+            {user?.id !== listing.seller.id && <Link className={`button ${listing.has_phone === false && !listing.has_external_contacts ? "button-primary" : "button-secondary"} contact-chat`} href={conversationStartHref} onClick={() => recordContactClick("internal_chat")}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
+            {listing.exchange && user?.id !== listing.seller.id && <Link className="button button-secondary exchange-offer" href={exchangeStartHref}>Предложить обмен</Link>}
           </> : <ListingContactActions active={false} guestContactRevealEnabled={false} phone="" busy={false} error="" onReveal={() => undefined} />}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
           {canManageActiveListing && <Link className="button button-secondary contact-chat" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}
@@ -212,7 +288,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             <p className="muted">{location}</p>
           </div>
           <ReportForm listingId={listing.id} href={href} />
-          {listing.status === "active" && <p className="privacy-note"><ShieldCheck size={15} /> Телефон открывается по запросу и не показывается в публичной выдаче.</p>}
+          {listing.status === "active" && <p className="privacy-note"><ShieldCheck size={15} /> {listing.has_phone === false && !listing.has_external_contacts ? "Продавец может поделиться контактом в переписке." : "Контакты открываются по запросу и не показываются в публичной выдаче."}</p>}
         </aside>
       </div>
       {visibleRelatedListings.length > 0 && <section className="related-listings section" aria-labelledby="related-listings-heading"><div className="section-heading"><h2 id="related-listings-heading">Похожие объявления</h2></div><div className="listing-stack">{visibleRelatedListings.map((item) => <ListingCard key={item.id} listing={item} variant="row" />)}</div></section>}

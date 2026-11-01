@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ requireSession: vi.fn(), billingTariffs: vi.fn(), billingOrders: vi.fn(), billingCapabilities: vi.fn(), company: vi.fn() }));
+const mocks = vi.hoisted(() => ({ requireSession: vi.fn(), billingTariffs: vi.fn(), billingOrders: vi.fn() }));
 vi.mock("@/lib/server", () => ({ requireSession: mocks.requireSession }));
-vi.mock("@/lib/server-api", () => ({ serverApi: { billingTariffs: mocks.billingTariffs, billingOrders: mocks.billingOrders, billingCapabilities: mocks.billingCapabilities, company: mocks.company } }));
+vi.mock("@/lib/server-api", () => ({ serverApi: { billingTariffs: mocks.billingTariffs, billingOrders: mocks.billingOrders } }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a> }));
 
 import BillingPage from "./page";
@@ -15,8 +15,6 @@ describe("billing page", () => {
     mocks.requireSession.mockResolvedValue({ user: { id: "user-1" } });
     mocks.billingTariffs.mockResolvedValue([{ id: "tariff-1", code: "highlight-7", service_code: "highlight", name: "Выделение на неделю", amount: "12.50", currency: "BYN", duration_days: 7, listing_quota: null, revision: 2 }]);
     mocks.billingOrders.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 25 });
-    mocks.billingCapabilities.mockResolvedValue({ orders_enabled: false, provider: null });
-    mocks.company.mockResolvedValue({ company: null });
     const html = renderToStaticMarkup(await BillingPage({ searchParams: Promise.resolve({ listing_id: "11111111-1111-4111-8111-111111111111" }) }));
 
     expect(html).toContain("Выделение на неделю");
@@ -30,8 +28,6 @@ describe("billing page", () => {
     mocks.requireSession.mockResolvedValue({ user: { id: "user-1" } });
     mocks.billingTariffs.mockResolvedValue([{ id: "urgent-1", code: "urgent-1-day", service_code: "urgent", name: "Срочно на день", amount: "2.00", currency: "BYN", duration_days: 1, listing_quota: null, revision: 1 }]);
     mocks.billingOrders.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 25 });
-    mocks.billingCapabilities.mockResolvedValue({ orders_enabled: false, provider: null });
-    mocks.company.mockResolvedValue({ company: null });
 
     const html = renderToStaticMarkup(await BillingPage({ searchParams: Promise.resolve({}) }));
 
@@ -44,8 +40,6 @@ describe("billing page", () => {
     mocks.requireSession.mockResolvedValue({ user: { id: "user-1" } });
     mocks.billingTariffs.mockRejectedValue(new Error("offline"));
     mocks.billingOrders.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 25 });
-    mocks.billingCapabilities.mockResolvedValue({ orders_enabled: false, provider: null });
-    mocks.company.mockResolvedValue({ company: null });
     const html = renderToStaticMarkup(await BillingPage({ searchParams: Promise.resolve({}) }));
 
     expect(html).toContain("Не удалось загрузить тарифы");

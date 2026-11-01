@@ -4,10 +4,9 @@ import { DEFAULT_LOCALE } from "@/lib/i18n";
 import { SITE_NAME, SITE_ORIGIN, siteUrl } from "@/lib/site-config";
 import type { CompanySummary, Listing, ListingSummary } from "@/lib/types";
 import type { EditorialArticle } from "@/lib/editorial-articles";
+import { isCatalogLandingItem, MIN_CATEGORY_LISTINGS, MIN_CITY_LISTINGS } from "@/lib/catalog-indexing";
 
 const MAX_SITEMAP_URLS = 50_000;
-const MIN_LISTINGS_FOR_MAKE_OR_MODEL_PAGE = 3;
-const MIN_LISTINGS_FOR_CITY_PAGE = 10;
 
 const DEFAULT_OG_IMAGE = { url: "/og-default.jpg", width: 1200, height: 630, alt: SITE_NAME };
 
@@ -19,6 +18,10 @@ export const STATIC_SITEMAP_PATHS = [
   "/agricultural-equipment",
   "/watercraft",
   "/tires-and-wheels",
+  "/buses",
+  "/trucks",
+  "/trailers",
+  "/parts",
   "/useful-information",
   "/customs-calculator",
   "/currency-converter",
@@ -261,7 +264,7 @@ export function buildDealerJsonLd(dealer: CompanySummary) {
 }
 
 export function buildSitemapEntries(listings: SitemapListing[], dealers: CompanySummary[]): MetadataRoute.Sitemap {
-  const urls = new Set<string>([siteUrl("/"), siteUrl("/cars"), siteUrl("/dealers"), ...STATIC_SITEMAP_PATHS.map((path) => siteUrl(path))]);
+  const urls = new Set<string>([SITE_ORIGIN, siteUrl("/cars"), siteUrl("/dealers"), ...STATIC_SITEMAP_PATHS.map((path) => siteUrl(path))]);
   const listingCompanyIds = new Set<string>();
   const makeListings = new Map<string, ListingAggregate>();
   const modelListings = new Map<string, ListingAggregate>();
@@ -274,38 +277,39 @@ export function buildSitemapEntries(listings: SitemapListing[], dealers: Company
     if (listing.status && listing.status !== "active") continue;
     if (listing.seller.type === "company") listingCompanyIds.add(listing.seller.id);
 
-    if (listing.make?.slug) {
+    if (isCatalogLandingItem(listing.make) && listing.make) {
       addListingToAggregate(makeListings, `/cars/${encodeURIComponent(listing.make.slug)}`, listing);
     }
-    if (listing.make?.slug && listing.model?.slug) {
+    if (isCatalogLandingItem(listing.make) && isCatalogLandingItem(listing.model) && listing.make && listing.model) {
       addListingToAggregate(
         modelListings,
         `/cars/${encodeURIComponent(listing.make.slug)}/${encodeURIComponent(listing.model.slug)}`,
         listing,
       );
     }
-    if (listing.city?.slug) {
+    if (isCatalogLandingItem(listing.city) && listing.city) {
       addListingToAggregate(cityListings, `/cars/city/${encodeURIComponent(listing.city.slug)}`, listing);
     }
     const listingUrl = siteUrl(listingHref(listing));
     urls.add(listingUrl);
     addLastModified(lastModifiedByUrl, listingUrl, listing.updated_at);
+    addLastModified(lastModifiedByUrl, siteUrl("/cars"), listing.updated_at);
   }
 
   for (const [path, aggregate] of makeListings) {
-    if (aggregate.listingIds.size < MIN_LISTINGS_FOR_MAKE_OR_MODEL_PAGE) continue;
+    if (aggregate.listingIds.size < MIN_CATEGORY_LISTINGS) continue;
     const url = siteUrl(path);
     urls.add(url);
     if (aggregate.lastModified) lastModifiedByUrl.set(url, aggregate.lastModified);
   }
   for (const [path, aggregate] of modelListings) {
-    if (aggregate.listingIds.size < MIN_LISTINGS_FOR_MAKE_OR_MODEL_PAGE) continue;
+    if (aggregate.listingIds.size < MIN_CATEGORY_LISTINGS) continue;
     const url = siteUrl(path);
     urls.add(url);
     if (aggregate.lastModified) lastModifiedByUrl.set(url, aggregate.lastModified);
   }
   for (const [path, aggregate] of cityListings) {
-    if (aggregate.listingIds.size < MIN_LISTINGS_FOR_CITY_PAGE) continue;
+    if (aggregate.listingIds.size < MIN_CITY_LISTINGS) continue;
     const url = siteUrl(path);
     urls.add(url);
     if (aggregate.lastModified) lastModifiedByUrl.set(url, aggregate.lastModified);
@@ -319,6 +323,7 @@ export function buildSitemapEntries(listings: SitemapListing[], dealers: Company
 
   return [...urls].slice(0, MAX_SITEMAP_URLS).map((url) => {
     const lastModified = lastModifiedByUrl.get(url);
-    return lastModified ? { url, lastModified } : { url };
+    const changeFrequency = new URL(url).pathname.startsWith("/cars") ? "daily" as const : undefined;
+    return { url, ...(lastModified ? { lastModified } : {}), ...(changeFrequency ? { changeFrequency } : {}) };
   });
 }

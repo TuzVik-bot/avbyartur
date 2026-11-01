@@ -228,6 +228,7 @@ export function ConversationThreadView({ conversationId }: { conversationId: str
           </div>
 
           {!blocked ? <form className="conversation-compose" onSubmit={sendMessage}>
+            {conversation.seller_id === user?.id && <p className="muted">Если захотите продолжить общение вне сайта, вы можете отправить покупателю свой контакт в сообщении.</p>}
             <label className="field"><span>Сообщение</span><textarea name="message" value={draft} onChange={(event) => {
               const next = event.target.value;
               if (sendKey.current && next.trim() !== sendKey.current.body) sendKey.current = null;

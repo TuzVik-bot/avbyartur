@@ -157,10 +157,9 @@ export function buildListingQuality(input: ListingQualityInput): ListingQuality 
   required.push({
     id: "contact",
     kind: "required",
-    label: "Телефон для связи",
-    status: present(input.values.contact_phone) ? "complete" : "missing",
-    detail: present(input.values.contact_phone) ? "Указан." : "Не указан.",
-    target: input.values.contact_phone ? undefined : input.targets.contact_phone
+    label: "Способ связи",
+    status: "complete",
+    detail: present(input.values.contact_phone) ? "Телефон и переписка." : "Только переписка."
   });
   required.push({
     id: "photos",

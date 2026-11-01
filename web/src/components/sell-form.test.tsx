@@ -133,6 +133,7 @@ const blankOptionalFields = {
   call_hours: "",
   damaged: false,
   parts_only: false,
+  in_transit: false,
   vin: "",
   description: "",
   price_amount: "100",
@@ -656,9 +657,7 @@ describe("manual vehicle entry", () => {
     await act(async () => { resolveMakeB({ items: [modelB] }); await Promise.resolve(); });
     await act(async () => { resolveMakeA({ items: [modelA] }); await Promise.resolve(); });
 
-    const modelSelect = [...container.querySelectorAll("label")]
-      .find((item) => item.querySelector("span")?.textContent?.trim() === "Модель")
-      ?.querySelector<HTMLSelectElement>("select");
+    const modelSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Модель"]');
     expect(modelSelect?.querySelector('option[value="model-b"]')).not.toBeNull();
     expect(modelSelect?.querySelector('option[value="model-a"]')).toBeNull();
   });
@@ -1264,5 +1263,34 @@ describe("manual city entry", () => {
 
     const payload = updateDraft.mock.calls.at(-1)?.[2];
     expect(payload).toMatchObject({ region_id: "region-1", city_id: null, manual_city: "Новый Заславль" });
+  });
+});
+
+describe("message-only and searchable listings", () => {
+  it("clears a previously entered phone when the seller chooses message-only contact", () => {
+    expect(payloadFor({ ...blankOptionalFields, contact_phone: "   " })).toHaveProperty("contact_phone", null);
+  });
+
+  it("allows the contact step to continue without a phone", async () => {
+    await renderWithValidationPolicy(draft({ contact_phone: "" }));
+    await clickContinue();
+    await clickContinue();
+    await clickContinue();
+    expect(container.querySelector("h2")?.textContent).toBe("Цена, расположение и контакт");
+    expect(container.querySelector<HTMLInputElement>('#contact_phone')?.required).toBe(false);
+    await clickContinue();
+    expect(container.querySelector("h2")?.textContent).toBe("Фотографии");
+  });
+
+  it("keeps the make list and narrows it as the seller types", async () => {
+    await renderWithValidationPolicy(draft());
+    await clickContinue();
+    expect(container.querySelector('select[aria-label="Марка"]')).not.toBeNull();
+    await act(async () => { inputValue("Поиск марки", "unknown-make"); });
+    const search = container.querySelector<HTMLInputElement>('input[aria-label="Поиск марки"]');
+    expect(search?.value).toBe("unknown-make");
+    expect(container.querySelector('select[aria-label="Марка"]')?.getAttribute("size")).toBe("5");
+    await act(async () => { inputValue("Поиск марки", ""); });
+    expect(container.querySelector('select[aria-label="Марка"]')?.getAttribute("size")).toBeNull();
   });
 });

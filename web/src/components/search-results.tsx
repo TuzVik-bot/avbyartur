@@ -8,9 +8,9 @@ import { activeSearchKeys, clearSearchFilters, searchRelaxationOptions, searchUr
 import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch, ListingSummary, ListResponse } from "@/lib/types";
 
 const readableFilter: Record<string, string> = {
-  q: "Поиск", make_id: "Марка", model_id: "Модель", generation_id: "Поколение", body_variant_id: "Вариант кузова", modification_id: "Модификация", price_min: "Цена от", price_max: "Цена до",
+  q: "Поиск", make_id: "Марка", model_id: "Модель", make_ids: "Марка", model_ids: "Модель", generation_id: "Поколение", body_variant_id: "Вариант кузова", modification_id: "Модификация", price_min: "Цена от", price_max: "Цена до",
   year_min: "Год от", year_max: "Год до", mileage_min: "Пробег от", mileage_max: "Пробег до", fuel: "Топливо", transmission: "Коробка",
-  drive: "Привод", body_type: "Кузов", damaged: "Повреждения", parts_only: "На запчасти", condition: "Состояние", region_id: "Область",
+  in_transit: "Авто в пути", drive: "Привод", body_type: "Кузов", damaged: "Повреждения", parts_only: "На запчасти", condition: "Состояние", region_id: "Область",
   city_id: "Город", seller_type: "Продавец", color: "Цвет", customs_status: "Таможня", technical_condition: "Техническое состояние", body_condition: "Состояние кузова",
   exchange: "Обмен", bargaining: "Торг", credit: "Кредит", leasing: "Лизинг", equipment: "Комплектация", district: "Район", call_hours: "Время звонков",
   has_vin: "VIN", has_photos: "Фотографии", engine_volume_min: "Объём двигателя от", engine_volume_max: "Объём двигателя до", power_min: "Мощность от", power_max: "Мощность до"
@@ -29,6 +29,7 @@ function filterValue(key: string, value: string, catalog: CatalogItem[]) {
   if (key === "generation_id") return "Поколение выбрано";
   if (key === "body_variant_id") return "Вариант кузова выбран";
   if (key === "modification_id") return "Комплектация выбрана";
+  if (key === "in_transit") return value === "true" ? "Да" : "Нет";
   if (key === "damaged") return "Есть повреждения";
   if (key === "parts_only") return "На запчасти";
   if (key === "seller_type") return value === "company" ? "Компания" : "Частное лицо";
@@ -77,11 +78,23 @@ export function SearchResults({ search, data, title, makes, models, generations,
         <section aria-label="Результаты поиска">
           {activeSearchKeys.filter((key) => search[key]).length > 0 && (
             <div className="active-filters" aria-label="Выбранные фильтры">
-              {activeSearchKeys.filter((key) => search[key]).map((key) => (
-                <Link className="filter-chip" key={key} href={searchUrl(search, { [key]: undefined })}>
-                  {readableFilter[key]}: {filterValue(key, Array.isArray(search[key]) ? search[key].join(",") : String(search[key]), catalog)} <X size={13} aria-hidden="true" />
-                </Link>
-              ))}
+              {activeSearchKeys.filter((key) => search[key]).flatMap((key) => {
+                if (key === "make_ids" || key === "model_ids") {
+                  const ids = String(search[key]).split(",").filter(Boolean);
+                  return ids.map((id) => {
+                    const remaining = ids.filter((item) => item !== id).join(",") || undefined;
+                    const patch: Partial<ListingSearch> = { [key]: remaining };
+                    if (key === "make_ids") {
+                      const selected = (search.model_ids || search.model_id || "").split(",").filter(Boolean);
+                      patch.model_ids = remaining ? selected.filter((modelId) => !models.some((model) => model.id === modelId && model.make_id === id)).join(",") || undefined : undefined;
+                    }
+                    return <Link className="filter-chip" key={`${key}-${id}`} href={searchUrl(search, patch)}>{readableFilter[key]}: {filterValue(key, id, catalog)} <X size={13} aria-hidden="true" /></Link>;
+                  });
+                }
+                return [<Link className="filter-chip" key={key} href={searchUrl(search, { [key]: undefined })}>
+                  {readableFilter[key]}: {filterValue(key, Array.isArray(search[key]) ? search[key].join(",") : String(search[key]), catalog)}{(key === "price_min" || key === "price_max") && ` ${search.currency || "BYN"}`} <X size={13} aria-hidden="true" />
+                </Link>];
+              })}
               <Link className="filter-chip" href={clearSearchFilters(search)}>Сбросить все</Link>
             </div>
           )}

@@ -6,6 +6,7 @@ from fastapi import APIRouter
 from app.customs_calculator import (
     CustomsRulesUnavailable,
     calculate_customs,
+    determine_age_band,
     get_rules_for_date,
     is_publicly_available,
 )
@@ -13,6 +14,8 @@ from app.customs_rates import NBRB_API_URL, RatesUnavailable, SUPPORTED_CURRENCI
 from app.customs_schemas import (
     CustomsCalculationRequest,
     CustomsCalculationResponse,
+    CustomsYearCalculationRequest,
+    CustomsYearCalculationResponse,
     CustomsMetaResponse,
     CustomsRateHistoryPoint,
     CustomsRateHistoryResponse,
@@ -181,3 +184,50 @@ def calculate_customs_public(payload: CustomsCalculationRequest) -> CustomsCalcu
         fail(503, "customs_rules_unavailable", "Customs rules are not available for today")
     except ValueError as exc:
         fail(422, "customs_input_invalid", str(exc), {"request": str(exc)})
+
+
+@router.post(
+    "/calculate-year",
+    response_model=CustomsYearCalculationResponse,
+    responses={
+        422: {"model": ApiErrorOut, "description": "Input or scenario validation error"},
+        503: {"model": ApiErrorOut, "description": "Customs rules or official rates are unavailable"},
+    },
+)
+def calculate_customs_by_year(payload: CustomsYearCalculationRequest) -> CustomsYearCalculationResponse:
+    calculation_date = minsk_today()
+    if payload.manufacture_year > calculation_date.year:
+        fail(422, "customs_input_invalid", "Manufacture year cannot be in the future", {"manufacture_year": "Manufacture year cannot be in the future"})
+    try:
+        rules = get_rules_for_date(calculation_date)
+    except CustomsRulesUnavailable:
+        fail(503, "customs_rules_unavailable", "Customs rules are not available for today")
+    if not is_publicly_available(rules):
+        fail(503, "customs_rules_unverified", "Customs calculations are temporarily unavailable")
+    try:
+        rates = get_nbrb_rates(calculation_date)
+    except RatesUnavailable:
+        fail(503, "customs_rates_unavailable", "Official exchange rates are unavailable for today")
+
+    current = date(payload.manufacture_year, 1, 1)
+    last = min(date(payload.manufacture_year, 12, 31), calculation_date)
+    representatives = {}
+    while True:
+        representatives.setdefault(determine_age_band(current, calculation_date), current)
+        if current == last:
+            break
+        current += timedelta(days=1)
+    common = payload.model_dump(exclude={"manufacture_year"})
+    try:
+        scenarios = [
+            calculate_customs(
+                CustomsCalculationRequest(**common, manufacture_date=representative),
+                calculation_date=calculation_date, rates=rates, rules=rules,
+            )
+            for representative in representatives.values()
+        ]
+    except CustomsRulesUnavailable:
+        fail(503, "customs_rules_unavailable", "Customs rules are not available for today")
+    except ValueError as exc:
+        fail(422, "customs_input_invalid", str(exc), {"request": str(exc)})
+    return CustomsYearCalculationResponse(manufacture_year=payload.manufacture_year, scenarios=scenarios)

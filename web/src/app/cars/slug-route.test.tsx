@@ -60,7 +60,7 @@ describe("listing route API failures", () => {
     const metadata = await generateMetadata({ params: Promise.resolve(publicParams) });
     const html = renderToStaticMarkup(await CarsBySlugPage({ params: Promise.resolve(publicParams) }));
 
-    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars/bmw/3-series/listing-1");
+    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars/bmw/3-series/listing-1");
     expect(html).toContain('type="application/ld+json"');
     expect(html).toContain('"@type":"Car"');
     expect(html).not.toContain("+375291234567");
@@ -143,8 +143,8 @@ describe("catalog route resolution", () => {
     const page = await CarsBySlugPage({ params: Promise.resolve({ slug: ["toyota", "corolla"] }) });
     const route = (page as ReactElement<{ children: ReactElement<{ search: object; title: string }> }>).props.children;
 
-    expect(mocks.catalog).toHaveBeenNthCalledWith(1, "makes", { q: "toyota" });
-    expect(mocks.catalog).toHaveBeenNthCalledWith(2, "models", { make_id: "make-1" });
+    expect(mocks.catalog).toHaveBeenNthCalledWith(1, "makes", { q: "toyota", category_code: "cars" });
+    expect(mocks.catalog).toHaveBeenNthCalledWith(2, "models", { make_id: "make-1", category_code: "cars" });
     expect(route.props).toMatchObject({ search: { make_id: "make-1", model_id: "model-1", page_size: "25" }, title: "Toyota Corolla" });
   });
 
@@ -173,8 +173,23 @@ describe("category metadata thresholds", () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ slug: ["toyota"] }) });
 
     expect(metadata.robots).toBeUndefined();
-    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars/toyota");
+    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars/toyota");
     expect(mocks.listings).toHaveBeenCalledWith({ make_id: make.id, page_size: "1" });
+  });
+
+  it("noindexes unnamed catalog entries even when they have enough offers", async () => {
+    mocks.catalog.mockResolvedValueOnce({ items: [{ ...make, name: " " }] });
+    mocks.listings.mockResolvedValueOnce(count(3));
+    const metadata = await generateMetadata({ params: Promise.resolve({ slug: ["toyota"] }) });
+    expect(metadata.robots).toEqual(closedRobots);
+  });
+
+  it("keeps real Cyrillic catalog brands indexable", async () => {
+    const gaz = { ...make, slug: "cur-unicode-9ce7a3a923", name: "ГАЗ" };
+    mocks.catalog.mockResolvedValueOnce({ items: [gaz] });
+    mocks.listings.mockResolvedValueOnce(count(3));
+    const metadata = await generateMetadata({ params: Promise.resolve({ slug: [gaz.slug] }) });
+    expect(metadata.robots).toBeUndefined();
   });
 
   it("noindexes a make below three offers", async () => {
@@ -203,7 +218,7 @@ describe("category metadata thresholds", () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ slug: ["toyota", "corolla"] }) });
 
     expect(metadata.robots).toBeUndefined();
-    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars/toyota/corolla");
+    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars/toyota/corolla");
   });
 
   it("fails closed when a category count is missing or the API is unavailable", async () => {

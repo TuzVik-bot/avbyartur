@@ -18,11 +18,14 @@ export function SearchSort({ search, priceOperationsAvailable = true }: { search
         defaultValue={search.sort || "newest"}
         onChange={(event) => event.currentTarget.form?.requestSubmit()}
       >
-        <option value="newest">Сначала новые</option>
-        <option value="price_asc" disabled={!priceOperationsAvailable}>Сначала дешевле</option>
-        <option value="price_desc" disabled={!priceOperationsAvailable}>Сначала дороже</option>
-        <option value="year_desc">Сначала новее по году</option>
-        <option value="mileage_asc">Сначала с меньшим пробегом</option>
+        <option value="newest">Актуальные</option>
+        <option value="price_asc" disabled={!priceOperationsAvailable}>Дешёвые</option>
+        <option value="price_desc" disabled={!priceOperationsAvailable}>Дорогие</option>
+        <option value="published_desc">Новые объявления</option>
+        <option value="oldest">Старые объявления</option>
+        <option value="mileage_asc">С наименьшим пробегом</option>
+        <option value="year_desc">Новые по году</option>
+        <option value="year_asc">Старые по году</option>
       </select>
       {!priceOperationsAvailable && (
         <p className="muted" id="search-sort-price-status" role="status">

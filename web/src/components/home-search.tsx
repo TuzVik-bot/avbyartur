@@ -14,7 +14,7 @@ type HomeSearchProps = {
 };
 
 const fields: (keyof ListingSearch)[] = [
-  "q", "make_id", "model_id", "price_min", "price_max", "year_min", "year_max",
+  "category_code", "q", "make_id", "model_id", "price_min", "price_max", "year_min", "year_max",
   "mileage_min", "mileage_max", "transmission", "fuel", "body_type", "region_id"
 ];
 
@@ -54,30 +54,22 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "", priceOpe
     if (!form) return;
     let active = true;
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    const initialRequestId = ++requestId.current;
-    setCountLoading(true);
-    void api.listingCount({})
-      .then((response) => {
-        if (active && requestId.current === initialRequestId) setCount(response.total);
-      })
-      .catch(() => {
-        if (active && requestId.current === initialRequestId) setCount(null);
-      })
-      .finally(() => {
-        if (active && requestId.current === initialRequestId) setCountLoading(false);
-      });
     const updateCount = () => {
       if (timeout) clearTimeout(timeout);
+      const search = searchFromForm(form);
       const currentId = ++requestId.current;
-      const currentSearch = searchFromForm(form);
-      setHasPrice(Boolean(currentSearch.price_min || currentSearch.price_max));
+      setHasPrice(Boolean(search.price_min || search.price_max));
       setCount(null);
       setCountLoading(false);
+      if (!Object.keys(search).length) {
+        setCount(null);
+        setCountLoading(false);
+        return;
+      }
       timeout = setTimeout(async () => {
         setCountLoading(true);
         try {
-          // Read after React has applied dependent-field resets from this event.
-          const response = await api.listingCount(searchFromForm(form));
+          const response = await api.listingCount(search);
           if (active && requestId.current === currentId) setCount(response.total);
         } catch {
           if (active && requestId.current === currentId) setCount(null);
@@ -106,7 +98,7 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "", priceOpe
     }
     setModelsLoading(true);
     try {
-      const response = await api.catalog("models", { make_id: makeId });
+      const response = await api.catalog("models", { make_id: makeId, category_code: "cars" });
       if (currentRequest === modelRequestId.current) setModels(response.items);
     } catch {
       if (currentRequest === modelRequestId.current) {
@@ -120,6 +112,7 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "", priceOpe
 
   return (
     <form ref={formRef} className={`search-strip home-search ${className}`} action="/cars" method="get" role="search">
+      <input type="hidden" name="category_code" value="cars" />
       <label className="input-wrap search-query">
         <Search size={19} aria-hidden="true" />
         <span className="sr-only">Марка, модель или запрос</span>
@@ -142,19 +135,19 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "", priceOpe
         </select>
       </label>
       {modelsError && <span className="home-search-count" id="home-model-error" role="status">Список моделей временно недоступен. Поиск по марке и названию продолжает работать.</span>}
-      <label className="field search-range"><span>Цена, BYN</span><span className="range-fields">
+      <div className="field search-range" role="group" aria-label="Цена, BYN"><span>Цена, BYN</span><span className="range-fields">
         <input name="price_min" disabled={!priceOperationsAvailable} aria-describedby={!priceOperationsAvailable ? "home-price-status" : undefined} type="number" min="1" inputMode="numeric" placeholder="От" aria-label="Цена от, BYN" />
         <input name="price_max" disabled={!priceOperationsAvailable} aria-describedby={!priceOperationsAvailable ? "home-price-status" : undefined} type="number" min="1" inputMode="numeric" placeholder="До" aria-label="Цена до, BYN" />
-      </span></label>
+      </span></div>
       <input type="hidden" name="currency" value="BYN" disabled={!hasPrice || !priceOperationsAvailable} />
-      <label className="field search-range"><span>Год выпуска</span><span className="range-fields">
+      <div className="field search-range" role="group" aria-label="Год выпуска"><span>Год выпуска</span><span className="range-fields">
         <input name="year_min" type="number" min="1886" inputMode="numeric" placeholder="От" aria-label="Год от" />
         <input name="year_max" type="number" min="1886" inputMode="numeric" placeholder="До" aria-label="Год до" />
-      </span></label>
-      <label className="field search-range"><span>Пробег, км</span><span className="range-fields">
+      </span></div>
+      <div className="field search-range" role="group" aria-label="Пробег, км"><span>Пробег, км</span><span className="range-fields">
         <input name="mileage_min" type="number" min="0" inputMode="numeric" placeholder="От" aria-label="Пробег от, км" />
         <input name="mileage_max" type="number" min="0" inputMode="numeric" placeholder="До" aria-label="Пробег до, км" />
-      </span></label>
+      </span></div>
       <label className="field"><span>Коробка</span><select name="transmission" defaultValue=""><option value="">Любая</option><option value="manual">Механическая</option><option value="automatic">Автоматическая</option><option value="robot">Робот</option><option value="cvt">Вариатор</option></select></label>
       <label className="field"><span>Топливо</span><select name="fuel" defaultValue=""><option value="">Любое</option><option value="petrol">Бензин</option><option value="diesel">Дизель</option><option value="hybrid">Гибрид</option><option value="electric">Электро</option><option value="lpg">Газ</option></select></label>
       <label className="field"><span>Кузов</span><select name="body_type" defaultValue=""><option value="">Любой</option>{bodyTypes.map((item) => <option key={item.id} value={item.slug}>{item.name}</option>)}</select></label>

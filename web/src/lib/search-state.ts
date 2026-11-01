@@ -11,11 +11,20 @@ function isCategoryCode(value: unknown): value is NonNullable<ListingSearch["cat
 }
 
 const allowedSearchKeys: (keyof ListingSearch)[] = [
-  "category_code", "subcategory", "q", "make_id", "model_id", "generation_id", "body_variant_id", "modification_id", "price_min", "price_max", "currency", "year_min", "year_max",
-  "mileage_min", "mileage_max", "fuel", "transmission", "drive", "body_type", "damaged", "parts_only", "condition", "color", "customs_status", "technical_condition", "body_condition",
+  "category_code", "subcategory", "q", "make_id", "model_id", "make_ids", "model_ids", "generation_id", "body_variant_id", "modification_id", "price_min", "price_max", "currency", "year_min", "year_max",
+  "mileage_min", "mileage_max", "fuel", "transmission", "drive", "body_type", "damaged", "parts_only", "in_transit", "condition", "color", "customs_status", "technical_condition", "body_condition",
   "exchange", "bargaining", "credit", "leasing", "equipment", "district", "call_hours", "has_vin", "has_photos", "engine_volume_min", "engine_volume_max", "power_min", "power_max",
   "region_id", "city_id", "seller_type", "page", "page_size", "sort"
 ];
+
+// Limit catalog fan-out before using identifiers from a URL.
+export function catalogIds(value?: string): string[] {
+  if (!value) return [];
+  const ids = value.split(",");
+  const uuid = /^(?:[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+  if (ids.length > 50 || ids.some((id) => !uuid.test(id.trim()))) return [];
+  return [...new Set(ids.map((id) => id.trim()))];
+}
 
 export function readSearchParams(input: URLSearchParams | Record<string, string | string[] | undefined>): ListingSearch {
   const result: ListingSearch = {};
@@ -36,13 +45,24 @@ export function readSearchParams(input: URLSearchParams | Record<string, string 
       result[key] = trimmed as never;
     }
   }
+  if (catalogIds(result.make_ids || result.make_id).length > 1 || catalogIds(result.model_ids || result.model_id).length > 1) {
+    delete result.generation_id;
+    delete result.body_variant_id;
+    delete result.modification_id;
+  }
   return result;
 }
 
 export function searchUrl(search: ListingSearch, patch: Partial<ListingSearch> = {}) {
   const next = { ...search, ...patch };
+  if (Object.hasOwn(patch, "make_ids")) next.make_id = undefined;
+  if (Object.hasOwn(patch, "model_ids")) next.model_id = undefined;
+  if (Object.hasOwn(patch, "make_id")) next.make_ids = undefined;
+  if (Object.hasOwn(patch, "model_id")) next.model_ids = undefined;
   const dependencies: Partial<Record<keyof ListingSearch, (keyof ListingSearch)[]>> = {
     make_id: ["model_id", "generation_id", "body_variant_id", "modification_id"],
+    make_ids: ["model_ids", "generation_id", "body_variant_id", "modification_id"],
+    model_ids: ["generation_id", "body_variant_id", "modification_id"],
     model_id: ["generation_id", "body_variant_id", "modification_id"],
     generation_id: ["body_variant_id", "modification_id"],
     region_id: ["city_id"],
@@ -75,7 +95,7 @@ export const activeSearchKeys = allowedSearchKeys.filter((key) => !["category_co
 
 const relaxationPriority: (typeof activeSearchKeys)[number][] = [
   "city_id", "region_id", "price_max", "price_min", "year_min", "year_max", "mileage_max", "mileage_min",
-  "modification_id", "body_variant_id", "generation_id", "model_id", "make_id", "engine_volume_max", "engine_volume_min",
+  "modification_id", "body_variant_id", "generation_id", "model_ids", "make_ids", "model_id", "make_id", "engine_volume_max", "engine_volume_min",
   "power_max", "power_min", "fuel", "transmission", "drive", "body_type", "condition", "seller_type", "equipment",
   "color", "customs_status", "technical_condition", "body_condition", "damaged", "parts_only", "district", "call_hours",
   "exchange", "bargaining", "credit", "leasing", "has_vin", "has_photos", "q"

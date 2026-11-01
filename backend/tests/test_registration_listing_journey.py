@@ -1,5 +1,6 @@
 import io
 import uuid
+import pytest
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -48,7 +49,8 @@ def _add_buyer(factory) -> User:
     return user
 
 
-def test_email_registration_to_published_listing_and_contact(integration, monkeypatch):
+@pytest.mark.parametrize("auto_publish", [False, True])
+def test_email_registration_to_published_listing_and_contact(integration, monkeypatch, auto_publish):
     """Exercise the seller journey against the isolated disposable test database."""
     factory = integration["SessionLocal"]
     settings = get_settings().model_copy(
@@ -59,6 +61,7 @@ def test_email_registration_to_published_listing_and_contact(integration, monkey
             "registration_privacy_version": PILOT_PRIVACY_VERSION,
             "session_cookie_secure": False,
             "public_guest_contact_enabled": False,
+            "listing_auto_publish_enabled": auto_publish,
         }
     )
     monkeypatch.setattr(auth_api, "get_settings", lambda: settings)
@@ -165,33 +168,34 @@ def test_email_registration_to_published_listing_and_contact(integration, monkey
     )
     assert submitted.status_code == 200, submitted.text
     pending = submitted.json()["listing"]
-    assert pending["status"] == "pending_review"
+    assert pending["status"] == ("active" if auto_publish else "pending_review")
 
-    # The moderator exists only in this test database; approval models the local review boundary.
-    moderator = User(
-        email=f"journey-moderator-{uuid.uuid4().hex}@example.com",
-        display_name="Local test moderator",
-        password_hash=hash_password(PASSWORD),
-        role="moderator",
-        status="active",
-    )
-    with factory() as db:
-        db.add(moderator)
-        db.commit()
+    if not auto_publish:
+        # The moderator exists only in this test database; approval models the local review boundary.
+        moderator = User(
+            email=f"journey-moderator-{uuid.uuid4().hex}@example.com",
+            display_name="Local test moderator",
+            password_hash=hash_password(PASSWORD),
+            role="moderator",
+            status="active",
+        )
+        with factory() as db:
+            db.add(moderator)
+            db.commit()
 
-    moderator_client = _client(integration)
-    moderator_login = moderator_client.post(
-        "/api/v1/auth/login",
-        json={"email": moderator.email, "password": PASSWORD},
-    )
-    assert moderator_login.status_code == 200, moderator_login.text
-    approved = moderator_client.post(
-        f"/api/v1/moderation/listings/{listing['id']}/approve",
-        json={"expected_revision": pending["revision"]},
-        headers=_csrf(moderator_login.json()["csrf_token"]),
-    )
-    assert approved.status_code == 200, approved.text
-    assert approved.json()["listing"]["status"] == "active"
+        moderator_client = _client(integration)
+        moderator_login = moderator_client.post(
+            "/api/v1/auth/login",
+            json={"email": moderator.email, "password": PASSWORD},
+        )
+        assert moderator_login.status_code == 200, moderator_login.text
+        approved = moderator_client.post(
+            f"/api/v1/moderation/listings/{listing['id']}/approve",
+            json={"expected_revision": pending["revision"]},
+            headers=_csrf(moderator_login.json()["csrf_token"]),
+        )
+        assert approved.status_code == 200, approved.text
+        assert approved.json()["listing"]["status"] == "active"
 
     public = _client(integration)
     public_detail = public.get(f"/api/v1/listings/{listing['id']}")
@@ -223,7 +227,7 @@ def test_email_registration_to_published_listing_and_contact(integration, monkey
         headers=_csrf(buyer_login.json()["csrf_token"]),
     )
     assert reveal.status_code == 200, reveal.text
-    assert reveal.json() == {"phone": PHONE}
+    assert reveal.json() == {"phone": PHONE, "messengers": []}
 
     with factory() as db:
         event = db.scalar(

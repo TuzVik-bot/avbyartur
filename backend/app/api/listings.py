@@ -9,8 +9,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
-from sqlalchemy import case, func, or_, select
-from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import case, func, inspect as sa_inspect, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -23,38 +22,28 @@ from app.api.dependencies import (
 from app.config import get_settings
 from app.db import get_db
 from app.dealer_services import company_ids_for_user, company_role_for
-from app.listing_change_audit import build_listing_edit_event, snapshot_listing_fields
-from app.listing_discovery import (
-    RECENT_LISTING_LIMIT,
-    public_recent_listing_candidates,
-    related_listing_candidates,
-)
-from app.listing_options import LISTING_OPTIONS, ListingOptionsOut
-from app.listing_price_history import record_active_listing_price_state
 from app.listing_schemas import (
+    FavoriteToggleOut,
     FavoritePriceDropAlertInput,
     FavoritePriceDropAlertOut,
-    FavoriteToggleOut,
-    ListingAnalyticsOut,
-    ListingComparisonOut,
-    ListingCountOut,
     ListingDetailOut,
+    ListingAnalyticsOut,
+    ListingCountOut,
+    ListingComparisonOut,
     ListingFavoritesOut,
+    ListingPriceHistoryOut,
+    ListingRecentOut,
     ListingOwnerDetailOut,
     ListingOwnerSearchOut,
-    ListingPriceHistoryOut,
-    ListingPublicCapabilitiesOut,
-    ListingRecentOut,
-    ListingRelatedOut,
     ListingReportOut,
-    ListingSearchFilters,
+    ListingRelatedOut,
     ListingSearchOut,
+    ListingSearchFilters,
     PhoneRevealOut,
+    ListingPublicCapabilitiesOut,
 )
-from app.listing_validation_policy import listing_validation_policy
-from app.market_pricing import build_market_comparisons
-from app.market_schemas import MarketPriceEstimateIn, MarketPriceEstimateOut
 from app.models import (
+    AuditEvent,
     CatalogBodyType,
     CatalogBodyVariant,
     CatalogGeneration,
@@ -62,15 +51,15 @@ from app.models import (
     CatalogModel,
     CatalogModification,
     Company,
-    ContactReveal,
     Conversation,
+    ContactReveal,
     ExchangeRate,
     Favorite,
     IdempotencyRecord,
     Listing,
+    ListingPriceEvent,
     ListingCategoryDetails,
     ListingPhoto,
-    ListingPriceEvent,
     ListingPromotion,
     ListingStatusEvent,
     ListingViewEvent,
@@ -87,28 +76,38 @@ from app.schemas import (
     ReportInput,
     RevisionInput,
 )
+from app.listing_options import LISTING_OPTIONS, ListingOptionsOut
+from app.listing_validation_policy import listing_validation_policy
+from app.validation_policy_schemas import ListingValidationPolicyOut
+from app.listing_change_audit import build_listing_edit_event, snapshot_listing_fields
+from app.contact_channels import validated_contact_channels
+from app.listing_price_history import record_active_listing_price_state
 from app.security import client_ip, new_secret, secret_hash
 from app.services import (
     active_quota_count,
-    build_public_listing_query,
     check_revision,
     consume_rate_limit,
     enqueue_saved_search_match,
     fail,
-    latest_listing_exchange_rate,
     listing_is_public,
-    listing_publication_dates,
     lock_owner,
-    public_listings_query,
     quota_limit,
+    listing_publication_dates,
+    latest_listing_exchange_rate,
+    build_public_listing_query,
+    public_listings_query,
     require_owned_listing,
     seller_company,
     serialize_listing,
     serialize_listings,
     validate_listing_for_submit,
 )
-from app.validation_policy_schemas import ListingValidationPolicyOut
-from app.valuation import estimate_market_value
+from app.market_pricing import build_market_comparisons
+from app.listing_discovery import (
+    RECENT_LISTING_LIMIT,
+    public_recent_listing_candidates,
+    related_listing_candidates,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["listings"])
 
@@ -124,9 +123,7 @@ def _listing_search_filters(**values):
         raise RequestValidationError(errors) from exc
 
 
-setattr(
-    _listing_search_filters, "__signature__", inspect.signature(ListingSearchFilters)
-)
+setattr(_listing_search_filters, "__signature__", inspect.signature(ListingSearchFilters))
 
 
 @router.get("/listing-validation-policy", response_model=ListingValidationPolicyOut)
@@ -143,42 +140,12 @@ GUEST_CONTACT_DEVICE_COOKIE = "avtorinok_guest_contact_device"
 GUEST_CONTACT_PROOF_TTL_SECONDS = 15 * 60
 GUEST_CONTACT_DEVICE_TTL_SECONDS = 24 * 60 * 60
 EDITABLE_FIELDS = {
-    "make_id",
-    "model_id",
-    "generation_id",
-    "body_type_id",
-    "body_variant_id",
-    "modification_id",
-    "manual_make",
-    "manual_model",
-    "title",
-    "year",
-    "mileage_km",
-    "fuel",
-    "transmission",
-    "drive",
-    "condition",
-    "damaged",
-    "parts_only",
-    "engine_volume_l",
-    "power_hp",
-    "description",
-    "vin",
-    "region_id",
-    "city_id",
-    "manual_city",
-    "contact_phone",
-    "color",
-    "customs_status",
-    "technical_condition",
-    "body_condition",
-    "exchange",
-    "bargaining",
-    "credit",
-    "leasing",
-    "equipment",
-    "district",
-    "call_hours",
+    "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id", "modification_id",
+    "manual_make", "manual_model", "title", "year", "mileage_km", "fuel", "transmission", "drive",
+    "condition", "damaged", "parts_only", "in_transit", "engine_volume_l", "power_hp", "description", "vin",
+    "region_id", "city_id", "manual_city", "contact_phone", "telegram_contact_url", "viber_contact_url", "color", "customs_status",
+    "technical_condition", "body_condition", "exchange", "bargaining", "credit", "leasing",
+    "equipment", "district", "call_hours",
     "category_code",
 }
 
@@ -189,9 +156,7 @@ def _guest_contact_cookie_value(purpose: str, nonce: str, ttl_seconds: int) -> s
     return f"{nonce}.{expires_at}.{secret_hash(payload)}"
 
 
-def _guest_contact_cookie_nonce(
-    value: str | None, purpose: str, ttl_seconds: int
-) -> str | None:
+def _guest_contact_cookie_nonce(value: str | None, purpose: str, ttl_seconds: int) -> str | None:
     if not value:
         return None
     try:
@@ -224,11 +189,7 @@ def _require_guest_contact_proof(request: Request) -> str:
         or proof_nonce is None
         or device_nonce is None
     ):
-        fail(
-            403,
-            "guest_contact_proof_required",
-            "Refresh the page to request this contact",
-        )
+        fail(403, "guest_contact_proof_required", "Refresh the page to request this contact")
     return device_nonce
 
 
@@ -296,9 +257,7 @@ def _lock_public_active_listing(
         or listing.status != "active"
         or listing.owner_id != owner_id
         or listing.company_id != company_id
-        or (
-            company_id is not None and (company is None or company.status != "approved")
-        )
+        or (company_id is not None and (company is None or company.status != "approved"))
     ):
         fail(404, "not_found", "Listing not found")
     return listing
@@ -309,39 +268,41 @@ def _safe_slug(value: str) -> str:
     return slug[:180] or uuid4().hex[:12]
 
 
-def _apply_fields(
-    db: Session, listing: Listing, values: dict, user: User, *, creating: bool
-) -> None:
+def _validate_model_category(model: CatalogModel | None, category_code: str, *, selection_changed: bool) -> None:
+    if model is None:
+        return
+    categories = (model.source_metadata or {}).get("category_codes")
+    if selection_changed and not categories:
+        fail(
+            422,
+            "invalid_catalog_reference",
+            "Model category is not verified",
+            {"model_id": "Model category is not verified"},
+        )
+    if categories and category_code not in categories:
+        fail(
+            422,
+            "invalid_catalog_reference",
+            "Model does not belong to selected category",
+            {"model_id": "Model belongs to another category"},
+        )
+
+
+def _apply_fields(db: Session, listing: Listing, values: dict, user: User, *, creating: bool) -> None:
     seller_type = values.pop("seller_type", None)
     price = values.pop("price", None)
     category_details = values.pop("category_details", None)
     confirm_category_change = values.pop("confirm_category_change", False)
     current_category = listing.category_code or "cars"
     requested_category = values.get("category_code", current_category)
+    previous_model_id = listing.model_id
     if not creating and requested_category != current_category:
         if not confirm_category_change:
-            fail(
-                422,
-                "category_change_confirmation_required",
-                "Confirm category change before replacing category-specific details",
-                {"confirm_category_change": "Confirmation is required"},
-            )
+            fail(422, "category_change_confirmation_required", "Confirm category change before replacing category-specific details", {"confirm_category_change": "Confirmation is required"})
         incompatible_fields = {
-            "make_id",
-            "model_id",
-            "generation_id",
-            "body_type_id",
-            "body_variant_id",
-            "modification_id",
-            "manual_make",
-            "manual_model",
-            "fuel",
-            "transmission",
-            "drive",
-            "engine_volume_l",
-            "power_hp",
-            "vin",
-            "equipment",
+            "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id",
+            "modification_id", "manual_make", "manual_model", "fuel", "transmission",
+            "drive", "engine_volume_l", "power_hp", "vin", "equipment",
         }
         supplied_incompatible_fields = sorted(incompatible_fields.intersection(values))
         if supplied_incompatible_fields:
@@ -349,10 +310,7 @@ def _apply_fields(
                 422,
                 "category_change_incompatible_fields",
                 "Update category-specific vehicle fields after changing category",
-                {
-                    field: "Cannot be changed in the same request as category_code"
-                    for field in supplied_incompatible_fields
-                },
+                {field: "Cannot be changed in the same request as category_code" for field in supplied_incompatible_fields},
             )
         existing_details = listing.category_details
         if existing_details is not None:
@@ -363,24 +321,10 @@ def _apply_fields(
             db.flush()
         listing.category_details = None
         for field in (
-            "make_id",
-            "model_id",
-            "generation_id",
-            "body_type_id",
-            "body_variant_id",
-            "modification_id",
-            "manual_make",
-            "manual_model",
-            "make_name_snapshot",
-            "model_name_snapshot",
-            "generation_name_snapshot",
-            "fuel",
-            "transmission",
-            "drive",
-            "engine_volume_l",
-            "power_hp",
-            "vin",
-            "equipment",
+            "make_id", "model_id", "generation_id", "body_type_id", "body_variant_id",
+            "modification_id", "manual_make", "manual_model", "make_name_snapshot",
+            "model_name_snapshot", "generation_name_snapshot", "fuel", "transmission",
+            "drive", "engine_volume_l", "power_hp", "vin", "equipment",
         ):
             setattr(listing, field, None)
     if price is not None:
@@ -391,15 +335,10 @@ def _apply_fields(
         listing.company_id = company.id if company else None
     for field in EDITABLE_FIELDS:
         if field in values:
-            setattr(listing, field, values[field])
+            setattr(listing, field, (values[field] or "") if field == "contact_phone" else values[field])
     if category_details is not None:
         if category_details["category_code"] != listing.category_code:
-            fail(
-                422,
-                "invalid_category_details",
-                "Category details do not match the listing category",
-                {"category_details": "Category does not match category_code"},
-            )
+            fail(422, "invalid_category_details", "Category details do not match the listing category", {"category_details": "Category does not match category_code"})
         if listing.category_details is None:
             listing.category_details = ListingCategoryDetails(
                 category_code=listing.category_code,
@@ -411,94 +350,33 @@ def _apply_fields(
     make = db.get(CatalogMake, listing.make_id) if listing.make_id else None
     model = db.get(CatalogModel, listing.model_id) if listing.model_id else None
     if listing.make_id and make is None:
-        fail(
-            422,
-            "invalid_catalog_reference",
-            "Unknown make",
-            {"make_id": "Unknown make"},
-        )
+        fail(422, "invalid_catalog_reference", "Unknown make", {"make_id": "Unknown make"})
     if listing.model_id and model is None:
-        fail(
-            422,
-            "invalid_catalog_reference",
-            "Unknown model",
-            {"model_id": "Unknown model"},
-        )
+        fail(422, "invalid_catalog_reference", "Unknown model", {"model_id": "Unknown model"})
     if model and (make is None or model.make_id != make.id):
-        fail(
-            422,
-            "invalid_catalog_reference",
-            "Model does not belong to selected make",
-            {"model_id": "Model belongs to another make"},
-        )
-    generation = (
-        db.get(CatalogGeneration, listing.generation_id)
-        if listing.generation_id
-        else None
-    )
-    if listing.generation_id and (
-        generation is None or generation.model_id != listing.model_id
-    ):
-        fail(
-            422,
-            "invalid_catalog_reference",
-            "Generation does not belong to selected model",
-            {"generation_id": "Generation belongs to another model"},
-        )
-    body_variant = (
-        db.get(CatalogBodyVariant, listing.body_variant_id)
-        if listing.body_variant_id
-        else None
-    )
-    if listing.body_variant_id and (
-        body_variant is None or body_variant.generation_id != listing.generation_id
-    ):
-        fail(
-            422,
-            "invalid_catalog_reference",
-            "Body variant does not belong to selected generation",
-            {"body_variant_id": "Invalid body variant"},
-        )
-    modification = (
-        db.get(CatalogModification, listing.modification_id)
-        if listing.modification_id
-        else None
-    )
-    if listing.modification_id and (
-        modification is None or modification.generation_id != listing.generation_id
-    ):
-        fail(
-            422,
-            "invalid_catalog_reference",
-            "Modification does not belong to selected generation",
-            {"modification_id": "Invalid modification"},
-        )
+        fail(422, "invalid_catalog_reference", "Model does not belong to selected make", {"model_id": "Model belongs to another make"})
+    catalog_selection_changed = creating or listing.model_id != previous_model_id or requested_category != current_category
+    _validate_model_category(model, listing.category_code, selection_changed=catalog_selection_changed)
+    generation = db.get(CatalogGeneration, listing.generation_id) if listing.generation_id else None
+    if listing.generation_id and (generation is None or generation.model_id != listing.model_id):
+        fail(422, "invalid_catalog_reference", "Generation does not belong to selected model", {"generation_id": "Generation belongs to another model"})
+    body_variant = db.get(CatalogBodyVariant, listing.body_variant_id) if listing.body_variant_id else None
+    if listing.body_variant_id and (body_variant is None or body_variant.generation_id != listing.generation_id):
+        fail(422, "invalid_catalog_reference", "Body variant does not belong to selected generation", {"body_variant_id": "Invalid body variant"})
+    modification = db.get(CatalogModification, listing.modification_id) if listing.modification_id else None
+    if listing.modification_id and (modification is None or modification.generation_id != listing.generation_id):
+        fail(422, "invalid_catalog_reference", "Modification does not belong to selected generation", {"modification_id": "Invalid modification"})
     if listing.body_type_id and db.get(CatalogBodyType, listing.body_type_id) is None:
-        fail(
-            422,
-            "invalid_catalog_reference",
-            "Unknown body type",
-            {"body_type_id": "Unknown body type"},
-        )
+        fail(422, "invalid_catalog_reference", "Unknown body type", {"body_type_id": "Unknown body type"})
     if listing.city_id is not None and listing.manual_city:
-        fail(
-            422,
-            "invalid_location",
-            "Choose a catalog city or enter a manual place, not both",
-            {
-                "city_id": "Cannot be set together with manual_city",
-                "manual_city": "Cannot be set together with city_id",
-            },
-        )
+        fail(422, "invalid_location", "Choose a catalog city or enter a manual place, not both", {
+            "city_id": "Cannot be set together with manual_city",
+            "manual_city": "Cannot be set together with city_id",
+        })
     if listing.city_id:
         city = db.get(LocationCity, listing.city_id)
         if city is None or city.region_id != listing.region_id:
-            fail(
-                422,
-                "invalid_location",
-                "City does not belong to selected region",
-                {"city_id": "City belongs to another region"},
-            )
+            fail(422, "invalid_location", "City does not belong to selected region", {"city_id": "City belongs to another region"})
     if listing.region_id and db.get(LocationRegion, listing.region_id) is None:
         fail(422, "invalid_location", "Unknown region", {"region_id": "Unknown region"})
 
@@ -506,47 +384,23 @@ def _apply_fields(
     listing.model_name_snapshot = model.name if model else listing.manual_model
     listing.generation_name_snapshot = generation.name if generation else None
     if not listing.title or not listing.title.strip():
-        listing.title = " ".join(
-            filter(
-                None,
-                [
-                    listing.make_name_snapshot,
-                    listing.model_name_snapshot,
-                    str(listing.year) if listing.year else None,
-                ],
-            )
-        )
+        listing.title = " ".join(filter(None, [listing.make_name_snapshot, listing.model_name_snapshot, str(listing.year) if listing.year else None]))
 
 
-def _record_transition(
-    db: Session, listing: Listing, actor: User, target: str, reason: str | None = None
-) -> None:
+def _record_transition(db: Session, listing: Listing, actor: User, target: str, reason: str | None = None) -> None:
     old = listing.status
     listing.status = target
-    db.add(
-        ListingStatusEvent(
-            listing_id=listing.id,
-            actor_id=actor.id,
-            from_status=old,
-            to_status=target,
-            revision=listing.revision,
-            reason=reason,
-        )
-    )
+    db.add(ListingStatusEvent(
+        listing_id=listing.id, actor_id=actor.id, from_status=old, to_status=target,
+        revision=listing.revision, reason=reason,
+    ))
 
 
 def _latest_exchange_rate(db: Session) -> tuple[ExchangeRate | None, bool]:
     return latest_listing_exchange_rate(db)
 
 
-def _convert_price(
-    amount: Decimal,
-    source: str | None,
-    target: str,
-    rate: ExchangeRate | None,
-    *,
-    fresh: bool,
-) -> Decimal | None:
+def _convert_price(amount: Decimal, source: str | None, target: str, rate: ExchangeRate | None, *, fresh: bool) -> Decimal | None:
     if source == target:
         return amount
     if not fresh or rate is None:
@@ -574,25 +428,12 @@ def _listed(
     rate, fresh = rate_info
     result = []
     items = (
-        [
-            serialize_listing(
-                db, listing, public=public, include_contact=include_contact
-            )
-            for listing in listings
-        ]
+        [serialize_listing(db, listing, public=public, include_contact=include_contact) for listing in listings]
         if include_modification
-        else serialize_listings(
-            db, listings, public=public, include_contact=include_contact
-        )
+        else serialize_listings(db, listings, public=public, include_contact=include_contact)
     )
-    publication_dates = (
-        publication_dates
-        if publication_dates is not None
-        else listing_publication_dates(db, listings)
-    )
-    market_comparisons = (
-        build_market_comparisons(db, listings, rate_info) if public else {}
-    )
+    publication_dates = publication_dates if publication_dates is not None else listing_publication_dates(db, listings)
+    market_comparisons = build_market_comparisons(db, listings, rate_info) if public else {}
     for listing, item in zip(listings, items, strict=True):
         item["published_at"] = publication_dates.get(listing.id)
         if item["price"]:
@@ -601,18 +442,12 @@ def _listed(
             if fresh and rate:
                 byn = _convert_price(amount, listing.currency, "BYN", rate, fresh=True)
                 if byn is not None:
-                    item["price"]["display_byn"] = str(
-                        byn.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                    )
+                    item["price"]["display_byn"] = str(byn.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
                     item["price"]["rate_date"] = rate.rate_date
             if display_currency and fresh:
-                display_amount = _convert_price(
-                    amount, listing.currency, display_currency, rate, fresh=True
-                )
+                display_amount = _convert_price(amount, listing.currency, display_currency, rate, fresh=True)
                 if display_amount is not None:
-                    item["price"]["display_amount"] = str(
-                        display_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                    )
+                    item["price"]["display_amount"] = str(display_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
                     item["price"]["display_currency"] = display_currency
         result.append(item)
     return result
@@ -627,66 +462,29 @@ def listing_options() -> dict:
     return LISTING_OPTIONS
 
 
-@router.get(
-    "/listings", response_model=ListingSearchOut, response_model_exclude_unset=True
-)
+@router.get("/listings", response_model=ListingSearchOut, response_model_exclude_unset=True)
 def search_listings(
     db: Annotated[Session, Depends(get_db)],
     filters: Annotated[ListingSearchFilters, Depends(_listing_search_filters)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=25)] = 25,
-    equipment: Annotated[
-        list[
-            Literal[
-                "abs",
-                "esp",
-                "airbags",
-                "air_conditioning",
-                "climate_control",
-                "heated_seats",
-                "cruise_control",
-                "parking_sensors",
-                "rear_camera",
-                "leather_seats",
-                "carplay",
-                "android_auto",
-            ]
-        ]
-        | None,
-        Query(),
-    ] = None,
-    sort: Literal[
-        "newest", "price_asc", "price_desc", "year_desc", "mileage_asc"
-    ] = "newest",
+    equipment: Annotated[list[Literal[
+        "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
+        "cruise_control", "parking_sensors", "rear_camera", "leather_seats", "carplay", "android_auto",
+    ]] | None, Query()] = None,
+    sort: Literal["newest", "published_desc", "oldest", "price_asc", "price_desc", "year_desc", "year_asc", "mileage_asc"] = "newest",
 ) -> dict:
     filters = filters.model_copy(update={"equipment": equipment})
-    price_operation = (
-        filters.price_min is not None
-        or filters.price_max is not None
-        or sort in {"price_asc", "price_desc"}
-    )
+    price_operation = filters.price_min is not None or filters.price_max is not None or sort in {"price_asc", "price_desc"}
     if price_operation and filters.currency is None:
-        fail(
-            422,
-            "currency_required",
-            "Price filters and sorting require currency=BYN or currency=USD",
-            {"currency": "Required for price operations"},
-        )
+        fail(422, "currency_required", "Price filters and sorting require currency=BYN or currency=USD", {"currency": "Required for price operations"})
     rate_info = _latest_exchange_rate(db)
     latest_rate, rate_fresh = rate_info
     if price_operation and not rate_fresh:
-        fail(
-            422,
-            "exchange_rate_unavailable",
-            "Price filtering and sorting require a fresh official exchange rate",
-            {"currency": "A fresh exchange rate is unavailable"},
-        )
+        fail(422, "exchange_rate_unavailable", "Price filtering and sorting require a fresh official exchange rate", {"currency": "A fresh exchange rate is unavailable"})
 
     query, display_price = build_public_listing_query(db, filters, rate_info)
-    total = int(
-        db.scalar(select(func.count()).select_from(query.order_by(None).subquery()))
-        or 0
-    )
+    total = int(db.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0)
     publication_dates = (
         select(
             ListingStatusEvent.listing_id.label("listing_id"),
@@ -701,31 +499,37 @@ def search_listings(
             func.coalesce(publication_dates.c.published_at, Listing.created_at).desc(),
             Listing.id.desc(),
         ),
+        "published_desc": (
+            func.coalesce(publication_dates.c.published_at, Listing.created_at).desc(),
+            Listing.id.desc(),
+        ),
+        "oldest": (
+            func.coalesce(publication_dates.c.published_at, Listing.created_at).asc(),
+            Listing.id.asc(),
+        ),
+        "year_asc": (Listing.year.asc().nullslast(), Listing.id.asc()),
         "price_asc": (display_price.asc().nullslast(), Listing.id.asc()),
         "price_desc": (display_price.desc().nullslast(), Listing.id.desc()),
         "year_desc": (Listing.year.desc().nullslast(), Listing.id.desc()),
         "mileage_asc": (Listing.mileage_km.asc().nullslast(), Listing.id.asc()),
     }[sort]
     publication_dates_for_page: dict[UUID, datetime] = {}
-    if sort == "newest":
-        query = query.outerjoin(
-            publication_dates, publication_dates.c.listing_id == Listing.id
-        )
+    if sort in {"newest", "published_desc", "oldest"}:
+        query = query.outerjoin(publication_dates, publication_dates.c.listing_id == Listing.id)
         query = query.add_columns(publication_dates.c.published_at)
     bind = db.get_bind()
-    promotion_table_available = bind.dialect.name == "postgresql" or (
-        sort == "newest" and sa_inspect(bind).has_table("listing_promotions")
+    promotion_table_available = (
+        bind.dialect.name == "postgresql"
+        or (sort == "newest" and sa_inspect(bind).has_table("listing_promotions"))
     )
     if sort == "newest" and promotion_table_available:
         active_boost = (
             select(
                 ListingPromotion.listing_id.label("listing_id"),
-                func.max(
-                    case(
-                        (ListingPromotion.service_code == "top", 2),
-                        else_=1,
-                    )
-                ).label("rank"),
+                func.max(case(
+                    (ListingPromotion.service_code == "top", 2),
+                    else_=1,
+                )).label("rank"),
             )
             .where(
                 ListingPromotion.listing_id.is_not(None),
@@ -740,7 +544,7 @@ def search_listings(
         query = query.outerjoin(active_boost, active_boost.c.listing_id == Listing.id)
         order = (active_boost.c.rank.desc().nullslast(), *order)
     page_query = query.order_by(*order).offset((page - 1) * page_size).limit(page_size)
-    if sort == "newest":
+    if sort in {"newest", "published_desc", "oldest"}:
         selected_rows = db.execute(page_query).all()
         rows = [row[0] for row in selected_rows]
         publication_dates_for_page = {
@@ -754,21 +558,12 @@ def search_listings(
             rows,
             rate_info=rate_info,
             display_currency=filters.currency,
-            publication_dates=publication_dates_for_page if sort == "newest" else None,
+            publication_dates=publication_dates_for_page if sort in {"newest", "published_desc", "oldest"} else None,
         ),
-        "pagination": {
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "pages": (total + page_size - 1) // page_size,
-        },
+        "pagination": {"page": page, "page_size": page_size, "total": total, "pages": (total + page_size - 1) // page_size},
     }
     if rate_fresh and latest_rate:
-        result["fx"] = {
-            "rate_date": latest_rate.rate_date,
-            "usd_rate": str(latest_rate.official_rate),
-            "scale": latest_rate.scale,
-        }
+        result["fx"] = {"rate_date": latest_rate.rate_date, "usd_rate": str(latest_rate.official_rate), "scale": latest_rate.scale}
     return result
 
 
@@ -778,61 +573,28 @@ def count_public_listings(
     filters: Annotated[ListingSearchFilters, Depends(_listing_search_filters)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=25)] = 25,
-    equipment: Annotated[
-        list[
-            Literal[
-                "abs",
-                "esp",
-                "airbags",
-                "air_conditioning",
-                "climate_control",
-                "heated_seats",
-                "cruise_control",
-                "parking_sensors",
-                "rear_camera",
-                "leather_seats",
-                "carplay",
-                "android_auto",
-            ]
-        ]
-        | None,
-        Query(),
-    ] = None,
-    sort: Literal[
-        "newest", "price_asc", "price_desc", "year_desc", "mileage_asc"
-    ] = "newest",
+    equipment: Annotated[list[Literal[
+        "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
+        "cruise_control", "parking_sensors", "rear_camera", "leather_seats", "carplay", "android_auto",
+    ]] | None, Query()] = None,
+    sort: Literal["newest", "published_desc", "oldest", "price_asc", "price_desc", "year_desc", "year_asc", "mileage_asc"] = "newest",
 ) -> dict:
     # Pagination and ordering are accepted for call compatibility but do not affect the count.
     del page, page_size, sort
     filters = filters.model_copy(update={"equipment": equipment})
     price_operation = filters.price_min is not None or filters.price_max is not None
     if price_operation and filters.currency is None:
-        fail(
-            422,
-            "currency_required",
-            "Price filters require currency=BYN or currency=USD",
-            {"currency": "Required for price operations"},
-        )
+        fail(422, "currency_required", "Price filters require currency=BYN or currency=USD", {"currency": "Required for price operations"})
     rate_info = _latest_exchange_rate(db)
     latest_rate, rate_fresh = rate_info
     if price_operation and not rate_fresh:
-        fail(
-            422,
-            "exchange_rate_unavailable",
-            "Price filtering requires a fresh official exchange rate",
-            {"currency": "A fresh exchange rate is unavailable"},
-        )
+        fail(422, "exchange_rate_unavailable", "Price filtering requires a fresh official exchange rate", {"currency": "A fresh exchange rate is unavailable"})
     query, _display_price = build_public_listing_query(db, filters, rate_info)
-    total = int(
-        db.scalar(select(func.count()).select_from(query.order_by(None).subquery()))
-        or 0
-    )
+    total = int(db.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0)
     return {"total": total}
 
 
-@router.get(
-    "/listings/public-capabilities", response_model=ListingPublicCapabilitiesOut
-)
+@router.get("/listings/public-capabilities", response_model=ListingPublicCapabilitiesOut)
 def listing_public_capabilities(request: Request, response: Response) -> dict:
     response.headers["Cache-Control"] = "no-store"
     settings = get_settings()
@@ -855,9 +617,7 @@ def listing_public_capabilities(request: Request, response: Response) -> dict:
         device_nonce = new_secret()
         response.set_cookie(
             GUEST_CONTACT_DEVICE_COOKIE,
-            _guest_contact_cookie_value(
-                "device", device_nonce, GUEST_CONTACT_DEVICE_TTL_SECONDS
-            ),
+            _guest_contact_cookie_value("device", device_nonce, GUEST_CONTACT_DEVICE_TTL_SECONDS),
             max_age=GUEST_CONTACT_DEVICE_TTL_SECONDS,
             httponly=True,
             secure=secure,
@@ -866,12 +626,9 @@ def listing_public_capabilities(request: Request, response: Response) -> dict:
         )
 
     proof_value = request.cookies.get(GUEST_CONTACT_PROOF_COOKIE)
-    if (
-        _guest_contact_cookie_nonce(
-            proof_value, "proof", GUEST_CONTACT_PROOF_TTL_SECONDS
-        )
-        is None
-    ):
+    if _guest_contact_cookie_nonce(
+        proof_value, "proof", GUEST_CONTACT_PROOF_TTL_SECONDS
+    ) is None:
         proof_value = _guest_contact_cookie_value(
             "proof", new_secret(), GUEST_CONTACT_PROOF_TTL_SECONDS
         )
@@ -933,11 +690,7 @@ def recent_public_listings(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     if not 1 <= len(ids) <= RECENT_LISTING_LIMIT:
-        fail(
-            422,
-            "invalid_recent_size",
-            f"Provide between one and {RECENT_LISTING_LIMIT} listing IDs",
-        )
+        fail(422, "invalid_recent_size", f"Provide between one and {RECENT_LISTING_LIMIT} listing IDs")
     rows = public_recent_listing_candidates(db, ids)
     return {"items": serialize_listings(db, rows, public=True, include_contact=False)}
 
@@ -946,18 +699,9 @@ def recent_public_listings(
     "/listings/{listing_id}",
     response_model=ListingDetailOut,
     response_model_exclude_unset=True,
-    responses={
-        410: {
-            "model": ApiErrorOut,
-            "description": "Previously published listing is archived",
-        }
-    },
+    responses={410: {"model": ApiErrorOut, "description": "Previously published listing is archived"}},
 )
-def get_listing(
-    listing_id: UUID,
-    db: Annotated[Session, Depends(get_db)],
-    user: Annotated[User | None, Depends(get_optional_user)],
-) -> dict:
+def get_listing(listing_id: UUID, db: Annotated[Session, Depends(get_db)], user: Annotated[User | None, Depends(get_optional_user)]) -> dict:
     listing = db.get(Listing, listing_id)
     if listing is None:
         fail(404, "not_found", "Listing not found")
@@ -966,28 +710,15 @@ def get_listing(
         # gone resource. The archive reason is deliberately not part of this
         # decision: seller removal, retention cleanup, and future archive
         # workflows all need the same HTTP contract once a public URL existed.
-        archive_event = db.scalar(
-            select(ListingStatusEvent)
-            .where(
-                ListingStatusEvent.listing_id == listing.id,
-                ListingStatusEvent.to_status == "archived",
-            )
-            .order_by(ListingStatusEvent.revision.desc())
-            .limit(1)
-        )
-        was_published = (
-            archive_event is not None
-            and db.scalar(
-                select(ListingStatusEvent.id)
-                .where(
-                    ListingStatusEvent.listing_id == listing.id,
-                    ListingStatusEvent.to_status == "active",
-                    ListingStatusEvent.revision < archive_event.revision,
-                )
-                .limit(1)
-            )
-            is not None
-        )
+        archive_event = db.scalar(select(ListingStatusEvent).where(
+            ListingStatusEvent.listing_id == listing.id,
+            ListingStatusEvent.to_status == "archived",
+        ).order_by(ListingStatusEvent.revision.desc()).limit(1))
+        was_published = archive_event is not None and db.scalar(select(ListingStatusEvent.id).where(
+            ListingStatusEvent.listing_id == listing.id,
+            ListingStatusEvent.to_status == "active",
+            ListingStatusEvent.revision < archive_event.revision,
+        ).limit(1)) is not None
         if was_published:
             fail(410, "gone", "Listing is no longer available")
         fail(404, "not_found", "Listing not found")
@@ -995,11 +726,7 @@ def get_listing(
     company_access = False
     if user is not None and listing.company_id is not None:
         company = db.get(Company, listing.company_id)
-        company_access = (
-            company is not None
-            and company.status != "blocked"
-            and company_role_for(db, company, user) is not None
-        )
+        company_access = company is not None and company.status != "blocked" and company_role_for(db, company, user) is not None
     owner_view = user is not None and (
         user.id == listing.owner_id
         or company_access
@@ -1014,8 +741,7 @@ def get_listing(
             db,
             [listing],
             public=public,
-            include_contact=user is not None
-            and (user.id == listing.owner_id or company_access),
+            include_contact=user is not None and (user.id == listing.owner_id or company_access),
             display_currency="BYN",
             include_modification=True,
         )[0]
@@ -1028,6 +754,8 @@ def get_listing(
     ):
         db.add(ListingViewEvent(listing_id=listing.id))
         db.commit()
+        if result["listing"].get("view_count") is not None:
+            result["listing"]["view_count"] += 1
     return result
 
 
@@ -1087,38 +815,21 @@ def listing_analytics(
     end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=timezone.utc)
     view_events_available = sa_inspect(db.get_bind()).has_table("listing_view_events")
     counts = {
-        "views": int(
-            db.scalar(
-                select(func.count(ListingViewEvent.id)).where(
-                    ListingViewEvent.listing_id == listing.id,
-                    ListingViewEvent.created_at >= start,
-                    ListingViewEvent.created_at < end,
-                )
-            )
-            or 0
-        )
-        if view_events_available
-        else 0,
-        "contact_reveals": int(
-            db.scalar(
-                select(func.count(ContactReveal.id)).where(
-                    ContactReveal.listing_id == listing.id,
-                    ContactReveal.created_at >= start,
-                    ContactReveal.created_at < end,
-                )
-            )
-            or 0
-        ),
-        "chats": int(
-            db.scalar(
-                select(func.count(Conversation.id)).where(
-                    Conversation.listing_id == listing.id,
-                    Conversation.created_at >= start,
-                    Conversation.created_at < end,
-                )
-            )
-            or 0
-        ),
+        "views": int(db.scalar(select(func.count(ListingViewEvent.id)).where(
+            ListingViewEvent.listing_id == listing.id,
+            ListingViewEvent.created_at >= start,
+            ListingViewEvent.created_at < end,
+        )) or 0) if view_events_available else 0,
+        "contact_reveals": int(db.scalar(select(func.count(ContactReveal.id)).where(
+            ContactReveal.listing_id == listing.id,
+            ContactReveal.created_at >= start,
+            ContactReveal.created_at < end,
+        )) or 0),
+        "chats": int(db.scalar(select(func.count(Conversation.id)).where(
+            Conversation.listing_id == listing.id,
+            Conversation.created_at >= start,
+            Conversation.created_at < end,
+        )) or 0),
     }
     return {
         "listing_id": listing.id,
@@ -1137,10 +848,11 @@ def require_csrf_for_optional_user(
     return require_csrf(request, get_session_record(request, db))
 
 
-@router.post("/listings/{listing_id}/phone-reveal", response_model=PhoneRevealOut)
+@router.post(
+    "/listings/{listing_id}/phone-reveal", response_model=PhoneRevealOut
+)
 def reveal_phone(
-    listing_id: UUID,
-    request: Request,
+    listing_id: UUID, request: Request,
     response: Response,
     user: Annotated[User | None, Depends(get_optional_user)],
     csrf: Annotated[UserSession | None, Depends(require_csrf_for_optional_user)],
@@ -1159,11 +871,7 @@ def reveal_phone(
         guest_device_nonce = _require_guest_contact_proof(request)
 
     listing = db.get(Listing, listing_id)
-    if (
-        listing is None
-        or listing.status != "active"
-        or not listing_is_public(db, listing)
-    ):
+    if listing is None or listing.status != "active" or not listing_is_public(db, listing):
         fail(404, "not_found", "Listing not found")
     listing_owner_id = listing.owner_id
     listing_company_id = listing.company_id
@@ -1178,7 +886,7 @@ def reveal_phone(
             db,
             "guest-phone-reveal-ip",
             ip_fingerprint,
-            GUEST_PHONE_REVEAL_IP_LIMIT,
+            getattr(get_settings(), "guest_contact_ip_hourly_limit", GUEST_PHONE_REVEAL_IP_LIMIT),
             timedelta(hours=1),
         )
         consume_rate_limit(
@@ -1201,62 +909,27 @@ def reveal_phone(
         listing_owner_id,
         listing_company_id,
         actor_id=user.id if user is not None else None,
-        session_token_hash=csrf.token_hash
-        if user is not None and csrf is not None
-        else None,
+        session_token_hash=csrf.token_hash if user is not None and csrf is not None else None,
     )
+    phone = listing.contact_phone or ""
+    messengers = validated_contact_channels(listing.telegram_contact_url, listing.viber_contact_url)
+    if not phone.strip() and not messengers:
+        fail(404, "contact_unavailable", "This listing is available by message only")
     reveal = ContactReveal(
         listing_id=listing.id,
         user_id=user.id if user is not None else None,
     )
-    phone = listing.contact_phone
     db.add(reveal)
     db.commit()
-    return {"phone": phone}
+    return {"phone": phone, "messengers": messengers}
 
 
 @router.post(
-    "/listings/market-price-estimate",
-    response_model=MarketPriceEstimateOut,
-    response_model_exclude_unset=True,
+    "/listings/{listing_id}/reports", response_model=ListingReportOut
 )
-def market_price_estimate(
-    payload: MarketPriceEstimateIn,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
-    db: Annotated[Session, Depends(get_db)],
-) -> dict:
-    estimate = estimate_market_value(
-        db,
-        make_id=payload.make_id,
-        model_id=payload.model_id,
-        generation_id=payload.generation_id,
-        year=payload.year,
-        mileage_km=payload.mileage_km,
-        condition=payload.condition,
-        fuel=payload.fuel,
-        transmission=payload.transmission,
-        body_type_id=payload.body_type_id,
-        rate_info=latest_listing_exchange_rate(db),
-    )
-    available = estimate["status"] in {"low", "high"}
-    return {
-        "available": available,
-        "median_byn": estimate["median_byn"] if available else None,
-        "sample_size": estimate["sample_size"],
-        "seller_count": estimate["seller_count"],
-        "as_of": estimate["as_of"] if available else None,
-        "rate_date": estimate["rate_date"],
-    }
-
-
-@router.post("/listings/{listing_id}/reports", response_model=ListingReportOut)
 def report_listing(
-    listing_id: UUID,
-    payload: ReportInput,
-    request: Request,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
+    listing_id: UUID, payload: ReportInput, request: Request,
+    user: Annotated[User, Depends(get_current_user)], csrf: Annotated[UserSession, Depends(require_csrf)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     listing = db.get(Listing, listing_id)
@@ -1264,13 +937,7 @@ def report_listing(
         fail(404, "not_found", "Listing not found")
     ip = client_ip(request)
     consume_rate_limit(db, "listing-report", f"{ip}:{user.id}", 5, timedelta(hours=1))
-    report = Report(
-        listing_id=listing.id,
-        reporter_id=user.id,
-        category=payload.category,
-        comment=payload.comment,
-        status="open",
-    )
+    report = Report(listing_id=listing.id, reporter_id=user.id, category=payload.category, comment=payload.comment, status="open")
     db.add(report)
     db.commit()
     return {"id": str(report.id), "status": report.status, "revision": report.revision}
@@ -1283,59 +950,28 @@ def report_listing(
 )
 def create_draft(
     payload: ListingForm,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
+    user: Annotated[User, Depends(get_current_user)], csrf: Annotated[UserSession, Depends(require_csrf)],
     db: Annotated[Session, Depends(get_db)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> dict:
     if not idempotency_key or len(idempotency_key) > 120:
         fail(422, "idempotency_required", "Idempotency-Key header is required")
     lock_owner(db, user.id)
-    prior = db.scalar(
-        select(IdempotencyRecord).where(
-            IdempotencyRecord.actor_id == user.id,
-            IdempotencyRecord.scope == "listing.draft",
-            IdempotencyRecord.key == idempotency_key,
-        )
-    )
+    prior = db.scalar(select(IdempotencyRecord).where(IdempotencyRecord.actor_id == user.id, IdempotencyRecord.scope == "listing.draft", IdempotencyRecord.key == idempotency_key))
     if prior:
         listing = db.get(Listing, prior.resource_id)
-        return {
-            "listing": serialize_listing(
-                db, listing, public=False, include_contact=True
-            )
-        }
+        return {"listing": serialize_listing(db, listing, public=False, include_contact=True)}
     values = payload.model_dump(exclude_unset=True)
     if values.get("seller_type") == "company":
         seller_company(db, user, "company")
-    listing = Listing(
-        owner_id=user.id,
-        slug=f"listing-{uuid4().hex}",
-        status="draft",
-        revision=1,
-        category_code="cars",
-        title="",
-        description="",
-        contact_phone="",
-        damaged=False,
-        parts_only=False,
-    )
+    listing = Listing(owner_id=user.id, slug=f"listing-{uuid4().hex}", status="draft", revision=1, category_code="cars", title="", description="", contact_phone="", damaged=False, parts_only=False)
     _apply_fields(db, listing, values, user, creating=True)
     db.add(listing)
     db.flush()
-    db.add(
-        IdempotencyRecord(
-            actor_id=user.id,
-            scope="listing.draft",
-            key=idempotency_key,
-            resource_id=listing.id,
-        )
-    )
+    db.add(IdempotencyRecord(actor_id=user.id, scope="listing.draft", key=idempotency_key, resource_id=listing.id))
     db.commit()
     db.refresh(listing)
-    return {
-        "listing": serialize_listing(db, listing, public=False, include_contact=True)
-    }
+    return {"listing": serialize_listing(db, listing, public=False, include_contact=True)}
 
 
 @router.patch(
@@ -1344,10 +980,8 @@ def create_draft(
     response_model_exclude_unset=True,
 )
 def update_listing(
-    listing_id: UUID,
-    payload: ListingPatch,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
+    listing_id: UUID, payload: ListingPatch,
+    user: Annotated[User, Depends(get_current_user)], csrf: Annotated[UserSession, Depends(require_csrf)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     # AuditEvent.actor_id is a User foreign key. Lock the actor before the
@@ -1381,16 +1015,8 @@ def update_listing(
     elif seller_type == "private":
         if listing.company_id is not None:
             company = db.get(Company, listing.company_id)
-            if (
-                company is None
-                or company.owner_id != user.id
-                or listing.owner_id != user.id
-            ):
-                fail(
-                    403,
-                    "company_listing_protected",
-                    "Only the company owner can move their own listing to a private account",
-                )
+            if company is None or company.owner_id != user.id or listing.owner_id != user.id:
+                fail(403, "company_listing_protected", "Only the company owner can move their own listing to a private account")
         listing.company_id = None
     _apply_fields(db, listing, values, user, creating=False)
     previous_status = listing.status
@@ -1398,16 +1024,7 @@ def update_listing(
         listing.status = "draft"
         listing.submitted_revision = None
         listing.moderation_reason = None
-        db.add(
-            ListingStatusEvent(
-                listing_id=listing.id,
-                actor_id=user.id,
-                from_status=previous_status,
-                to_status="draft",
-                revision=listing.revision + 1,
-                reason="seller_edit",
-            )
-        )
+        db.add(ListingStatusEvent(listing_id=listing.id, actor_id=user.id, from_status=previous_status, to_status="draft", revision=listing.revision + 1, reason="seller_edit"))
     listing.revision += 1
     audit_event = build_listing_edit_event(
         actor_id=user.id,
@@ -1419,9 +1036,7 @@ def update_listing(
     if audit_event is not None:
         db.add(audit_event)
     db.commit()
-    return {
-        "listing": serialize_listing(db, listing, public=False, include_contact=True)
-    }
+    return {"listing": serialize_listing(db, listing, public=False, include_contact=True)}
 
 
 @router.post(
@@ -1430,10 +1045,8 @@ def update_listing(
     response_model_exclude_unset=True,
 )
 def submit_listing(
-    listing_id: UUID,
-    payload: RevisionInput,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
+    listing_id: UUID, payload: RevisionInput,
+    user: Annotated[User, Depends(get_current_user)], csrf: Annotated[UserSession, Depends(require_csrf)],
     db: Annotated[Session, Depends(get_db)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> dict:
@@ -1441,96 +1054,66 @@ def submit_listing(
         fail(422, "idempotency_required", "Idempotency-Key header is required")
     lock_owner(db, user.id)
     listing = require_owned_listing(db, listing_id, user, lock=True)
-    prior = db.scalar(
-        select(IdempotencyRecord).where(
-            IdempotencyRecord.actor_id == user.id,
-            IdempotencyRecord.scope == f"listing.submit:{listing_id}",
-            IdempotencyRecord.key == idempotency_key,
-        )
-    )
+    prior = db.scalar(select(IdempotencyRecord).where(IdempotencyRecord.actor_id == user.id, IdempotencyRecord.scope == f"listing.submit:{listing_id}", IdempotencyRecord.key == idempotency_key))
     if prior:
-        return {
-            "listing": serialize_listing(
-                db,
-                db.get(Listing, prior.resource_id),
-                public=False,
-                include_contact=True,
-            )
-        }
+        return {"listing": serialize_listing(db, db.get(Listing, prior.resource_id), public=False, include_contact=True)}
     check_revision(listing, payload.expected_revision)
     if listing.status not in {"draft", "rejected"}:
-        fail(
-            409,
-            "invalid_listing_state",
-            "Only a draft or rejected listing can be submitted",
-        )
-    photos = db.scalars(
-        select(ListingPhoto).where(ListingPhoto.listing_id == listing.id)
-    ).all()
+        fail(409, "invalid_listing_state", "Only a draft or rejected listing can be submitted")
+    photos = db.scalars(select(ListingPhoto).where(ListingPhoto.listing_id == listing.id)).all()
     if any(photo.status == "processing" for photo in photos):
         fail(409, "photos_processing", "Wait for all photos to finish processing")
     if any(photo.status != "ready" for photo in photos):
-        fail(
-            422,
-            "photo_processing_failed",
-            "Remove failed photos and upload them again",
-            {"photos": "One or more photos failed processing"},
-        )
+        fail(422, "photo_processing_failed", "Remove failed photos and upload them again", {"photos": "One or more photos failed processing"})
     validate_listing_for_submit(db, listing)
     if listing.company_id:
-        company = db.scalar(
-            select(Company).where(Company.id == listing.company_id).with_for_update()
-        )
+        company = db.scalar(select(Company).where(Company.id == listing.company_id).with_for_update())
         if company is None or company.status != "approved":
             fail(403, "company_not_approved", "Company approval is required")
     count = active_quota_count(db, user.id, listing.company_id)
-    company_for_quota = (
-        db.get(Company, listing.company_id) if listing.company_id else None
-    )
+    company_for_quota = db.get(Company, listing.company_id) if listing.company_id else None
     limit = quota_limit(company_for_quota, db)
     if count >= limit:
         fail(409, "quota_exceeded", f"Active listing quota ({limit}) reached")
     listing.submitted_revision = listing.revision
     listing.moderation_reason = None
-    _record_transition(db, listing, user, "pending_review")
-    db.add(
-        IdempotencyRecord(
-            actor_id=user.id,
-            scope=f"listing.submit:{listing_id}",
-            key=idempotency_key,
-            resource_id=listing.id,
+    if get_settings().listing_auto_publish_enabled:
+        listing.revision += 1
+        listing.moderated_at = datetime.now(timezone.utc)
+        _record_transition(db, listing, user, "active", "auto_publish_enabled")
+        enqueue_saved_search_match(db, listing)
+        record_active_listing_price_state(db, listing)
+        db.add(
+            AuditEvent(
+                actor_id=user.id,
+                entity_type="listing",
+                entity_id=listing.id,
+                action="auto_published",
+                details={
+                    "revision": listing.submitted_revision,
+                    "reason": "auto_publish_enabled",
+                },
+            )
         )
-    )
+    else:
+        _record_transition(db, listing, user, "pending_review")
+    db.add(IdempotencyRecord(actor_id=user.id, scope=f"listing.submit:{listing_id}", key=idempotency_key, resource_id=listing.id))
     db.commit()
-    return {
-        "listing": serialize_listing(db, listing, public=False, include_contact=True)
-    }
+    return {"listing": serialize_listing(db, listing, public=False, include_contact=True)}
 
 
-def _seller_transition(
-    listing_id: UUID, payload: RevisionInput, user: User, db: Session, target: str
-) -> dict:
+def _seller_transition(listing_id: UUID, payload: RevisionInput, user: User, db: Session, target: str) -> dict:
     lock_owner(db, user.id)
     listing = require_owned_listing(db, listing_id, user, lock=True)
     check_revision(listing, payload.expected_revision)
     allowed = {
-        "paused": {"active"},
-        "active": {"paused"},
-        "sold": {"active", "paused"},
+        "paused": {"active"}, "active": {"paused"}, "sold": {"active", "paused"},
     }
     if listing.status not in allowed.get(target, set()):
-        fail(
-            409,
-            "invalid_listing_state",
-            f"Cannot move {listing.status} listing to {target}",
-        )
+        fail(409, "invalid_listing_state", f"Cannot move {listing.status} listing to {target}")
     if target == "active":
         if listing.company_id:
-            company = db.scalar(
-                select(Company)
-                .where(Company.id == listing.company_id)
-                .with_for_update()
-            )
+            company = db.scalar(select(Company).where(Company.id == listing.company_id).with_for_update())
             if company is None or company.status != "approved":
                 fail(403, "company_not_approved", "Company approval is required")
         count = active_quota_count(db, user.id, listing.company_id)
@@ -1546,9 +1129,7 @@ def _seller_transition(
         enqueue_saved_search_match(db, listing)
         record_active_listing_price_state(db, listing)
     db.commit()
-    return {
-        "listing": serialize_listing(db, listing, public=False, include_contact=True)
-    }
+    return {"listing": serialize_listing(db, listing, public=False, include_contact=True)}
 
 
 @router.post(
@@ -1556,13 +1137,7 @@ def _seller_transition(
     response_model=ListingOwnerDetailOut,
     response_model_exclude_unset=True,
 )
-def pause_listing(
-    listing_id: UUID,
-    payload: RevisionInput,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
-    db: Annotated[Session, Depends(get_db)],
-) -> dict:
+def pause_listing(listing_id: UUID, payload: RevisionInput, user: Annotated[User, Depends(get_current_user)], csrf: Annotated[UserSession, Depends(require_csrf)], db: Annotated[Session, Depends(get_db)]) -> dict:
     return _seller_transition(listing_id, payload, user, db, "paused")
 
 
@@ -1571,13 +1146,7 @@ def pause_listing(
     response_model=ListingOwnerDetailOut,
     response_model_exclude_unset=True,
 )
-def resume_listing(
-    listing_id: UUID,
-    payload: RevisionInput,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
-    db: Annotated[Session, Depends(get_db)],
-) -> dict:
+def resume_listing(listing_id: UUID, payload: RevisionInput, user: Annotated[User, Depends(get_current_user)], csrf: Annotated[UserSession, Depends(require_csrf)], db: Annotated[Session, Depends(get_db)]) -> dict:
     return _seller_transition(listing_id, payload, user, db, "active")
 
 
@@ -1586,76 +1155,35 @@ def resume_listing(
     response_model=ListingOwnerDetailOut,
     response_model_exclude_unset=True,
 )
-def sold_listing(
-    listing_id: UUID,
-    payload: RevisionInput,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
-    db: Annotated[Session, Depends(get_db)],
-) -> dict:
+def sold_listing(listing_id: UUID, payload: RevisionInput, user: Annotated[User, Depends(get_current_user)], csrf: Annotated[UserSession, Depends(require_csrf)], db: Annotated[Session, Depends(get_db)]) -> dict:
     return _seller_transition(listing_id, payload, user, db, "sold")
 
 
-@router.get(
-    "/me/listings",
-    response_model=ListingOwnerSearchOut,
-    response_model_exclude_unset=True,
-)
+@router.get("/me/listings", response_model=ListingOwnerSearchOut, response_model_exclude_unset=True)
 def my_listings(
-    user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
-    page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 25,
+    user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)],
+    page: Annotated[int, Query(ge=1)] = 1, page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> dict:
     company_ids = company_ids_for_user(db, user)
-    visibility = (
-        or_(Listing.owner_id == user.id, Listing.company_id.in_(company_ids))
-        if company_ids
-        else Listing.owner_id == user.id
-    )
-    query = (
-        select(Listing)
-        .where(visibility)
-        .order_by(Listing.updated_at.desc(), Listing.id.desc())
-    )
+    visibility = or_(Listing.owner_id == user.id, Listing.company_id.in_(company_ids)) if company_ids else Listing.owner_id == user.id
+    query = select(Listing).where(visibility).order_by(Listing.updated_at.desc(), Listing.id.desc())
     total = int(db.scalar(select(func.count(Listing.id)).where(visibility)) or 0)
     rows = db.scalars(query.offset((page - 1) * page_size).limit(page_size)).all()
-    return {
-        "items": _listed(db, rows, public=False, include_contact=True),
-        "pagination": {
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "pages": (total + page_size - 1) // page_size,
-        },
-    }
+    return {"items": _listed(db, rows, public=False, include_contact=True), "pagination": {"page": page, "page_size": page_size, "total": total, "pages": (total + page_size - 1) // page_size}}
 
 
-@router.get(
-    "/me/favorites",
-    response_model=ListingFavoritesOut,
-    response_model_exclude_unset=True,
-)
-def my_favorites(
-    user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
-) -> dict:
+@router.get("/me/favorites", response_model=ListingFavoritesOut, response_model_exclude_unset=True)
+def my_favorites(user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]) -> dict:
     rows = db.execute(
         select(Favorite, Listing)
         .join(Listing, Favorite.listing_id == Listing.id)
         .where(Favorite.user_id == user.id)
         .order_by(Favorite.created_at.desc(), Favorite.id.desc())
     ).all()
-    visible = [
-        (favorite, listing)
-        for favorite, listing in rows
-        if listing_is_public(db, listing)
-    ]
+    visible = [(favorite, listing) for favorite, listing in rows if listing_is_public(db, listing)]
     items = _listed(db, [listing for _favorite, listing in visible])
     for (favorite, _listing), item in zip(visible, items, strict=True):
-        item["price_drop_notifications_enabled"] = (
-            favorite.price_drop_notifications_enabled
-        )
+        item["price_drop_notifications_enabled"] = favorite.price_drop_notifications_enabled
     return {"items": items}
 
 
@@ -1680,31 +1208,21 @@ def set_favorite_price_drop_alert(
         fail(404, "not_found", "Favorite not found")
     if payload.enabled:
         listing = db.get(Listing, listing_id)
-        if (
-            listing is None
-            or listing.status != "active"
-            or not listing_is_public(db, listing)
-        ):
+        if listing is None or listing.status != "active" or not listing_is_public(db, listing):
             fail(404, "not_found", "Listing not found")
     favorite.price_drop_notifications_enabled = payload.enabled
     db.commit()
     return {"enabled": favorite.price_drop_notifications_enabled}
 
 
-@router.get(
-    "/listings/{listing_id}/price-history", response_model=ListingPriceHistoryOut
-)
+@router.get("/listings/{listing_id}/price-history", response_model=ListingPriceHistoryOut)
 def listing_price_history(
     listing_id: UUID,
     response: Response,
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     listing = db.get(Listing, listing_id)
-    if (
-        listing is None
-        or listing.status != "active"
-        or not listing_is_public(db, listing)
-    ):
+    if listing is None or listing.status != "active" or not listing_is_public(db, listing):
         fail(404, "not_found", "Listing not found")
     response.headers["Cache-Control"] = "private, no-store"
     rows = db.scalars(
@@ -1717,13 +1235,9 @@ def listing_price_history(
             {
                 "id": row.id,
                 "event_type": row.event_type,
-                "amount": str(row.price_amount)
-                if row.price_amount is not None
-                else None,
+                "amount": str(row.price_amount) if row.price_amount is not None else None,
                 "currency": row.currency,
-                "previous_amount": str(row.previous_price_amount)
-                if row.previous_price_amount is not None
-                else None,
+                "previous_amount": str(row.previous_price_amount) if row.previous_price_amount is not None else None,
                 "previous_currency": row.previous_currency,
                 "recorded_at": row.created_at,
             }
@@ -1732,35 +1246,23 @@ def listing_price_history(
     }
 
 
-@router.put("/me/favorites/{listing_id}", response_model=FavoriteToggleOut)
-def add_favorite(
-    listing_id: UUID,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
-    db: Annotated[Session, Depends(get_db)],
-) -> dict:
+@router.put(
+    "/me/favorites/{listing_id}", response_model=FavoriteToggleOut
+)
+def add_favorite(listing_id: UUID, user: Annotated[User, Depends(get_current_user)], csrf: Annotated[UserSession, Depends(require_csrf)], db: Annotated[Session, Depends(get_db)]) -> dict:
     listing = db.get(Listing, listing_id)
     if listing is None or not listing_is_public(db, listing):
         fail(404, "not_found", "Listing not found")
-    statement = (
-        pg_insert(Favorite)
-        .values(user_id=user.id, listing_id=listing.id)
-        .on_conflict_do_nothing(constraint="uq_favorite_user_listing")
-    )
+    statement = pg_insert(Favorite).values(user_id=user.id, listing_id=listing.id).on_conflict_do_nothing(constraint="uq_favorite_user_listing")
     db.execute(statement)
     db.commit()
     return {"ok": True}
 
 
-@router.delete("/me/favorites/{listing_id}", response_model=FavoriteToggleOut)
-def remove_favorite(
-    listing_id: UUID,
-    user: Annotated[User, Depends(get_current_user)],
-    csrf: Annotated[UserSession, Depends(require_csrf)],
-    db: Annotated[Session, Depends(get_db)],
-) -> dict:
-    db.query(Favorite).filter(
-        Favorite.user_id == user.id, Favorite.listing_id == listing_id
-    ).delete(synchronize_session=False)
+@router.delete(
+    "/me/favorites/{listing_id}", response_model=FavoriteToggleOut
+)
+def remove_favorite(listing_id: UUID, user: Annotated[User, Depends(get_current_user)], csrf: Annotated[UserSession, Depends(require_csrf)], db: Annotated[Session, Depends(get_db)]) -> dict:
+    db.query(Favorite).filter(Favorite.user_id == user.id, Favorite.listing_id == listing_id).delete(synchronize_session=False)
     db.commit()
     return {"ok": True}

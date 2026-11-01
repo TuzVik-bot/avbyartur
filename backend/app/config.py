@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     media_root: Path = Path("/app/private-media")
     private_listing_quota: int = Field(default=5, ge=1, le=10000)
     company_listing_quota: int = Field(default=50, ge=1, le=10000)
+    listing_auto_publish_enabled: bool = False
     saved_search_limit: int = Field(default=20, ge=1, le=10000)
     saved_search_mutations_per_hour: int = 60
     upload_max_bytes: int = 20 * 1024 * 1024
@@ -42,6 +43,7 @@ class Settings(BaseSettings):
     email_registration_enabled: bool = False
     email_registration_pilot_enabled: bool = False
     public_guest_contact_enabled: bool = False
+    guest_contact_ip_hourly_limit: int = Field(default=30, ge=1, le=10000)
     sms_otp_secret: SecretStr = SecretStr("")
     sms_otp_lifetime_seconds: int = 300
     sms_otp_max_attempts: int = 5
@@ -84,14 +86,6 @@ class Settings(BaseSettings):
     onliner_sync_owner_email: str = ""
     onliner_sync_interval_hours: int = Field(default=6, ge=1, le=48)
     onliner_sync_manufacturers: str = "all"
-    telegram_bot_token: SecretStr = SecretStr("")
-    telegram_bot_username: str = ""
-    telegram_api_url: str = "https://api.telegram.org"
-    telegram_timeout_seconds: int = Field(default=10, ge=1, le=60)
-    telegram_poll_interval_seconds: int = Field(default=15, ge=5, le=600)
-    payment_provider_name: str = ""
-    payment_callback_secret: SecretStr = SecretStr("")
-    payment_checkout_url_template: str = ""
 
     @model_validator(mode="after")
     def validate_listing_year_range(self) -> "Settings":

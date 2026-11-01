@@ -38,10 +38,6 @@ function setInputValue(element: HTMLInputElement, value: string) {
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   request.mockReset();
-  request.mockImplementation((path: string) => {
-    if (path === "me/telegram") return Promise.resolve({ linked: false, linked_at: null, bot_username: "", channel_available: false });
-    return undefined as unknown as Promise<unknown>;
-  });
   container = document.createElement("div");
   document.body.append(container);
   act(() => { root = createRoot(container); });
@@ -63,7 +59,7 @@ describe("saved searches", () => {
 
   it("renders an empty state and creates a search from a relative URL", async () => {
     const created = search({ id: "search-2", name: "Мой новый поиск", url: "/cars?q=Belgee", filters: { q: "Belgee" } });
-    request.mockResolvedValueOnce({ preferences: { email_verified: false, email_delivery_configured: false } }).mockResolvedValueOnce({ linked: false, linked_at: null, bot_username: "", channel_available: false }).mockResolvedValueOnce({ saved_search: created });
+    request.mockResolvedValueOnce({ preferences: { email_verified: false, email_delivery_configured: false } }).mockResolvedValueOnce({ saved_search: created });
     await act(async () => root.render(createElement(SavedSearches, { initialItems: [], initialUrl: "/cars?q=Belgee&page=3&sort=price_asc" })));
 
     expect(container.textContent).toContain("Сохранённых поисков пока нет");
@@ -80,7 +76,7 @@ describe("saved searches", () => {
   it("saves notification preferences and pauses a search", async () => {
     const updated = search({ revision: 3, notifications_enabled: true, notification_channel: "email", notification_frequency: "weekly" });
     const paused = search({ revision: 4, status: "paused", notifications_enabled: true, notification_channel: "email", notification_frequency: "weekly" });
-    request.mockResolvedValueOnce({ preferences: { email_verified: true, email_delivery_configured: true } }).mockResolvedValueOnce({ linked: false, linked_at: null, bot_username: "", channel_available: false }).mockResolvedValueOnce({ saved_search: updated }).mockResolvedValueOnce({ saved_search: paused });
+    request.mockResolvedValueOnce({ preferences: { email_verified: true, email_delivery_configured: true } }).mockResolvedValueOnce({ saved_search: updated }).mockResolvedValueOnce({ saved_search: paused });
     await act(async () => root.render(createElement(SavedSearches, { initialItems: [search()] })));
 
     expect(container.querySelector('option[value="email"]')?.textContent).toBe("Email");

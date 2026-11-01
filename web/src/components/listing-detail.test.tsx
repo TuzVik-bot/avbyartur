@@ -10,6 +10,53 @@ import type { Listing, User } from "@/lib/types";
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
 const authMocks = vi.hoisted(() => ({ user: null as User | null }));
 
+describe("requested listing details", () => {
+  it("offers exchange only on active exchange listings to other users and preserves the intent through login", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, exchange: true } })));
+    expect(container.querySelector('a.exchange-offer')?.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(`/account/messages/new?listing_id=${listing.id}&intent=exchange`)}`);
+    authMocks.user = { id: "buyer", role: "user" } as User;
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, exchange: true } })));
+    expect(container.querySelector('a.exchange-offer')?.getAttribute("href")).toBe(`/account/messages/new?listing_id=${listing.id}&intent=exchange`);
+    for (const nextListing of [{ ...listing, exchange: false }, { ...listing, exchange: true, status: "sold" as const }]) {
+      await act(async () => root.render(createElement(ListingDetail, { listing: nextListing })));
+      expect(container.querySelector('a.exchange-offer')).toBeNull();
+    }
+    authMocks.user = { id: listing.seller.id, role: "user" } as User;
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, exchange: true } })));
+    expect(container.querySelector('a.exchange-offer')).toBeNull();
+  });
+  it("shows only chat for a listing without a phone", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, has_phone: false, view_count: 1234 } })));
+    expect(container.textContent).not.toContain("Показать телефон");
+    expect(container.querySelector(".contact-chat")?.classList.contains("button-primary")).toBe(true);
+    expect(container.querySelector('[aria-label="Просмотры: 1234"]')).not.toBeNull();
+  });
+
+  it("converts a BYN price to USD and EUR using the returned rates", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true, json: async () => ({
+      rate_date: "2026-10-28", rates: [{ currency: "USD", byn_per_unit: "2" }, { currency: "EUR", byn_per_unit: "4" }]
+    }) } as Response);
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing: { ...listing, price: { amount: "10000", currency: "BYN" } } }));
+      await Promise.resolve();
+    });
+    const text = container.querySelector(".detail-conversions")?.textContent?.replace(/\s/g, "");
+    expect(text).toContain("≈5000USD");
+    expect(text).toContain("≈2500EUR");
+    expect(text).toContain("28");
+  });
+
+  it("keeps the main price visible when currency rates fail", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Rates unavailable"));
+    await act(async () => {
+      root.render(createElement(ListingDetail, { listing: { ...listing, price: { amount: "10000", currency: "BYN" } } }));
+      await Promise.resolve();
+    });
+    expect(container.querySelector(".detail-price")?.textContent).toContain("BYN");
+    expect(container.textContent).toContain("Курс валют временно недоступен");
+  });
+});
+
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a>
 }));
@@ -70,16 +117,45 @@ const listing: Listing = {
 };
 
 describe("contact reveal", () => {
-  it("links manual UAZ and Patriot breadcrumbs to search instead of missing categories", async () => {
-    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing,
-      make: { id: "zero", slug: "manual-uaz", name: "УАЗ" },
-      model: { id: "zero", slug: "manual-patriot", name: "Patriot" },
-    } })));
-    const links = [...container.querySelectorAll<HTMLAnchorElement>(".breadcrumb a")];
-    expect(links.map((link) => link.textContent)).toEqual(["Главная", "Автомобили", "УАЗ", "Patriot"]);
-    expect(new URL(links[2].href).searchParams.get("q")).toBe("УАЗ");
-    expect(new URL(links[3].href).searchParams.get("q")).toBe("УАЗ Patriot");
+  it("offers exchange only on active exchange listings to other users and preserves the intent through login", async () => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, exchange: true } })));
+    expect(container.querySelector('a.exchange-offer')?.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(`/account/messages/new?listing_id=${listing.id}&intent=exchange`)}`);
+    authMocks.user = { id: "buyer", role: "user" } as User;
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, exchange: true } })));
+    expect(container.querySelector('a.exchange-offer')?.getAttribute("href")).toBe(`/account/messages/new?listing_id=${listing.id}&intent=exchange`);
+    for (const nextListing of [{ ...listing, exchange: false }, { ...listing, exchange: true, status: "sold" as const }]) {
+      await act(async () => root.render(createElement(ListingDetail, { listing: nextListing })));
+      expect(container.querySelector('a.exchange-offer')).toBeNull();
+    }
+    authMocks.user = { id: listing.seller.id, role: "user" } as User;
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, exchange: true } })));
+    expect(container.querySelector('a.exchange-offer')).toBeNull();
   });
+  it("explains the phone reveal limit without displaying the server message", async () => {
+    vi.spyOn(api, "revealPhone").mockRejectedValue(new ApiClientError(429, { code: "rate_limited", message: "Too many requests" }));
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+
+    await act(async () => { container.querySelector<HTMLButtonElement>(".contact-reveal")!.click(); });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Слишком много запросов на показ телефона. Попробуйте позже или напишите продавцу.");
+    expect(container.textContent).not.toContain("Too many requests");
+    expect(container.querySelector<HTMLButtonElement>(".contact-reveal")?.disabled).toBe(false);
+    expect(container.querySelector(".contact-chat")).not.toBeNull();
+    expect(routerMocks.push).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { slug: "onliner-5071635", equipment: ["abs", "navigation_system", "seat_adjustment"], expected: "Уточняйте комплектацию у продавца" },
+    { slug: "seller-car", equipment: ["navigation_system", "seat_adjustment"], expected: "Уточняйте комплектацию у продавца" },
+    { slug: "seller-car", equipment: ["rear_camera", "navigation_system"], expected: "Камера заднего вида. Остальную комплектацию уточняйте у продавца" }
+  ])("does not present raw equipment fields as confirmed options ($slug, $equipment)", async ({ slug, equipment, expected }) => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, slug, equipment } })));
+    const facts = container.querySelector(".detail-facts")?.textContent || "";
+    expect(facts).toContain(expected);
+    expect(facts).not.toContain("navigation_system");
+    expect(facts).not.toContain("seat_adjustment");
+  });
+
 
   it("renders only the verified evidence attached to the public detail payload", async () => {
     await act(async () => root.render(createElement(ListingDetail, { listing: {
@@ -89,12 +165,6 @@ describe("contact reveal", () => {
     expect(container.textContent).toContain("Документы проверены");
     expect(container.textContent).toContain("Сверены регистрационные документы");
     expect(container.textContent).toContain("Реестр документов");
-  });
-
-  it("offers a car-specific ownership calculation seeded by the listing id", async () => {
-    await act(async () => root.render(createElement(ListingDetail, { listing })));
-    const link = [...container.querySelectorAll<HTMLAnchorElement>("a")].find((item) => item.textContent?.includes("Рассчитать стоимость владения"));
-    expect(link?.getAttribute("href")).toBe("/ownership-calculator?listing=listing-1");
   });
 
   it("takes a guest to login with the new chat route as the next path", async () => {
@@ -143,6 +213,19 @@ describe("contact reveal", () => {
     expect(container.querySelector('a[href="https://viber.me/seller"]')?.textContent).toContain("Viber");
     expect(container.querySelector('[data-compare-listing="listing-1"]')).not.toBeNull();
     expect(container.textContent).toContain("Поделиться Марка Модель");
+  });
+
+  it("explains the phone reveal limit without displaying the server message", async () => {
+    vi.spyOn(api, "revealPhone").mockRejectedValue(new ApiClientError(429, { code: "rate_limited", message: "Too many requests" }));
+    await act(async () => root.render(createElement(ListingDetail, { listing })));
+
+    await act(async () => { container.querySelector<HTMLButtonElement>(".contact-reveal")!.click(); });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Слишком много запросов на показ телефона. Попробуйте позже или напишите продавцу.");
+    expect(container.textContent).not.toContain("Too many requests");
+    expect(container.querySelector<HTMLButtonElement>(".contact-reveal")?.disabled).toBe(false);
+    expect(container.querySelector(".contact-chat")).not.toBeNull();
+    expect(routerMocks.push).not.toHaveBeenCalled();
   });
 
   it("keeps the disabled pilot login redirect after an unauthenticated reveal is rejected", async () => {
@@ -260,6 +343,18 @@ describe("catalog specifications", () => {
     expect(container.querySelector(".detail-facts")?.textContent).toContain("Мощность156 л.с.");
   });
 
+  it.each([
+    { slug: "onliner-5071635", equipment: ["abs", "navigation_system", "seat_adjustment"], expected: "Уточняйте комплектацию у продавца" },
+    { slug: "seller-car", equipment: ["navigation_system", "seat_adjustment"], expected: "Уточняйте комплектацию у продавца" },
+    { slug: "seller-car", equipment: ["rear_camera", "navigation_system"], expected: "Камера заднего вида. Остальную комплектацию уточняйте у продавца" }
+  ])("does not present raw equipment fields as confirmed options ($slug, $equipment)", async ({ slug, equipment, expected }) => {
+    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, slug, equipment } })));
+    const facts = container.querySelector(".detail-facts")?.textContent || "";
+    expect(facts).toContain(expected);
+    expect(facts).not.toContain("navigation_system");
+    expect(facts).not.toContain("seat_adjustment");
+  });
+
   it("renders the complete seller-entered characteristics and related listings", async () => {
     const detailed: Listing = {
       ...listing, color: "blue", customs_status: "cleared_rb", technical_condition: "good", body_condition: "minor_damage",
@@ -308,7 +403,7 @@ describe("photo gallery", () => {
     const mainImage = () => container.querySelector<HTMLImageElement>("#detail-main-image")!;
     expect(thumbnails).toHaveLength(6);
     expect(mainImage().src).toContain("/photo-1.webp");
-    expect(mainImage().alt).toBe("Фотография 1 из 6: Марка Модель");
+    expect(mainImage().alt).toBe("Продажа авто — Марка Модель — фото 1");
     expect(thumbnails[0].getAttribute("aria-current")).toBe("true");
 
     await act(async () => { thumbnails[5].click(); });

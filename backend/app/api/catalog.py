@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.catalog_schemas import CatalogItemsOut, CatalogModificationsOut
 from app.db import get_db
+from app.listing_schemas import canonical_catalog_ids
 from app.models import (
     CatalogBodyType,
     CatalogBodyVariant,
@@ -17,7 +18,8 @@ from app.models import (
     LocationCity,
     LocationRegion,
 )
-from app.services import catalog_item, catalog_modification_item
+from app.listing_categories import CategoryCode
+from app.services import catalog_item, catalog_modification_item, fail
 
 router = APIRouter(prefix="/api/v1", tags=["catalog"])
 
@@ -27,8 +29,18 @@ def items(rows: list, **relations) -> dict:
 
 
 @router.get("/catalog/makes", response_model=CatalogItemsOut, response_model_exclude_unset=True)
-def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: Annotated[int, Query(ge=1, le=200)] = 200) -> dict:
+def makes(
+    db: Annotated[Session, Depends(get_db)],
+    q: str | None = None,
+    limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+    category_code: CategoryCode | None = None,
+) -> dict:
     query = select(CatalogMake).order_by(CatalogMake.sort_order, CatalogMake.name).limit(limit)
+    if category_code is not None:
+        categorized_make_ids = select(CatalogModel.make_id).where(
+            CatalogModel.source_metadata.contains({"category_codes": [category_code]})
+        )
+        query = query.where(CatalogMake.id.in_(categorized_make_ids))
     if q:
         term = f"%{q[:80]}%"
         query = query.where(CatalogMake.name.ilike(term) | CatalogMake.slug.ilike(term) | cast(CatalogMake.aliases, String).ilike(term))
@@ -36,8 +48,23 @@ def makes(db: Annotated[Session, Depends(get_db)], q: str | None = None, limit: 
 
 
 @router.get("/catalog/models", response_model=CatalogItemsOut, response_model_exclude_unset=True)
-def models(db: Annotated[Session, Depends(get_db)], make_id: UUID | None = None, q: str | None = None, limit: Annotated[int, Query(ge=1, le=300)] = 300) -> dict:
+def models(
+    db: Annotated[Session, Depends(get_db)],
+    make_id: UUID | None = None,
+    q: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=300)] = 300,
+    category_code: CategoryCode | None = None,
+    model_ids: str | None = None,
+) -> dict:
     query = select(CatalogModel).order_by(CatalogModel.name).limit(limit)
+    if model_ids is not None:
+        try:
+            selected_ids = [UUID(item) for item in canonical_catalog_ids(model_ids).split(",")]
+        except ValueError:
+            fail(422, "validation_error", "Invalid catalog model IDs", {"model_ids": "Expected 1 to 50 comma-separated UUIDs"})
+        query = query.where(CatalogModel.id.in_(selected_ids))
+    if category_code is not None:
+        query = query.where(CatalogModel.source_metadata.contains({"category_codes": [category_code]}))
     if make_id:
         query = query.where(CatalogModel.make_id == make_id)
     if q:

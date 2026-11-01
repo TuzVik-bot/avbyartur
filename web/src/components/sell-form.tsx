@@ -4,12 +4,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ImagePlus, LoaderCircle, Star, Trash2 } from "lucide-react";
+import { matchesCatalogSearch } from "@/lib/catalog-search";
 import { api, ApiClientError, type ListingOptions } from "@/lib/api";
 import { catalogRequestsApi, type CatalogRequest } from "@/lib/catalog-requests";
-import { getListingSubcategories, isListingSubcategory, listingSubcategoryDetailsField, type ListingCategoryCode } from "@/lib/listing-subcategories";
-import { formatDate } from "@/lib/format";
 import { buildListingQuality, type ListingQualityTarget } from "@/lib/listing-quality";
 import type { CatalogItem, CatalogModification, Company, Listing, ListingDraftInput, ListingPhoto } from "@/lib/types";
+import { getListingSubcategories, isListingSubcategory, listingSubcategoryDetailsField, type ListingCategoryCode } from "@/lib/listing-subcategories";
 
 const FUEL_OPTIONS = ["petrol", "diesel", "hybrid", "electric", "lpg", "other"] as const satisfies readonly NonNullable<ListingDraftInput["fuel"]>[];
 const TRANSMISSION_OPTIONS = ["manual", "automatic", "robot", "cvt", "other"] as const satisfies readonly NonNullable<ListingDraftInput["transmission"]>[];
@@ -17,7 +17,6 @@ const DRIVE_OPTIONS = ["front", "rear", "all", "other"] as const satisfies reado
 const CONDITION_OPTIONS = ["new", "used"] as const satisfies readonly NonNullable<ListingDraftInput["condition"]>[];
 
 type ListingValidationPolicy = Awaited<ReturnType<typeof api.listingValidationPolicy>>;
-type MarketEstimate = Awaited<ReturnType<typeof api.listingMarketEstimate>>;
 
 function minimumPhotoCount(
   policy: ListingValidationPolicy,
@@ -75,6 +74,7 @@ type FormFields = {
   call_hours: string;
   damaged: boolean;
   parts_only: boolean;
+  in_transit: boolean;
   vin: string;
   description: string;
   price_amount: string;
@@ -126,6 +126,7 @@ function initialFields(listing: Listing | null): FormFields {
     call_hours: listing?.call_hours || "",
     damaged: listing?.damaged || false,
     parts_only: listing?.parts_only || false,
+    in_transit: listing?.in_transit ?? false,
     vin: listing?.vin || "",
     description: listing?.description || "",
     price_amount: listing?.price?.amount || "",
@@ -146,6 +147,8 @@ type SellDraftPayload = Omit<Partial<ListingDraftInput>, "make_id" | "model_id">
   model_id?: string | null;
   manual_make?: string | null;
   manual_model?: string | null;
+  telegram_contact_url?: string | null;
+  viber_contact_url?: string | null;
 };
 
 const SELL_CATEGORY_OPTIONS: readonly { value: ListingCategoryCode; label: string }[] = [
@@ -157,6 +160,7 @@ const SELL_CATEGORY_OPTIONS: readonly { value: ListingCategoryCode; label: strin
   { value: "tires", label: "Шины" },
   { value: "wheels", label: "Колёсные диски" }
 ];
+
 const TRANSPORT_CATEGORIES: readonly ListingCategoryCode[] = ["cars", "trucks", "buses", "motorcycles", "special_equipment", "agricultural_equipment", "watercraft"];
 const CATEGORY_LABELS: Partial<Record<ListingCategoryCode, string>> = Object.fromEntries(SELL_CATEGORY_OPTIONS.map(({ value, label }) => [value, label]));
 const DETAIL_NUMERIC_KEYS = new Set(["width_mm", "profile_percent", "diameter_in", "width_in", "bolt_holes", "pcd_mm", "offset_et", "dia_mm", "quantity", "engine_volume_cc", "power_hp", "operating_hours", "weight_kg", "payload_kg", "working_width_m", "length_m", "motor_power_hp"]);
@@ -168,16 +172,22 @@ const CATEGORY_DETAIL_KEYS: Partial<Record<ListingCategoryCode, readonly string[
   tires: ["vehicle_type", "width_mm", "profile_percent", "diameter_in", "season", "load_index", "speed_index", "quantity"],
   wheels: ["diameter_in", "width_in", "bolt_holes", "pcd_mm", "offset_et", "dia_mm", "material", "quantity"]
 };
+
 type CategoryDetailsFields = Record<string, string>;
+
 function initialCategoryDetails(listing: Listing | null): CategoryDetailsFields {
   const details = (listing as (Listing & { category_details?: { details?: Record<string, unknown> } }) | null)?.category_details?.details || {};
   return Object.fromEntries(Object.entries(details).map(([key, value]) => [key, value == null ? "" : String(value)]));
 }
+
 function categoryDetailsPayload(categoryCode: ListingCategoryCode, subcategory: string, fields: CategoryDetailsFields) {
   const details: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(fields)) {
-    if (!CATEGORY_DETAIL_KEYS[categoryCode]?.includes(key) || value.trim() === "") continue;
-    details[key] = DETAIL_NUMERIC_KEYS.has(key) ? Number(value) : value.trim();
+    if (!CATEGORY_DETAIL_KEYS[categoryCode]?.includes(key)) continue;
+    if (value.trim() === "") continue;
+    details[key] = DETAIL_NUMERIC_KEYS.has(key)
+      ? Number(value)
+      : value.trim();
   }
   const subtypeField = listingSubcategoryDetailsField(categoryCode);
   if (subcategory && subtypeField) details[subtypeField] = subcategory;
@@ -191,6 +201,7 @@ export function payloadFor(fields: FormFields, categoryCode: ListingCategoryCode
     seller_type: fields.seller_type,
     damaged: fields.damaged,
     parts_only: fields.parts_only,
+    in_transit: categoryCode === "cars" && fields.in_transit,
     color: fields.color || null,
     customs_status: fields.customs_status || null,
     technical_condition: fields.technical_condition || null,
@@ -226,20 +237,42 @@ export function payloadFor(fields: FormFields, categoryCode: ListingCategoryCode
   if (fields.condition) payload.condition = fields.condition;
   if (fields.price_amount) payload.price = { amount: fields.price_amount, currency: fields.currency };
   if (fields.region_id) payload.region_id = fields.region_id;
-  if (fields.contact_phone) payload.contact_phone = fields.contact_phone;
+  payload.contact_phone = fields.contact_phone.trim() || null;
+  payload.telegram_contact_url = fields.telegram_contact_url.trim() || null;
+  payload.viber_contact_url = fields.viber_contact_url.trim() || null;
   if ((categoryCode === "tires" || categoryCode === "wheels") && fields.title?.trim()) payload.title = fields.title.trim();
   if (!TRANSPORT_CATEGORIES.includes(categoryCode)) {
-    payload.make_id = null; payload.manual_make = null; payload.model_id = null; payload.manual_model = null;
-    payload.generation_id = null; payload.body_type_id = null; payload.body_variant_id = null; payload.modification_id = null;
-    delete payload.year; delete payload.mileage_km; delete payload.fuel; delete payload.transmission; delete payload.drive;
-    delete payload.condition; delete payload.engine_volume_l; delete payload.power_hp; delete payload.vin;
+    payload.make_id = null;
+    payload.manual_make = null;
+    payload.model_id = null;
+    payload.manual_model = null;
+    payload.generation_id = null;
+    payload.body_type_id = null;
+    payload.body_variant_id = null;
+    payload.modification_id = null;
+    delete payload.year;
+    delete payload.mileage_km;
+    delete payload.fuel;
+    delete payload.transmission;
+    delete payload.drive;
+    delete payload.condition;
+    delete payload.engine_volume_l;
+    delete payload.power_hp;
+    delete payload.vin;
   } else if (categoryCode !== "cars") {
-    payload.generation_id = null; payload.body_type_id = null; payload.body_variant_id = null; payload.modification_id = null;
-    delete payload.mileage_km; delete payload.fuel; delete payload.transmission; delete payload.drive;
-    delete payload.condition; delete payload.engine_volume_l; delete payload.power_hp; delete payload.vin;
+    payload.generation_id = null;
+    payload.body_type_id = null;
+    payload.body_variant_id = null;
+    payload.modification_id = null;
+    delete payload.mileage_km;
+    delete payload.fuel;
+    delete payload.transmission;
+    delete payload.drive;
+    delete payload.condition;
+    delete payload.engine_volume_l;
+    delete payload.power_hp;
+    delete payload.vin;
   }
-  payload.telegram_contact_url = fields.telegram_contact_url?.trim() || null;
-  payload.viber_contact_url = fields.viber_contact_url?.trim() || null;
   return payload;
 }
 
@@ -270,11 +303,23 @@ type StepValidationError = {
 };
 
 const fieldErrorLabels: Partial<Record<FieldErrorKey, string>> = {
-  category_code: "категорию объявления", title: "название объявления", subcategory: "подкатегорию",
-  width_mm: "ширину шины", profile_percent: "профиль шины", diameter_in: "диаметр", season: "сезон шин",
-  width_in: "ширину диска", bolt_holes: "количество отверстий", pcd_mm: "разболтовку", operating_hours: "наработку",
-  weight_kg: "массу", payload_kg: "грузоподъёмность", working_width_m: "рабочую ширину", length_m: "длину",
-  hull_material: "материал корпуса", motor_power_hp: "мощность мотора",
+  category_code: "категорию объявления",
+  title: "название объявления",
+  subcategory: "подкатегорию",
+  width_mm: "ширину шины",
+  profile_percent: "профиль шины",
+  diameter_in: "диаметр",
+  season: "сезон шин",
+  width_in: "ширину диска",
+  bolt_holes: "количество отверстий",
+  pcd_mm: "разболтовку",
+  operating_hours: "наработку",
+  weight_kg: "массу",
+  payload_kg: "грузоподъёмность",
+  working_width_m: "рабочую ширину",
+  length_m: "длину",
+  hull_material: "материал корпуса",
+  motor_power_hp: "мощность мотора",
   seller_type: "кто продаёт",
   make_id: "марку",
   manual_make: "марку",
@@ -305,6 +350,15 @@ const fieldErrorLabels: Partial<Record<FieldErrorKey, string>> = {
 };
 
 const localFieldMessages: Partial<Record<FieldErrorKey, string>> = {
+  subcategory: "Выберите тип техники или шин.",
+  title: "Укажите название объявления.",
+  width_mm: "Укажите ширину шины.",
+  profile_percent: "Укажите профиль шины.",
+  diameter_in: "Укажите диаметр.",
+  season: "Выберите сезон шин.",
+  width_in: "Укажите ширину диска.",
+  bolt_holes: "Укажите количество отверстий.",
+  pcd_mm: "Укажите разболтовку.",
   seller_type: "Выберите тип продавца.",
   make_id: "Выберите марку из каталога.",
   manual_make: "Укажите марку автомобиля.",
@@ -328,9 +382,23 @@ const localFieldMessages: Partial<Record<FieldErrorKey, string>> = {
 };
 
 const fieldSteps: Partial<Record<FieldErrorKey, number>> = {
-  category_code: 1, subcategory: 1, title: 2, width_mm: 2, profile_percent: 2, diameter_in: 2, season: 2,
-  width_in: 2, bolt_holes: 2, pcd_mm: 2, operating_hours: 2, weight_kg: 2, payload_kg: 2,
-  working_width_m: 2, length_m: 2, hull_material: 2, motor_power_hp: 2,
+  category_code: 1,
+  title: 2,
+  subcategory: 1,
+  width_mm: 2,
+  profile_percent: 2,
+  diameter_in: 2,
+  season: 2,
+  width_in: 2,
+  bolt_holes: 2,
+  pcd_mm: 2,
+  operating_hours: 2,
+  weight_kg: 2,
+  payload_kg: 2,
+  working_width_m: 2,
+  length_m: 2,
+  hull_material: 2,
+  motor_power_hp: 2,
   seller_type: 1,
   condition: 1,
   make_id: 2,
@@ -380,13 +448,14 @@ function mileageErrorFor(value: string) {
 }
 
 function contactChannelError(value: string, channel: "telegram" | "viber") {
-  if (!value.trim()) return "";
-  let url: URL;
-  try { url = new URL(value.trim()); } catch { return "Укажите корректную HTTPS-ссылку на контакт."; }
-  const segments = url.pathname.split("/").filter(Boolean);
-  const host = url.hostname.toLowerCase();
-  const validBase = url.protocol === "https:" && !url.port && !url.username && !url.password && !url.search && !url.hash && segments.length === 1;
-  if (!validBase) return "Укажите корректную HTTPS-ссылку на контакт.";
+  const raw = value.trim();
+  if (!raw) return "";
+  if (raw.length > 320 || /[\u0000-\u001f\u007f]/.test(raw)) return "Укажите корректную HTTPS-ссылку на контакт.";
+  const match = /^https:\/\/([^/?#]+)(\/[^?#]*)?$/i.exec(raw);
+  if (!match) return "Укажите корректную HTTPS-ссылку на контакт.";
+  const host = match[1].toLowerCase();
+  const segments = (match[2] || "").split("/").filter(Boolean);
+  if (segments.length !== 1 || segments[0] === "." || segments[0] === "..") return "Укажите корректную HTTPS-ссылку на контакт.";
   if (channel === "telegram") {
     return ["t.me", "telegram.me"].includes(host) && /^[A-Za-z0-9_]{5,32}$/.test(segments[0])
       ? ""
@@ -483,12 +552,16 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   const [fields, setFields] = useState(firstFields);
   const initialCategory = ((initialListing as (Listing & { category_code?: ListingCategoryCode }) | null)?.category_code || initialCategoryCode) as ListingCategoryCode;
   const [categoryCode, setCategoryCode] = useState<ListingCategoryCode>(initialCategory);
-  const [categoryDetails, setCategoryDetails] = useState<CategoryDetailsFields>(() => initialCategoryDetails(initialListing));
+  const [categoryMakes, setCategoryMakes] = useState(makes);
+  const loadedCategoryCode = useRef(initialCategory);
   const [subcategory, setSubcategory] = useState(() => {
-    const detailField = listingSubcategoryDetailsField(initialCategory);
-    const saved = detailField ? initialCategoryDetails(initialListing)[detailField] : "";
-    return saved && isListingSubcategory(initialCategory, saved) ? saved : isListingSubcategory(initialCategory, initialSubcategory) ? initialSubcategory : "";
+    const details = initialCategoryDetails(initialListing);
+    const field = listingSubcategoryDetailsField(initialCategory);
+    const savedValue = field ? details[field] : "";
+    if (savedValue && isListingSubcategory(initialCategory, savedValue)) return savedValue;
+    return isListingSubcategory(initialCategory, initialSubcategory) ? initialSubcategory : "";
   });
+  const [categoryDetails, setCategoryDetails] = useState<CategoryDetailsFields>(() => initialCategoryDetails(initialListing));
   const [missingModificationSelected, setMissingModificationSelected] = useState(false);
   const [manualModificationName, setManualModificationName] = useState("");
   const [catalogRequestNote, setCatalogRequestNote] = useState("");
@@ -499,6 +572,9 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   const [catalogRequestSubmitting, setCatalogRequestSubmitting] = useState(false);
   const catalogRequestKey = useRef<{ payload: string; key: string } | null>(null);
   const [models, setModels] = useState(initialModels);
+  const [makeQuery, setMakeQuery] = useState("");
+  const [modelQuery, setModelQuery] = useState("");
+  const [searchedModels, setSearchedModels] = useState<CatalogItem[]>([]);
   const [generations, setGenerations] = useState(initialGenerations);
   const [modifications, setModifications] = useState<CatalogModification[]>([]);
   const [modificationsLoading, setModificationsLoading] = useState(false);
@@ -520,10 +596,6 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [busy, setBusy] = useState(false);
-  const [marketEstimate, setMarketEstimate] = useState<MarketEstimate | null>(null);
-  const [marketEstimateBusy, setMarketEstimateBusy] = useState(false);
-  const [marketEstimateError, setMarketEstimateError] = useState("");
-  const marketEstimateRequestId = useRef(0);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const lastFocusedStep = useRef(step);
   const qualityFocusField = useRef<string | null>(null);
@@ -611,13 +683,37 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   }, [validationPolicyRetry]);
 
   useEffect(() => {
+    if (loadedCategoryCode.current === categoryCode) return;
+    loadedCategoryCode.current = categoryCode;
+    let active = true;
+    setCategoryMakes([]);
+    api.catalog("makes", { category_code: categoryCode })
+      .then((result) => { if (active) setCategoryMakes(result.items); })
+      .catch(() => { if (active && categoryCode === initialCategory) setCategoryMakes(makes); });
+    return () => { active = false; };
+  }, [categoryCode, initialCategory, makes]);
+
+  useEffect(() => {
     let active = true;
     if (!fields.make_id) { setModels([]); return () => { active = false; }; }
-    api.catalog("models", { make_id: fields.make_id })
-      .then((result) => { if (active) setModels(result.items); })
+    setModels([]);
+    api.catalog("models", { make_id: fields.make_id, category_code: categoryCode })
+      .then((result) => { if (active) setModels(fields.make_id === initialListing?.make?.id && categoryCode === initialCategory ? [...new Map([...result.items, ...initialModels].map((item) => [item.id, item])).values()] : result.items); })
       .catch(() => { if (active) setModels(fields.make_id === initialListing?.make?.id ? initialModels : []); });
     return () => { active = false; };
-  }, [fields.make_id, initialListing, initialModels]);
+  }, [fields.make_id, categoryCode, initialCategory, initialListing, initialModels]);
+  useEffect(() => {
+    let active = true;
+    const query = modelQuery.trim();
+    setSearchedModels([]);
+    if (!fields.make_id || !query) return () => { active = false; };
+    const timer = setTimeout(() => {
+      api.catalog("models", { make_id: fields.make_id, category_code: categoryCode, q: query })
+        .then((result) => { if (active) setSearchedModels(result.items); })
+        .catch(() => { if (active) setSearchedModels([]); });
+    }, 200);
+    return () => { active = false; clearTimeout(timer); };
+  }, [fields.make_id, categoryCode, modelQuery]);
   useEffect(() => {
     let active = true;
     if (!fields.model_id) { setGenerations([]); return () => { active = false; }; }
@@ -721,20 +817,6 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
     return message ? <small className="inline-error" id={fieldErrorId(field)} role="alert">{message}</small> : null;
   }
 
-  function changeCategory(value: ListingCategoryCode) {
-    setCategoryCode(value);
-    setSubcategory("");
-    setCategoryDetails({});
-    setError("");
-    setFieldErrors({});
-  }
-
-  function updateCategoryDetail(key: string, value: string) {
-    setCategoryDetails((current) => ({ ...current, [key]: value }));
-    clearFieldErrors(key as FieldErrorKey);
-    setError("");
-  }
-
   async function queueSave(payload: SellDraftPayload) {
     const snapshot = JSON.stringify(payload);
     if (snapshot === savedSnapshot.current) return saveQueue.current;
@@ -763,53 +845,19 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
     return () => clearTimeout(timer);
   }, [currentSnapshot]);
 
-  function invalidateMarketEstimate() {
-    marketEstimateRequestId.current += 1;
-    setMarketEstimate(null);
-    setMarketEstimateError("");
-    setMarketEstimateBusy(false);
-  }
-
   function update<K extends keyof FormFields>(key: K, value: FormFields[K]) {
     setError("");
     clearFieldErrors(key);
     setFields((current) => ({ ...current, [key]: value }));
-    if (["make_id", "model_id", "generation_id", "body_type_id", "year", "mileage_km", "fuel", "transmission", "condition", "damaged", "parts_only", "seller_type"].includes(key)) invalidateMarketEstimate();
-  }
-
-  async function estimateDraftPrice() {
-    const mileage = Number(fields.mileage_km);
-    if (fields.make_mode !== "catalog" || fields.model_mode !== "catalog" || !fields.make_id || !fields.model_id || !fields.body_type_id || !fields.year.trim() || fields.mileage_km.trim() === "" || !Number.isInteger(mileage) || mileage < 0 || mileage > 5_000_000 || !fields.fuel || !fields.transmission || !fields.condition) {
-      invalidateMarketEstimate();
-      setMarketEstimateError("Укажите марку, модель, кузов, год, целый пробег от 0 до 5 000 000 км, топливо, коробку передач и состояние.");
-      setMarketEstimate(null);
-      return;
-    }
-    const requestId = ++marketEstimateRequestId.current;
-    setMarketEstimateBusy(true);
-    setMarketEstimateError("");
-    try {
-      const estimate = await api.listingMarketEstimate({
-        seller_type: fields.seller_type, make_id: fields.make_id, model_id: fields.model_id,
-        generation_id: fields.generation_id || null, body_type_id: fields.body_type_id,
-        year: Number(fields.year), mileage_km: mileage, condition: fields.condition,
-        fuel: fields.fuel, transmission: fields.transmission, damaged: fields.damaged, parts_only: fields.parts_only
-      });
-      if (marketEstimateRequestId.current === requestId) setMarketEstimate(estimate);
-    } catch {
-      if (marketEstimateRequestId.current === requestId) {
-        setMarketEstimate(null);
-        setMarketEstimateError("Не удалось получить оценку. Повторите попытку позже.");
-      }
-    } finally {
-      if (marketEstimateRequestId.current === requestId) setMarketEstimateBusy(false);
-    }
   }
 
   function changeMake(makeId: string) {
-    invalidateMarketEstimate();
+    setMakeQuery("");
+    setModelQuery("");
     setError("");
     clearFieldErrors("make_id", "model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
+    setSearchedModels([]);
+    setModels([]);
     setFields((current) => ({
       ...current,
       make_id: makeId,
@@ -822,17 +870,22 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   }
 
   function changeModel(modelId: string) {
-    invalidateMarketEstimate();
+    setModelQuery("");
     setError("");
     clearFieldErrors("model_id", "generation_id", "modification_id", "body_variant_id");
+    const selected = searchedModels.find((item) => item.id === modelId);
+    if (selected) setModels((current) => current.some((item) => item.id === selected.id) ? current : [...current, selected]);
+    setSearchedModels([]);
     setFields((current) => ({ ...current, model_id: modelId, generation_id: "", modification_id: "", body_variant_id: "" }));
   }
 
   function changeMakeMode(mode: FormFields["make_mode"]) {
-    invalidateMarketEstimate();
+    setMakeQuery("");
+    setModelQuery("");
     setError("");
     clearFieldErrors("make_id", "manual_make", "model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
     setMissingModificationSelected(false);
+    setSearchedModels([]);
     setFields((current) => ({
       ...current,
       make_mode: mode,
@@ -848,10 +901,11 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   }
 
   function changeModelMode(mode: FormFields["model_mode"]) {
-    invalidateMarketEstimate();
+    setModelQuery("");
     setError("");
     clearFieldErrors("model_id", "manual_model", "generation_id", "modification_id", "body_variant_id");
     setMissingModificationSelected(false);
+    setSearchedModels([]);
     setFields((current) => ({
       ...current,
       model_mode: mode,
@@ -872,11 +926,11 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   function changeRegion(regionId: string) {
     setError("");
     clearFieldErrors("region_id", "city_id", "manual_city");
+    setCities([]);
     setFields((current) => ({ ...current, region_id: regionId, city_id: "", manual_city: "" }));
   }
 
   function changeGeneration(generationId: string) {
-    invalidateMarketEstimate();
     setError("");
     clearFieldErrors("generation_id", "modification_id", "body_variant_id");
     setMissingModificationSelected(false);
@@ -884,7 +938,6 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   }
 
   function changeModification(modificationId: string) {
-    invalidateMarketEstimate();
     const modification = modifications.find((item) => item.id === modificationId)
       || (initialListing?.modification?.id === modificationId ? initialListing.modification : undefined);
     setError("");
@@ -957,10 +1010,12 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   function validateStep(target: number, photoState: ListingPhoto[] = photos): StepValidationError | null {
     if (target === 1 && fields.seller_type === "company" && company?.status !== "approved") return { message: "Чтобы публиковать от имени компании, дождитесь её допуска.", fields: ["seller_type"], focusField: "seller_type" };
     if (target === 2) {
-      const isPassengerCar = categoryCode === "cars";
       const isTransport = TRANSPORT_CATEGORIES.includes(categoryCode);
+      const isPassengerCar = categoryCode === "cars";
       if (isPassengerCar && !validationPolicy) {
-        const message = validationPolicyLoading ? "Дождитесь загрузки правил подачи." : "Не удалось загрузить правила подачи. Повторите загрузку, чтобы продолжить.";
+        const message = validationPolicyLoading
+          ? "Дождитесь загрузки правил подачи."
+          : "Не удалось загрузить правила подачи. Повторите загрузку, чтобы продолжить.";
         return { message, fields: ["year"], focusField: "year", messages: { year: message } };
       }
       if (isTransport) {
@@ -974,7 +1029,9 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
         if (isPassengerCar && validationPolicy) {
           const maximumYear = fields.condition === "new" ? validationPolicy.new_year_max : validationPolicy.used_year_max;
           if (!Number.isInteger(year) || year < validationPolicy.listing_year_min || year > maximumYear) {
-            const message = !Number.isInteger(year) ? "Укажите корректный год выпуска." : `Год выпуска должен быть от ${validationPolicy.listing_year_min} до ${maximumYear}.`;
+            const message = !Number.isInteger(year)
+              ? "Укажите корректный год выпуска."
+              : `Год выпуска должен быть от ${validationPolicy.listing_year_min} до ${maximumYear}.`;
             return { message, fields: ["year"], focusField: "year", messages: { year: message } };
           }
         } else if (!Number.isInteger(year) || year < 1886 || year > new Date().getFullYear() + 1) {
@@ -982,7 +1039,9 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
           return { message, fields: ["year"], focusField: "year", messages: { year: message } };
         }
       }
-      if (getListingSubcategories(categoryCode).length > 0 && !subcategory) return { message: "Выберите подкатегорию объявления.", fields: ["subcategory"], focusField: "subcategory" };
+      if (getListingSubcategories(categoryCode).length > 0 && !subcategory) {
+        return { message: "Выберите подкатегорию объявления.", fields: ["subcategory"], focusField: "subcategory" };
+      }
       if (isPassengerCar) {
         const mileageError = mileageErrorFor(fields.mileage_km);
         if (mileageError) return { message: mileageError, fields: ["mileage_km"], focusField: "mileage_km", messages: { mileage_km: mileageError } };
@@ -1003,7 +1062,8 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
       }
       if (requiredFields.length) {
         const labels = requiredFields.map((field) => fieldErrorLabels[field] || "характеристики").join(", ");
-        return { message: `Заполните обязательные характеристики: ${labels}.`, fields: requiredFields, focusField: requiredFields[0] };
+        const message = `Заполните обязательные характеристики: ${labels}.`;
+        return { message, fields: requiredFields, focusField: requiredFields[0] };
       }
     }
     if (target === 3) {
@@ -1017,7 +1077,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
         const cityField = fields.city_mode === "manual" ? "manual_city" : "city_id";
         return { message: "Выберите населённый пункт из списка или укажите вручную.", fields: [cityField], focusField: cityField };
       }
-      if (!fields.contact_phone.trim()) return { message: "Укажите контактный телефон.", fields: ["contact_phone"], focusField: "contact_phone" };
+      if (fields.contact_phone.trim() && fields.contact_phone.trim().length < 5) return { message: "Укажите корректный телефон или оставьте поле пустым.", fields: ["contact_phone"], focusField: "contact_phone" };
       for (const [field, channel] of [["telegram_contact_url", "telegram"], ["viber_contact_url", "viber"]] as const) {
         const channelError = contactChannelError(fields[field], channel);
         if (channelError) return { message: channelError, fields: [field], focusField: field, messages: { [field]: channelError } };
@@ -1220,7 +1280,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
     }
   }
 
-  const make = makes.find((item) => item.id === fields.make_id);
+  const make = categoryMakes.find((item) => item.id === fields.make_id);
   const model = models.find((item) => item.id === fields.model_id) || initialListing?.model;
   const generation = generations.find((item) => item.id === fields.generation_id) || (initialListing?.generation?.id === fields.generation_id ? initialListing.generation : undefined);
   const selectedModification = modifications.find((item) => item.id === fields.modification_id)
@@ -1244,7 +1304,8 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   const makeName = fields.make_mode === "manual" ? fields.manual_make : make?.name || initialListing?.make?.name;
   const modelName = fields.model_mode === "manual" ? fields.manual_model : model?.name || initialListing?.model?.name;
   const title = [makeName, modelName].filter(Boolean).join(" ");
-  const cityName = fields.city_mode === "manual" ? fields.manual_city : cities.find((city) => city.id === fields.city_id)?.name;
+  const savedCity = fields.region_id === initialListing?.region?.id && fields.city_id === initialListing?.city?.id ? initialListing?.city : null;
+  const cityName = fields.city_mode === "manual" ? fields.manual_city : cities.find((city) => city.id === fields.city_id)?.name || savedCity?.name;
   const sortedPhotos = [...photos].sort((a, b) => a.position - b.position);
   const reviewPhotos = sortedPhotos.filter((photo) => photo.status === "ready" && photo.url);
   const subcategories = getListingSubcategories(categoryCode);
@@ -1255,6 +1316,9 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   const isWheelCategory = categoryCode === "wheels";
   const isEquipmentCategory = categoryCode === "special_equipment" || categoryCode === "agricultural_equipment";
   const qualityRequirements = validationPolicy?.category_submission_requirements?.[categoryCode];
+  const subtypeFieldForQuality = listingSubcategoryDetailsField(categoryCode);
+  const categoryDetailValues = { ...categoryDetails, ...(subtypeFieldForQuality ? { [subtypeFieldForQuality]: subcategory } : {}) };
+  const qualityDetailTargets = Object.fromEntries((qualityRequirements?.category_details || []).map((field) => [field, { step: 2, fieldId: subtypeFieldForQuality === field ? "subcategory" : field }])) as Record<string, ListingQualityTarget>;
   const quality = buildListingQuality({
     categoryCode,
     requirements: qualityRequirements,
@@ -1277,10 +1341,10 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
       engine_volume_l: fields.engine_volume_l,
       power_hp: fields.power_hp,
       vin: fields.vin,
-      ...categoryDetails,
-      ...(subtypeField ? { [subtypeField]: subcategory } : {})
+      ...categoryDetailValues,
     },
     targets: {
+      title: { step: 2, fieldId: "title" },
       make: { step: 2, fieldId: fields.make_mode === "manual" ? "manual_make" : "make_id" },
       model: { step: 2, fieldId: fields.model_mode === "manual" ? "manual_model" : "model_id" },
       year: { step: 2, fieldId: "year" },
@@ -1298,13 +1362,34 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
       engine_volume_l: { step: 2, fieldId: "engine_volume_l" },
       power_hp: { step: 2, fieldId: "power_hp" },
       vin: { step: 3, fieldId: "vin" },
-      title: { step: 2, fieldId: "title" },
-      ...Object.fromEntries((qualityRequirements?.category_details || []).map((field) => [field, { step: 2, fieldId: subtypeField === field ? "subcategory" : field }]))
+      ...qualityDetailTargets
     },
     readyPhotoCount: photos.filter((photo) => photo.status === "ready").length,
     minimumPhotoCount: validationPolicy ? minimumPhotoCount(validationPolicy, fields) : null
   });
   const saveCopy = saveState === "saving" ? "Сохраняем…" : saveState === "saved" ? "Сохранено" : saveState === "error" ? "Ошибка сохранения" : "Черновик ещё не создан";
+
+  function changeCategory(value: ListingCategoryCode) {
+    setMakeQuery("");
+    setModelQuery("");
+    setSearchedModels([]);
+    setCategoryMakes([]);
+    setCategoryCode(value);
+    setFields((current) => ({
+      ...current, make_mode: "catalog", model_mode: "catalog", make_id: "", model_id: "", manual_make: "", manual_model: "",
+      generation_id: "", modification_id: "", body_variant_id: ""
+    }));
+    setSubcategory("");
+    setCategoryDetails({});
+    setError("");
+    setFieldErrors({});
+  }
+
+  function updateCategoryDetail(key: string, value: string) {
+    setCategoryDetails((current) => ({ ...current, [key]: value }));
+    clearFieldErrors(key as FieldErrorKey);
+    setError("");
+  }
 
   return (
     <form className="form-page" onSubmit={submitListing}>
@@ -1321,6 +1406,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
           <option value="private">Частное лицо</option>
           <option value="company" disabled={company?.status !== "approved"}>{company?.name ? `Компания: ${company.name}` : "Компания (сначала оформите профиль)"}</option>
         </select>{fieldError("seller_type")}</label>
+        {isCarCategory && <label className="check-field wide"><input type="checkbox" checked={fields.in_transit} onChange={(event) => update("in_transit", event.target.checked)} /> Авто в пути <small className="muted">Отметка указывается продавцом.</small></label>}
         {isCarCategory && <label className="field"><span>Состояние</span><select {...fieldProps("condition")} value={fields.condition} onChange={(event) => update("condition", enumValue(event.target.value, CONDITION_OPTIONS))} required><option value="new">Новый</option><option value="used">С пробегом</option></select>{fieldError("condition")}</label>}
         {company && company.status !== "approved" && <p className="notice">Публикация от имени компании станет доступна после проверки её профиля.</p>}
         {isCarCategory && <fieldset className="seller-offer"><legend>Как продаётся автомобиль</legend>
@@ -1331,8 +1417,8 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
 
       {step === 2 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>{isTireCategory ? "Характеристики шин" : isWheelCategory ? "Характеристики диска" : isCarCategory ? "Автомобиль и характеристики" : "Техника и характеристики"}</h2><div className="form-grid">
         {isTransportCategory && <>
-        {fields.make_mode === "manual" ? <label className="field"><span>Марка</span><input {...fieldProps("manual_make")} aria-label="Марка вручную" value={fields.manual_make} onChange={(event) => update("manual_make", event.target.value)} maxLength={180} required /><button type="button" className="text-button" onClick={() => changeMakeMode("catalog")}>Выбрать марку из списка</button>{fieldError("manual_make")}</label> : <label className="field"><span>Марка</span><select {...fieldProps("make_id")} value={fields.make_id} onChange={(event) => event.target.value === "__manual__" ? changeMakeMode("manual") : changeMake(event.target.value)} required><option value="">Выберите марку</option>{makes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__manual__">Марки нет в списке — указать вручную</option></select>{fieldError("make_id")}</label>}
-        {fields.model_mode === "manual" ? <label className="field"><span>Модель</span><input {...fieldProps("manual_model")} aria-label="Модель вручную" value={fields.manual_model} onChange={(event) => update("manual_model", event.target.value)} maxLength={180} required />{fields.make_mode === "catalog" && <button type="button" className="text-button" onClick={() => changeModelMode("catalog")}>Выбрать модель из списка</button>}{fieldError("manual_model")}</label> : <label className="field"><span>Модель</span><select {...fieldProps("model_id")} value={fields.model_id} onChange={(event) => event.target.value === "__manual__" ? changeModelMode("manual") : changeModel(event.target.value)} disabled={!fields.make_id} required><option value="">Выберите модель</option>{models.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__manual__">Модели нет в списке — указать вручную</option></select>{fieldError("model_id")}</label>}
+        {fields.make_mode === "manual" ? <label className="field"><span>Марка</span><input {...fieldProps("manual_make")} aria-label="Марка вручную" value={fields.manual_make} onChange={(event) => update("manual_make", event.target.value)} maxLength={180} required /><button type="button" className="text-button" onClick={() => changeMakeMode("catalog")}>Выбрать марку из списка</button>{fieldError("manual_make")}</label> : <div className="field"><span>Марка</span><input type="search" onKeyDown={(event) => { if (event.key === "Enter" || event.key === "ArrowDown") { event.preventDefault(); (event.currentTarget.nextElementSibling as HTMLSelectElement | null)?.focus(); } }} aria-label="Поиск марки" placeholder="Начните вводить марку" value={makeQuery} onChange={(event) => setMakeQuery(event.target.value)} /><select aria-label="Марка" size={makeQuery.trim() ? 5 : undefined} {...fieldProps("make_id")} value={fields.make_id} onChange={(event) => event.target.value === "__manual__" ? changeMakeMode("manual") : changeMake(event.target.value)} required><option value="">Выберите марку</option>{categoryMakes.filter((item) => item.id === fields.make_id || matchesCatalogSearch(item, makeQuery)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__manual__">Марки нет в списке — указать вручную</option></select>{fieldError("make_id")}</div>}
+        {fields.model_mode === "manual" ? <label className="field"><span>Модель</span><input {...fieldProps("manual_model")} aria-label="Модель вручную" value={fields.manual_model} onChange={(event) => update("manual_model", event.target.value)} maxLength={180} required />{fields.make_mode === "catalog" && <button type="button" className="text-button" onClick={() => changeModelMode("catalog")}>Выбрать модель из списка</button>}{fieldError("manual_model")}</label> : <div className="field"><span>Модель</span><input type="search" onKeyDown={(event) => { if (event.key === "Enter" || event.key === "ArrowDown") { event.preventDefault(); (event.currentTarget.nextElementSibling as HTMLSelectElement | null)?.focus(); } }} aria-label="Поиск модели" placeholder="Начните вводить модель" value={modelQuery} onChange={(event) => { setModelQuery(event.target.value); setSearchedModels([]); }} disabled={!fields.make_id} /><select aria-label="Модель" size={modelQuery.trim() ? 5 : undefined} {...fieldProps("model_id")} value={fields.model_id} onChange={(event) => event.target.value === "__manual__" ? changeModelMode("manual") : changeModel(event.target.value)} disabled={!fields.make_id} required><option value="">Выберите модель</option>{[...new Map([...models, ...searchedModels].map((item) => [item.id, item])).values()].filter((item) => item.id === fields.model_id || matchesCatalogSearch(item, modelQuery)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__manual__">Модели нет в списке — указать вручную</option></select>{fieldError("model_id")}</div>}
         {fields.model_mode === "catalog" && (generations.length > 0 || generation) && <label className="field"><span>Поколение <small className="muted">необязательно</small></span><select {...fieldProps("generation_id")} value={fields.generation_id} onChange={(event) => changeGeneration(event.target.value)} disabled={!generations.length}><option value="">Не выбрано</option>{generations.map((item) => <option key={item.id} value={item.id}>{item.name}{item.year_from ? ` · ${item.year_from}${item.year_to ? `–${item.year_to}` : ""}` : ""}</option>)}</select>{fieldError("generation_id")}</label>}
         {fields.model_mode === "catalog" && <>
           {!fields.generation_id && <p className="muted wide">{generations.length ? "Можно выбрать поколение для подстановки характеристик или заполнить их самостоятельно." : "Для этой модели пока нет поколений и модификаций в справочнике."} Укажите характеристики автомобиля ниже — это не мешает подаче объявления.</p>}
@@ -1411,9 +1497,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
       {step === 3 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>{isCarCategory ? "Состояние и описание" : "Описание объявления"}</h2><div className="form-grid">
         {isCarCategory && <>
         <label className="field"><span>Цвет</span><select value={fields.color} onChange={(event) => update("color", event.target.value as FormFields["color"])}><option value="">Не указан</option>{listingOptions?.colors.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
-        <label className="field"><span>Растаможка</span><select value={fields.customs_status} onChange={(event) => update("customs_status", event.target.value as FormFields["customs_status"])}><option value="">Не указана</option>{listingOptions?.customs_statuses.map((item) => item.code !== "unknown" && <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         <label className="field"><span>Техническое состояние</span><select value={fields.technical_condition} onChange={(event) => update("technical_condition", event.target.value as FormFields["technical_condition"])}><option value="">Не указано</option>{listingOptions?.technical_conditions.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
-        <label className="field"><span>Состояние кузова</span><select value={fields.body_condition} onChange={(event) => update("body_condition", event.target.value as FormFields["body_condition"])}><option value="">Не указано</option>{listingOptions?.body_conditions.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label>
         <label className="check-field"><input type="checkbox" checked={fields.bargaining} onChange={(event) => update("bargaining", event.target.checked)} /> Возможен торг</label>
         <label className="check-field"><input type="checkbox" checked={fields.exchange} onChange={(event) => update("exchange", event.target.checked)} /> Возможен обмен</label>
         <label className="check-field"><input type="checkbox" checked={fields.credit} onChange={(event) => update("credit", event.target.checked)} /> Возможна покупка в кредит</label>
@@ -1430,15 +1514,14 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
       </div></section>}
 
       {step === 4 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Цена, расположение и контакт</h2><div className="form-grid">
-        <div className="field"><label htmlFor="price_amount"><span>Цена</span></label><input {...fieldProps("price_amount")} type="number" inputMode="decimal" min="0.01" step="0.01" value={fields.price_amount} onChange={(event) => update("price_amount", event.target.value)} required />{fieldError("price_amount")}<button className="button button-secondary button-small" type="button" onClick={estimateDraftPrice} disabled={marketEstimateBusy || busy}>{marketEstimateBusy ? "Оцениваем…" : "Оценить по рынку"}</button>{marketEstimateError && <small className="inline-error" role="alert">{marketEstimateError}</small>}{marketEstimate?.available ? <small className="muted" role="status">Медианная цена опубликованных объявлений: {Number(marketEstimate.median_byn).toLocaleString("ru-BY", { maximumFractionDigits: 2 })} BYN · выборка {marketEstimate.sample_size} объявлений от {marketEstimate.seller_count} продавцов · оценка на {marketEstimate.as_of ? formatDate(marketEstimate.as_of) : "дата не указана"}{marketEstimate.rate_date ? ` · курс на ${formatDate(marketEstimate.rate_date)}` : ""}.</small> : marketEstimate && <small className="muted" role="status">Оценка сейчас недоступна: нет достаточно сопоставимых данных для надёжного результата.</small>}<small className="muted">Ориентир отражает цены опубликованных предложений, а не подтверждённые цены сделок. Он не гарантирует цену продажи. В расчёте учитываются похожие характеристики автомобиля. VIN и контактные данные не передаются.</small></div>
+        <label className="field"><span>Цена</span><input {...fieldProps("price_amount")} type="number" inputMode="decimal" min="0.01" step="0.01" value={fields.price_amount} onChange={(event) => update("price_amount", event.target.value)} required />{fieldError("price_amount")}</label>
         <label className="field"><span>Валюта</span><select value={fields.currency} onChange={(event) => update("currency", event.target.value as FormFields["currency"])}><option value="BYN">BYN</option><option value="USD">USD</option></select></label>
         <label className="field"><span>Область</span><select {...fieldProps("region_id")} value={fields.region_id} onChange={(event) => changeRegion(event.target.value)} required><option value="">Выберите область</option>{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("region_id")}</label>
-        <label className="field"><span>Способ выбора населённого пункта</span><select aria-label="Источник населённого пункта" value={fields.city_mode} onChange={(event) => changeCityMode(event.target.value as FormFields["city_mode"])} disabled={!fields.region_id}><option value="catalog">Из справочника</option><option value="manual">Нет в справочнике</option></select></label>
-        {fields.city_mode === "manual" ? <label className="field"><span>Населённый пункт</span><input {...fieldProps("manual_city")} aria-label="Населённый пункт вручную" value={fields.manual_city} onChange={(event) => update("manual_city", event.target.value)} maxLength={160} required disabled={!fields.region_id} />{fieldError("manual_city")}</label> : <label className="field"><span>Населённый пункт</span><select {...fieldProps("city_id")} value={fields.city_id} onChange={(event) => update("city_id", event.target.value)} disabled={!fields.region_id || !cities.length} required><option value="">Выберите населённый пункт</option>{cities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{fieldError("city_id")}</label>}
-        <label className="field wide"><span>Телефон для связи</span><input {...fieldProps("contact_phone")} type="tel" autoComplete="tel" value={fields.contact_phone} onChange={(event) => update("contact_phone", event.target.value)} required maxLength={32} /><small className="muted">Номер не появится в выдаче. Покупатель откроет его отдельной кнопкой.</small>{fieldError("contact_phone")}</label>
+        {fields.city_mode === "manual" ? <label className="field"><span>Населённый пункт</span><input {...fieldProps("manual_city")} aria-label="Населённый пункт вручную" value={fields.manual_city} onChange={(event) => update("manual_city", event.target.value)} maxLength={160} required disabled={!fields.region_id} /><button type="button" className="text-button" onClick={() => changeCityMode("catalog")} disabled={!fields.region_id}>Выбрать населённый пункт из списка</button>{fieldError("manual_city")}</label> : <label className="field"><span>Населённый пункт</span><select {...fieldProps("city_id")} value={fields.city_id} onChange={(event) => event.target.value === "__manual__" ? changeCityMode("manual") : update("city_id", event.target.value)} disabled={!fields.region_id} required><option value="">Выберите населённый пункт</option>{savedCity && !cities.some((item) => item.id === savedCity.id) && <option value={savedCity.id}>{savedCity.name}</option>}{cities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__manual__">Нет в списке — указать вручную</option></select>{fieldError("city_id")}</label>}
+        <label className="field wide"><span>Телефон для связи <small className="muted">необязательно</small></span><input {...fieldProps("contact_phone")} type="tel" autoComplete="tel" value={fields.contact_phone} onChange={(event) => update("contact_phone", event.target.value)} maxLength={32} /><small className="muted">Оставьте поле пустым, если не хотите указывать номер. Покупатель сможет открыть указанные контакты по запросу.</small>{fieldError("contact_phone")}</label>
         <label className="field"><span>Telegram для связи <small className="muted">необязательно</small></span><input {...fieldProps("telegram_contact_url")} type="url" inputMode="url" autoComplete="url" placeholder="https://t.me/имя" maxLength={320} value={fields.telegram_contact_url} onChange={(event) => update("telegram_contact_url", event.target.value)} />{fieldError("telegram_contact_url")}</label>
         <label className="field"><span>Viber для связи <small className="muted">необязательно</small></span><input {...fieldProps("viber_contact_url")} type="url" inputMode="url" autoComplete="url" placeholder="https://viber.me/имя" maxLength={320} value={fields.viber_contact_url} onChange={(event) => update("viber_contact_url", event.target.value)} />{fieldError("viber_contact_url")}</label>
-        <p className="muted wide">Ссылки на мессенджеры будут доступны покупателю вместе с телефоном только после его явного запроса контактов.</p>
+        <p className="muted wide">Ссылки на мессенджеры будут доступны покупателю только после его явного запроса контактов.</p>
       </div></section>}
 
       {step === 5 && <section className="form-section"><h2 ref={stepHeadingRef} tabIndex={-1}>Фотографии</h2><p className="muted">{validationPolicy ? `Добавьте от ${minimumPhotoCount(validationPolicy, fields)} до ${validationPolicy.maximum_photos} фотографий JPEG, PNG, WebP или HEIC. До 20 MiB на файл.` : "Правила подачи загружаются; повторите загрузку, чтобы добавить фотографии."}</p>
@@ -1483,7 +1566,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
         <dl className="review-list">
           <div><dt>Автомобиль</dt><dd>{title || "Выберите автомобиль"}{generation && ` · ${generation.name}`}{bodyType && ` · ${bodyType.name}`}</dd></div>
           {selectedBodyVariant && <div><dt>Вариант кузова</dt><dd>{selectedBodyVariant.name}</dd></div>}
-          <div><dt>Год и пробег</dt><dd>{fields.year || "—"} · {fields.mileage_km.trim() ? `${Number(fields.mileage_km).toLocaleString("ru-BY")} км` : "—"}</dd></div>
+          <div><dt>Год и пробег</dt><dd>{fields.year || "—"} · {fields.mileage_km ? `${Number(fields.mileage_km).toLocaleString("ru-BY")} км` : "—"}</dd></div>
           <div><dt>Топливо</dt><dd>{reviewFuelLabels[fields.fuel] || fields.fuel || "—"}</dd></div>
           <div><dt>Коробка передач</dt><dd>{reviewTransmissionLabels[fields.transmission] || fields.transmission || "—"}</dd></div>
           <div><dt>Привод</dt><dd>{reviewDriveLabels[fields.drive] || fields.drive || "—"}</dd></div>
@@ -1491,12 +1574,11 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
             fields.engine_volume_l && `${fields.engine_volume_l} л`,
             fields.power_hp && `${Number(fields.power_hp).toLocaleString("ru-BY")} л.с.`
           ].filter(Boolean).join(" · ")}</dd></div>}
+          {categoryCode === "cars" && fields.in_transit && <div><dt>Доставка</dt><dd>Авто в пути · указано продавцом</dd></div>}
           <div><dt>Состояние</dt><dd>{fields.condition === "new" ? "Новый" : "С пробегом"}{fields.damaged ? " · есть повреждения" : ""}{fields.parts_only ? " · на запчасти" : ""}</dd></div>
-          {(fields.color || fields.customs_status || fields.technical_condition || fields.body_condition || fields.exchange || fields.bargaining || fields.credit || fields.leasing || fields.equipment.length || fields.district || fields.call_hours) && <div><dt>Дополнительные сведения</dt><dd>{[
+          {(fields.color || fields.technical_condition || fields.exchange || fields.bargaining || fields.credit || fields.leasing || fields.equipment.length || fields.district || fields.call_hours) && <div><dt>Дополнительные сведения</dt><dd>{[
             listingOptions?.colors.find((option) => option.code === fields.color)?.label,
-            listingOptions?.customs_statuses.find((option) => option.code === fields.customs_status)?.label,
             listingOptions?.technical_conditions.find((option) => option.code === fields.technical_condition)?.label,
-            listingOptions?.body_conditions.find((option) => option.code === fields.body_condition)?.label,
             fields.exchange ? "Обмен" : "", fields.bargaining ? "Торг" : "", fields.credit ? "Кредит" : "", fields.leasing ? "Лизинг" : "",
             ...fields.equipment.map((code) => listingOptions?.equipment.find((option) => option.code === code)?.label || ""),
             fields.district, fields.call_hours
@@ -1505,7 +1587,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
           <div><dt>Цена</dt><dd>{fields.price_amount || "—"} {fields.currency}</dd></div>
           <div><dt>Расположение</dt><dd>{[cityName, regions.find((region) => region.id === fields.region_id)?.name].filter(Boolean).join(", ") || "—"}</dd></div>
           <div><dt>Тип продавца</dt><dd>{fields.seller_type === "company" ? "Компания" : "Частное лицо"}</dd></div>
-          <div><dt>Телефон для связи</dt><dd>{fields.contact_phone || "—"}</dd></div>
+          <div><dt>Способ связи</dt><dd>{fields.contact_phone || (fields.telegram_contact_url || fields.viber_contact_url ? "Мессенджеры" : "Только переписка")}</dd></div>
           {fields.telegram_contact_url && <div><dt>Telegram</dt><dd>{fields.telegram_contact_url}</dd></div>}
           {fields.viber_contact_url && <div><dt>Viber</dt><dd>{fields.viber_contact_url}</dd></div>}
           <div><dt>Фотографии</dt><dd>{photos.filter((photo) => photo.status === "ready").length} обработано</dd></div>
@@ -1521,7 +1603,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
       {error && <p className="inline-error" role="alert">{error}</p>}
       <div className="form-actions">
         {step > 1 ? <button className="button button-secondary" type="button" disabled={busy} onClick={previousStep}><ArrowLeft size={16} /> Назад</button> : <span />}
-        {step < 6 ? <button className="button button-primary" type="button" disabled={busy} onClick={nextStep}>{busy ? "Сохраняем…" : <>Продолжить <ArrowRight size={16} /></>}</button> : <button className="button button-primary" type="submit" disabled={busy || saveState === "saving"}>{busy ? "Отправляем…" : <><Check size={17} /> Отправить на проверку</>}</button>}
+        {step < 6 ? <button className="button button-primary" type="button" disabled={busy} onClick={nextStep}>{busy ? "Сохраняем…" : <>Продолжить <ArrowRight size={16} /></>}</button> : <button className="button button-primary" type="submit" disabled={busy || saveState === "saving"}>{busy ? "Отправляем…" : <><Check size={17} /> Разместить объявление</>}</button>}
       </div>
       <p className="muted autosave-note">{draft ? "Изменения черновика сохраняются автоматически." : "Черновик создаётся при переходе со следующего шага."} Контакт и VIN не сохраняются в браузере.</p>
     </form>

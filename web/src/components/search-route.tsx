@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { ApiClientError } from "@/lib/api";
 import { SearchResults } from "@/components/search-results";
 import { getSavedListingIds, serverApi } from "@/lib/server-api";
-import { searchUrl } from "@/lib/search-state";
+import { catalogIds, searchUrl } from "@/lib/search-state";
 import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch, ListingSummary, ListResponse } from "@/lib/types";
 
 type SearchResponse = ListResponse<ListingSummary> & {
@@ -19,6 +19,7 @@ export async function getCatalogCities(regionsPromise?: Promise<CatalogItem[]>):
 }
 
 export async function SearchRoute({ search, title, initialCities }: { search: ListingSearch; title: string; initialCities?: CatalogCity[] }) {
+  const categoryCode = search.category_code || "cars";
   const regionsPromise = serverApi.regions();
   const citiesPromise = initialCities
     ? Promise.resolve({ items: initialCities })
@@ -29,11 +30,17 @@ export async function SearchRoute({ search, title, initialCities }: { search: Li
       : search.city_id
         ? getCatalogCities(regionsPromise.then((result) => result.items)).then((items) => ({ items }))
         : Promise.resolve({ items: [] as CatalogCity[] });
+  const makeIds = catalogIds(search.make_ids || search.make_id);
+  const modelIds = catalogIds(search.model_ids || search.model_id);
+  const validCatalogSelection = (!(search.make_ids || search.make_id) || makeIds.length > 0) && (!(search.model_ids || search.model_id) || modelIds.length > 0);
   const [listingsResult, makesResult, modelsResult, generationsResult, regionsResult, citiesResult, bodyTypesResult, bodyVariantsResult, modificationsResult, savedListingIdsResult] = await Promise.allSettled([
-    serverApi.listings({ ...search, page_size: search.page_size || "25" }),
-    serverApi.catalog("makes"),
-    search.make_id ? serverApi.catalog("models", { make_id: search.make_id }) : Promise.resolve({ items: [] as CatalogItem[] }),
-    search.model_id ? serverApi.catalog("generations", { model_id: search.model_id }) : Promise.resolve({ items: [] as CatalogItem[] }),
+    serverApi.listings({ ...search, category_code: categoryCode, page_size: search.page_size || "25" }),
+    serverApi.catalog("makes", { category_code: categoryCode }),
+    validCatalogSelection && (makeIds.length || modelIds.length) ? Promise.all([
+      ...makeIds.map((id) => serverApi.catalog("models", { make_id: id, category_code: categoryCode })),
+      ...(modelIds.length ? [serverApi.catalog("models", { model_ids: modelIds.join(","), category_code: categoryCode })] : [])
+    ]).then((groups) => ({ items: [...new Map(groups.flatMap((group) => group.items).map((item) => [item.id, item])).values()] })) : Promise.resolve({ items: [] as CatalogItem[] }),
+    validCatalogSelection && modelIds.length === 1 ? serverApi.catalog("generations", { model_id: modelIds[0] }) : Promise.resolve({ items: [] as CatalogItem[] }),
     regionsPromise,
     citiesPromise,
     serverApi.catalog("body-types"),

@@ -37,9 +37,20 @@ function change(name: string, value: string) {
 }
 
 describe("home search", () => {
+  it("groups range inputs without nesting multiple controls in one label", async () => {
+    vi.spyOn(api, "listingCount").mockResolvedValue({ total: 0 });
+    await act(async () => root.render(createElement(HomeSearch, { makes: [make], regions: [region], bodyTypes: [] })));
+    for (const label of container.querySelectorAll("label")) {
+      expect(label.querySelectorAll("button,input,meter,output,progress,select,textarea").length).toBeLessThanOrEqual(1);
+    }
+    for (const name of ["Цена, BYN", "Год выпуска", "Пробег, км"]) {
+      const group = container.querySelector(`[role="group"][aria-label="${name}"]`);
+      expect(group?.querySelectorAll("input")).toHaveLength(2);
+    }
+  });
   it("submits the quick filters and counts matching listings after a 300ms debounce", async () => {
     const count = vi.spyOn(api, "listingCount").mockResolvedValue({ total: 42 });
-    vi.spyOn(api, "catalog").mockResolvedValue({ items: [model] });
+    const catalog = vi.spyOn(api, "catalog").mockResolvedValue({ items: [model] });
     await act(async () => root.render(createElement(HomeSearch, { makes: [make], regions: [region], bodyTypes: [{ id: "sedan-id", slug: "sedan", name: "Седан" }] })));
 
     change("q", "BMW");
@@ -58,21 +69,21 @@ describe("home search", () => {
     change("region_id", region.id);
 
     await act(async () => { vi.advanceTimersByTime(299); });
-    expect(count).toHaveBeenCalledTimes(1);
-    expect(count).toHaveBeenCalledWith({});
+    expect(count).not.toHaveBeenCalled();
     await act(async () => { vi.advanceTimersByTime(1); await Promise.resolve(); });
 
     expect(count).toHaveBeenLastCalledWith(expect.objectContaining({
-      q: "BMW", make_id: make.id, model_id: model.id, price_min: "10000", price_max: "20000", currency: "BYN",
+      category_code: "cars", q: "BMW", make_id: make.id, model_id: model.id, price_min: "10000", price_max: "20000", currency: "BYN",
       year_min: "2018", year_max: "2022", mileage_min: "10000", mileage_max: "80000",
       transmission: "automatic", fuel: "petrol", body_type: "sedan", region_id: region.id
     }));
+    expect(catalog).toHaveBeenCalledWith("models", { make_id: make.id, category_code: "cars" });
     expect(container.textContent).toContain("42");
     expect(container.querySelector(".home-search-button")?.textContent).toContain("Показать 42 предложения");
-    expect(count).toHaveBeenCalledTimes(2);
     const form = container.querySelector<HTMLFormElement>("form")!;
     expect(form.action).toContain("/cars");
     expect(new FormData(form).get("model_id")).toBe(model.id);
+    expect(new FormData(form).get("category_code")).toBe("cars");
     expect(new FormData(form).get("region_id")).toBe(region.id);
     expect(new FormData(form).get("currency")).toBe("BYN");
   });
@@ -81,12 +92,10 @@ describe("home search", () => {
     let resolveFirst!: (value: { total: number }) => void;
     let resolveSecond!: (value: { total: number }) => void;
     const count = vi.spyOn(api, "listingCount")
-      .mockResolvedValueOnce({ total: 1234 })
       .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
       .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }))
       .mockRejectedValueOnce(new Error("offline"));
     await act(async () => root.render(createElement(HomeSearch, { makes: [], regions: [], bodyTypes: [] })));
-    await act(async () => { await Promise.resolve(); });
 
     change("q", "BMW");
     await act(async () => { vi.advanceTimersByTime(300); });
@@ -100,7 +109,7 @@ describe("home search", () => {
     change("q", "Volvo");
     await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
     expect(container.querySelector('[data-count-state="generic"]')).not.toBeNull();
-    expect(count).toHaveBeenCalledTimes(4);
+    expect(count).toHaveBeenCalledTimes(3);
   });
 
   it("loads models only for the selected make and clears the dependent model", async () => {
@@ -109,7 +118,7 @@ describe("home search", () => {
 
     change("make_id", make.id);
     await act(async () => { await Promise.resolve(); });
-    expect(catalog).toHaveBeenCalledWith("models", { make_id: make.id });
+    expect(catalog).toHaveBeenCalledWith("models", { make_id: make.id, category_code: "cars" });
     expect(container.querySelector<HTMLSelectElement>('select[name="model_id"]')?.disabled).toBe(false);
   });
 
@@ -137,10 +146,7 @@ describe("home search", () => {
   });
 
   it("uses Russian plural forms for zero and one result", async () => {
-    const count = vi.spyOn(api, "listingCount")
-      .mockResolvedValueOnce({ total: 1234 })
-      .mockResolvedValueOnce({ total: 1 })
-      .mockResolvedValueOnce({ total: 0 });
+    const count = vi.spyOn(api, "listingCount").mockResolvedValueOnce({ total: 1 }).mockResolvedValueOnce({ total: 0 });
     await act(async () => root.render(createElement(HomeSearch, { makes: [], regions: [], bodyTypes: [] })));
     change("q", "Volvo");
     await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
@@ -148,17 +154,6 @@ describe("home search", () => {
     change("q", "Fiat");
     await act(async () => { vi.advanceTimersByTime(300); await Promise.resolve(); });
     expect(container.querySelector(".home-search-button")?.textContent).toContain("Показать 0 предложений");
-    expect(count).toHaveBeenCalledTimes(3);
-  });
-
-  it.each([0, 1, 2, 5, 1234])("loads the initial homepage total %i", async (total) => {
-    vi.spyOn(api, "listingCount").mockResolvedValue({ total });
-    await act(async () => {
-      root.render(createElement(HomeSearch, { makes: [], regions: [], bodyTypes: [] }));
-      await Promise.resolve();
-    });
-
-    expect(container.querySelector(".home-search-button")?.textContent).toContain(`Показать ${total.toLocaleString("ru-BY")} `);
-    expect(container.textContent).toContain(`${total.toLocaleString("ru-BY")} `);
+    expect(count).toHaveBeenCalledTimes(2);
   });
 });

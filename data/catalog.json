@@ -1246,6 +1246,416 @@
             "brand_qid": "Q135700024",
             "model_class": "Q3231690"
           }
+        },
+        {
+          "name": "Škoda Octavia",
+          "slug": "skoda-octavia",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Fabia",
+          "slug": "skoda-fabia",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Superb",
+          "slug": "skoda-superb",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Karoq",
+          "slug": "skoda-karoq",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Kodiaq",
+          "slug": "skoda-kodiaq",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Enyaq",
+          "slug": "skoda-enyaq",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Elroq",
+          "slug": "skoda-elroq",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Kushaq",
+          "slug": "skoda-kushaq",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Slavia",
+          "slug": "skoda-slavia",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Kylaq",
+          "slug": "skoda-kylaq",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2026/06/260608-Infographics_Skoda-models-production_a60b9434.pdf"
+          }
+        },
+        {
+          "name": "Škoda Favorit",
+          "slug": "skoda-favorit",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2022/05/744_22_SKODA_pruh_info_hokej_EN_I.pdf"
+          }
+        },
+        {
+          "name": "Škoda Felicia",
+          "slug": "skoda-felicia",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2022/05/744_22_SKODA_pruh_info_hokej_EN_I.pdf"
+          }
+        },
+        {
+          "name": "Škoda Roomster",
+          "slug": "skoda-roomster",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2022/05/744_22_SKODA_pruh_info_hokej_EN_I.pdf"
+          }
+        },
+        {
+          "name": "Škoda Citigo",
+          "slug": "skoda-citigo",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2022/05/744_22_SKODA_pruh_info_hokej_EN_I.pdf"
+          }
+        },
+        {
+          "name": "Škoda 430",
+          "slug": "skoda-430",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 645",
+          "slug": "skoda-645",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 860",
+          "slug": "skoda-860",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 422",
+          "slug": "skoda-422",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 633",
+          "slug": "skoda-633",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 650",
+          "slug": "skoda-650",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 420",
+          "slug": "skoda-420",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda Popular",
+          "slug": "skoda-popular",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 1101",
+          "slug": "skoda-1101",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 1201",
+          "slug": "skoda-1201",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 440",
+          "slug": "skoda-440",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 450",
+          "slug": "skoda-450",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 1000 MB",
+          "slug": "skoda-1000-mb",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 1100 MBX",
+          "slug": "skoda-1100-mbx",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 100",
+          "slug": "skoda-100",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 110",
+          "slug": "skoda-110",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://www.skoda-storyboard.com/en/130years/do-you-know-them-all/"
+          }
+        },
+        {
+          "name": "Škoda 105",
+          "slug": "skoda-105",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://www.skoda-storyboard.com/en/skoda-world/heritage/happy-birthday-dear-favorit/"
+          }
+        },
+        {
+          "name": "Škoda 120",
+          "slug": "skoda-120",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://www.skoda-storyboard.com/en/skoda-world/heritage/happy-birthday-dear-favorit/"
+          }
+        },
+        {
+          "name": "Škoda 130",
+          "slug": "skoda-130",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://www.skoda-storyboard.com/en/skoda-world/heritage/happy-birthday-dear-favorit/"
+          }
+        },
+        {
+          "name": "Škoda 135",
+          "slug": "skoda-135",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda 136",
+          "slug": "skoda-136",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda Garde",
+          "slug": "skoda-garde",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda Forman",
+          "slug": "skoda-forman",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2025/11/infografiky-130-rokov_fabbdb37.pdf"
+          }
+        },
+        {
+          "name": "Škoda Trekka",
+          "slug": "skoda-trekka",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://www.skoda-storyboard.com/en/press-kits/classic-days-2025/texts/"
+          }
+        },
+        {
+          "name": "Škoda Kodiaq GT",
+          "slug": "skoda-kodiaq-gt",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2020/07/3millChina_EN.pdf"
+          }
+        },
+        {
+          "name": "Škoda Kamiq GT",
+          "slug": "skoda-kamiq-gt",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2020/07/3millChina_EN.pdf"
+          }
+        },
+        {
+          "name": "Škoda Rapid Spaceback",
+          "slug": "skoda-rapid-spaceback",
+          "aliases": [],
+          "generations": [],
+          "source": {
+            "name": "Škoda Storyboard",
+            "url": "https://cdn.skoda-storyboard.com/2020/07/3millChina_EN.pdf"
+          }
         }
       ],
       "source": {

@@ -9,6 +9,8 @@ type DeferredInstallPrompt = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
+const INSTALL_PROMPT_SHOWN_KEY = "avtorinok-install-prompt-shown";
+
 function isStandaloneDisplay(): boolean {
   return (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches) ||
     ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
@@ -23,6 +25,13 @@ export function InstallPrompt() {
 
     function onBeforeInstallPrompt(event: Event) {
       event.preventDefault();
+      try {
+        if (window.localStorage.getItem(INSTALL_PROMPT_SHOWN_KEY)) return;
+        window.localStorage.setItem(INSTALL_PROMPT_SHOWN_KEY, "1");
+      } catch {
+        // Without persistent storage we cannot guarantee a single display.
+        return;
+      }
       setDeferredPrompt(event as DeferredInstallPrompt);
     }
 

@@ -142,7 +142,7 @@ def test_bmw_search_aliases_survive_catalog_import_and_match_search_queries():
     bmw = next(make for make in catalog["makes"] if make["slug"] == "bmw")
     family = next(model for model in bmw["models"] if model["slug"] == "bmw-3-series-family")
 
-    assert validate_document(catalog)["models"] == 253
+    assert validate_document(catalog)["models"] == 294
     assert "БМВ" in _aliases(bmw)
     assert {"3 серия", "3er"}.issubset(_aliases(family))
 
@@ -191,7 +191,7 @@ def test_checked_in_passat_ranges_are_valid_import_input():
 
     counts = validate_document(catalog)
 
-    assert counts["models"] == 253
+    assert counts["models"] == 294
     assert counts["generations"] == 16
     family = load_passat_family()
     assert len(family["generations"]) == len(PASSAT_RANGES_AND_SOURCES)

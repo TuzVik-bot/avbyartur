@@ -1,3 +1,25 @@
+.categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.categories a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.categories a[aria-current="page"] {
+  border-color: var(--accent);
+  background: var(--soft-accent);
+  color: var(--accent-dark);
+}
+
 .list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));

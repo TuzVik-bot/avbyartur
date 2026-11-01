@@ -64,6 +64,7 @@ _TRACKED_FIELDS = (
     "condition",
     "damaged",
     "parts_only",
+    "in_transit",
     "engine_volume_l",
     "power_hp",
     "description",

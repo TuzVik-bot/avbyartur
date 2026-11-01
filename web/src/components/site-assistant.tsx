@@ -5,12 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { isPublicAssistantPage, type AssistantFilters, type AssistantPage, type AssistantReply } from "@/lib/assistant";
-import { formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
+import { formatMileage, formatMoney, listingHref, listingPhotoAlt, vehicleLabel } from "@/lib/format";
 import styles from "./site-assistant.module.css";
 
 type Message = { id: number; role: "user" | "assistant"; text: string; reply?: AssistantReply };
 type Recognition = { lang: string; continuous: boolean; interimResults: boolean; start(): void; stop(): void; onresult: ((event: { results: { [index: number]: { [index: number]: { transcript: string } } } }) => void) | null; onerror: (() => void) | null; onend: (() => void) | null };
-const greeting: Message = { id: 0, role: "assistant", text: "Здравствуйте! Какой автомобиль ищем?" };
+const greeting: Message = { id: 0, role: "assistant", text: "Здравствуйте! Помогу подобрать автомобиль. Расскажите, для чего он вам и какой у вас бюджет." };
 
 function currentPublicPage(): AssistantPage | undefined {
   const path = window.location.pathname;
@@ -139,14 +139,14 @@ export function SiteAssistant() {
           <p>{item.text}</p>
           {item.reply?.labels.length ? <div className={styles.labels}>{item.reply.labels.map((label, index) => <span key={`${index}-${label}`}>{label}</span>)}</div> : null}
           {item.reply?.listings.map((listing) => <Link href={listingHref(listing)} key={listing.id} className={styles.listing} onClick={close}>
-            {listing.cover_url || listing.photo_urls?.[0] ? <img src={listing.cover_url || listing.photo_urls?.[0]} alt="" width={88} height={72} loading="lazy" /> : <div className={styles.noPhoto}>Нет фото</div>}
+            {listing.cover_url || listing.photo_urls?.[0] ? <img src={listing.cover_url || listing.photo_urls?.[0]} alt={listingPhotoAlt(listing.title)} width={88} height={72} loading="lazy" /> : <div className={styles.noPhoto}>Нет фото</div>}
             <div><strong>{listing.title || [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ")}</strong><b>{formatMoney(listing.price)}</b><small>{[listing.year, vehicleLabel(listing.transmission), formatMileage(listing.mileage_km)].filter(Boolean).join(" · ")}</small></div>
           </Link>)}
           {item.reply?.searchHref && <Link className={styles.catalogLink} href={item.reply.searchHref} onClick={close}>Открыть подборку в каталоге <ArrowUpRight size={16} /></Link>}
           {item.reply?.links.map((link) => <Link className={styles.catalogLink} href={link.href} key={link.href} onClick={close}>{link.title}<ArrowUpRight size={16} /></Link>)}
           {item.role === "assistant" && item.id !== 0 && voiceAvailable && <button className={styles.readButton} onClick={() => speak(item.text)} title="Прочитать ответ вслух" aria-label="Прочитать ответ вслух"><Volume2 size={15} /></button>}
         </div>)}
-        {messages.length === 1 && <div className={styles.suggestions}>{["Авто до 10 тысяч долларов", "Автомат в Минске", "Как разместить объявление?"].map((text) => <button key={text} disabled={busy} onClick={() => send(text)}>{text}<ArrowUpRight size={15} /></button>)}</div>}
+        {messages.length === 1 && <div className={styles.suggestions}>{["Помоги выбрать семейный автомобиль", "Авто до 10 тысяч долларов", "Автомат в Минске"].map((text) => <button key={text} disabled={busy} onClick={() => send(text)}>{text}<ArrowUpRight size={15} /></button>)}</div>}
         {busy && <p className={styles.pending} role="status">Ищу ответ<span>…</span></p>}
         {error && <div className={styles.error} role="alert"><p>{error}</p>{lastRequest.current && !busy && <button onClick={() => { const request = lastRequest.current; if (request) void send(request.message, request.summary, true); }}>Повторить</button>}<Link href="/cars" onClick={close}>Открыть каталог</Link></div>}
         <div ref={end} />

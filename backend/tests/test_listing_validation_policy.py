@@ -232,3 +232,11 @@ def test_enough_ready_photos_pass_validation_even_when_photo_maximum_is_not_reac
     photos = [SimpleNamespace(status="ready"), SimpleNamespace(status="ready")]
 
     services.validate_listing_for_submit(_PhotoDb(photos), listing)
+
+
+@pytest.mark.parametrize("phone", [None, "", "   "])
+def test_message_only_listing_can_be_submitted_without_phone(monkeypatch, phone):
+    monkeypatch.setattr(services, "get_settings", lambda: _settings())
+    services.validate_listing_for_submit(
+        _PhotoDb([SimpleNamespace(status="ready")]), _listing(contact_phone=phone)
+    )

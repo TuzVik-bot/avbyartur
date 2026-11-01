@@ -568,13 +568,18 @@ def merge_existing_catalog(path: Path, generated: dict) -> dict:
             continue
         if old_make:
             old_models = {record_key(row): row for row in old_make.get("models", []) if record_key(row)}
+            manual_models_by_slug = {
+                row.get("slug"): row for row in old_make.get("models", [])
+                if row.get("slug") and is_non_wikidata_record(row)
+            }
             merged_models = []
             seen_models = set()
             for model in make["models"]:
                 model_key = record_key(model)
-                old_model = old_models.get(model_key)
+                old_model = old_models.get(model_key) or manual_models_by_slug.get(model.get("slug"))
                 if old_model and is_non_wikidata_record(old_model):
                     merged_models.append(old_model)
+                    seen_models.add(record_key(old_model))
                 else:
                     if old_model:
                         merge_existing_generations(old_model, model)

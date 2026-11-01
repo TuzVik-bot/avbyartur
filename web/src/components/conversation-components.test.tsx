@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationInbox } from "@/components/conversation-inbox";
 import { ConversationStartForm } from "@/components/conversation-start-form";
 import { ConversationThreadView } from "@/components/conversation-thread";
-import { api } from "@/lib/api";
+import { api, ApiClientError } from "@/lib/api";
 import { MAX_CONVERSATION_MESSAGE_LENGTH, type ConversationMessage, type ConversationSummary, type ConversationThread } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
@@ -250,6 +250,20 @@ describe("ConversationThreadView", () => {
 });
 
 describe("ConversationStartForm", () => {
+  it("prefills an editable exchange message without sending and retains intent after session expiry", async () => {
+    const create = vi.spyOn(api, "createConversation").mockRejectedValue(new ApiClientError(401, { message: "Unauthorized" }));
+    await act(async () => root.render(createElement(ConversationStartForm, { listingId: "listing-1", listingTitle: "BMW 320d", exchange: true })));
+    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[name="message"]')!;
+    expect(textarea.value).toBe("Здравствуйте! Хочу предложить обмен. Рассмотрите мой автомобиль?");
+    expect(create).not.toHaveBeenCalled();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(textarea, "Предлагаю мой автомобиль");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { textarea.closest("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    expect(create).toHaveBeenCalledWith("listing-1", "Предлагаю мой автомобиль", expect.any(String));
+    expect(mocks.router.replace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent("/account/messages/new?listing_id=listing-1&intent=exchange")}`);
+  });
   it("creates a plain-text conversation and opens its thread", async () => {
     const create = vi.spyOn(api, "createConversation").mockRejectedValueOnce(new Error("offline")).mockResolvedValue({ conversation: summary });
     await act(async () => { root.render(createElement(ConversationStartForm, { listingId: "listing-1", listingTitle: "BMW 320d" })); });

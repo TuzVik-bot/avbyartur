@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Building2, Calculator, CarFront, Check, FileText, Repeat2, ScanLine } from "lucide-react";
+import { ArrowRight, Building2, Calculator, CarFront, Check, FileText, MapPin, Repeat2, ScanLine, SlidersHorizontal, UsersRound, Zap } from "@/components/home-icons";
 import { ListingCard } from "@/components/listing-card";
 import { MachineIllustration } from "@/components/category-landing";
 import { HomeSearch } from "@/components/home-search";
@@ -16,20 +16,27 @@ export const metadata = {
   alternates: localeMetadata("/", DEFAULT_LOCALE)
 };
 
-const featuredCategories = [
-  { href: "/motorcycles", title: "Мототехника", caption: "Мотоциклы, скутеры и квадроциклы", art: "moto" },
-  { href: "/special-equipment", title: "Спецтехника", caption: "Техника для строительства и работ", art: "special" },
-  { href: "/agricultural-equipment", title: "Сельхозтехника", caption: "Машины для хозяйства и урожая", art: "agri" },
-  { href: "/watercraft", title: "Водный транспорт", caption: "Лодки, моторы, гидроциклы", art: "water" },
-  { href: "/tires-and-wheels", title: "Шины и диски", caption: "Шины и колёсные диски", art: "tires" }
-];
-
 const tools = [
   { href: "/ownership-calculator", title: "Стоимость владения", description: "Расходы на содержание, топливо и кредит", icon: Calculator },
   { href: "/customs-calculator", title: "Таможенный калькулятор", description: "Пошлина, сборы и льготы", icon: Calculator },
   { href: "/currency-converter", title: "Конвертер валют", description: "Пересчёт по официальным курсам", icon: Repeat2 },
   { href: "/sale-contract", title: "Договор купли-продажи", description: "Образец для ознакомления", icon: FileText },
   { href: "/vin-check", title: "Проверка по VIN", description: "Информация о проверке истории", icon: ScanLine }
+];
+
+const buyerShortcuts = [
+  { href: "/cars?category_code=cars&price_max=30000&currency=BYN", title: "До 30 000 BYN", icon: SlidersHorizontal },
+  { href: "/cars?category_code=cars&fuel=electric", title: "Электромобили", icon: Zap },
+  { href: "/cars/city/minsk", title: "В Минске", icon: MapPin },
+  { href: "/useful-information#use-case-presets-title", title: "Семейный автомобиль", icon: UsersRound }
+];
+
+const featuredCategories = [
+  { href: "/motorcycles", title: "Мототехника", caption: "Мотоциклы, скутеры и квадроциклы", art: "moto" },
+  { href: "/special-equipment", title: "Спецтехника", caption: "Техника для строительства и работ", art: "special" },
+  { href: "/agricultural-equipment", title: "Сельхозтехника", caption: "Машины для хозяйства и урожая", art: "agri" },
+  { href: "/watercraft", title: "Водный транспорт", caption: "Лодки, моторы, гидроциклы", art: "water" },
+  { href: "/tires-and-wheels", title: "Шины и диски", caption: "Шины и колёсные диски", art: "tires" }
 ];
 
 const popularMakeNames = [
@@ -51,14 +58,13 @@ function getPopularMakes(makes: CatalogItem[]) {
 }
 
 export default async function HomePage() {
-  const [listingResult, makeResult, regionResult, bodyTypeResult, savedListingIdsResult, dealerResult, statsResult] = await Promise.allSettled([
+  const [listingResult, makeResult, regionResult, bodyTypeResult, savedListingIdsResult, dealerResult] = await Promise.allSettled([
     serverApi.listings({ page_size: "8", sort: "newest" }),
-    serverApi.catalog("makes"),
+    serverApi.catalog("makes", { category_code: "cars" }),
     serverApi.regions(),
     serverApi.catalog("body-types"),
     getSavedListingIds(),
-    serverApi.dealers(1),
-    serverApi.publicStats()
+    serverApi.dealers(1)
   ]);
   const listings: (ListResponse<ListingSummary> & { fx?: unknown }) | null = listingResult.status === "fulfilled" ? listingResult.value : null;
   const makes: CatalogItem[] = makeResult.status === "fulfilled" ? makeResult.value.items : [];
@@ -68,17 +74,19 @@ export default async function HomePage() {
   const savedIds = new Set(savedListingIdsResult.status === "fulfilled" ? savedListingIdsResult.value : []);
   const failed = listingResult.status === "rejected";
   const dealers: ListResponse<CompanySummary> | null = dealerResult.status === "fulfilled" ? dealerResult.value : null;
-  const marketStats = statsResult.status === "fulfilled" ? statsResult.value : null;
   return (
     <div className={styles.home}>
       <section className={`page-width ${styles.intro}`} aria-labelledby="home-heading">
         <div className={styles.heading}>
-          <div><p className={styles.eyebrow}>Авторынок Беларуси</p><h1 id="home-heading">Купить автомобиль</h1><p className={styles.lead}>Найдите тот самый. Начните с того, что важно вам.</p></div>
+          <div><p className={styles.eyebrow}>Авторынок Беларуси</p><h1 id="home-heading">Найдите автомобиль по своим условиям</h1><p className={styles.lead}>Задайте бюджет, регион и важные параметры — поиск покажет опубликованные объявления.</p></div>
           <Link className={styles.catalogLink} href="/cars">Весь каталог <ArrowRight size={17} aria-hidden="true" /></Link>
         </div>
+        <nav className="quick-links" aria-label="Быстрые сценарии покупки">
+          {buyerShortcuts.map(({ href, title, icon: Icon }) => <Link href={href} key={title}><Icon size={17} aria-hidden="true" />{title}</Link>)}
+        </nav>
         <div className={styles.discoveryLayout}>
           <div className={styles.discoveryMain}>
-            <div className={styles.searchPanel}>
+            <div className={styles.searchPanel} id="home-search">
               <HomeSearch makes={makes} regions={regions} bodyTypes={bodyTypes} className={styles.search} priceOperationsAvailable={Boolean(listings?.fx)} />
             </div>
             {makeResult.status === "rejected" && <p className="notice" role="status">Справочник марок временно недоступен. Поиск по названию автомобиля остаётся доступен.</p>}
@@ -98,32 +106,31 @@ export default async function HomePage() {
             <Link href="/partner">Разместить рекламу <ArrowRight size={15} aria-hidden="true" /></Link>
           </aside>
         </div>
-        {marketStats && <div className={styles.marketStats} aria-label="Состояние авторынка">
-          <p>Активных объявлений <strong>{marketStats.active_listings.toLocaleString("ru-RU")}</strong></p>
-          <p>Допущенные компании <strong>{marketStats.approved_companies.toLocaleString("ru-RU")}</strong></p>
-          <p>Опубликованные отзывы <strong>{marketStats.published_reviews.toLocaleString("ru-RU")}</strong></p>
-          <details className={styles.moderationNote}><summary>Как проверяются объявления</summary><p>Перед отправкой проверяются обязательные поля карточки, их согласованность и минимум обработанных фото. Модератору показываются подсказки о повторах и необычно низкой цене — это не автоматическое решение.</p></details>
-        </div>}
       </section>
 
       <nav className={`page-width ${styles.categories}`} aria-label="Категории объявлений">
         <h2>Разделы каталога</h2>
         <ul className={styles.featuredCategories}>{featuredCategories.map(({ href, title, caption, art }, index) => <li key={href}><Link href={href}><span className={styles.categoryArt}><MachineIllustration kind={art} index={index} /></span><span className={styles.categoryCopy}><strong>{title}</strong><small>{caption}</small></span><ArrowRight size={16} aria-hidden="true" /></Link></li>)}</ul>
-        <div className={styles.otherCategories} aria-label="Другие разделы каталога">{advertisementSections.filter(({ href }) => !featuredCategories.some((category) => category.href === href)).map(({ label, href }) => <Link href={href} key={href}>{label}<ArrowRight size={13} aria-hidden="true" /></Link>)}</div>
+        <div className={styles.otherCategories} role="group" aria-label="Другие разделы каталога">{advertisementSections.filter(({ href }) => !featuredCategories.some((category) => category.href === href)).map(({ label, href }) => <Link href={href} key={href}>{label}<ArrowRight size={13} aria-hidden="true" /></Link>)}</div>
       </nav>
 
       <section className={`page-width ${styles.section} ${styles.listings}`} aria-labelledby="home-listings-heading">
         <div className={styles.sectionHeading}><h2 id="home-listings-heading">Новые объявления</h2><Link className="text-link" href="/cars">Все предложения <ArrowRight size={16} aria-hidden="true" /></Link></div>
         {failed && <p className="notice" role="status">Каталог временно недоступен. Обновите страницу чуть позже.</p>}
         {listings?.items.length ? <div className={`listing-grid ${styles.listingGrid}`}>{listings.items.map((listing) => <ListingCard key={listing.id} listing={listing} saved={savedIds.has(listing.id)} />)}</div> : <div className={styles.emptyState}>
-          <h3>{failed ? "Не удалось загрузить предложения" : "Пока нет опубликованных автомобилей"}</h3>
-          <p className="muted">Когда продавцы добавят объявления, они появятся здесь.</p>
-          <Link className="button button-secondary" href="/cars">Перейти к поиску</Link>
+          <h3>{failed ? "Сейчас не удаётся загрузить объявления" : "Новых объявлений пока нет"}</h3>
+          <p className="muted">{failed ? "Попробуйте открыть каталог позже: запрос не подтвердил, есть ли сейчас опубликованные предложения." : "В каталоге пока нет опубликованных предложений. Уточните условия поиска или выберите стартовую подборку."}</p>
+          <div className={styles.emptyActions}>
+            <Link className="button button-secondary" href="/cars">Открыть каталог</Link>
+            <Link className="text-link" href="/useful-information#use-case-presets-title">Подборки по задаче <ArrowRight size={16} aria-hidden="true" /></Link>
+          </div>
         </div>}
         {!!listings?.items.length && <div className={styles.listingFooter}><Link className="button button-secondary" href="/cars">Смотреть все объявления <ArrowRight size={16} aria-hidden="true" /></Link></div>}
-        <div className={styles.collections} aria-label="Подборки автомобилей">
+        <div className={styles.collections} role="group" aria-label="Подборки автомобилей">
           <Link href="/cars?condition=new"><CarFront size={24} aria-hidden="true" /><div><strong>Новые автомобили</strong><span>Объявления с состоянием «Новый»</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
           <Link href="/cars?condition=used"><CarFront size={24} aria-hidden="true" /><div><strong>Автомобили с пробегом</strong><span>Объявления с состоянием «С пробегом»</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
+          <Link href="/cars?category_code=cars&in_transit=true"><CarFront size={24} aria-hidden="true" /><div><strong>Авто в пути</strong><span>Продавец указал, что автомобиль в пути</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
+          <Link href="/cars?category_code=cars&price_max=10000&currency=USD"><CarFront size={24} aria-hidden="true" /><div><strong>Авто до 10 000 $</strong><span>Автомобили стоимостью до 10 000 долларов</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
         </div>
       </section>
 
@@ -139,7 +146,7 @@ export default async function HomePage() {
       <section className={`page-width ${styles.section}`} aria-labelledby="home-seller-heading">
         <div className={styles.seller}>
           <div className={styles.sellerMain}>
-            <div className={styles.sellerCopy}><p className={styles.eyebrow}>Для продавцов</p><h2 id="home-seller-heading">Подача объявления — в личном кабинете</h2><p>Заполните карточку автомобиля, сохраните черновик и отправьте объявление на проверку. Не знаете, какую цену указать? <Link className="text-link" href="/market-valuation">Узнайте, сколько стоит ваша машина</Link>.</p>
+            <div className={styles.sellerCopy}><p className={styles.eyebrow}>Для продавцов</p><h2 id="home-seller-heading">Подача объявления — в личном кабинете</h2><p>Заполните карточку автомобиля, сохраните черновик и отправьте объявление на проверку.</p>
               <ul className={styles.benefits}><li><Check size={16} aria-hidden="true" />Черновик можно продолжить позже</li><li><Check size={16} aria-hidden="true" />Перед публикацией объявление проходит проверку</li><li><Check size={16} aria-hidden="true" />Контакты не показываются в публичной выдаче</li></ul>
               <Link className="button button-primary" href="/sell">Подать объявление <ArrowRight size={16} aria-hidden="true" /></Link>
             </div>

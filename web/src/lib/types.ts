@@ -117,12 +117,12 @@ export type Money = {
   display_currency?: "BYN" | "USD" | null;
   display_byn?: string | null;
   rate_date?: string | null;
-  market_comparison?: import("@/components/market-badge").MarketComparison | null;
 };
 
 export type ListingSummary = {
   id: string;
   slug: string;
+  view_count?: number | null;
   title: string;
   make: CatalogItem | null;
   model: CatalogItem | null;
@@ -147,6 +147,7 @@ export type ListingSummary = {
   updated_at: string;
   damaged: boolean;
   parts_only: boolean;
+  in_transit?: boolean;
 };
 
 export type FavoriteListing = ListingSummary & { price_drop_notifications_enabled: boolean };
@@ -173,7 +174,9 @@ export type Listing = ListingSummary & {
   vin?: string | null;
   photo_urls: string[];
   photos?: ListingPhoto[];
-  contact_phone?: string;
+  contact_phone?: string | null;
+  has_phone?: boolean;
+  has_external_contacts?: boolean;
   phone?: string;
   color?: string | null;
   customs_status?: string | null;
@@ -248,6 +251,8 @@ export type ListingSearch = {
   q?: string;
   make_id?: string;
   model_id?: string;
+  make_ids?: string;
+  model_ids?: string;
   generation_id?: string;
   modification_id?: string;
   body_variant_id?: string;
@@ -264,6 +269,7 @@ export type ListingSearch = {
   body_type?: string;
   damaged?: string;
   parts_only?: string;
+  in_transit?: string;
   condition?: string;
   color?: string;
   customs_status?: string;
@@ -287,7 +293,7 @@ export type ListingSearch = {
   seller_type?: string;
   page?: string;
   page_size?: string;
-  sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
+  sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc";
 };
 
 type ListingDraftApiInput =
@@ -296,4 +302,5 @@ type ListingDraftApiInput =
 export type ListingDraftInput = Omit<ListingDraftApiInput, "engine_volume_l" | "seller_type"> & {
   seller_type: NonNullable<ListingDraftApiInput["seller_type"]>;
   engine_volume_l?: string | null;
+  in_transit?: boolean;
 };

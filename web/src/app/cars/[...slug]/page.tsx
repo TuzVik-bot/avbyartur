@@ -7,19 +7,18 @@ import { getCatalogCities, SearchRoute } from "@/components/search-route";
 import { ApiClientError } from "@/lib/api";
 import { getSessionServer, serverApi } from "@/lib/server-api";
 import { listingCatalogBreadcrumbs } from "@/lib/listing-breadcrumbs";
-import { listingHref } from "@/lib/format";
+import { listingHref, modelDisplayName } from "@/lib/format";
 import { buildBreadcrumbJsonLd, buildListingMetadata, buildVehicleJsonLd, serializeJsonLd } from "@/lib/seo";
 import { siteUrl } from "@/lib/site-config";
+import { isCatalogLandingItem, MIN_CATEGORY_LISTINGS, MIN_CITY_LISTINGS } from "@/lib/catalog-indexing";
 import type { CatalogCity, CatalogItem, ListingSearch } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 const getListing = cache((id: string) => serverApi.listing(id));
-const getMakeCatalog = cache((slug: string) => serverApi.catalog("makes", { q: slug }));
-const getModelsCatalog = cache((makeId: string) => serverApi.catalog("models", { make_id: makeId }));
+const getMakeCatalog = cache((slug: string) => serverApi.catalog("makes", { q: slug, category_code: "cars" }));
+const getModelsCatalog = cache((makeId: string) => serverApi.catalog("models", { make_id: makeId, category_code: "cars" }));
 const getCityCatalog = cache(getCatalogCities);
-const MIN_CATEGORY_LISTINGS = 3;
-const MIN_CITY_LISTINGS = 10;
 
 const noindexFollowRobots: NonNullable<Metadata["robots"]> = {
   index: false,
@@ -32,11 +31,11 @@ function routeCanonical(slug: string[]) {
   return siteUrl(`/cars/${slug.map(encodeURIComponent).join("/")}`);
 }
 
-function categoryMetadata(title: string, slug: string[], total: number | null, minimumListings: number): Metadata {
+function categoryMetadata(title: string, slug: string[], total: number | null, minimumListings: number, items: CatalogItem[] = []): Metadata {
   return {
     title,
     alternates: { canonical: routeCanonical(slug) },
-    ...(total === null || total < minimumListings ? { robots: noindexFollowRobots } : {}),
+    ...(total === null || total < minimumListings || !items.every(isCatalogLandingItem) ? { robots: noindexFollowRobots } : {}),
   };
 }
 
@@ -68,7 +67,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       const city = (await getCityCatalog()).find((item) => item.slug === slug[1]);
       if (!city) return {};
       const total = await getActiveListingCount({ city_id: city.id });
-      return categoryMetadata(`Автомобили в городе ${city.name}`, slug, total, MIN_CITY_LISTINGS);
+      return categoryMetadata(`Автомобили в городе ${city.name}`, slug, total, MIN_CITY_LISTINGS, [city]);
     } catch {
       return categoryMetadata("Автомобили в городе", slug, null, MIN_CITY_LISTINGS);
     }
@@ -81,12 +80,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     if (!make) return {};
     if (!slug[1]) {
       const total = await getActiveListingCount({ make_id: make.id });
-      return categoryMetadata(`Автомобили ${make.name}`, [make.slug], total, MIN_CATEGORY_LISTINGS);
+      return categoryMetadata(`Автомобили ${make.name}`, [make.slug], total, MIN_CATEGORY_LISTINGS, [make]);
     }
     const model = (await getModelsCatalog(make.id)).items.find((item) => item.slug === slug[1]);
     if (!model) return {};
     const total = await getActiveListingCount({ make_id: make.id, model_id: model.id });
-    return categoryMetadata(`${make.name} ${model.name}`, [make.slug, model.slug], total, MIN_CATEGORY_LISTINGS);
+    return categoryMetadata(`Купить ${modelDisplayName(make.name, model.name)} в Беларуси`, [make.slug, model.slug], total, MIN_CATEGORY_LISTINGS, [make, model]);
   } catch {
     return categoryMetadata("Автомобили", slug, null, MIN_CATEGORY_LISTINGS);
   }
@@ -127,9 +126,6 @@ export default async function CarsBySlugPage({ params }: { params: Promise<{ slu
     let relatedListings: import("@/lib/types").ListingSummary[] = [];
     try { relatedListings = (await serverApi.relatedListings(listing.id)).items; }
     catch { /* A related-listing outage does not block the primary detail page. */ }
-    let sellerListings: (import("@/lib/types").ListingSummary & { status: "active" })[] = [];
-    try { sellerListings = (await serverApi.sellerListings(listing.id)).items; }
-    catch { /* Seller recommendations are optional and must not block the primary detail page. */ }
     const vehicleJsonLd = buildVehicleJsonLd(listing);
     const breadcrumbJsonLd = buildBreadcrumbJsonLd([
       { name: "Главная", path: "/" },
@@ -141,7 +137,7 @@ export default async function CarsBySlugPage({ params }: { params: Promise<{ slu
       <Fragment key={listing.id}>
         {vehicleJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(vehicleJsonLd) }} />}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }} />
-        <ListingDetail listing={listing} initialSaved={initialSaved} relatedListings={relatedListings} sellerListings={sellerListings} />
+        <ListingDetail listing={listing} initialSaved={initialSaved} relatedListings={relatedListings} />
       </Fragment>
     );
   }
@@ -176,7 +172,7 @@ export default async function CarsBySlugPage({ params }: { params: Promise<{ slu
     const model = models.find((item) => item.slug === slug[1]);
     if (!model) notFound();
     search = { make_id: make.id, model_id: model.id, page_size: "25" };
-    title = `${make.name} ${model.name}`;
+    title = `Продажа ${modelDisplayName(make.name, model.name)}`;
   }
   return <div className="page-width"><SearchRoute search={search} title={title} /></div>;
 }
