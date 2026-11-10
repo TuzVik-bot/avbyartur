@@ -82,7 +82,8 @@ def test_public_listing_contract_includes_publication_and_market_fields_and_coun
     assert any(variant.get("type") == "null" for variant in comparison_variants)
     comparison_ref = next(variant["$ref"] for variant in comparison_variants if "$ref" in variant)
     comparison_schema = _component(openapi, comparison_ref)
-    assert comparison_schema["properties"]["label"]["enum"] == ["below_market", "above_market"]
+    # "in_market" is emitted only for the owner view (GET /me/listings).
+    assert comparison_schema["properties"]["label"]["enum"] == ["below_market", "above_market", "in_market"]
     assert comparison_schema["properties"]["median_byn"]["type"] == "string"
     assert comparison_schema["properties"]["sample_size"]["type"] == "integer"
     assert comparison_schema["properties"]["seller_count"]["type"] == "integer"

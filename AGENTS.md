@@ -6,7 +6,8 @@
 - FastAPI и интеграционные тесты: `backend/`; Next.js: `web/`; эксплуатационные сведения: `docs/runtime/runbook.md`, `DEPLOYMENT.md`, `SERVER.md`, `docs/IMPLEMENTATION_STATUS.md`.
 - Backend tests: `cd backend && uv run pytest`. Перед запуском явно задай `TEST_DATABASE_URL` для выделенной одноразовой PostgreSQL БД с именем, оканчивающимся на `_test`, и `TEST_DATABASE_DISPOSABLE_CONFIRMATION`, равный точному имени этой БД. Фикстура до подключения проверяет PostgreSQL URL, известную preview-БД и совпадение с runtime-БД; затем создаёт и удаляет все таблицы.
 - Не направляй тесты на preview-БД: документированная `avtorinok_preview_20260927_00aa22_test` также оканчивается на `_test` и содержит preview-данные.
-- Web scripts из `web/package.json`: `cd web && corepack pnpm test`, `cd web && corepack pnpm typecheck`, `cd web && corepack pnpm generate:api-types`.
+- Web scripts из `web/package.json`: `cd web && corepack pnpm test`, `cd web && corepack pnpm typecheck`, `cd web && corepack pnpm lint` (код выхода 0 обязателен, предупреждения — бэклог), `cd web && corepack pnpm generate:api-types`.
+- Цели `Makefile`: `make test-backend` (с теми же `TEST_DATABASE_*`), `make test-web`, `make test-scripts`, `make lint` (ruff + ESLint), `make typecheck`. Те же проверки запускает CI: `.github/workflows/ci.yml`.
 - Генератор типов строит OpenAPI из FastAPI и записывает результат в `web/src/lib/types.generated.ts`.
 - Проверка Compose и JSON каталога: `make config-check` (цель из корневого `Makefile`).
 

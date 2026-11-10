@@ -41,7 +41,7 @@ class ListingSellerOut(BaseModel):
 class ListingMarketComparisonOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    label: Literal["below_market", "above_market"]
+    label: Literal["below_market", "above_market", "in_market"]
     median_byn: str
     sample_size: int
     seller_count: int

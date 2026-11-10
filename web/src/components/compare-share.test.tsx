@@ -1,7 +1,8 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CompareButton } from "@/components/compare-button";
+import { CompareButton, CompareTray } from "@/components/compare-button";
+import { getComparisonIds } from "@/lib/comparison-state";
 import { COMPARE_STORAGE_KEY, CompareProvider, MAX_COMPARE_LISTINGS, parseCompareIds } from "@/components/compare-provider";
 import { ShareButton } from "@/components/share-button";
 import { ListingCard } from "@/components/listing-card";
@@ -27,6 +28,8 @@ let container: HTMLDivElement;
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   localStorage.clear();
+  // The selection lives in a module-level store; resync it with the cleared storage.
+  getComparisonIds();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -41,23 +44,26 @@ afterEach(() => {
 });
 
 function renderButtons(ids: string[]) {
-  act(() => root.render(<CompareProvider>{ids.map((id) => <CompareButton key={id} listingId={id} />)}</CompareProvider>));
+  act(() => root.render(<CompareProvider>{ids.map((id) => <CompareButton key={id} listingId={id} />)}<CompareTray /></CompareProvider>));
 }
 
 function buttons() { return [...container.querySelectorAll<HTMLButtonElement>("button")]; }
 
 describe("compare list", () => {
   it("integrates the compare control into a listing card", async () => {
-    act(() => root.render(<CompareProvider><ListingCard listing={listing} /></CompareProvider>));
+    act(() => root.render(<CompareProvider><ListingCard listing={listing} /><CompareTray /></CompareProvider>));
     await act(async () => { await Promise.resolve(); });
 
-    const button = container.querySelector<HTMLButtonElement>(".compare-action button")!;
+    const button = container.querySelector<HTMLButtonElement>('button[aria-label="Добавить к сравнению"]')!;
     expect(button.getAttribute("aria-pressed")).toBe("false");
+    expect(container.querySelector('a[href="/compare"]')).toBeNull();
     await act(async () => { button.click(); await Promise.resolve(); });
 
     expect(button.getAttribute("aria-pressed")).toBe("true");
-    expect(localStorage.getItem(COMPARE_STORAGE_KEY)).toBe(JSON.stringify([listing.id]));
-    expect(container.querySelector('.compare-action a[href="/compare"]')?.textContent).toContain("Сравнение (1)");
+    expect(button.getAttribute("aria-label")).toBe("Убрать из сравнения");
+    expect(JSON.parse(localStorage.getItem(COMPARE_STORAGE_KEY) ?? "null")).toEqual([listing.id]);
+    expect(container.querySelector('[aria-label="Выбранные для сравнения автомобили"]')?.textContent).toContain("Сравнение (1)");
+    expect(container.querySelector('a[href="/compare"]')?.textContent).toBe("Сравнить автомобили");
   });
 
   it("parses only unique non-empty ids and tolerates corrupt storage", () => {
@@ -70,9 +76,13 @@ describe("compare list", () => {
     renderButtons(["one", "two", "three", "four", "five"]);
     for (const button of buttons().slice(0, 4)) act(() => button.click());
     expect(localStorage.getItem(COMPARE_STORAGE_KEY)).toBe(JSON.stringify(["one", "two", "three", "four"]));
-    act(() => buttons()[4].click());
+    const fifth = buttons()[4];
+    expect(fifth.disabled).toBe(true);
+    expect(fifth.title).toContain("не больше четырёх");
+    act(() => fifth.click());
     expect(container.textContent).toContain("Сравнение (4)");
     expect(container.textContent).toContain("не больше четырёх");
+    expect(fifth.getAttribute("aria-pressed")).toBe("false");
     expect(localStorage.getItem(COMPARE_STORAGE_KEY)).toBe(JSON.stringify(["one", "two", "three", "four"]));
   });
 

@@ -17,10 +17,11 @@
   - `app/main.py` — приложение, middleware, обработчики ошибок, `/health/live` и `/health/ready`.
   - `app/api/*.py` — роутеры (`/api/v1/...`): listings, auth, account, profile_identity, conversations, saved_searches, notifications, billing, feeds, dealer, companies, media, moderation, monitoring, managed_content, catalog, catalog_requests, customs_calculator, admin, admin_catalog, admin_settings, admin_tariffs, test_mail.
   - `app/config.py` — единственный источник настроек (`Settings`, pydantic-settings).
-  - `app/models.py`, `app/identity_models.py`, `app/profile_identity_models.py`, `app/catalog_request_models.py` — модели; `alembic/versions/` — миграции. Head в production — `0033_listing_in_transit`; в этой ветке добавлена `0034_listing_search_perf` (на VPS ещё не применена).
-  - `app/services.py` — поиск и сериализация объявлений; `app/worker.py` — фоновые задачи (варианты фото, письма identity и уведомлений, сопоставление сохранённых поисков, курс USD НБРБ, очистка по сроку хранения, Onliner sync); очередь `WorkerJob` с `SKIP LOCKED`.
+  - `app/models.py`, `app/identity_models.py`, `app/profile_identity_models.py`, `app/catalog_request_models.py` — модели; `alembic/versions/` — миграции. Head в production — `0033_listing_in_transit`; после релиза `audit-20261111-r1` head — `0034_listing_search_perf` (`published_at`, trgm-индексы, таблица `worker_heartbeats`). До выкатки этого релиза на VPS 0034 не применена.
+  - `app/services.py` — поиск и сериализация объявлений; `app/worker.py` — фоновые задачи (варианты фото, письма identity и уведомлений, сопоставление сохранённых поисков, курс USD НБРБ, очистка по сроку хранения, Onliner sync); очередь `WorkerJob` с `SKIP LOCKED` и продлением lease; несколько воркеров безопасны. Каждый воркер пишет heartbeat в `worker_heartbeats` (`worker_id` = `hostname:pid`, строки старше 24 ч удаляются, сбой heartbeat только логируется как `worker_heartbeat_failed`); возраст показывает `/health/ready`.
   - `app/billing_services.py` — провайдер-нейтральные заказы и платёжный шов; по умолчанию закрыт (`PaymentProviderUnavailable`).
-  - `app/security.py` — `client_ip` (доверяет `X-Forwarded-For` только от `TRUSTED_PROXY_CIDRS`), rate limits.
+  - `app/security.py` — `client_ip` (доверяет `X-Forwarded-For` только от `TRUSTED_PROXY_CIDRS`), rate limits. Если IP клиента не определён (адрес совпадает с доверенным прокси), работает режим «IP неизвестен»: `ip_scoped_limit` умножает лимит на `UNKNOWN_CLIENT_IP_LIMIT_FACTOR` (×20) и пишет `client_ip_unresolved`. Так будет, пока на хосте не применён nginx `real_ip`.
+  - `app/api/analytics.py` — `POST /api/v1/analytics/errors`: анонимные очищенные отчёты об ошибках фронтенда, только лог, лимит 30 в час на IP.
 - `web/` — Next.js 16 App Router + React 19 + Tailwind 4 (pnpm через corepack).
   - `src/app/api/v1/[...path]/route.ts` — same-origin прокси браузер → API (allowlist заголовков).
   - `src/app/api/assistant/route.ts` + `src/lib/assistant-server.ts` — ИИ-помощник (OpenRouter, только модели `:free`; модель только планирует JSON, объявления берутся из API).
@@ -41,7 +42,9 @@
 ## Команды
 
 - Backend-тесты: `cd backend && uv run pytest`. Обязательно задать `TEST_DATABASE_URL` на отдельную одноразовую PostgreSQL-БД с именем `*_test` и `TEST_DATABASE_DISPOSABLE_CONFIRMATION` = точное имя этой БД. Фикстура удаляет все таблицы. Никогда не направлять на preview-БД `avtorinok_preview_20260927_00aa22_test`.
-- Web: `cd web && corepack pnpm test | typecheck | build | generate:api-types`.
+- Web: `cd web && corepack pnpm test | typecheck | lint | build | generate:api-types`. `corepack pnpm lint` должен завершаться с кодом 0; предупреждения — бэклог.
+- Цели Makefile: `make test-backend` (нужны те же `TEST_DATABASE_*`), `make test-web`, `make test-scripts` (`python3 -m unittest discover -s scripts`), `make lint` (ruff + ESLint), `make typecheck`.
+- CI: `.github/workflows/ci.yml` — web typecheck/lint/test/build/`pnpm audit --prod`, backend ruff + pytest на PostgreSQL 17, тесты `scripts/`, `docker compose config`.
 - Конфиг compose и JSON каталога: `make config-check`. Локальный стек: `make up` (`AVTORINOK_IMAGE_TAG=local`, только базовый `docker-compose.yml`).
 
 ## Инварианты (нарушать нельзя)
@@ -55,7 +58,8 @@
 
 ## Правила изменений
 
-- Новая настройка: поле в `backend/app/config.py` → переменная в `docker-compose.yml` (api и, если нужно, worker) → `.env.example`, если он заведён в ветке.
+- Новая настройка: поле в `backend/app/config.py` → переменная в блоке `x-backend-env` в `docker-compose.yml` (его получают и api, и worker) → `.env.example`. Синхронность проверяет `backend/tests/test_compose_settings.py`.
+- Образ БД — ровно `postgres:17.11-alpine`. Смена ссылки, включая digest, пересоздаст контейнер БД при `up`; это делается только в окне обслуживания.
 - Изменение API: обновить роутер и схемы, затем `corepack pnpm generate:api-types` в `web/`.
 - Деньги и таможня — только `Decimal`. Даты для пользователя — в часовом поясе `Europe/Minsk`.
 - Тексты для пользователя — на русском; ошибки API не показывать пользователю как есть.

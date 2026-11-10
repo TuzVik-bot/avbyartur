@@ -32,7 +32,7 @@ from uuid import UUID
 # The production image has ``/app`` on ``sys.path``; a checkout keeps the
 # package under ``backend``.  Supporting both makes ``--dry-run`` reproducible
 # locally without changing the container entrypoint.
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 DETAIL_PREFIX = "https://abw.by/cars/detail/"

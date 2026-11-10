@@ -116,7 +116,7 @@ def main() -> int:
     parser.add_argument("phase", choices=("prebuild", "preswitch", "post"))
     args = parser.parse_args()
 
-    candidate = Path(__file__).resolve().parents[1]
+    candidate = Path(__file__).resolve().parents[2]
     manifest_path = candidate / MANIFEST_RELATIVE
     if not manifest_path.is_file() or manifest_path.is_symlink():
         raise RuntimeError(f"baseline manifest is missing: {manifest_path}")

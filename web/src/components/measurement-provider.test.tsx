@@ -2,8 +2,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ pathname: "/cars", consent: "granted" as "granted" | "denied" | "unknown" }));
-vi.mock("next/navigation", () => ({ usePathname: () => state.pathname }));
+const state = vi.hoisted(() => ({ pathname: "/cars", consent: "granted" as "granted" | "denied" | "unknown", pathnameCalls: 0 }));
+vi.mock("next/navigation", () => ({ usePathname: () => { state.pathnameCalls += 1; return state.pathname; } }));
 vi.mock("./contact-click-consent", () => ({ useContactClickConsent: () => ({ consent: state.consent, setConsent: vi.fn() }) }));
 
 import { MeasurementProvider } from "./measurement-provider";
@@ -26,6 +26,7 @@ describe("measurement provider", () => {
   beforeEach(() => {
     state.pathname = "/cars";
     state.consent = "granted";
+    state.pathnameCalls = 0;
   });
   afterEach(() => {
     act(() => root.unmount());
@@ -45,6 +46,12 @@ describe("measurement provider", () => {
     state.consent = "unknown";
     await render(ID);
     expect(gtagScripts()).toHaveLength(0);
+  });
+
+  it("reads the pathname on every render, also before consent (stable hook order)", async () => {
+    state.consent = "unknown";
+    await render(ID);
+    expect(state.pathnameCalls).toBeGreaterThan(0);
   });
 
   it.each(["/admin/monitoring", "/account", "/moderation", "/recover", "/verify-email", "/login"])("never loads Google Analytics on private path %s", async (pathname) => {

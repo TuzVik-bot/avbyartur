@@ -2,6 +2,71 @@
 
 Running log: что проверено, чем и когда. Дополняется при каждом изменении.
 
+## 2026-11-10/11 — prod-sync: перенос аудита на production-линию
+
+Ветка `prod-sync-20261110` создана от релиза `refero-20261108-r1` (коммит `651f75d`,
+точная копия production). На неё перенесён смысл исправлений из `AUDIT_REPORT.md`,
+сделанных на `main` (запись 2026-11-10 в `TESTING.md` ветки `main`). Статус по каждому пункту —
+таблица «Статус исправлений» в `AUDIT_REPORT.md`. Готовится релиз `audit-20261111-r1`.
+На VPS ничего не выкачено.
+
+Последние правки этой серии:
+
+- `measurement-provider.tsx`: `usePathname()` вызывается безусловно (раньше хук стоял
+  внутри `&&`). Переопределения правил ESLint для файла удалены,
+  `react-hooks/rules-of-hooks` снова `error`. `prefer-rest-params` отключён одной
+  строкой `eslint-disable-next-line`: gtag.js принимает только объект `arguments`.
+- Воркер: `_record_heartbeat` не роняет цикл. Ошибка пишется в лог как WARNING
+  `worker_heartbeat_failed` с трейсбеком, например если таблицы ещё нет во время
+  rolling deploy. В той же транзакции удаляются строки старше 24 ч: `worker_id` =
+  `hostname:pid`, поэтому каждый рестарт оставляет новую строку.
+- `docker-compose.yml`: образ БД снова ровно `postgres:17.11-alpine`, без digest.
+  Смена ссылки на образ пересоздаст контейнер БД при следующем `up`, поэтому
+  закрепление digest отложено до окна обслуживания.
+- Новый `POST /api/v1/analytics/errors` (`backend/app/api/analytics.py`). Раньше
+  `reportFrontendError` получал 404. Схема строгая (`extra="forbid"`, allowlist
+  `error_type` и `breadcrumbs`, не больше 10 breadcrumbs, `release_id` до 64 символов
+  по шаблону). Без авторизации и CSRF, как `dealer/clicks`. Лимит 30 в час на IP
+  через `consume_rate_limit` + `ip_scoped_limit`. В лог пишется одна строка WARNING
+  `frontend_error`, путь и query не пишутся. Ответ 202 `{"accepted": true}`.
+  Web-прокси пересылает `content-type`, тело и IP клиента, поэтому вызов из браузера
+  проходит. `types.generated.ts` перегенерирован.
+- `globals.css`: нейтральный цвет для `.market-badge.in_market`.
+
+Базовые линии:
+
+- До переноса (`651f75d`, по журналу переноса, этим прогоном не повторялось):
+  backend **36 failed**, web **51 failed**.
+- После (полный прогон в конце работы 2026-11-11):
+  - backend — **921 passed, 0 failed** (одноразовая PostgreSQL 17, `TZ=UTC`);
+  - web — **876 passed / 135 файлов, 0 failed**. Параллельный исполнитель чинил
+    web-тесты в это же время; число снято с рабочего дерева на момент прогона.
+- `corepack pnpm typecheck` — PASS.
+- `corepack pnpm lint` — exit 0, 0 ошибок, **118 предупреждений** (бэклог; правила
+  временно понижены до `warn` в `web/eslint.config.mjs`).
+- `python3 -m unittest discover -s scripts -p 'test_*.py'` — **128 тестов OK**
+  (6 skipped).
+
+Что проверено:
+
+- Миграция `0034_listing_search_perf` на схеме из моделей, помеченной `stamp head`:
+  `downgrade 0033_listing_in_transit` → `upgrade head`, оба шага без ошибок.
+  Цепочку с пустой БД (`upgrade head` с нуля) не проверить: старая миграция падает
+  на `DuplicateColumn telegram_contact_url`. Это давний дефект цепочки, не 0034.
+- Два цикла воркера параллельно не обрабатывают одну задачу дважды:
+  `test_two_worker_loops_never_process_a_job_twice`. Новые тесты heartbeat: очистка
+  строк старше 24 ч, сбой без остановки `_work_once`.
+- Новые тесты `test_frontend_error_reports.py`: 202 и структурированный лог; 422 на
+  лишние поля, превышение длины, неизвестный `error_type` или breadcrumb и
+  отсутствующее поле; 429 после 30 запросов с одного IP, другой IP проходит.
+  Добавлен контракт в `test_route_error_status_contract.py`.
+- `docker compose config --quiet` — PASS.
+- `pnpm audit --prod` — 0 уязвимостей.
+- Не проверено: живой production, применение nginx `real_ip` за OpenResty, установка
+  systemd-юнитов на VPS, браузерная отправка отчёта об ошибке через Next-прокси.
+- Замечание: `uv run ruff check app tests` сообщает 10 находок (неиспользуемые импорты
+  и т. п.) в тестовых файлах вне этой серии правок, а CI запускает ruff.
+
 ## 2026-10-25 — 21 лицензированная статья cars.ru в разделе «Статьи» (web/)
 
 Изменения: `editorial-articles-carsru.ts` (21 адаптированная статья; лицензия
@@ -110,5 +175,5 @@ HSTS и верификационные мета-теги в публичном �
   index/follow, sitemap 45 URL, Article JSON-LD) — PASS.
 - Прод: образ `avtorinok-web:public-indexing-20261025-r1` (build-arg флага)
   переключён под flock; edge-проверки — см.
-  `docs/runtime/PUBLIC_INDEXING_2026-10-25.md`. Дамп БД до переключения:
+  `docs/releases/2026/PUBLIC_INDEXING_2026-10-25.md`. Дамп БД до переключения:
   `pre-public-indexing-20261025T131005Z` (542 TOC).

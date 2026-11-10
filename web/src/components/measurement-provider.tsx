@@ -8,8 +8,9 @@ import { measurementReady, setMeasurementConsent, setMeasurementEnabled, subscri
 
 export function MeasurementProvider({ children, measurementId = DEFAULT_GA_MEASUREMENT_ID }: { children: React.ReactNode; measurementId?: string }) {
   const { consent } = useContactClickConsent();
+  const pathname = usePathname() ?? "/";
   // Private sections (account, admin, auth tokens) are never measured, even with consent.
-  const active = consent === "granted" && !isAnalyticsExcludedPath(usePathname() ?? "/");
+  const active = consent === "granted" && !isAnalyticsExcludedPath(pathname);
   useEffect(() => {
     setMeasurementEnabled(false);
     setMeasurementConsent(active);
@@ -20,6 +21,8 @@ export function MeasurementProvider({ children, measurementId = DEFAULT_GA_MEASU
     try {
       flags[`ga-disable-${measurementId}`] = false;
       window.dataLayer = [];
+      // gtag.js only accepts the Arguments object, not a rest-parameter array.
+      // eslint-disable-next-line prefer-rest-params
       window.gtag = function () { window.dataLayer?.push(arguments); };
       window.gtag("consent", "default", denied);
       window.gtag("consent", "update", { analytics_storage: "granted" });

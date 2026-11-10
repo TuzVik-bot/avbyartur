@@ -18,7 +18,6 @@ from app.conversation_schemas import (
     ConversationDetailOut,
     ConversationListOut,
     ConversationMessageInput,
-    ConversationMessageOut,
     ConversationMessageResponseOut,
 )
 from app.db import get_db

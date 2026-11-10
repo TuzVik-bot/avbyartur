@@ -6,7 +6,6 @@ import json
 import re
 import secrets
 from typing import Protocol
-from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 

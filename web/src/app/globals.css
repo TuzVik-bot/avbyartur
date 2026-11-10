@@ -887,6 +887,7 @@ h3 { font-size: 18px; margin-bottom: 8px; }
 .market-badge { display: inline-flex; align-items: center; min-height: 28px; margin-bottom: 8px; padding: 3px 8px; border-radius: 14px; font-size: 14px; font-weight: 750; cursor: help; }
 .market-badge.below_market { background: var(--soft-green); color: var(--green); }
 .market-badge.above_market { background: var(--soft-amber); color: var(--amber); }
+.market-badge.in_market { background: var(--surface-muted); color: var(--muted); }
 .market-badge:focus-visible { outline: 3px solid #365dc5; outline-offset: 2px; }
 .card-specs { gap: 6px 11px; font-size: 14px; line-height: 1.4; }
 .card-published { margin: 7px 0 0; color: var(--muted); font-size: 14px; }

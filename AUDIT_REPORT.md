@@ -14,40 +14,78 @@
 
 ---
 
-## Статус исправлений (обновлено 2026-11-10)
+## Статус исправлений (ветка `prod-sync-20261110`, обновлено 2026-11-11)
 
-Выполнены пункты плана 1–8 (локально, без коммита, push и деплоя). Проверки — в `TESTING.md` (запись 2026-11-10).
+Аудит писался по `main`, а исправления перенесены на production-линию: ветка `prod-sync-20261110`, база — релиз `refero-20261108-r1` (коммит `651f75d`). Таблица ниже сверена по коду этой ветки, не по `main`. На VPS ничего не выкачено, всё готовится как релиз `audit-20261111-r1`. Проверки описаны в `TESTING.md`, запись «2026-11-10/11 — prod-sync».
 
-| Пункт | Статус |
-|---|---|
-| SEC-1 Next.js | ✅ 16.4.5, `pnpm audit --prod` чистый |
-| SEC-2 IP клиента | ✅ в коде; на VPS нужно проверить, что OpenResty передаёт IP, до применения nginx `real_ip` |
-| SEC-3 лимит логина | ✅ (компромисс: 10 неудач блокируют вход в аккаунт на 15 мин) |
-| SEC-4 лимиты восстановления | ✅ |
-| SEC-5 GA и токены | ✅ баннер согласия; утверждённый на backend документ cookie_policy нужно обновить отдельно |
-| SEC-6 заголовки | ✅ частично: CSP без `script-src` (nonce — отдельная задача) |
-| SEC-7 прокси `..` | ✅ |
-| REL-1 оплаты | ✅ + алерт `payment_paid_unfulfilled` в `/monitoring` |
-| REL-2 async | ✅ фиды и платёжный callback |
-| REL-3 воркер-lock | ⏸ не сделано: без heartbeat нельзя доказать отсутствие двойной обработки; при одном воркере выигрыша нет |
-| REL-4 письма под локами | ✅ |
-| REL-5 НБРБ | ✅ |
-| REL-6 пул БД | ✅ 15+10 (ограничение `max_connections=40` в compose) |
-| REL-7 enqueue_job | ✅ |
-| REL-8…REL-10 | ✅ |
-| REL-11 | ✅ частично: `retry_after` Telegram не учтён |
-| PERF-1 `published_at` | ✅ миграция `0027_listing_search_perf` |
-| PERF-2 сохранённые поиски | ✅ |
-| PERF-3 карточка | ✅ (проверка 410 в `proxy.ts` оставлена — только она даёт настоящий HTTP 410) |
-| PERF-4 справочники | ✅ кэш в памяти web; `Cache-Control` на backend — не сделан |
-| PERF-5, PERF-6 | ✅ |
-| AI-1…AI-7 | ✅ кроме «текст объявления брать на сервере по ID» |
-| OPS-1, OPS-2, OPS-4 | ✅ |
-| OPS-3, OPS-7 | ✅ (у воркера нет heartbeat — сигнал берётся из очереди) |
-| OPS-9 CLAUDE.md | ✅ |
-| Остальное (UX-1, IDEA-*, ARCH-*, OPS-5/6/8, EXT-*) | ⏳ не входило в пункты 1–8 |
+Легенда: ✅ сделано · ⚠️ частично · ⏸ отложено.
 
-**Важно перед деплоем:** compose теперь передаёт в api и worker все переменные `.env` (`TELEGRAM_*`, `PAYMENT_*`, `ONLINER_SYNC_*` и др.), которые раньше молча не доходили. Если они заданы в боевом `.env`, соответствующие функции включатся. Сначала сверить `.env`. Также нужна миграция `0027` и файл `/etc/avtorinok/monitor-alerts.env` для алертов монитора.
+| Пункт | Статус | Примечание |
+|---|---|---|
+| SEC-1 Next.js | ✅ | next 16.4.5; `pnpm audit --prod` в CI, 0 уязвимостей |
+| SEC-2 IP клиента | ⚠️ | Web-прокси передаёт IP, есть `TRUSTED_PROXY_CIDRS`, в шаблоне `deploy/avtorinok-domain.nginx.conf` есть `real_ip`. На хосте не применено: нужен root и проверка, что OpenResty передаёт IP. До этого включён режим «IP неизвестен»: `ip_scoped_limit` умножает лимит ×20 (`UNKNOWN_CLIENT_IP_LIMIT_FACTOR`) |
+| SEC-3 лимит логина | ✅ | Лимит проверяется до `verify_password`; отдельные счётчики по email и по IP |
+| SEC-4 лимиты восстановления | ✅ | Ключ по email или субъекту; общий потолок `IDENTITY_SITE_HOURLY_CAP = 500` |
+| SEC-5 GA и токены | ✅ | GA только после согласия и не в приватных разделах (`measurement-provider.tsx`); токены убираются из URL |
+| SEC-6 заголовки | ⚠️ | Есть CSP (`frame-ancestors`, `object-src`, `base-uri`, `form-action`) и `Permissions-Policy`. Нет `script-src` с nonce и `limit_req` в nginx |
+| SEC-7 прокси `..` | ✅ | Пустые сегменты, `.` и `..` отклоняются, в том числе percent-encoded |
+| SEC-8 мелочи | ⚠️ | SMTP без TLS запрещён, offsite только шифрованный. Осталось: `MAX_IMAGE_PIXELS` 60 Мп, нет `import "server-only"`, нет `read_only`/`cap_drop` у api/worker/web |
+| REL-1 оплаты | ✅ | Состояние `paid_unfulfilled` и алерт `payment_paid_unfulfilled` в `/monitoring` |
+| REL-2 async | ✅ | Фиды и платёжный callback вынесены в `run_in_threadpool` |
+| REL-3 воркер-lock | ✅ | Глобального lock нет: `SKIP LOCKED` и продление lease. Heartbeat'ы воркеров с очисткой через 24 ч, сбой heartbeat не останавливает цикл. Тест двух воркеров без двойной обработки |
+| REL-4 письма под локами | ✅ | Блокировки снимаются до SMTP |
+| REL-5 НБРБ | ⚠️ | Сеть вне lock, single-flight, кеш ошибки. Устаревший снимок при сбое не отдаётся |
+| REL-6 пул БД | ✅ | Пул 15 + overflow 10 |
+| REL-7 enqueue_job | ✅ | `ON CONFLICT DO NOTHING` |
+| REL-8 SSR | ✅ | `AbortSignal.timeout`, сессия через `cache()` |
+| REL-9 даты | ✅ | `Europe/Minsk` в форматировании |
+| REL-10 global-error | ✅ | Есть `web/src/app/global-error.tsx` |
+| REL-11 мелкие баги | ⚠️ | Дата по Минску, `le=MAX_PAGE`, безопасный `.json()` в помощнике. Нет `beforeunload` в форме подачи |
+| PERF-1 `published_at` | ✅ | Колонка и индекс в миграции `0034_listing_search_perf` |
+| PERF-2 сохранённые поиски | ⚠️ | Поиски грузятся пачками. SQL-предфильтра по марке, категории и региону нет |
+| PERF-3 карточка | ✅ | `Promise.allSettled`; проверка 410 в `proxy.ts` оставлена намеренно |
+| PERF-4 справочники | ✅ | Публичные SSR-запросы без cookie, `Cache-Control` на справочниках |
+| PERF-5 аналоги рынка | ⚠️ | Только нужные колонки и лимит аналогов. Кеша результата нет |
+| PERF-6 полнотекстовый поиск | ✅ | GIN trgm-индексы (0034), экранирование ILIKE, ограничение длины |
+| PERF-7 прочее | ⚠️ | Планировщики раз в 60 с. Остались: просмотры без дедупликации, избранное без пагинации, поиск по JSON payload в ретеншне |
+| AI-1 сбой модели | ✅ | Переход в basic-режим с уведомлением |
+| AI-2 разбор JSON | ✅ | Снятие обёртки, повтор, запасные модели |
+| AI-3 выдуманные ID | ✅ | `reconcileCatalogIds` |
+| AI-4 квота | ⚠️ | Лимиты по IP и суточный бюджет. Счётчики в памяти процесса, ключ по IP зависит от SEC-2 |
+| AI-5 промпт | ✅ | Примеры, каталог `id\|name`, ru/be |
+| AI-6 безопасность промпта | ✅ | Фильтры сливаются с парсером, текст объявления берётся на сервере по ID с `redactContacts` |
+| AI-7 наблюдаемость | ⚠️ | `recordModelOutcome` в логах. Метрик помощника в `/monitoring` нет |
+| EXT-1 CSV | ✅ | `utf-8-sig` и `cp1251` |
+| EXT-2 XML DOCTYPE | ✅ | defusedxml с `forbid_dtd`/`entities`/`external` |
+| EXT-3 Onliner | ✅ | Allowlist хостов, ручные редиректы, чтение с лимитом (синхронизация по-прежнему выключена) |
+| UX-1 ошибки на английском | ✅ | `web/src/lib/user-message.ts`. Backend отдаёт английские строки, web их переводит |
+| UX-2 soft-404 | ✅ | Снятые объявления: noindex/410 и блок похожих |
+| UX-3 текст сообщения | ✅ | Черновик в `sessionStorage` |
+| UX-4 заглушки | ⚠️ | Пустые ссылки соцсетей и приложений в футере скрываются. Плитка «Проверка по VIN» ведёт на заглушку. Оплата выключена, пока не заданы все `PAYMENT_*` (решение бизнеса) |
+| UX-5 прочее | ⚠️ | Есть `cars/loading.tsx`. Нет отдельной обработки 403 «почта не подтверждена» и sitemap index (один sitemap, `MAX_SITEMAP_PAGES`) |
+| IDEA-1 русские ошибки | ✅ | См. UX-1 |
+| IDEA-2 «Следить за ценой» | ⚠️ | Переключатель в карточке выдачи есть, в `listing-detail.tsx` нет |
+| IDEA-3 бейдж снижения цены | ✅ | `last_price_drop`, бейдж, сортировка «Сначала подешевевшие» |
+| IDEA-4 подсказка продавцу | ✅ | `market-price-hint.tsx` в «Моих объявлениях»; у `.market-badge.in_market` нейтральный цвет |
+| IDEA-5 похожие и шаблоны | ✅ | Похожие для снятых, черновик, `MESSAGE_TEMPLATES` |
+| ARCH-1 main ≠ production | ⚠️ | Источник истины теперь `prod-sync-20261110` от `651f75d`. Web вызывает эндпоинты, которых нет в backend этой ветки: отзывы о дилерах, логотип компании, `photo-badges`, `eligibility` |
+| ARCH-2 `output/` | ✅ | В `.gitignore` |
+| ARCH-3 остатки патча | ✅ | `.orig`/`.rej` удалены |
+| ARCH-4 мёртвый код | ⚠️ | Разовые скрипты в `scripts/archive/`, мёртвые компоненты удалены. `NEXT_PUBLIC_RELEASE_ID` нигде не задаётся |
+| ARCH-5 дублирование | ⏸ | Генераторы ключей, 4 похожих `error.tsx`, `_deliver_notification` около 475 строк |
+| ARCH-6 большие модули | ⏸ | `sell-form.tsx` 1627 строк, `worker.py` 2090, `api/listings.py` 1302. Рефакторинг отложен |
+| ARCH-7 зависимости | ⚠️ | next 16.4.5, ESLint, ruff, dependabot. Digest образа postgres отложен до окна обслуживания: смена ссылки пересоздаст контейнер БД. Тайпчекера Python нет, backend-зависимости не обновлялись |
+| OPS-1 настройки | ✅ | `x-backend-env` в compose для api и worker, тест `test_compose_settings.py` |
+| OPS-2 `.env.example` | ✅ | Есть, синхронность проверяется тестом |
+| OPS-3 диагностика | ✅ | Стектрейсы без PII, Sentry, `X-Request-ID`. Новый `POST /api/v1/analytics/errors` принимает очищенные отчёты об ошибках фронтенда |
+| OPS-4 монитор | ⚠️ | В репо монитор смотрит на `авторынок.бел`, есть Telegram-алерты и `--alert-env-file`. Unit и `/etc/avtorinok/monitor-alerts.env` на хосте не установлены (нужны root и секреты) |
+| OPS-5 CI и линтеры | ⚠️ | `.github/workflows/ci.yml`: typecheck, lint (0 ошибок, 118 предупреждений в бэклоге), тесты, build, audit, pytest, ruff, тесты скриптов, compose config. Нет тайпчекера Python и `alembic check` |
+| OPS-6 offsite-бэкапы | ⚠️ | `avtorinok-offsite-backup.{service,timer}` и алерт по возрасту есть в репо. На хосте не установлены (нужны root и ключи) |
+| OPS-7 health | ⚠️ | `/health/ready` показывает возраст heartbeat воркера (только информация). Healthcheck воркера в compose проверяет процесс, а не heartbeat |
+| OPS-8 документация | ⚠️ | `docs/STATUS.md`, `docs/releases/`, `docs/archive/`. Старые статус-файлы в `docs/` остались, `SERVER.md` местами устарел |
+| OPS-9 CLAUDE.md | ✅ | Корневой `CLAUDE.md` для production-линии |
+
+**Не сделано и почему:** nginx `real_ip`, systemd-юниты монитора и offsite-бэкапов требуют root и секретов на VPS; CSP с nonce — отдельная задача; ARCH-6 — крупный рефакторинг; digest postgres — окно обслуживания; 118 предупреждений ESLint — бэклог; платёжный провайдер выключен по решению бизнеса; VIN-проверка — заглушка; sitemap index не сделан.
 
 ---
 

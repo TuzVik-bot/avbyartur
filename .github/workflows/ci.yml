@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          # Matches the pinned node:22 image in web/Dockerfile.
+          node-version: "22"
+      - name: Enable pnpm via corepack
+        # Same pnpm version as web/Dockerfile.
+        run: corepack enable && corepack prepare pnpm@10.33.2 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm audit --prod
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: avtorinok_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d avtorinok_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TZ: UTC
+      # Disposable CI-only database; the test fixture drops every table in it.
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/avtorinok_ci_test
+      TEST_DATABASE_DISPOSABLE_CONFIRMATION: avtorinok_ci_test
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          # Same uv version as backend/Dockerfile.
+          version: "0.10.7"
+          python-version: "3.12"
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --frozen
+      - name: Ruff
+        working-directory: backend
+        run: uv run ruff check app tests
+      - name: Backend tests
+        working-directory: backend
+        run: uv run pytest -q -p no:cacheprovider
+      - name: Script tests
+        # Standalone stdlib unittest suites for scripts/ (docker, ssh and rsync are stubbed).
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Dummy values: only the required-variable checks need them.
+      POSTGRES_PASSWORD: ci-dummy-password
+      SESSION_SECRET: ci-dummy-session-secret
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - run: docker compose config -q
+      - run: python3 -m json.tool data/catalog.json > /dev/null

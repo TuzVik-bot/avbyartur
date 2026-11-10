@@ -5,15 +5,17 @@ import { SearchFilters } from "@/components/search-filters";
 import { api } from "@/lib/api";
 import type { CatalogCity, CatalogItem, CatalogModification } from "@/lib/types";
 
-const makeA: CatalogItem = { id: "make-a", slug: "make-a", name: "Марка A" };
-const makeB: CatalogItem = { id: "make-b", slug: "make-b", name: "Марка B" };
-const modelA: CatalogItem = { id: "model-a", slug: "model-a", name: "Модель A", make_id: makeA.id };
-const modelB: CatalogItem = { id: "model-b", slug: "model-b", name: "Модель B", make_id: makeB.id };
+// Make and model IDs must be catalog UUIDs: the filters ignore anything else.
+const makeA: CatalogItem = { id: "0a000000-0000-4000-8000-00000000000a", slug: "make-a", name: "Марка A" };
+const makeB: CatalogItem = { id: "0b000000-0000-4000-8000-00000000000b", slug: "make-b", name: "Марка B" };
+const modelA: CatalogItem = { id: "1a000000-0000-4000-8000-00000000000a", slug: "model-a", name: "Модель A", make_id: makeA.id };
+const modelB: CatalogItem = { id: "1b000000-0000-4000-8000-00000000000b", slug: "model-b", name: "Модель B", make_id: makeB.id };
 const generationA: CatalogItem = { id: "generation-a", slug: "generation-a", name: "Поколение A", model_id: modelA.id };
 const generationB: CatalogItem = { id: "generation-b", slug: "generation-b", name: "Поколение B", model_id: modelB.id };
 const generationNext: CatalogItem = { id: "generation-next", slug: "generation-next", name: "Поколение A+", model_id: modelA.id };
 const modificationA: CatalogModification = { id: "modification-a", slug: "modification-a", name: "Двигатель A", generation_id: generationA.id, specs: null };
 const modificationNext: CatalogModification = { id: "modification-next", slug: "modification-next", name: "Двигатель A+", generation_id: generationNext.id, specs: null };
+const modelLabelB = "Марка B Модель B";
 const regionA: CatalogItem = { id: "region-a", slug: "region-a", name: "Область A" };
 const regionB: CatalogItem = { id: "region-b", slug: "region-b", name: "Область B" };
 const cityA: CatalogCity = { id: "city-a", slug: "city-a", name: "Город A", region_id: "region-a" };
@@ -42,6 +44,18 @@ function choose(name: string, value: string) {
   if (!select) throw new Error(`Missing select: ${name}`);
   select.value = value;
   select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function hiddenValue(name: string) {
+  return container.querySelector<HTMLInputElement>(`input[type="hidden"][name="${name}"]`)?.value;
+}
+
+/** Finds a button inside the make or model field: its picker options or, with scope, its selected chips. */
+function pickerButton(fieldLabel: string, text: string, scope = "details") {
+  const field = [...container.querySelectorAll<HTMLElement>(".field")].find((item) => item.querySelector(":scope > span")?.textContent === fieldLabel);
+  const button = [...(field?.querySelectorAll<HTMLButtonElement>(`${scope} button`) || [])].find((item) => item.textContent?.trim() === text);
+  if (!button) throw new Error(`Missing ${fieldLabel} button: ${text}`);
+  return button;
 }
 
 describe("search filter dependencies", () => {
@@ -186,8 +200,8 @@ describe("search filter dependencies", () => {
     });
 
     const submitted = new FormData(container.querySelector<HTMLFormElement>("form")!);
-    expect(submitted.get("make_id")).toBe(makeA.id);
-    expect(submitted.get("model_id")).toBe(modelA.id);
+    expect(submitted.get("make_ids")).toBe(makeA.id);
+    expect(submitted.get("model_ids")).toBe(modelA.id);
     expect(submitted.get("generation_id")).toBe(generationA.id);
     expect(submitted.get("body_variant_id")).toBe("variant-a");
     expect(submitted.get("modification_id")).toBe(modificationA.id);
@@ -320,16 +334,22 @@ describe("search filter dependencies", () => {
 
     await act(async () => { await Promise.resolve(); });
     await act(async () => {
-      choose("make_id", makeB.id);
+      pickerButton("Марка", makeA.name, ".active-filters").click();
+      await Promise.resolve();
+    });
+    expect(hiddenValue("make_ids")).toBe("");
+    expect(hiddenValue("model_ids")).toBe("");
+    expect(container.querySelector<HTMLSelectElement>('select[name="generation_id"]')?.value).toBe("");
+    await act(async () => {
+      pickerButton("Марка", makeB.name).click();
       await Promise.resolve();
     });
     expect(catalog).toHaveBeenCalledWith("models", { make_id: makeB.id, category_code: "cars" });
-    expect(container.querySelector<HTMLSelectElement>('select[name="model_id"]')?.value).toBe("");
-    expect(container.querySelector<HTMLSelectElement>('select[name="generation_id"]')?.value).toBe("");
-    expect(container.querySelector('select[name="model_id"] option[value="model-b"]')).not.toBeNull();
+    expect(hiddenValue("make_ids")).toBe(makeB.id);
+    expect(hiddenValue("model_ids")).toBe("");
 
     await act(async () => {
-      choose("model_id", modelB.id);
+      pickerButton("Модель", modelLabelB).click();
       await Promise.resolve();
     });
     expect(catalog).toHaveBeenCalledWith("generations", { model_id: modelB.id });
@@ -347,8 +367,8 @@ describe("search filter dependencies", () => {
     const form = container.querySelector<HTMLFormElement>("form");
     expect(form?.method).toBe("get");
     const submitted = new FormData(form!);
-    expect(submitted.get("make_id")).toBe(makeB.id);
-    expect(submitted.get("model_id")).toBe(modelB.id);
+    expect(submitted.get("make_ids")).toBe(makeB.id);
+    expect(submitted.get("model_ids")).toBe(modelB.id);
     expect(submitted.get("generation_id")).toBe(generationB.id);
     expect(submitted.get("region_id")).toBe(regionB.id);
     expect(submitted.get("city_id")).toBe("");
@@ -529,7 +549,7 @@ describe("search filter dependencies", () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector<HTMLSelectElement>('select[name="model_id"]')?.value).toBe(modelA.id);
+    expect(hiddenValue("model_ids")).toBe(modelA.id);
     await act(async () => {
       root.render(createElement(SearchFilters, { ...props, search: { ...search, category_code: "motorcycles" } }));
       await Promise.resolve();
@@ -541,8 +561,8 @@ describe("search filter dependencies", () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector<HTMLSelectElement>('select[name="make_id"]')?.value).toBe(makeA.id);
-    expect(container.querySelector<HTMLSelectElement>('select[name="model_id"]')?.value).toBe("");
+    expect(hiddenValue("make_ids")).toBe(makeA.id);
+    expect(hiddenValue("model_ids")).toBe("");
     expect(container.querySelector<HTMLSelectElement>('select[name="generation_id"]')?.value).toBe("");
     expect(container.querySelector<HTMLSelectElement>('select[name="body_variant_id"]')?.value).toBe("");
     expect(container.querySelector<HTMLSelectElement>('select[name="modification_id"]')?.value).toBe("");

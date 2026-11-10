@@ -30,7 +30,6 @@ from app.services import fail
 
 router = APIRouter(prefix="/api/v1/customs-calculator", tags=["customs-calculator"])
 SCENARIO = "private_m1_personal_use_outside_eaeu"
-SUPPORTED_CURRENCIES = ["EUR", "USD", "BYN", "RUB", "CNY"]
 SUPPORTED_ENGINES = ["petrol", "diesel"]
 SCOPE_NOTES = [
     "Расчет предназначен для физического лица, ввозящего для личного пользования автомобиль категории M1 с бензиновым или дизельным двигателем из-за пределов ЕАЭС в Беларусь.",

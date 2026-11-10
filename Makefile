@@ -1,4 +1,4 @@
-.PHONY: secrets config-check build release-amd64 up down ps logs catalog-dry-run catalog-refresh catalog-import-dry-run catalog-import backup
+.PHONY: secrets config-check build release-amd64 up down ps logs catalog-dry-run catalog-refresh catalog-import-dry-run catalog-import backup test-backend test-scripts test-web lint typecheck
 
 export AVTORINOK_IMAGE_TAG
 
@@ -46,3 +46,26 @@ catalog-import:
 
 backup:
 	./scripts/backup.sh
+
+# Backend tests drop every table in the target database. They need a dedicated,
+# disposable PostgreSQL database whose name ends in _test:
+#   TEST_DATABASE_URL=postgresql+psycopg://user:pass@host:port/<name>_test
+#   TEST_DATABASE_DISPOSABLE_CONFIRMATION=<name>_test   (exact database name)
+# Never point it at the runtime or preview database.
+test-backend:
+	@test -n "$$TEST_DATABASE_URL" || { printf '%s\n' 'Set TEST_DATABASE_URL to a disposable *_test PostgreSQL database.' >&2; exit 2; }
+	@test -n "$$TEST_DATABASE_DISPOSABLE_CONFIRMATION" || { printf '%s\n' 'Set TEST_DATABASE_DISPOSABLE_CONFIRMATION to the exact test database name.' >&2; exit 2; }
+	cd backend && TZ=UTC uv run pytest -q -p no:cacheprovider
+
+test-scripts:
+	python3 -m unittest discover -s scripts -p 'test_*.py'
+
+test-web:
+	cd web && corepack pnpm test
+
+lint:
+	cd backend && uv run ruff check app tests
+	cd web && corepack pnpm lint
+
+typecheck:
+	cd web && corepack pnpm typecheck

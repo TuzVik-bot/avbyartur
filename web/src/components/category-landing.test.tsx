@@ -1,6 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { CategoryLanding, MachineIllustration } from "@/components/category-landing";
+import { getListingSubcategories } from "@/lib/listing-subcategories";
 
 vi.mock("@/components/search-route", () => ({ SearchRoute: () => null }));
 
@@ -24,15 +27,27 @@ describe("category landing navigation", () => {
     expect(html).toContain("Колёсные диски");
   });
 
-  it("renders distinct, decorative SVG silhouettes for each subcategory illustration", () => {
-    const variants = [
-      ...Array.from({ length: 4 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="moto" index={index} />)),
-      ...Array.from({ length: 12 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="agri" index={index} />)),
-      ...Array.from({ length: 10 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="special" index={index} />)),
-      ...Array.from({ length: 4 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="water" index={index} />)),
-      ...Array.from({ length: 4 }, (_, index) => renderToStaticMarkup(<MachineIllustration kind="tires" index={index} />))
+  it("renders a distinct, decorative generated picture for each subcategory", () => {
+    const codes = ["motorcycles", "special_equipment", "agricultural_equipment", "watercraft", "tires"] as const;
+    const pairs = [
+      ...codes.flatMap((code) => getListingSubcategories(code).map(({ value }) => [code, value] as const)),
+      ["wheels", "alloy-wheel"] as const
     ];
-    expect(new Set(variants).size).toBe(variants.length);
-    expect(variants.every((svg) => svg.includes('aria-hidden="true"') && svg.includes('viewBox="0 0 112 72"'))).toBe(true);
+    const sources = pairs.map(([code, value]) => {
+      const html = renderToStaticMarkup(<MachineIllustration kind="" categoryCode={code} subcategory={value} />);
+      expect(html, `${code}/${value}`).toContain('alt=""');
+      expect(html, `${code}/${value}`).toContain('aria-hidden="true"');
+      const src = /src="([^"]+)"/.exec(html)?.[1] ?? "";
+      expect(src, `${code}/${value}`).toMatch(/^\/category-art\/[a-z-]+\/[a-z-]+\.webp$/);
+      expect(existsSync(join(process.cwd(), "public", src)), src).toBe(true);
+      return src;
+    });
+    expect(sources.length).toBe(34);
+    expect(new Set(sources).size).toBe(sources.length);
+  });
+
+  it("renders nothing rather than a broken image when no picture exists", () => {
+    expect(renderToStaticMarkup(<MachineIllustration kind="unknown" />)).toBe("");
+    expect(renderToStaticMarkup(<MachineIllustration categoryCode="motorcycles" subcategory="unknown_kind" />)).toBe("");
   });
 });

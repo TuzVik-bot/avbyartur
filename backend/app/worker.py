@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import get_settings
@@ -79,6 +79,8 @@ SAVED_SEARCH_MATCH_CHUNK_SIZE = 500
 SCHEDULER_INTERVAL_SECONDS = 60
 # The worker_heartbeats row is written at most this often.
 HEARTBEAT_INTERVAL_SECONDS = 15
+# Heartbeat rows of workers that stopped longer ago than this are pruned.
+HEARTBEAT_RETENTION = timedelta(hours=24)
 IDLE_SLEEP_SECONDS = 2
 HEIF_ORIENTATION_TRANSPOSE = {
     2: Image.Transpose.FLIP_LEFT_RIGHT,
@@ -1949,16 +1951,34 @@ def _record_heartbeat(worker_id: str) -> None:
         ):
             return
         _heartbeat_last_written = now
-    with SessionLocal() as db:
-        db.execute(
-            pg_insert(WorkerHeartbeat)
-            .values(worker_id=worker_id, last_seen_at=func.now())
-            .on_conflict_do_update(
-                index_elements=[WorkerHeartbeat.worker_id],
-                set_={"last_seen_at": func.now()},
+    try:
+        with SessionLocal() as db:
+            db.execute(
+                pg_insert(WorkerHeartbeat)
+                .values(worker_id=worker_id, last_seen_at=func.now())
+                .on_conflict_do_update(
+                    index_elements=[WorkerHeartbeat.worker_id],
+                    set_={"last_seen_at": func.now()},
+                )
             )
+            # worker_id is hostname:pid, so every restart leaves a row behind.
+            db.execute(
+                delete(WorkerHeartbeat).where(
+                    WorkerHeartbeat.last_seen_at < func.now() - HEARTBEAT_RETENTION
+                )
+            )
+            db.commit()
+    except Exception as exc:
+        # Monitoring must never stop job processing, e.g. while a rolling
+        # deploy runs the new worker before the migration creates the table.
+        log_event(
+            logger,
+            logging.WARNING,
+            "worker_heartbeat_failed",
+            worker_id=worker_id,
+            error_type=type(exc).__name__,
+            exc_info=exc,
         )
-        db.commit()
 
 
 def _renew_job_lease(job_id: uuid.UUID, worker_id: str) -> bool:

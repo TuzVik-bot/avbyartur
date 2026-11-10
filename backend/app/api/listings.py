@@ -464,7 +464,7 @@ def _listed(
         include_market_comparison = public
     comparable = [listing for listing in listings if listing.status == "active"]
     market_comparisons = (
-        build_market_comparisons(db, comparable, rate_info) if include_market_comparison and comparable else {}
+        build_market_comparisons(db, comparable, rate_info, include_in_market=not public) if include_market_comparison and comparable else {}
     )
     for listing, item in zip(listings, items, strict=True):
         item["published_at"] = publication_dates.get(listing.id)

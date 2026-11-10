@@ -22,8 +22,7 @@ const alertMessages: Record<AlertCode, string> = {
   feed_import_failed: "Есть ошибки импорта дилерских объявлений",
   payment_failed: "Есть неуспешные попытки оплаты",
   payment_pending_aged: "Оплата слишком долго остаётся ожидающей",
-  // TODO: uncomment once types.generated.ts includes the backend alert code payment_paid_unfulfilled.
-  // payment_paid_unfulfilled: "Оплата получена, но услуга не активирована: нужен возврат или ручное подключение",
+  payment_paid_unfulfilled: "Оплата получена, но услуга не активирована: нужен возврат или ручное подключение",
   exchange_rate_unavailable: "Курс USD недоступен или устарел",
   runtime_monitor_unavailable: "Проверка сервера недоступна или устарела",
   docker_unhealthy: "Не все контейнеры работают штатно",

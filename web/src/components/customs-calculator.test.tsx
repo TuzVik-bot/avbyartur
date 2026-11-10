@@ -77,9 +77,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function responseFor(url: string, calculation = result) {
+function responseFor(url: string, scenarios = [result]) {
   if (url.endsWith("/meta")) return Response.json(availableMeta);
-  if (url.endsWith("/calculate")) return Response.json(calculation);
+  if (url.endsWith("/calculate-year")) return Response.json({ manufacture_year: 2020, scenarios });
   throw new Error(`Unexpected request: ${url}`);
 }
 
@@ -109,11 +109,9 @@ async function fillForm() {
   await act(async () => {
   setValue(container.querySelector<HTMLInputElement>('input[name="price_amount"]')!, "12500.75");
   setValue(container.querySelector<HTMLSelectElement>('select[name="currency"]')!, "USD");
-  setValue(container.querySelector<HTMLInputElement>('input[name="manufacture_date"]')!, "2020-04-12");
+  setValue(container.querySelector<HTMLInputElement>('input[name="manufacture_year"]')!, "2020");
   chooseRadio("engine_type", "diesel");
   setValue(container.querySelector<HTMLInputElement>('input[name="engine_volume_cc"]')!, "1998");
-  container.querySelector<HTMLInputElement>('input[name="personal_use"]')!.click();
-  container.querySelector<HTMLInputElement>('input[name="origin_outside_eaeu"]')!.click();
     await Promise.resolve();
   });
 }
@@ -150,14 +148,15 @@ describe("customs calculator form", () => {
 
     await submitForm();
 
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/calculate"))).toHaveLength(1);
-    const calculateCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/calculate"))!;
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/calculate-year"))).toHaveLength(1);
+    const calculateCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/calculate-year"))!;
     expect(JSON.parse(String(calculateCall[1]?.body))).toEqual({
       price_amount: "12500.75",
       currency: "USD",
-      manufacture_date: "2020-04-12",
+      manufacture_year: 2020,
       engine_type: "diesel",
       engine_volume_cc: 1998,
+      benefit_140: false,
       personal_use: true,
       origin_outside_eaeu: true
     });
@@ -181,13 +180,31 @@ describe("customs calculator form", () => {
     expect(container.textContent).toContain("дата сверки правил: 2026-10-04");
   });
 
-  it("uses native required validation for an incomplete or invalid date and amount", async () => {
+  it("sends the 50% benefit flag and shows every age band possible for the entered year", async () => {
+    const boundary = { ...result, age_band: "up_to_3_years" as const, total_byn: "9000.00" };
+    const fetchMock = vi.fn<typeof fetch>(async (input: RequestInfo | URL) => responseFor(String(input), [boundary, result]));
+    await render(fetchMock);
+    await fillForm();
+    await act(async () => { container.querySelector<HTMLInputElement>('input[name="benefit_140"]')!.click(); });
+
+    await submitForm();
+
+    const calculateCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/calculate-year"))!;
+    expect(JSON.parse(String(calculateCall[1]?.body))).toMatchObject({ benefit_140: true, personal_use: true, origin_outside_eaeu: true });
+    expect(container.textContent).toContain("Для 2020 года возможны разные возрастные категории");
+    expect(container.textContent).toContain("До 3 лет включительно");
+    expect(container.textContent).toContain("Свыше 3 до 5 лет включительно");
+    expect(container.textContent).toContain("9000.00 BYN");
+    expect(container.textContent).toContain("16071.45 BYN");
+  });
+
+  it("uses native required validation for an incomplete or invalid year and amount", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => responseFor(String(input)));
     await render(fetchMock);
     const form = container.querySelector<HTMLFormElement>("form")!;
     expect(form.checkValidity()).toBe(false);
     await submitForm();
-    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/calculate"))).toBe(false);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/calculate-year"))).toBe(false);
 
     await fillForm();
     await act(async () => { setValue(container.querySelector<HTMLInputElement>('input[name="price_amount"]')!, "0"); });
@@ -196,10 +213,11 @@ describe("customs calculator form", () => {
     expect(form.checkValidity()).toBe(false);
     await act(async () => {
       setValue(container.querySelector<HTMLInputElement>('input[name="price_amount"]')!, "12.50");
-      setValue(container.querySelector<HTMLInputElement>('input[name="manufacture_date"]')!, "2020-02-30");
+      setValue(container.querySelector<HTMLInputElement>('input[name="manufacture_year"]')!, "0");
     });
-    expect(container.querySelector<HTMLInputElement>('input[name="manufacture_date"]')!.value).toBe("");
     expect(form.checkValidity()).toBe(false);
+    await act(async () => { setValue(container.querySelector<HTMLInputElement>('input[name="manufacture_year"]')!, "2020"); });
+    expect(form.checkValidity()).toBe(true);
   });
 
   it("does not POST a fractional price above the inclusive maximum", async () => {
@@ -211,7 +229,7 @@ describe("customs calculator form", () => {
 
     await submitForm();
 
-    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/calculate"))).toBe(false);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/calculate-year"))).toBe(false);
     expect(priceInput.checkValidity()).toBe(false);
   });
 
@@ -225,7 +243,7 @@ describe("customs calculator form", () => {
     await submitForm();
 
     expect(priceInput.checkValidity()).toBe(true);
-    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/calculate"))).toBe(true);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/calculate-year"))).toBe(true);
   });
 
   it("clears a previous result on every edit and ignores a late response from the old values", async () => {
@@ -256,7 +274,7 @@ describe("customs calculator form", () => {
       return Response.json({
         code: "customs_input_invalid",
         message: "English backend error must not be shown",
-        field_errors: { manufacture_date: "invalid date", engine_volume_cc: "must be positive" },
+        field_errors: { manufacture_year: "invalid year", engine_volume_cc: "must be positive" },
         request_id: "request-2"
       }, { status: 422 });
     });
@@ -264,9 +282,9 @@ describe("customs calculator form", () => {
     await fillForm();
     await submitForm();
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Проверьте дату выпуска, объём двигателя");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Проверьте год выпуска, объём двигателя");
     expect(container.querySelector('[role="alert"]')?.textContent).not.toContain("English backend error");
-    expect(container.textContent).toContain("Введите точную дату выпуска");
+    expect(container.textContent).toContain("Введите год выпуска, не позднее текущего года.");
     expect(container.textContent).toContain("Введите целый объём двигателя от 1 до 100 000 см³");
     expect(container.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
   });

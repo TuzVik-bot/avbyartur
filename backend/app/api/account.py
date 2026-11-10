@@ -30,7 +30,7 @@ from app.api.auth import CSRF_COOKIE, _prevent_session_caching
 from app.api.dependencies import get_current_user, require_csrf
 from app.config import get_settings
 from app.db import get_db
-from app.email_delivery import EmailDeliveryUnavailable, get_email_sender
+from app.email_delivery import get_email_sender
 from app.identity_models import (
     AccountDeletionRequest,
     AccountRecoveryChallenge,

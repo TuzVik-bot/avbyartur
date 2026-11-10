@@ -739,7 +739,7 @@ def _plan_models(
             [row["external_id"] for row in pending],
         )
         by_external = {row.external_id: row for row in inserted}
-        for key, item in models.items():
+        for key in models:
             external_id = _stable_external("model", f"{key[0]}/{key[1]}")
             if external_id in by_external:
                 result[key] = by_external[external_id].id

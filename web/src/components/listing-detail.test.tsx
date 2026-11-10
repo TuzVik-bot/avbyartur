@@ -194,7 +194,7 @@ describe("contact reveal", () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain("Телефон можно посмотреть без входа в аккаунт.");
+    expect(container.textContent).toContain("Контакты можно посмотреть без входа в аккаунт.");
     expect(container.textContent).not.toContain("+375 29 000 00 00");
     expect(container.querySelector('a[href="https://t.me/seller"]')).toBeNull();
     expect(container.querySelector('a[href="https://viber.me/seller"]')).toBeNull();
@@ -211,7 +211,7 @@ describe("contact reveal", () => {
     expect(container.textContent).toContain("+375 29 000 00 00");
     expect(container.querySelector('a[href="https://t.me/seller"]')?.textContent).toContain("Telegram");
     expect(container.querySelector('a[href="https://viber.me/seller"]')?.textContent).toContain("Viber");
-    expect(container.querySelector('[data-compare-listing="listing-1"]')).not.toBeNull();
+    expect(Array.from(container.querySelectorAll(".detail-actions button")).some((item) => item.textContent?.includes("Добавить к сравнению"))).toBe(true);
     expect(container.textContent).toContain("Поделиться Марка Модель");
   });
 

@@ -26,7 +26,8 @@ describe("seller landing and listing form", () => {
 
     expect(html).toContain("От черновика до объявления в каталоге");
     expect(html).toContain("Три этапа до публикации");
-    expect(html).toContain("Телефон скрыт в выдаче");
+    expect(html).toContain("Вы выбираете способ связи");
+    expect(html).toContain("Можно оставить только переписку или указать телефон.");
     expect(html).toContain("Подойдут JPEG, PNG и WebP");
     expect(html).not.toContain("5 минут");
     expect(html).not.toContain("HEIC");

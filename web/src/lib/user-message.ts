@@ -85,7 +85,8 @@ const CODE_MESSAGES: Readonly<Record<string, string>> = {
   customs_rates_unavailable: "Курсы валют временно недоступны. Повторите расчёт позже.",
   customs_rules_unavailable: "Расчёт таможенных платежей временно недоступен.",
   customs_rules_unverified: "Расчёт таможенных платежей временно недоступен.",
-  request_body_too_large: "Слишком большой объём данных."
+  request_body_too_large: "Слишком большой объём данных.",
+  invalid_encoding: "Файл должен быть в кодировке UTF-8 или Windows-1251."
 };
 
 function plural(count: number, one: string, few: string, many: string): string {

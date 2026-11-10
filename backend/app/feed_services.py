@@ -1054,7 +1054,7 @@ def create_feed_import(
         db.refresh(run)
         return run
 
-    for index, item in enumerate(prepared):
+    for item in prepared:
         row_number = item["row_number"]
         external_id = item.get("external_id")
         if item.get("error"):

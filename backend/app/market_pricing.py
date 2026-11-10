@@ -126,8 +126,14 @@ def build_market_comparisons(
     db: Session,
     listings: list[Listing],
     rate_info: tuple[ExchangeRate | None, bool],
+    *,
+    include_in_market: bool = False,
 ) -> dict[UUID, dict[str, Any] | None]:
-    """Return one comparison per supplied listing with a single analog query."""
+    """Return one comparison per supplied listing with a single analog query.
+
+    A price within the +/-10% band is reported as ``in_market`` only when
+    ``include_in_market`` is set (owner views); public views omit it.
+    """
 
     output: dict[UUID, dict[str, Any] | None] = {listing.id: None for listing in listings}
     targets = [listing for listing in listings if _has_comparison_fields(listing)]
@@ -206,6 +212,8 @@ def build_market_comparisons(
             label = "below_market"
         elif target_price_byn >= median_byn * Decimal("1.10"):
             label = "above_market"
+        elif include_in_market:
+            label = "in_market"
         else:
             continue
 

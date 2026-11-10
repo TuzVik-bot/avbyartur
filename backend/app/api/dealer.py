@@ -23,7 +23,7 @@ from app.dealer_services import (
 )
 from app.models import AuditEvent, Company, DealerClickEvent, DealerTeamMember, Listing, User, UserSession
 from app.security import client_ip, client_ip_is_trusted_proxy, ip_scoped_limit, rate_limit_exhausted
-from app.services import check_revision, consume_rate_limit, fail, lock_owner
+from app.services import check_revision, consume_rate_limit, fail
 from app.admin_service import lock_active_administrators
 
 

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { trackContactClick } from "./analytics";
+import { setMeasurementConsent, setMeasurementEnabled } from "./funnel-analytics";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -11,18 +12,26 @@ describe("contact click analytics", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
   it("sends an allowlisted payload after consent and fails open", async () => {
-    const fetcher = vi.fn().mockRejectedValue(new Error("offline"));
-    vi.stubGlobal("fetch", fetcher);
-    await expect(trackContactClick({ listingId: "listing-1", channel: "telegram", consent: "granted" })).resolves.toBe(false);
-    const [url, request] = fetcher.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/v1/analytics/events");
-    expect(new Headers(request.headers).get("X-Analytics-Consent")).toBe("granted");
-    const payload = JSON.parse(String(request.body));
-    expect(Object.keys(payload).sort()).toEqual(["channel", "dedup_id", "listing_id", "occurred_at"]);
-    expect(payload).toMatchObject({ listing_id: "listing-1", channel: "telegram" });
-    expect(payload.dedup_id).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(payload.occurred_at).toMatch(/^\d{4}-/);
-    expect(JSON.stringify(payload)).not.toMatch(/phone|vin|email|message|url/i);
+    const gtag = vi.fn();
+    vi.stubGlobal("gtag", gtag);
+    setMeasurementEnabled(true);
+    setMeasurementConsent(true);
+    try {
+      await expect(trackContactClick({ listingId: "listing-1", channel: "telegram", consent: "granted" })).resolves.toBe(true);
+      expect(gtag).toHaveBeenCalledTimes(1);
+      const [command, eventName, payload] = gtag.mock.calls[0] as [string, string, Record<string, unknown>];
+      expect(command).toBe("event");
+      expect(eventName).toBe("contact_channel_clicked");
+      expect(Object.keys(payload).sort()).toEqual(["channel", "page_location", "page_referrer", "page_title"]);
+      expect(payload.channel).toBe("telegram");
+      expect(JSON.stringify(payload)).not.toMatch(/listing-1|phone|vin|email|message/i);
+
+      gtag.mockImplementation(() => { throw new Error("blocked"); });
+      await expect(trackContactClick({ listingId: "listing-1", channel: "viber", consent: "granted" })).resolves.toBe(false);
+    } finally {
+      setMeasurementConsent(false);
+      setMeasurementEnabled(false);
+    }
   });
   it("accepts only known contact channels", async () => {
     const fetcher = vi.fn();

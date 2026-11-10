@@ -24,7 +24,6 @@ from app.feed_schemas import (
     DealerFeedMissingCandidatesConfirmRequest,
     DealerFeedMissingCandidatesOut,
     DealerFeedMutationOut,
-    DealerFeedOut,
     DealerFeedPatch,
     DealerFeedSchemaOut,
     DealerFeedTokenOut,

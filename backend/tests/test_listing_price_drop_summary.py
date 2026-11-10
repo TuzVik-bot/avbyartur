@@ -265,8 +265,11 @@ def test_owner_listings_carry_market_comparison_with_signed_percent_for_active_o
     )
     compared: list[set[str]] = []
 
-    def fake_comparisons(_db, listings, _rate_info):
+    in_market_flags: list[bool] = []
+
+    def fake_comparisons(_db, listings, _rate_info, *, include_in_market=False):
         compared.append({str(listing.id) for listing in listings})
+        in_market_flags.append(include_in_market)
         result = {listing.id: None for listing in listings}
         common = {
             "median_byn": "10000.00",
@@ -289,6 +292,7 @@ def test_owner_listings_carry_market_comparison_with_signed_percent_for_active_o
     items = _items_by_id(client.get("/api/v1/me/listings"))
 
     assert compared == [{str(active.id), str(below.id)}]
+    assert in_market_flags == [True]
     assert (
         items[str(active.id)]["price"]["market_comparison"]["difference_percent"] == 20
     )

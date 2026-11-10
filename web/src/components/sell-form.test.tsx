@@ -409,65 +409,6 @@ describe("listing quality checklist", () => {
   });
 });
 
-describe("market price estimate", () => {
-  const bodyType: CatalogItem = { id: "body-sedan", slug: "sedan", name: "Седан" };
-  const estimate = {
-    available: true, median_byn: "12345.00", sample_size: 12, seller_count: 7,
-    as_of: "2026-10-15T00:00:00Z", rate_date: null
-  };
-
-  it("accepts zero mileage and submits it as a valid estimate characteristic", async () => {
-    const listing = draft({ body_type: bodyType.name, mileage_km: 0, contact_phone: "+375291234567" });
-    const request = vi.spyOn(api, "listingMarketEstimate").mockResolvedValue(estimate);
-    await renderWithValidationPolicy(listing, defaultValidationPolicy, [bodyType]);
-    for (let step = 0; step < 3; step += 1) await clickContinue();
-
-    await clickButton("Оценить по рынку");
-
-    expect(request).toHaveBeenCalledWith(expect.objectContaining({ mileage_km: 0 }));
-    expect(container.textContent).toMatch(/12\s345 BYN/);
-    expect(container.textContent).toContain("цены опубликованных предложений");
-    expect(container.textContent).toContain("выборка 12 объявлений от 7 продавцов");
-    expect(container.textContent).toContain("оценка на");
-    expect(container.textContent).toContain("не подтверждённые цены сделок");
-  });
-
-  it("shows one general unavailable message without disclosing sample thresholds", async () => {
-    const listing = draft({ body_type: bodyType.name, mileage_km: 0, contact_phone: "+375291234567" });
-    vi.spyOn(api, "listingMarketEstimate").mockResolvedValue({
-      available: false, median_byn: null, sample_size: 0, seller_count: 0, as_of: null, rate_date: null
-    });
-    await renderWithValidationPolicy(listing, defaultValidationPolicy, [bodyType]);
-    for (let step = 0; step < 3; step += 1) await clickContinue();
-
-    await clickButton("Оценить по рынку");
-
-    expect(container.textContent).toContain("Оценка сейчас недоступна: нет достаточно сопоставимых данных для надёжного результата.");
-    expect(container.textContent).not.toMatch(/10 аналог|5 продавц/);
-  });
-
-  it("ignores an estimate response after the seller changes vehicle characteristics", async () => {
-    const listing = draft({ body_type: bodyType.name, contact_phone: "+375291234567" });
-    let resolveEstimate!: (value: Awaited<ReturnType<typeof api.listingMarketEstimate>>) => void;
-    const pendingEstimate = new Promise<Awaited<ReturnType<typeof api.listingMarketEstimate>>>((resolve) => { resolveEstimate = resolve; });
-    vi.spyOn(api, "listingMarketEstimate").mockReturnValue(pendingEstimate);
-    await renderWithValidationPolicy(listing, defaultValidationPolicy, [bodyType]);
-    for (let step = 0; step < 3; step += 1) await clickContinue();
-
-    await clickButton("Оценить по рынку");
-    expect(container.textContent).toContain("Оцениваем…");
-    await clickButton("Назад");
-    await clickButton("Назад");
-    await act(async () => { inputValue("Пробег, км", "60000"); });
-    await act(async () => {
-      resolveEstimate({ ...estimate, median_byn: "888888.00" });
-      await pendingEstimate;
-    });
-
-    expect(container.textContent).not.toContain("888888");
-  });
-});
-
 describe("zero mileage preview", () => {
   it("shows 0 km in the final review instead of treating it as missing", async () => {
     const readyPhoto = { id: "ready-zero-mileage", status: "ready", position: 0, is_cover: true } as const;
@@ -718,7 +659,7 @@ describe("manual vehicle entry", () => {
     await clickContinue();
 
     await act(async () => {
-      selectValue("Источник марки", "manual");
+      selectValue("Марка", "__manual__");
       inputValue("Марка вручную", "Редкая марка");
       inputValue("Модель вручную", "Редкая модель");
       inputValue("Год выпуска", "2018");
@@ -768,7 +709,7 @@ describe("manual vehicle entry", () => {
     await clickContinue();
 
     await act(async () => {
-      selectValue("Источник марки", "manual");
+      selectValue("Марка", "__manual__");
       inputValue("Марка вручную", "Редкая марка");
       inputValue("Модель вручную", "Редкая модель");
       inputValue("Год выпуска", "2018");
@@ -801,7 +742,9 @@ describe("manual vehicle entry", () => {
       }));
     });
     await clickContinue();
-    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Источник марки"]')?.value).toBe("manual");
+    expect(container.querySelector('select[aria-label="Марка"]')).toBeNull();
+    expect(container.querySelector('select[aria-label="Модель"]')).toBeNull();
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Выбрать марку из списка")).toBe(true);
     expect(container.querySelector<HTMLInputElement>('input[aria-label="Марка вручную"]')?.value).toBe("Ручная марка");
     expect(container.querySelector<HTMLInputElement>('input[aria-label="Модель вручную"]')?.value).toBe("Ручная модель");
 
@@ -839,8 +782,8 @@ describe("manual vehicle entry", () => {
     });
     await clickContinue();
 
-    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Источник марки"]')?.value).toBe("catalog");
-    expect(selectedValue("Марка")).toBe("");
+    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Марка"]')?.value).toBe("");
+    expect(container.querySelector('input[aria-label="Марка вручную"]')).toBeNull();
     expect(inputText("Год выпуска")).toBe("");
     expect(inputText("Пробег, км")).toBe("");
   });
@@ -1088,17 +1031,14 @@ describe("catalog modifications", () => {
 });
 
 describe("generation-specific body variants", () => {
-  it("restores the saved variant and saves a newly selected variant", async () => {
+  it("keeps the saved body variant without offering a variant picker and saves it unchanged", async () => {
     const savedVariant: CatalogItem = { id: "body-variant-1", slug: "sedan", name: "Седан", generation_id: catalogGeneration.id };
-    const selectedVariant: CatalogItem = { id: "body-variant-2", slug: "wagon", name: "Универсал", generation_id: catalogGeneration.id };
     const listing = draft({
       generation: catalogGeneration,
       body_variant_id: savedVariant.id,
       body_variant: savedVariant
     });
-    const catalog = vi.spyOn(api, "catalog").mockImplementation(async (kind) => ({
-      items: kind === "body-variants" ? [savedVariant, selectedVariant] : []
-    }));
+    const catalog = vi.spyOn(api, "catalog").mockResolvedValue({ items: [] });
     const updateDraft = vi.spyOn(api, "updateDraft").mockResolvedValue({ listing: { ...listing, revision: 2 } });
 
     await act(async () => {
@@ -1111,14 +1051,12 @@ describe("generation-specific body variants", () => {
     });
     await clickContinue();
 
-    expect(catalog).toHaveBeenCalledWith("body-variants", { generation_id: catalogGeneration.id });
-    expect(selectedValue("Вариант кузова")).toBe(savedVariant.id);
-    expect(container.textContent).toContain("Седан");
-
-    await act(async () => { selectValue("Вариант кузова", selectedVariant.id); });
+    expect(catalog).not.toHaveBeenCalledWith("body-variants", expect.anything());
+    expect(selectedValue("Вариант кузова")).toBeUndefined();
+    await act(async () => { inputValue("Пробег, км", "51000"); });
     await clickContinue();
 
-    expect(updateDraft.mock.calls[0]?.[2]).toMatchObject({ body_variant_id: selectedVariant.id });
+    expect(updateDraft.mock.calls[0]?.[2]).toMatchObject({ body_variant_id: savedVariant.id, mileage_km: 51000 });
   });
 
   it("shows the selected body variant in the final listing review", async () => {
@@ -1188,7 +1126,7 @@ describe("generation-specific body variants", () => {
     expect(valueFor("Привод")).toBe("Передний");
     expect(valueFor("Объём двигателя и мощность")).toBe("2.0 л · 150 л.с.");
     expect(valueFor("Тип продавца")).toBe("Компания");
-    expect(valueFor("Телефон для связи")).toBe("+375291234567");
+    expect(valueFor("Способ связи")).toBe("+375291234567");
     expect(valueFor("Telegram")).toBe("https://t.me/seller");
     expect(valueFor("Viber")).toBe("https://viber.me/seller");
     expect(valueFor("Фотографии")).toBe("2 обработано");
@@ -1201,18 +1139,13 @@ describe("generation-specific body variants", () => {
     ]);
   });
 
-  it("clears variant and modification on generation change and ignores stale variant results", async () => {
+  it("clears the saved variant and modification when the generation changes", async () => {
     const secondGeneration: CatalogItem = { id: "generation-2", slug: "generation-2", name: "Поколение 2", model_id: "catalog-model" };
     const firstVariant: CatalogItem = { id: "variant-generation-1", slug: "sedan", name: "Седан", generation_id: catalogGeneration.id };
-    const secondVariant: CatalogItem = { id: "variant-generation-2", slug: "coupe", name: "Купе", generation_id: secondGeneration.id };
     const firstModification: CatalogModification = { id: "modification-generation-1", slug: "first", name: "Модификация 1" };
-    let resolveFirstVariants!: (result: { items: CatalogItem[] }) => void;
-    const firstVariants = new Promise<{ items: CatalogItem[] }>((resolve) => { resolveFirstVariants = resolve; });
     vi.spyOn(api, "catalog").mockImplementation(async (kind, params = {}) => {
       if (kind === "models") return { items: [{ id: "catalog-model", slug: "catalog-model", name: "Каталожная модель" }] };
       if (kind === "generations") return { items: [catalogGeneration, secondGeneration] };
-      if (kind === "body-variants" && params.generation_id === catalogGeneration.id) return firstVariants;
-      if (kind === "body-variants" && params.generation_id === secondGeneration.id) return { items: [secondVariant] };
       if (kind === "modifications" && params.generation_id === catalogGeneration.id) return { items: [firstModification] };
       return { items: [] };
     });
@@ -1233,23 +1166,16 @@ describe("generation-specific body variants", () => {
       }));
     });
     await clickContinue();
-    expect(selectedValue("Вариант кузова")).toBe(firstVariant.id);
     expect(selectedValue("Модификация")).toBe(firstModification.id);
 
     await act(async () => {
       selectValue("Поколение", secondGeneration.id);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(selectedValue("Вариант кузова")).toBe("");
     expect(selectedValue("Модификация")).toBe("");
-    expect(container.querySelector('option[value="variant-generation-2"]')).not.toBeNull();
-
-    await act(async () => { resolveFirstVariants({ items: [firstVariant] }); await Promise.resolve(); });
-    expect(container.querySelector('option[value="variant-generation-1"]')).toBeNull();
-    expect(container.querySelector('option[value="variant-generation-2"]')).not.toBeNull();
 
     await clickContinue();
-    expect(updateDraft.mock.calls[0]?.[2]).toMatchObject({ body_variant_id: null, modification_id: null });
+    expect(updateDraft.mock.calls[0]?.[2]).toMatchObject({ generation_id: secondGeneration.id, body_variant_id: null, modification_id: null });
   });
 });
 
@@ -1273,7 +1199,8 @@ describe("manual city entry", () => {
     await clickContinue();
     await clickContinue();
 
-    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Источник населённого пункта"]')?.value).toBe("manual");
+    expect(selectedValue("Населённый пункт")).toBeUndefined();
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Выбрать населённый пункт из списка")).toBe(true);
     expect(container.querySelector<HTMLInputElement>('input[aria-label="Населённый пункт вручную"]')?.value).toBe("Заславль");
     expect(container.querySelector<HTMLInputElement>('input[aria-label="Населённый пункт вручную"]')?.maxLength).toBe(160);
 

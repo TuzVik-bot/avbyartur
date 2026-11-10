@@ -128,17 +128,29 @@ describe("city search route", () => {
   it("loads generations for the selected model and passes them to search results", async () => {
     vi.spyOn(serverApi, "regions").mockResolvedValue({ items: [] });
     vi.spyOn(serverApi, "listings").mockResolvedValue({ items: [] });
-    const generation: CatalogItem = { id: "generation-1", slug: "m5-f90", name: "M5 F90", model_id: "model-1" };
+    const modelId = "1a000000-0000-4000-8000-00000000000a";
+    const generation: CatalogItem = { id: "generation-1", slug: "m5-f90", name: "M5 F90", model_id: modelId };
     const catalog = vi.spyOn(serverApi, "catalog").mockImplementation(async (kind, params = {}) => {
-      if (kind === "generations" && params.model_id === "model-1") return { items: [generation] };
+      if (kind === "generations" && params.model_id === modelId) return { items: [generation] };
       return { items: [] };
     });
 
-    const page = await SearchRoute({ search: { model_id: "model-1", generation_id: generation.id }, title: "BMW M5" });
+    const page = await SearchRoute({ search: { model_id: modelId, generation_id: generation.id }, title: "BMW M5" });
     const results = page.props.children as ReactElement<{ generations: CatalogItem[] }>;
 
-    expect(catalog).toHaveBeenCalledWith("generations", { model_id: "model-1" });
+    expect(catalog).toHaveBeenCalledWith("generations", { model_id: modelId });
     expect(results.props.generations).toEqual([generation]);
+  });
+
+  it("does not query the catalog with a model id that is not a catalog UUID", async () => {
+    vi.spyOn(serverApi, "regions").mockResolvedValue({ items: [] });
+    vi.spyOn(serverApi, "listings").mockResolvedValue({ items: [] });
+    const catalog = vi.spyOn(serverApi, "catalog").mockResolvedValue({ items: [] });
+
+    await SearchRoute({ search: { model_id: "model-1" }, title: "BMW M5" });
+
+    expect(catalog).not.toHaveBeenCalledWith("generations", expect.anything());
+    expect(catalog).not.toHaveBeenCalledWith("models", expect.objectContaining({ model_ids: "model-1" }));
   });
 
   it("clears unavailable price filters and sorting while preserving other filters", async () => {

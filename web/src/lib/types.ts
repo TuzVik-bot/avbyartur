@@ -296,7 +296,7 @@ export type ListingSearch = {
   seller_type?: string;
   page?: string;
   page_size?: string;
-  sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc";
+  sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc" | "price_drop";
 };
 
 type ListingDraftApiInput =

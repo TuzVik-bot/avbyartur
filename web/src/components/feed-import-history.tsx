@@ -1,4 +1,6 @@
 import type { DealerFeedImportRow, DealerFeedImportRun } from "@/lib/dealer";
+import { ApiClientError } from "@/lib/api";
+import { userMessage } from "@/lib/user-message";
 
 export type FeedImportDetail = { feed_name: string; run: DealerFeedImportRun; rows: DealerFeedImportRow[] | null };
 
@@ -8,6 +10,11 @@ const statusLabels: Record<DealerFeedImportRun["status"], string> = {
   partial: "Завершён с ошибками",
   failed: "Ошибка"
 };
+
+function runErrorText(code: string) {
+  // Unknown codes stay visible so dealers can quote them to support.
+  return userMessage(new ApiClientError(422, { code }), `Ошибка обработки: ${code}`);
+}
 
 export function FeedImportHistory({ items, selectedId, onSelect, nextCursor, loading, error, onLoadMore, onRetry, selectedRowsLoading, selectedRowsError, onRetrySelectedRows }: {
   items: FeedImportDetail[];
@@ -37,7 +44,7 @@ export function FeedImportHistory({ items, selectedId, onSelect, nextCursor, loa
     {selected && <div className="feed-import-detail" aria-live="polite">
       <h3>Строки: {selected.feed_name} · {selected.run.source_filename}</h3>
       <p>{selected.run.total_rows} всего · {selected.run.applied_rows} принято · {selected.run.rejected_rows} отклонено</p>
-      {selected.run.error_code && <p className="inline-error">Ошибка обработки: {selected.run.error_code}</p>}
+      {selected.run.error_code && <p className="inline-error">{runErrorText(selected.run.error_code)}</p>}
       {selectedRowsError && <p className="inline-error" role="alert">{selectedRowsError} <button className="button button-secondary button-small" type="button" onClick={onRetrySelectedRows}>Повторить загрузку строк</button></p>}
       {selectedRowsLoading && <p className="muted" role="status">Загружаем строки импорта…</p>}
       {selected.rows !== null && selected.rows.length > 0 && <div className="info-table-wrap"><table className="info-table"><thead><tr><th>Строка</th><th>ID источника</th><th>Результат</th><th>Ошибка</th></tr></thead><tbody>{selected.rows.map((row) => <tr key={row.id}>

@@ -13,6 +13,7 @@ let host: HTMLDivElement;
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  window.localStorage.clear();
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -59,6 +60,19 @@ describe("PWA install prompt", () => {
     act(() => host.querySelector<HTMLButtonElement>('button[data-install-action="dismiss"]')!.click());
 
     expect(event.prompt).not.toHaveBeenCalled();
+    expect(host.querySelector("[aria-label='Установить приложение']")).toBeNull();
+  });
+
+  it("offers the invitation only once per browser", () => {
+    render();
+    dispatchInstallEvent();
+    act(() => host.querySelector<HTMLButtonElement>('button[data-install-action="dismiss"]')!.click());
+    act(() => root.unmount());
+    root = createRoot(host);
+    render();
+    const repeated = dispatchInstallEvent();
+
+    expect(repeated.defaultPrevented).toBe(true);
     expect(host.querySelector("[aria-label='Установить приложение']")).toBeNull();
   });
 

@@ -2254,6 +2254,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Frontend Error
+         * @description Log one scrubbed frontend error event; the request path and query are never logged.
+         */
+        post: operations["report_frontend_error_api_v1_analytics_errors_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -2763,6 +2783,22 @@ export interface components {
             field_errors: {
                 [key: string]: string;
             };
+            /**
+             * Field Error Types
+             * @default null
+             */
+            field_error_types: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Field Error Context
+             * @default null
+             */
+            field_error_context: {
+                [key: string]: {
+                    [key: string]: string | number | boolean;
+                };
+            } | null;
             /** Request Id */
             request_id: string;
         };
@@ -4108,6 +4144,11 @@ export interface components {
             damaged: boolean;
             /** Parts Only */
             parts_only: boolean;
+            /**
+             * In Transit
+             * @default false
+             */
+            in_transit: boolean;
             /** Description */
             description: string;
             /** Engine Volume L */
@@ -4138,6 +4179,29 @@ export interface components {
             district?: string | null;
             /** Call Hours */
             call_hours?: string | null;
+            /**
+             * Has Phone
+             * @default false
+             */
+            has_phone: boolean;
+            /**
+             * Has External Contacts
+             * @default false
+             */
+            has_external_contacts: boolean;
+            provenance?: components["schemas"]["ListingProvenanceOut"] | null;
+            /**
+             * Is Imported
+             * @default false
+             */
+            is_imported: boolean;
+            /**
+             * Can Chat
+             * @default true
+             */
+            can_chat: boolean;
+            /** View Count */
+            view_count?: number | null;
             /** Promotion Badges */
             promotion_badges?: ("bump" | "highlight" | "top")[];
             /** Photo Urls */
@@ -4390,6 +4454,7 @@ export interface components {
             view_count?: number | null;
             /** Promotion Badges */
             promotion_badges?: ("bump" | "highlight" | "top")[];
+            last_price_drop?: components["schemas"]["ListingLastPriceDropOut"] | null;
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -4416,6 +4481,27 @@ export interface components {
              */
             ok: true;
         };
+        /** FrontendErrorAccepted */
+        FrontendErrorAccepted: {
+            /**
+             * Accepted
+             * @default true
+             * @constant
+             */
+            accepted: true;
+        };
+        /** FrontendErrorReport */
+        FrontendErrorReport: {
+            /**
+             * Error Type
+             * @enum {string}
+             */
+            error_type: "Error" | "TypeError" | "RangeError" | "ReferenceError" | "SyntaxError" | "NetworkError" | "ApiClientError" | "ChunkLoadError";
+            /** Release Id */
+            release_id: string;
+            /** Breadcrumbs */
+            breadcrumbs: ("listing_detail_loaded" | "contact_click" | "contact_reveal_success" | "internal_chat_opened" | "api_request_failed")[];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4428,6 +4514,7 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "unavailable";
+            worker?: components["schemas"]["WorkerSignal"] | null;
         };
         /** ListingAnalyticsOut */
         ListingAnalyticsOut: {
@@ -4651,13 +4738,30 @@ export interface components {
             /** Scale */
             scale: number;
         };
+        /** ListingLastPriceDropOut */
+        ListingLastPriceDropOut: {
+            /** Amount */
+            amount: string;
+            /** Previous Amount */
+            previous_amount: string;
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "BYN" | "USD";
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+        };
         /** ListingMarketComparisonOut */
         ListingMarketComparisonOut: {
             /**
              * Label
              * @enum {string}
              */
-            label: "below_market" | "above_market";
+            label: "below_market" | "above_market" | "in_market";
             /** Median Byn */
             median_byn: string;
             /** Sample Size */
@@ -4671,6 +4775,8 @@ export interface components {
             as_of: string;
             /** Rate Date */
             rate_date: string | null;
+            /** Difference Percent */
+            difference_percent?: number | null;
         };
         /** ListingModificationOut */
         ListingModificationOut: {
@@ -4866,6 +4972,7 @@ export interface components {
             view_count?: number | null;
             /** Promotion Badges */
             promotion_badges?: ("bump" | "highlight" | "top")[];
+            last_price_drop?: components["schemas"]["ListingLastPriceDropOut"] | null;
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -5218,6 +5325,7 @@ export interface components {
             view_count?: number | null;
             /** Promotion Badges */
             promotion_badges?: ("bump" | "highlight" | "top")[];
+            last_price_drop?: components["schemas"]["ListingLastPriceDropOut"] | null;
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -5619,6 +5727,7 @@ export interface components {
             view_count?: number | null;
             /** Promotion Badges */
             promotion_badges?: ("bump" | "highlight" | "top")[];
+            last_price_drop?: components["schemas"]["ListingLastPriceDropOut"] | null;
             /** Photo Urls */
             photo_urls: string[];
             /** Photos */
@@ -5725,7 +5834,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "worker_failed_jobs" | "worker_backlog" | "worker_expired_leases" | "notification_delivery_failed" | "notification_backlog" | "identity_delivery_failed" | "sms_delivery_failed" | "feed_import_failed" | "payment_failed" | "payment_pending_aged" | "exchange_rate_unavailable" | "runtime_monitor_unavailable" | "docker_unhealthy" | "backup_failed" | "backup_stale" | "backup_checksum_failed";
+            code: "worker_failed_jobs" | "worker_backlog" | "worker_expired_leases" | "notification_delivery_failed" | "notification_backlog" | "identity_delivery_failed" | "sms_delivery_failed" | "feed_import_failed" | "payment_failed" | "payment_pending_aged" | "payment_paid_unfulfilled" | "exchange_rate_unavailable" | "runtime_monitor_unavailable" | "docker_unhealthy" | "backup_failed" | "backup_stale" | "backup_checksum_failed";
             /**
              * Severity
              * @enum {string}
@@ -6466,6 +6575,19 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WorkerSignal
+         * @description Informational worker liveness from the freshest heartbeat; never gates readiness.
+         */
+        WorkerSignal: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "stale" | "unknown";
+            /** Last Seen Seconds */
+            last_seen_seconds?: number | null;
         };
     };
     responses: never;
@@ -7552,7 +7674,7 @@ export interface operations {
                 page?: number;
                 page_size?: number;
                 equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
-                sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc";
+                sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc" | "price_drop";
                 category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
                 subcategory?: string | null;
                 q?: string | null;
@@ -7643,7 +7765,7 @@ export interface operations {
                 page?: number;
                 page_size?: number;
                 equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
-                sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc";
+                sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc" | "price_drop";
                 category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
                 subcategory?: string | null;
                 q?: string | null;
@@ -8764,6 +8886,33 @@ export interface operations {
                     "application/json": components["schemas"]["FavoritePriceDropAlertOut"];
                 };
             };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
             /** @description Request validation error */
             422: {
                 headers: {
@@ -8802,6 +8951,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListingPriceHistoryOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
                 };
             };
             /** @description Request validation error */
@@ -13554,6 +13712,33 @@ export interface operations {
                     "application/json": components["schemas"]["DealerFeedImportHistoryOut"];
                 };
             };
+            /** @description Authentication required or credentials are invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The authenticated user is not allowed to perform this action */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The requested resource is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
             /** @description Request validation error */
             422: {
                 headers: {
@@ -15859,6 +16044,57 @@ export interface operations {
             };
             /** @description An external service required for this action is unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description API error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+        };
+    };
+    report_frontend_error_api_v1_analytics_errors_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FrontendErrorReport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrontendErrorAccepted"];
+                };
+            };
+            /** @description Request validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorOut"];
+                };
+            };
+            /** @description The request rate limit was exceeded */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -109,10 +109,17 @@ describe("search result controls", () => {
     await render({ q: "BMW", equipment: ["abs", "rear_camera"] });
 
     expect(mocks.savedSearchAction).toHaveBeenCalledWith({ q: "BMW", equipment: ["abs", "rear_camera"] }, "Объявления");
-    const toolbar = container.querySelector(".results-toolbar-actions [data-saved-search-title]");
-    expect(toolbar?.textContent).toContain("Сохранить поиск");
-    expect(toolbar?.textContent).toContain("Подписаться на новые объявления");
-    expect(container.querySelector(".empty-state")).not.toBeNull();
+    const emptyStateAction = container.querySelector(".empty-state [data-saved-search-title]");
+    expect(emptyStateAction?.getAttribute("data-saved-search-title")).toBe("Объявления");
+    expect(emptyStateAction?.textContent).toContain("Подписаться на новые объявления");
+    expect(container.querySelector(".results-toolbar-actions [data-saved-search-title]")).toBeNull();
+
+    await render({ q: "BMW" }, false, [], [listing]);
+
+    const toolbarSave = container.querySelector(".results-toolbar-actions details");
+    expect(toolbarSave?.querySelector("summary")?.textContent).toBe("Сохранить поиск");
+    expect(toolbarSave?.querySelector("[data-saved-search-title]")?.getAttribute("data-saved-search-title")).toBe("Объявления");
+    expect(container.querySelector(".empty-state")).toBeNull();
   });
 
   it("shows a readable fallback chip for a selected body variant", async () => {

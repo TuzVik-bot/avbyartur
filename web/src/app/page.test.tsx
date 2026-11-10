@@ -7,12 +7,11 @@ const mocks = vi.hoisted(() => ({
   catalog: vi.fn(),
   regions: vi.fn(),
   dealers: vi.fn(),
-  publicStats: vi.fn(),
   getSavedListingIds: vi.fn(async () => [] as string[])
 }));
 
 vi.mock("@/lib/server-api", () => ({
-  serverApi: { listings: mocks.listings, catalog: mocks.catalog, regions: mocks.regions, dealers: mocks.dealers, publicStats: mocks.publicStats },
+  serverApi: { listings: mocks.listings, catalog: mocks.catalog, regions: mocks.regions, dealers: mocks.dealers },
   getSavedListingIds: mocks.getSavedListingIds
 }));
 vi.mock("next/link", () => ({
@@ -53,7 +52,6 @@ beforeEach(() => {
   mocks.catalog.mockResolvedValue({ items: [] });
   mocks.regions.mockResolvedValue({ items: [] });
   mocks.dealers.mockResolvedValue({ items: [] });
-  mocks.publicStats.mockResolvedValue({ active_listings: 0, approved_companies: 0, published_reviews: 0 });
   mocks.getSavedListingIds.mockResolvedValue([]);
 });
 
@@ -65,13 +63,14 @@ describe("home listing cards", () => {
     expect(namedContainers.length).toBeGreaterThan(0);
     for (const element of namedContainers) expect(element.getAttribute("role")).toBe("group");
   });
-  it("opens the make directory from both all-makes links", async () => {
+  it("opens the make directory from the popular makes block", async () => {
     mocks.catalog.mockResolvedValue({ items: [{ id: "make-1", slug: "bmw", name: "BMW" }] });
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(await HomePage());
     const links = Array.from(container.querySelectorAll("a")).filter((link) => link.textContent?.includes("Все марки"));
-    expect(links).toHaveLength(2);
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/makes", "/makes"]);
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute("href")).toBe("/makes");
+    expect(links[0].closest('[aria-label="Быстрый поиск по марке"]')).not.toBeNull();
   });
 
   it("keeps the Russian canonical URL and declares its locale alternate", () => {
@@ -94,7 +93,8 @@ describe("home listing cards", () => {
 
     const html = renderToStaticMarkup(await HomePage());
 
-    expect(html).toContain("Купить автомобиль");
+    expect(html).toContain("Автомобили в Беларуси.");
+    expect(html).toContain("Новых объявлений пока нет");
     expect(html).toContain('href="/sell"');
     expect(html).toContain("Подать объявление");
   });
@@ -133,34 +133,8 @@ describe("home listing cards", () => {
   it("describes seller contacts without promising public phone reveal", async () => {
     const html = renderToStaticMarkup(await HomePage());
 
-    expect(html).toContain("Контакты не показываются в публичной выдаче");
+    expect(html).toContain("Разместите автомобиль и управляйте объявлением в личном кабинете.");
     expect(html).not.toContain("Телефон показывается посетителю по запросу");
-  });
-
-  it("shows public counts from the aggregate endpoint and explains moderation", async () => {
-    mocks.publicStats.mockResolvedValueOnce({ active_listings: 27, approved_companies: 4, published_reviews: 6 });
-
-    const html = renderToStaticMarkup(await HomePage());
-    const rendered = new DOMParser().parseFromString(html, "text/html");
-
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Активных объявлений: 27");
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Допущенные компании: 4");
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Опубликованные отзывы: 6");
-    const status = rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent || "";
-    expect(status).toContain("проверяются обязательные поля карточки, их согласованность и минимум обработанных фото");
-    expect(status).toContain("подсказки о повторах и необычно низкой цене");
-    expect(status).toContain("это не автоматическое решение");
-    expect(status).not.toContain("проверяем VIN или историю автомобиля");
-  });
-
-  it("renders aggregate failures as unavailable, never as a zero market", async () => {
-    mocks.publicStats.mockRejectedValueOnce(new Error("aggregate unavailable"));
-
-    const html = renderToStaticMarkup(await HomePage());
-    const rendered = new DOMParser().parseFromString(html, "text/html");
-
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).toContain("Статистика временно недоступна");
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).not.toContain("Активных объявлений: 0");
-    expect(rendered.querySelector('[aria-label="Состояние авторынка"]')?.textContent).not.toContain("Опубликованные отзывы: 0");
+    expect(html).not.toMatch(/телефон[^<]*(виден|показывается) всем/i);
   });
 });

@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 import uuid
@@ -118,6 +119,66 @@ def test_heartbeat_is_upserted_and_throttled(clean_jobs, monkeypatch):
         ).all()
     assert [row.worker_id for row in rows] == ["host:1"]
     assert rows[0].last_seen_at >= first
+
+
+def test_heartbeat_prunes_rows_older_than_retention(clean_jobs, monkeypatch):
+    monkeypatch.setattr(worker, "_heartbeat_last_written", None)
+    stale_at = datetime.now(timezone.utc) - worker.HEARTBEAT_RETENTION - timedelta(
+        minutes=5
+    )
+    recent_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    with clean_jobs() as db:
+        db.add_all(
+            [
+                models.WorkerHeartbeat(worker_id="old:1", last_seen_at=stale_at),
+                models.WorkerHeartbeat(worker_id="recent:2", last_seen_at=recent_at),
+            ]
+        )
+        db.commit()
+
+    worker._record_heartbeat("host:1")
+
+    with clean_jobs() as db:
+        ids = set(db.scalars(select(models.WorkerHeartbeat.worker_id)))
+    assert ids == {"host:1", "recent:2"}
+
+
+class _RecordingHandler(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+def test_heartbeat_failure_is_logged_and_does_not_break_the_loop(monkeypatch):
+    monkeypatch.setattr(worker, "_heartbeat_last_written", None)
+
+    def broken_session():
+        raise RuntimeError("relation worker_heartbeats does not exist")
+
+    monkeypatch.setattr(worker, "SessionLocal", broken_session)
+    monkeypatch.setattr(worker, "_run_schedulers_if_due", lambda: None)
+    monkeypatch.setattr(worker, "_claim_one", lambda _worker_id: None)
+
+    handler = _RecordingHandler()
+    worker.logger.addHandler(handler)
+    try:
+        assert worker._work_once("host:1", sleep=lambda _seconds: None) is False
+    finally:
+        worker.logger.removeHandler(handler)
+
+    failures = [
+        record
+        for record in handler.records
+        if record.getMessage() == "worker_heartbeat_failed"
+    ]
+    assert len(failures) == 1
+    assert failures[0].levelno == logging.WARNING
+    payload = failures[0].avtorinok_structured_data
+    assert payload["error_type"] == "RuntimeError"
+    assert "traceback" in payload
 
 
 def test_two_worker_loops_never_process_a_job_twice(clean_jobs, monkeypatch):

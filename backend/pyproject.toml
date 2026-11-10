@@ -25,9 +25,34 @@ dependencies = [
 dev = [
   "pytest==8.4.1",
   "pyyaml>=6.0",
+  "ruff==0.17.4",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
+
+[tool.ruff]
+target-version = "py312"
+# De-facto width of the codebase: 99% of lines in app/ and tests/ fit in 120 columns.
+line-length = 120
+extend-exclude = [".codex-test-deps-*"]
+
+[tool.ruff.lint]
+select = ["E9", "F", "B", "UP"]
+# Lint debt: rules that fired when ruff was introduced (2026-11-10), with counts
+# in app/ and tests/. Remove an entry once its count reaches zero.
+ignore = [
+  "UP017",  # 197: datetime.timezone.utc -> datetime.UTC
+  "UP012",  # 3: unnecessary .encode("utf-8")
+  "UP035",  # 2: typing imports that moved to collections.abc
+  "UP037",  # 2: quoted annotations
+  "B010",   # 1: setattr with a constant attribute name
+  "B905",   # 1: zip() without strict=
+  "F841",   # 1: unused local variable (tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic revisions are generated boilerplate with version-pinned imports.
+"alembic/**" = ["F401", "UP"]

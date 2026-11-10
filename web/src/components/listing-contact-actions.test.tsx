@@ -10,11 +10,18 @@ describe("listing contact channels", () => {
   it("does not expose messenger links before the phone contact is revealed", () => {
     const html = renderToStaticMarkup(createElement(ListingContactActions, { ...props, messengers: [{ channel: "telegram", uri: "https://t.me/seller", opted_in: true }] }));
     expect(html).not.toContain("t.me");
-    expect(html).toContain("Показать телефон");
+    expect(html).toContain("Показать контакты");
+  });
+
+  it("keeps the phone hidden until the reveal has succeeded", () => {
+    const html = renderToStaticMarkup(createElement(ListingContactActions, { ...props, phone: "+375290000000", messengers: [{ channel: "telegram", uri: "https://t.me/seller", opted_in: true }] }));
+    expect(html).not.toContain("tel:");
+    expect(html).not.toContain("t.me");
+    expect(html).toContain("Показать контакты");
   });
 
   it("shows only opted-in channels with provider-approved HTTPS addresses after reveal", () => {
-    const html = renderToStaticMarkup(createElement(ListingContactActions, { ...props, phone: "+375290000000", messengers: [
+    const html = renderToStaticMarkup(createElement(ListingContactActions, { ...props, phone: "+375290000000", revealed: true, messengers: [
       { channel: "telegram", uri: "https://t.me/seller", opted_in: true },
       { channel: "viber", uri: "https://viber.me/seller", opted_in: true },
       { channel: "viber", uri: "viber://chat?number=375290000000", opted_in: true },
@@ -37,14 +44,14 @@ describe("listing contact channels", () => {
   it("does not render contact actions for non-active listings", () => {
     const html = renderToStaticMarkup(createElement(ListingContactActions, { ...props, active: false }));
     expect(html).toContain("Контакт недоступен");
-    expect(html).not.toContain("Показать телефон");
+    expect(html).not.toContain("Показать контакты");
   });
 
   it("reports phone, Telegram, and Viber only when their action is clicked", async () => {
     const host = document.createElement("div"); document.body.append(host);
     const root = createRoot(host);
     const onContactClick = vi.fn();
-    await act(async () => root.render(createElement(ListingContactActions, { ...props, phone: "+375290000000", onContactClick, messengers: [
+    await act(async () => root.render(createElement(ListingContactActions, { ...props, phone: "+375290000000", revealed: true, onContactClick, messengers: [
       { channel: "telegram", uri: "https://t.me/seller", opted_in: true },
       { channel: "viber", uri: "https://viber.me/seller", opted_in: true }
     ] })));

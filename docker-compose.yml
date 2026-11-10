@@ -78,6 +78,8 @@ x-backend-env: &backend-env
 
 services:
   db:
+    # Digest pinning is deferred to a maintenance window: changing the image
+    # reference recreates the production database container on the next `up`.
     image: postgres:17.11-alpine
     restart: unless-stopped
     environment:
