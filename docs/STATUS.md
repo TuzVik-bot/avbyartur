@@ -1,31 +1,42 @@
 # Статус production — «Авторынок»
 
-Сводка на 10 ноября 2026 по квитанции последнего релиза (`deployed.json`, 8 ноября 2026, 16:59 UTC) и журналам в `docs/releases/2026/`. Это записанное состояние, а не живая проверка: перед любыми действиями на VPS сверить его заново (read-only), см. `AGENTS.md`.
+Сводка на 11 ноября 2026, около 00:38 по Минску (2026-11-10T21:38Z), по проверкам после выкатки релиза `audit-20261111-r1` и журналам в `docs/releases/2026/`. Это записанное состояние, а не живая проверка: перед любыми действиями на VPS сверить его заново (read-only), см. `AGENTS.md`.
 
-## Текущий релиз
+## Текущий production: audit-20261111-r1
 
 | Компонент | Значение |
 |---|---|
-| Активный каталог | `/home/suite/apps/avtorinok` → `/home/suite/apps/releases/refero-20261108-r1` |
-| Web | `avtorinok-web:refero-20261108-r1` (`sha256:6abbafbea5e1…`) — [журнал](releases/2026/RELEASE_2026-11-08-refero.md) |
-| API и worker | `avtorinok-api:editorial-ux-20261102-r1` (`sha256:4772556fff67…`) — [журнал](releases/2026/RELEASE_2026-11-02-editorial-ux.md) |
-| БД | PostgreSQL `postgres:17.11-alpine`, Alembic head `0033_listing_in_transit` |
-| Прочие сервисы | `db`, `test-mail` (Mailpit, внешняя доставка писем не подключена) |
+| Активный каталог | `/home/suite/apps/avtorinok` → `/home/suite/apps/releases/audit-20261111-r1` |
+| Исходники | ветка `prod-sync-20261110`, коммит `fd3158fd72c5b5a0f83c46c301464ded943f7ee2`; sha256 архива `git archive` — `d8def7286d14ca9b29345bd4023cdf107a42a2fe324622b913f5e8200e0df572` |
+| API и worker | `avtorinok-api:audit-20261111-r1` (`sha256:4b9ca907fb1e…`) |
+| Web | `avtorinok-web:audit-20261111-r1` (`sha256:c47ae3ddea74…`) |
+| БД | PostgreSQL `postgres:17.11-alpine`, Alembic head `0034_listing_search_perf` (применена при выкатке, из `0033_listing_in_transit`) |
+| Прочие сервисы | `db`, `test-mail` (Mailpit, внешняя доставка писем не подключена) — при выкатке не пересоздавались, `StartedAt` у db прежний (2026-10-26) |
 | Тома | `avtorinok_postgres`, `avtorinok_private_media` — не удалять и не пересоздавать |
-| Исходники | ветка `prod-sync-20261110`, базовый коммит `651f75d` = точная копия релиза |
+| `.env` | symlink на тот же защищённый файл, что и раньше (mode 600), содержимое не менялось |
 
-Ветка `prod-sync-20261110` уже содержит миграцию `0034_listing_search_perf` и исправления по `AUDIT_REPORT.md`; они **не** выкачены (см. «Готовится» ниже). API-контейнер монтирует `data/` из каталога `editorial-ux-20261102-r2` (web-only релизы с `--no-deps` его не перезапускали).
+Журнал релиза: [RELEASE_2026-11-11-audit.md](releases/2026/RELEASE_2026-11-11-audit.md). Скрипты выкатки: [scripts/release/audit-20261111-r1/](../scripts/release/audit-20261111-r1/README.md).
 
-## Готовится: audit-20261111-r1
+Проверки после выкатки (11 ноября 2026): 12 автоматических проверок скрипта деплоя пройдены; 0 событий уровня error в логах api и worker после старта; `/health/ready` — `ok`, heartbeat воркера 7–9 с; снаружи: главная 200 с заголовком «Автомобили Беларуси», заголовки CSP, `Permissions-Policy`, HSTS на месте, `/login?next=%2Fsell` показывает «Войти»/«Создать аккаунт» и поля регистрации. Подробно — в журнале релиза и `TESTING.md`.
 
-Релиз ещё не выкачен. Ниже то, что он изменит. Деплой — только по отдельному явному запросу, после показа diff и «ок».
+## Предыдущий релиз
 
-- **Образы:** новые `avtorinok-api` (api и worker) и `avtorinok-web` с тегом `audit-20261111-r1`. Web собирать с `AVTORINOK_PUBLIC_INDEXING_ENABLED=true`.
-- **Миграция:** `0033_listing_in_transit` → `0034_listing_search_perf`: колонка `listings.published_at` с backfill, индексы публичного поиска (trgm), таблица `worker_heartbeats`. Перед миграцией снять дамп БД. Heartbeat воркера не ломает цикл, если таблицы ещё нет.
-- **Compose:** api и worker получают все поля `Settings` через `x-backend-env`. Раньше часть переменных (`TELEGRAM_*`, `PAYMENT_*`, `ONLINER_SYNC_*` и др.) до контейнеров не доходила. Перед деплоем сверить боевой `.env` с `.env.example`, не выводя значений. Заданные там функции включатся. Образ БД не меняется (`postgres:17.11-alpine`), контейнер `db` не пересоздаётся.
-- **API:** новый `POST /api/v1/analytics/errors` для отчётов об ошибках фронтенда (только лог, без записи в БД, кроме счётчика лимита).
-- **Без изменений:** nginx vhost, OpenResty, systemd-юниты, тома. Поэтому `real_ip` не применяется, и лимиты по IP остаются в режиме «IP неизвестен» (×20). Юниты монитора с алертами и offsite-бэкапа лежат в `deploy/systemd/`, но не ставятся.
-- **Проверки после выкатки:** `/health/ready` (возраст heartbeat воркера), `/healthz`, регистрация на `/login?next=%2Fsell` (см. `AGENTS.md`), `noindex` выключен.
+До 11 ноября 2026 активным был каталог `refero-20261108-r1`: web `avtorinok-web:refero-20261108-r1` (`sha256:6abbafbea5e1…`, [журнал](releases/2026/RELEASE_2026-11-08-refero.md)), api и worker `avtorinok-api:editorial-ux-20261102-r1` (`sha256:4772556fff67…`, [журнал](releases/2026/RELEASE_2026-11-02-editorial-ux.md)), head `0033_listing_in_transit`. На эти цепочки возвращает откат, см. `ROLLBACK.md`. Каталоги прежних релизов не удалялись.
+
+## Что требует root или решения владельца
+
+Релиз `audit-20261111-r1` этого не сделал:
+
+- **nginx `real_ip` не применён.** Nginx видит всех клиентов как LAN-адрес OpenResty. Лимиты по IP поэтому работают в режиме «IP неизвестен» (×20) как общие на весь сайт. Лимиты по email и по токену работают полностью. Нужен root и проверка, что OpenResty передаёт IP клиента.
+- **systemd-юниты не установлены.** Юниты монитора (новый base-url, Telegram-алерты) и ежедневного шифрованного offsite-бэкапа лежат в `deploy/systemd/`. Для установки нужны root, `/etc/avtorinok/monitor-alerts.env`, `/etc/avtorinok/offsite-backup.env`, `age` и SSH-ключ для хоста бэкапов. До этого монитор на хосте работает по старому unit.
+- **Платёжный провайдер выключен** — решение бизнеса.
+- **CSP без nonce** для `script-src`.
+- **Digest образа postgres не закреплён**: смена ссылки пересоздаст контейнер БД, только в окне обслуживания.
+- **Крупный рефакторинг не сделан**: `sell-form`, `worker`, `api/listings`.
+- **118 предупреждений ESLint** — бэклог.
+- **API `verified_evidence`** (`listing_trust_evidence`) не восстановлен.
+- **Страница проверки по VIN** — по-прежнему заглушка.
+- **Ветки.** `prod-sync-20261110` не отправлена на GitHub. `main` и его незакоммиченное рабочее дерево в `/Users/home/Downloads/avbyartur` по-прежнему содержат расходящуюся линию с функциями, которых никогда не было в production: эндпоинт рыночной оценки, канал уведомлений Telegram, настроенный платёжный провайдер. Нужно решение, переносить ли их на `prod-sync-20261110`.
 
 ## Хосты и домен
 
@@ -36,35 +47,33 @@
 
 ## Compose-цепочка
 
-Проект `avtorinok`, `--project-directory` = каталог релиза, файлы по порядку (последний выигрывает):
+Проект `avtorinok`, `--project-directory` = каталог релиза, файлы по порядку (последний выигрывает). Те же 16 файлов, что у `refero-20261108-r1` (теперь из каталога нового релиза), и 17-м — `docker-compose.audit.yml` (в репозитории его нет: его создаёт в каталоге релиза `10-prepare-server.py`):
 
 ```sh
-docker compose -p avtorinok --project-directory /home/suite/apps/releases/refero-20261108-r1 \
+docker compose -p avtorinok --project-directory /home/suite/apps/releases/audit-20261111-r1 \
   -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.public-launch.yml \
   -f docker-compose.feedback.yml -f docker-compose.yandex.yml -f docker-compose.google.yml \
   -f docker-compose.seo-sorting.yml -f docker-compose.full.yml -f docker-compose.registry.yml \
   -f docker-compose.editorial.yml -f docker-compose.footer.yml -f docker-compose.card-borders.yml \
   -f docker-compose.button-spacing.yml -f docker-compose.content-pages.yml \
-  -f docker-compose.headlights.yml -f docker-compose.refero.yml <команда>
+  -f docker-compose.headlights.yml -f docker-compose.refero.yml -f docker-compose.audit.yml <команда>
 ```
 
-Список снят с метки `com.docker.compose.project.config_files` работающего web-контейнера. Без полного списка `-f` Compose соберёт другую конфигурацию.
+Без полного списка `-f` Compose соберёт другую конфигурацию. Точный список записан в квитанциях `deployed.json` и `rollback.json` (каталог бэкапа, см. ниже) и в метке `com.docker.compose.project.config_files` контейнеров.
 
 ## Откат
 
-Порядок и предупреждения — в `ROLLBACK.md`. Кратко для текущего релиза (только web, без отката БД):
+Порядок и предупреждения — в `ROLLBACK.md`. Кратко:
 
-1. Резервная копия релиза: `/home/suite/backups/avtorinok/refero-20261108-r1/` — `database.dump` (23 488 140 байт, прочитан `pg_restore -l`), `rollback.json` с точной командой, `before.json`/`deployed.json`.
-2. Прежний образ также сохранён как `avtorinok-web:rollback-refero-20261108-r1`.
-3. Из каталога `headlights-header-20261102-r1` поднять web той же цепочкой **без** `docker-compose.refero.yml` с `up -d --no-deps --no-build --wait --wait-timeout 120 web`.
-4. После проверки здоровья и регистрации атомарно вернуть ссылку `/home/suite/apps/avtorinok` на `/home/suite/apps/releases/headlights-header-20261102-r1`.
-
-Откат API/worker на образы до `editorial-ux-20261102-r1` — по `/home/suite/backups/avtorinok/editorial-ux-20261102-r1/rollback.sh` (см. журнал editorial-ux). Миграции и импортированные данные откат приложения не отменяет.
+1. Бэкап перед выкаткой: `/home/suite/backups/avtorinok/audit-20261111-r1/` — `database.dump` (23 493 915 байт, прочитан `pg_restore -l`, 527 записей TOC), файл sha256, `before.json`, `prepared.json`, `env-diff.json`, `built.json`, `deployed.json`, `rollback.json`.
+2. Прежние образы сохранены как `avtorinok-api:rollback-audit-20261111-r1` и `avtorinok-web:rollback-audit-20261111-r1`.
+3. Откат приложения — `90-rollback-server.py` (api из цепочки `editorial-ux-20261102-r2`, worker из цепочки `editorial-ux-20261102-r1`, web из цепочки `refero-20261108-r1`, ссылка возвращается на `refero-20261108-r1`).
+4. БД не откатывается: `0034` аддитивна и совместима со старыми образами.
 
 ## Логи и мониторинг
 
 - Логи контейнеров: `docker compose -p avtorinok <полная цепочка -f> logs --tail=200 <service>` из активного каталога; сервисы `web`, `api`, `worker`, `db`, `test-mail`.
 - Здоровье: Docker healthchecks; API `/health/live` и `/health/ready` (внутри сети `app`); nginx `/healthz` на домене.
 - Админский снимок метрик: `GET /api/v1/admin/monitoring` и страница `/admin/monitoring` — [docs/runtime/monitoring.md](runtime/monitoring.md).
-- Хостовый монитор и ежедневный бэкап: unit'ы `avtorinok-monitor.{service,timer}` и `avtorinok-backup.{service,timer}` (копии в `deploy/systemd/`); статус монитора — `/var/lib/avtorinok-monitor/status.json`, бэкапы — `/home/suite/backups/avtorinok/`. Установлены ли они на VPS сейчас — проверять отдельно.
+- Хостовый монитор и ежедневный бэкап: unit'ы `avtorinok-monitor.{service,timer}` и `avtorinok-backup.{service,timer}` (копии в `deploy/systemd/`); статус монитора — `/var/lib/avtorinok-monitor/status.json`, бэкапы — `/home/suite/backups/avtorinok/`. На 11 ноября 2026 монитор на хосте работает по старому unit; новые unit'ы монитора и offsite-бэкапа (`avtorinok-offsite-backup.{service,timer}`) из `deploy/systemd/` не установлены (нужен root). Наличие ежедневного `avtorinok-backup` на VPS проверять отдельно.
 - Процедуры: [runbook](runtime/runbook.md), [backup/restore](runtime/backup-restore.md), [off-host backup](runtime/off-host-backup.md).

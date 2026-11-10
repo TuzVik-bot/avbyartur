@@ -4,7 +4,7 @@
 
 ## Источник истины
 
-Ветка `prod-sync-20261110` — источник истины, совпадающий с production (базовый коммит `651f75d` = точная копия релиза `refero-20261108-r1`). Ветка `main` — другая, расходящаяся линия кода; не переносить из неё файлы целиком, только смысл исправлений.
+Ветка `prod-sync-20261110` — источник истины, совпадающий с production: релиз `audit-20261111-r1` (11 ноября 2026) собран из коммита `fd3158f` этой ветки (база ветки — коммит `651f75d`, копия релиза `refero-20261108-r1`). Ветка на GitHub не отправлена. Ветка `main` — другая, расходящаяся линия кода с функциями, которых нет в production (рыночная оценка, Telegram-канал, платёжный провайдер); не переносить из неё файлы целиком, только смысл исправлений, и только по решению владельца.
 
 ## Что это
 
@@ -17,10 +17,10 @@
   - `app/main.py` — приложение, middleware, обработчики ошибок, `/health/live` и `/health/ready`.
   - `app/api/*.py` — роутеры (`/api/v1/...`): listings, auth, account, profile_identity, conversations, saved_searches, notifications, billing, feeds, dealer, companies, media, moderation, monitoring, managed_content, catalog, catalog_requests, customs_calculator, admin, admin_catalog, admin_settings, admin_tariffs, test_mail.
   - `app/config.py` — единственный источник настроек (`Settings`, pydantic-settings).
-  - `app/models.py`, `app/identity_models.py`, `app/profile_identity_models.py`, `app/catalog_request_models.py` — модели; `alembic/versions/` — миграции. Head в production — `0033_listing_in_transit`; после релиза `audit-20261111-r1` head — `0034_listing_search_perf` (`published_at`, trgm-индексы, таблица `worker_heartbeats`). До выкатки этого релиза на VPS 0034 не применена.
+  - `app/models.py`, `app/identity_models.py`, `app/profile_identity_models.py`, `app/catalog_request_models.py` — модели; `alembic/versions/` — миграции. Head в production — `0034_listing_search_perf` (`published_at`, trgm-индексы, таблица `worker_heartbeats`), применена 11 ноября 2026 релизом `audit-20261111-r1`.
   - `app/services.py` — поиск и сериализация объявлений; `app/worker.py` — фоновые задачи (варианты фото, письма identity и уведомлений, сопоставление сохранённых поисков, курс USD НБРБ, очистка по сроку хранения, Onliner sync); очередь `WorkerJob` с `SKIP LOCKED` и продлением lease; несколько воркеров безопасны. Каждый воркер пишет heartbeat в `worker_heartbeats` (`worker_id` = `hostname:pid`, строки старше 24 ч удаляются, сбой heartbeat только логируется как `worker_heartbeat_failed`); возраст показывает `/health/ready`.
   - `app/billing_services.py` — провайдер-нейтральные заказы и платёжный шов; по умолчанию закрыт (`PaymentProviderUnavailable`).
-  - `app/security.py` — `client_ip` (доверяет `X-Forwarded-For` только от `TRUSTED_PROXY_CIDRS`), rate limits. Если IP клиента не определён (адрес совпадает с доверенным прокси), работает режим «IP неизвестен»: `ip_scoped_limit` умножает лимит на `UNKNOWN_CLIENT_IP_LIMIT_FACTOR` (×20) и пишет `client_ip_unresolved`. Так будет, пока на хосте не применён nginx `real_ip`.
+  - `app/security.py` — `client_ip` (доверяет `X-Forwarded-For` только от `TRUSTED_PROXY_CIDRS`), rate limits. Если IP клиента не определён (адрес совпадает с доверенным прокси), работает режим «IP неизвестен»: `ip_scoped_limit` умножает лимит на `UNKNOWN_CLIENT_IP_LIMIT_FACTOR` (×20) и пишет `client_ip_unresolved`. Так работает production, пока на хосте не применён nginx `real_ip` (на 11 ноября 2026 не применён).
   - `app/api/analytics.py` — `POST /api/v1/analytics/errors`: анонимные очищенные отчёты об ошибках фронтенда, только лог, лимит 30 в час на IP.
 - `web/` — Next.js 16 App Router + React 19 + Tailwind 4 (pnpm через corepack).
   - `src/app/api/v1/[...path]/route.ts` — same-origin прокси браузер → API (allowlist заголовков).
@@ -33,11 +33,11 @@
 ## Production: релизы и Compose
 
 - Каждый релиз — отдельный каталог `/home/suite/apps/releases/<tag>`; активный выбирается символической ссылкой `/home/suite/apps/avtorinok` → каталог релиза (переключение атомарно: `ln -s` во временное имя + `mv -Tf`).
-- Compose-проект `avtorinok` запускается с `--project-directory` каталога релиза и цепочкой файлов, которые лежат в корне репозитория. Порядок (по `previous_config_files` и `compose_command` квитанции релиза `refero-20261108-r1`, источник — метки `com.docker.compose.project.config_files` контейнеров):
-  `docker-compose.yml` → `override` → `public-launch` → `feedback` → `yandex` → `google` → `seo-sorting` → `full` → `registry` → `editorial` → `footer` → `card-borders` → `button-spacing` → `content-pages` → `headlights` → `refero` (все — `docker-compose.<имя>.yml`).
-  Каждый overlay лишь закрепляет теги образов (и пару env/build-args); последний по порядку выигрывает. Итог: web — `avtorinok-web:refero-20261108-r1` (из `refero`), api/worker — `avtorinok-api:editorial-ux-20261102-r1` (из `editorial`).
+- Compose-проект `avtorinok` запускается с `--project-directory` каталога релиза и цепочкой файлов, которые лежат в корне репозитория. Порядок (по квитанции `deployed.json` релиза `audit-20261111-r1`, источник — метки `com.docker.compose.project.config_files` контейнеров):
+  `docker-compose.yml` → `override` → `public-launch` → `feedback` → `yandex` → `google` → `seo-sorting` → `full` → `registry` → `editorial` → `footer` → `card-borders` → `button-spacing` → `content-pages` → `headlights` → `refero` → `audit` (все — `docker-compose.<имя>.yml`, 17 файлов). `docker-compose.audit.yml` в репозитории нет: его пишет в каталог релиза на сервере `scripts/release/audit-20261111-r1/10-prepare-server.py`.
+  Каждый overlay лишь закрепляет теги образов (и пару env/build-args); последний по порядку выигрывает. Итог: api/worker — `avtorinok-api:audit-20261111-r1`, web — `avtorinok-web:audit-20261111-r1` (оба из `audit`).
 - Новый релиз = новый каталог + новый overlay в конце цепочки; команды выполнять с полным списком `-f`, иначе Compose соберёт другую конфигурацию. Точные команды и откат — `docs/STATUS.md` и журналы `docs/releases/2026/`.
-- Сборка образов: `make release-amd64` (`scripts/build-amd64-images.sh`, тег из `AVTORINOK_IMAGE_TAG`, только `linux/amd64`, затем передача на VPS) или сборка на самом VPS из каталога релиза (`docker build ... -f web/Dockerfile`, как в `refero-20261108-r1`). Web-образ собирать с `AVTORINOK_PUBLIC_INDEXING_ENABLED=true` (build-arg), иначе сайт уйдёт в `noindex`. Перед релизом — `scripts/release-preflight.sh`.
+- Сборка образов: `make release-amd64` (`scripts/build-amd64-images.sh`, тег из `AVTORINOK_IMAGE_TAG`, только `linux/amd64`, затем передача на VPS) или сборка на самом VPS из каталога релиза (`docker build ... -f web/Dockerfile`, как в `refero-20261108-r1`, или `docker compose … build api web`, как `20-build-server.py` в `audit-20261111-r1`). Web-образ собирать с `AVTORINOK_PUBLIC_INDEXING_ENABLED=true` (build-arg), иначе сайт уйдёт в `noindex`. Перед релизом — `scripts/release-preflight.sh`.
 
 ## Команды
 
@@ -70,5 +70,6 @@
 
 - Текущий релиз, откат, логи, мониторинг: `docs/STATUS.md`, `ROLLBACK.md`.
 - Эксплуатация: `docs/runtime/runbook.md`, `docs/runtime/monitoring.md`, `docs/runtime/backup-restore.md`, `SERVER.md`, `DEPLOYMENT.md` (журнал, частично исторический).
-- Релизные журналы: `docs/releases/2026/`. Устаревшие конфиги и отчёты: `docs/archive/`.
+- Релизные журналы: `docs/releases/2026/` (текущий — `RELEASE_2026-11-11-audit.md`). Устаревшие конфиги и отчёты: `docs/archive/`.
+- Скрипты выкатки `audit-20261111-r1`: рабочая копия в `output/audit-release-20261111-r1/` (в `.gitignore`, вместе с `src.tar.gz`); её не удалять. Копия в git — `scripts/release/audit-20261111-r1/` (`00-local.sh`, `10/20/30/40/90-*.py`, `README.md`); откат — `90-rollback-server.py`, см. `ROLLBACK.md`.
 - Журнал проверок: `TESTING.md`. Аудит и долги: `AUDIT_REPORT.md`.

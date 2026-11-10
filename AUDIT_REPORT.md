@@ -14,20 +14,20 @@
 
 ---
 
-## Статус исправлений (ветка `prod-sync-20261110`, обновлено 2026-11-11)
+## Статус исправлений (ветка `prod-sync-20261110`, выкачено в production релизом `audit-20261111-r1` 2026-11-11)
 
-Аудит писался по `main`, а исправления перенесены на production-линию: ветка `prod-sync-20261110`, база — релиз `refero-20261108-r1` (коммит `651f75d`). Таблица ниже сверена по коду этой ветки, не по `main`. На VPS ничего не выкачено, всё готовится как релиз `audit-20261111-r1`. Проверки описаны в `TESTING.md`, запись «2026-11-10/11 — prod-sync».
+Аудит писался по `main`, а исправления перенесены на production-линию: ветка `prod-sync-20261110`, база — релиз `refero-20261108-r1` (коммит `651f75d`). Таблица ниже сверена по коду этой ветки, не по `main`. Исправления выкачены в production 11 ноября 2026 релизом `audit-20261111-r1` (коммит `fd3158f`, миграция `0034_listing_search_perf` применена); журнал — `docs/releases/2026/RELEASE_2026-11-11-audit.md`. Проверки описаны в `TESTING.md`, записи «2026-11-11 — релиз audit-20261111-r1» и «2026-11-10/11 — prod-sync».
 
 Легенда: ✅ сделано · ⚠️ частично · ⏸ отложено.
 
 | Пункт | Статус | Примечание |
 |---|---|---|
 | SEC-1 Next.js | ✅ | next 16.4.5; `pnpm audit --prod` в CI, 0 уязвимостей |
-| SEC-2 IP клиента | ⚠️ | Web-прокси передаёт IP, есть `TRUSTED_PROXY_CIDRS`, в шаблоне `deploy/avtorinok-domain.nginx.conf` есть `real_ip`. На хосте не применено: нужен root и проверка, что OpenResty передаёт IP. До этого включён режим «IP неизвестен»: `ip_scoped_limit` умножает лимит ×20 (`UNKNOWN_CLIENT_IP_LIMIT_FACTOR`) |
+| SEC-2 IP клиента | ⚠️ | Web-прокси передаёт IP, есть `TRUSTED_PROXY_CIDRS`, в шаблоне `deploy/avtorinok-domain.nginx.conf` есть `real_ip`. На хосте не применено: nginx видит всех клиентов как LAN-адрес OpenResty; нужен root и проверка, что OpenResty передаёт IP. До этого в production работает режим «IP неизвестен»: `ip_scoped_limit` умножает лимит ×20 (`UNKNOWN_CLIENT_IP_LIMIT_FACTOR`), лимиты по IP действуют как общие на весь сайт. Лимиты по email и токену работают полностью |
 | SEC-3 лимит логина | ✅ | Лимит проверяется до `verify_password`; отдельные счётчики по email и по IP |
 | SEC-4 лимиты восстановления | ✅ | Ключ по email или субъекту; общий потолок `IDENTITY_SITE_HOURLY_CAP = 500` |
 | SEC-5 GA и токены | ✅ | GA только после согласия и не в приватных разделах (`measurement-provider.tsx`); токены убираются из URL |
-| SEC-6 заголовки | ⚠️ | Есть CSP (`frame-ancestors`, `object-src`, `base-uri`, `form-action`) и `Permissions-Policy`. Нет `script-src` с nonce и `limit_req` в nginx |
+| SEC-6 заголовки | ⚠️ | Есть CSP (`frame-ancestors`, `object-src`, `base-uri`, `form-action`), `Permissions-Policy` и HSTS (в production проверено 2026-11-11). Нет `script-src` с nonce и `limit_req` в nginx |
 | SEC-7 прокси `..` | ✅ | Пустые сегменты, `.` и `..` отклоняются, в том числе percent-encoded |
 | SEC-8 мелочи | ⚠️ | SMTP без TLS запрещён, offsite только шифрованный. Осталось: `MAX_IMAGE_PIXELS` 60 Мп, нет `import "server-only"`, нет `read_only`/`cap_drop` у api/worker/web |
 | REL-1 оплаты | ✅ | Состояние `paid_unfulfilled` и алерт `payment_paid_unfulfilled` в `/monitoring` |
@@ -68,7 +68,7 @@
 | IDEA-3 бейдж снижения цены | ✅ | `last_price_drop`, бейдж, сортировка «Сначала подешевевшие» |
 | IDEA-4 подсказка продавцу | ✅ | `market-price-hint.tsx` в «Моих объявлениях»; у `.market-badge.in_market` нейтральный цвет |
 | IDEA-5 похожие и шаблоны | ✅ | Похожие для снятых, черновик, `MESSAGE_TEMPLATES` |
-| ARCH-1 main ≠ production | ⚠️ | Источник истины теперь `prod-sync-20261110` от `651f75d`. Web вызывает эндпоинты, которых нет в backend этой ветки: отзывы о дилерах, логотип компании, `photo-badges`, `eligibility` |
+| ARCH-1 main ≠ production | ⚠️ | Источник истины — `prod-sync-20261110` (в production — коммит `fd3158f`). ✅ Восстановлены или добавлены и выкачены: отзывы о дилерах, логотип компании, `photo-badges`, `eligibility`, `analytics/errors`. Осталось: API `verified_evidence` (`listing_trust_evidence`). Ветка не отправлена на GitHub; `main` содержит функции, которых не было в production (рыночная оценка, Telegram-канал, платёжный провайдер) — нужно решение о переносе |
 | ARCH-2 `output/` | ✅ | В `.gitignore` |
 | ARCH-3 остатки патча | ✅ | `.orig`/`.rej` удалены |
 | ARCH-4 мёртвый код | ⚠️ | Разовые скрипты в `scripts/archive/`, мёртвые компоненты удалены. `NEXT_PUBLIC_RELEASE_ID` нигде не задаётся |
@@ -78,14 +78,14 @@
 | OPS-1 настройки | ✅ | `x-backend-env` в compose для api и worker, тест `test_compose_settings.py` |
 | OPS-2 `.env.example` | ✅ | Есть, синхронность проверяется тестом |
 | OPS-3 диагностика | ✅ | Стектрейсы без PII, Sentry, `X-Request-ID`. Новый `POST /api/v1/analytics/errors` принимает очищенные отчёты об ошибках фронтенда |
-| OPS-4 монитор | ⚠️ | В репо монитор смотрит на `авторынок.бел`, есть Telegram-алерты и `--alert-env-file`. Unit и `/etc/avtorinok/monitor-alerts.env` на хосте не установлены (нужны root и секреты) |
+| OPS-4 монитор | ⚠️ | В репо монитор смотрит на `авторынок.бел`, есть Telegram-алерты и `--alert-env-file`. Новый unit и `/etc/avtorinok/monitor-alerts.env` на хосте не установлены (нужны root и секреты); монитор на хосте работает по старому unit |
 | OPS-5 CI и линтеры | ⚠️ | `.github/workflows/ci.yml`: typecheck, lint (0 ошибок, 118 предупреждений в бэклоге), тесты, build, audit, pytest, ruff, тесты скриптов, compose config. Нет тайпчекера Python и `alembic check` |
-| OPS-6 offsite-бэкапы | ⚠️ | `avtorinok-offsite-backup.{service,timer}` и алерт по возрасту есть в репо. На хосте не установлены (нужны root и ключи) |
+| OPS-6 offsite-бэкапы | ⚠️ | `avtorinok-offsite-backup.{service,timer}` и алерт по возрасту есть в репо. На хосте не установлены (нужны root, `/etc/avtorinok/offsite-backup.env`, `age` и SSH-ключ хоста бэкапов) |
 | OPS-7 health | ⚠️ | `/health/ready` показывает возраст heartbeat воркера (только информация). Healthcheck воркера в compose проверяет процесс, а не heartbeat |
-| OPS-8 документация | ⚠️ | `docs/STATUS.md`, `docs/releases/`, `docs/archive/`. Старые статус-файлы в `docs/` остались, `SERVER.md` местами устарел |
+| OPS-8 документация | ⚠️ | `docs/STATUS.md`, `docs/releases/`, `docs/archive/`, скрипты выкатки в `scripts/release/`. Старые статус-файлы в `docs/` остались, `SERVER.md` местами устарел |
 | OPS-9 CLAUDE.md | ✅ | Корневой `CLAUDE.md` для production-линии |
 
-**Не сделано и почему:** nginx `real_ip`, systemd-юниты монитора и offsite-бэкапов требуют root и секретов на VPS; CSP с nonce — отдельная задача; ARCH-6 — крупный рефакторинг; digest postgres — окно обслуживания; 118 предупреждений ESLint — бэклог; платёжный провайдер выключен по решению бизнеса; VIN-проверка — заглушка; sitemap index не сделан.
+**Не сделано и почему:** nginx `real_ip`, systemd-юниты монитора и offsite-бэкапов требуют root и секретов на VPS; CSP с nonce — отдельная задача; ARCH-6 — крупный рефакторинг; digest postgres — окно обслуживания; 118 предупреждений ESLint — бэклог; платёжный провайдер выключен по решению бизнеса; VIN-проверка — заглушка; sitemap index не сделан; API `verified_evidence` не восстановлен; перенос функций из `main` (рыночная оценка, Telegram-канал, платёжный провайдер) ждёт решения владельца.
 
 ---
 

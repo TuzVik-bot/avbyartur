@@ -1,23 +1,37 @@
-# Application rollback
+# Откат приложения
 
-Current release: `/home/suite/apps/releases/refero-20261108-r1` (web `avtorinok-web:refero-20261108-r1`, api/worker `avtorinok-api:editorial-ux-20261102-r1`, DB head `0033_listing_in_transit`).
-Previous release: `/home/suite/apps/releases/headlights-header-20261102-r1` (web `avtorinok-web:headlights-header-20261102-r1`, also tagged `avtorinok-web:rollback-refero-20261108-r1`; api/worker unchanged).
-Backup: `/home/suite/backups/avtorinok/refero-20261108-r1/` (`database.dump`, `rollback.json`, `before.json`, `deployed.json`).
+Текущий релиз: `/home/suite/apps/releases/audit-20261111-r1` (api/worker `avtorinok-api:audit-20261111-r1`, web `avtorinok-web:audit-20261111-r1`, Alembic head `0034_listing_search_perf`). Выкачен 11 ноября 2026.
+Предыдущий релиз: `/home/suite/apps/releases/refero-20261108-r1` (web `avtorinok-web:refero-20261108-r1`, api/worker `avtorinok-api:editorial-ux-20261102-r1`, head `0033_listing_in_transit`).
+Бэкап: `/home/suite/backups/avtorinok/audit-20261111-r1/` (`database.dump` 23 493 915 байт, прочитан `pg_restore -l`, 527 записей TOC, файл sha256; `before.json`, `prepared.json`, `env-diff.json`, `built.json`, `deployed.json`, `rollback.json`).
+Прежние образы дополнительно помечены тегами `avtorinok-api:rollback-audit-20261111-r1` и `avtorinok-web:rollback-audit-20261111-r1`. Каталоги прежних релизов не удалялись.
 
-Before rollback, confirm database migration compatibility and check that the previous images and the previous release directory with all its Compose overlays are still present. Application rollback does not undo migrations or imported data; restoring data requires a separate decision.
+## Как откатить
 
-The exact command is stored in `rollback.json`. It runs from the previous release with its full overlay chain (every file listed in `docs/STATUS.md` except `docker-compose.refero.yml`):
+Скрипт — `90-rollback-server.py` из `output/audit-release-20261111-r1/` (каталог в `.gitignore`); та же копия в git: [scripts/release/audit-20261111-r1/90-rollback-server.py](scripts/release/audit-20261111-r1/90-rollback-server.py). Запуск с локальной машины из корня репозитория:
 
 ```sh
-docker compose -p avtorinok --project-directory /home/suite/apps/releases/headlights-header-20261102-r1 \
-  -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.public-launch.yml \
-  -f docker-compose.feedback.yml -f docker-compose.yandex.yml -f docker-compose.google.yml \
-  -f docker-compose.seo-sorting.yml -f docker-compose.full.yml -f docker-compose.registry.yml \
-  -f docker-compose.editorial.yml -f docker-compose.footer.yml -f docker-compose.card-borders.yml \
-  -f docker-compose.button-spacing.yml -f docker-compose.content-pages.yml -f docker-compose.headlights.yml \
-  up -d --no-deps --no-build --wait --wait-timeout 120 web
+ssh fortebit-prod python3 - < scripts/release/audit-20261111-r1/90-rollback-server.py
 ```
 
-After health and the browser registration check on `/login?next=%2Fsell` pass, atomically repoint `/home/suite/apps/avtorinok` to the previous release (`ln -s <release> /home/suite/apps/avtorinok.rollback && mv -Tf /home/suite/apps/avtorinok.rollback /home/suite/apps/avtorinok`). Verify service health and actual container image IDs afterward. Do not delete volumes.
+Что делает скрипт:
 
-Older rollbacks: see the backup and rollback section of each journal in `docs/releases/2026/`. The previous version of this file (rollback to `listing-improvements-20261028-r1`) is obsolete.
+1. Читает `rollback.json` из каталога бэкапа. Там записаны точные прежние compose-цепочки: у api, worker и web они разные.
+2. Если тег прежнего образа указывает на другой образ, возвращает его из тега `rollback-audit-20261111-r1`.
+3. Поднимает api из цепочки `editorial-ux-20261102-r2`, worker из цепочки `editorial-ux-20261102-r1`, затем web из цепочки `refero-20261108-r1`: `up -d --no-deps --no-build --wait`.
+4. Ждёт `healthy` на прежних id образов.
+5. Атомарно возвращает ссылку `/home/suite/apps/avtorinok` на `/home/suite/apps/releases/refero-20261108-r1`.
+6. Проверяет, что контейнер db не пересоздан и не перезапущен. Пишет `rolled-back.json` в каталог бэкапа.
+
+Повторный запуск безопасен. Если скрипт недоступен, те же команды записаны в `rollback.json`.
+
+## База данных
+
+БД при откате **не** понижается. Схема остаётся на `0034_listing_search_perf`: миграция аддитивная (колонка `listings.published_at`, индексы, таблица `worker_heartbeats`) и совместима со старыми образами. Откат данных — только отдельным решением через `database.dump` и `docs/runtime/backup-restore.md`.
+
+## После отката
+
+- Проверить health сервисов и фактические id образов контейнеров.
+- Проверить регистрацию в браузере на `/login?next=%2Fsell` (см. `AGENTS.md`).
+- Тома не удалять, `docker compose down -v` не выполнять.
+
+Более старые откаты описаны в журналах `docs/releases/2026/`. Прежняя версия этого файла (откат `refero-20261108-r1` → `headlights-header-20261102-r1`) устарела.
