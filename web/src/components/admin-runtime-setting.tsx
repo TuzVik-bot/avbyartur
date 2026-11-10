@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiClientError } from "@/lib/api";
 import { adminApi, type RuntimeSetting } from "@/lib/admin";
+import { userMessage } from "@/lib/user-message";
 
 const settingInfo: Record<string, { title: string; description: string }> = {
   private_listing_quota: { title: "Лимит частных объявлений", description: "Максимум объявлений на одного частного продавца." },
@@ -17,7 +18,7 @@ function errorText(issue: unknown) {
     if (issue.code === "reauthentication_failed") return "Текущий пароль администратора не подошёл.";
     if (issue.status === 403) return "Администраторская роль больше не активна.";
   }
-  return issue instanceof Error ? issue.message : "Не удалось сохранить лимит.";
+  return userMessage(issue, "Не удалось сохранить лимит.");
 }
 
 export function AdminRuntimeSetting({ initialSetting }: { initialSetting: RuntimeSetting }) {

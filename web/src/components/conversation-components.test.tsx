@@ -155,7 +155,8 @@ describe("ConversationThreadView", () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain("offline");
+    expect(container.textContent).toContain("Не удалось отправить сообщение.");
+    expect(container.textContent).not.toContain("offline");
     const firstKey = send.mock.calls[0]?.[2];
     await act(async () => {
       form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
@@ -186,7 +187,8 @@ describe("ConversationThreadView", () => {
     const send = vi.spyOn(api, "sendConversationMessage").mockResolvedValueOnce({ message: sentOne }).mockResolvedValueOnce({ message: sentTwo });
     await act(async () => { root.render(createElement(ConversationThreadView, { conversationId: summary.id })); });
 
-    expect(container.textContent).toContain("offline");
+    expect(container.textContent).toContain("Не удалось отметить сообщения прочитанными.");
+    expect(container.textContent).not.toContain("offline");
     const retryRead = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Повторить отметку о прочтении"));
     await act(async () => { retryRead?.click(); });
     expect(markRead).toHaveBeenCalledTimes(2);
@@ -225,7 +227,8 @@ describe("ConversationThreadView", () => {
     expect(container.querySelector('[aria-label="Подтверждение блокировки"]')).not.toBeNull();
     const confirm = [...container.querySelectorAll("button")].find((button) => button.textContent === "Заблокировать");
     await act(async () => { confirm?.click(); });
-    expect(container.textContent).toContain("offline");
+    expect(container.textContent).toContain("Не удалось заблокировать переписку.");
+    expect(container.textContent).not.toContain("offline");
     const retry = [...container.querySelectorAll("button")].find((button) => button.textContent === "Заблокировать");
     await act(async () => { retry?.click(); });
 
@@ -263,6 +266,8 @@ describe("ConversationStartForm", () => {
     await act(async () => { textarea.closest("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
     expect(create).toHaveBeenCalledWith("listing-1", "Предлагаю мой автомобиль", expect.any(String));
     expect(mocks.router.replace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent("/account/messages/new?listing_id=listing-1&intent=exchange")}`);
+    expect(window.sessionStorage.getItem("conversation-draft:listing-1")).toBe("Предлагаю мой автомобиль");
+    window.sessionStorage.clear();
   });
   it("creates a plain-text conversation and opens its thread", async () => {
     const create = vi.spyOn(api, "createConversation").mockRejectedValueOnce(new Error("offline")).mockResolvedValue({ conversation: summary });
@@ -281,7 +286,7 @@ describe("ConversationStartForm", () => {
       form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
       await Promise.resolve();
     });
-    expect(container.textContent).toContain("offline");
+    expect(container.textContent).toContain("Не удалось начать переписку. Повторите попытку.");
     await act(async () => {
       form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
       await Promise.resolve();

@@ -12,6 +12,7 @@ import {
   type DealerTeamMember
 } from "@/lib/dealer";
 import { FeedImportHistory, type FeedImportDetail } from "@/components/feed-import-history";
+import { userMessage } from "@/lib/user-message";
 
 const roleCanManage = (member: DealerTeamMember | undefined) => member?.status === "active" && (member.role === "owner" || member.role === "admin");
 const roleCanImport = (member: DealerTeamMember | undefined) => member?.status === "active" && (member.role === "owner" || member.role === "admin" || member.role === "seller");
@@ -63,9 +64,9 @@ function errorText(issue: unknown) {
     if (issue.code === "missing_confirmation_too_early") return "Срок ожидания ещё не прошёл. Повторите подтверждение после указанной даты.";
     if (issue.code === "missing_candidate_stale") return "Объявление или снимок изменились. Обновите список кандидатов.";
     if (issue.status === 403) return "У вашей роли нет доступа к настройке интеграций.";
-    if (issue.status === 409) return issue.message;
+    if (issue.status === 409) return userMessage(issue, "Состояние интеграции изменилось. Обновите страницу и повторите действие.");
   }
-  return issue instanceof Error ? issue.message : "Не удалось выполнить действие.";
+  return userMessage(issue, "Не удалось выполнить действие.");
 }
 
 export function DealerFeeds({ initialFeeds, initialTeam, currentUserId }: {

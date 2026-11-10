@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { photoBadgeOptions } from "@/lib/photo-badges";
 import type { Listing, PhotoBadge } from "@/lib/types";
+import { userMessage } from "@/lib/user-message";
 
 export function ListingPhotoBadgeEditor({ listing, disabled = false }: { listing: Listing; disabled?: boolean }) {
   const router = useRouter();
@@ -28,7 +29,7 @@ export function ListingPhotoBadgeEditor({ listing, disabled = false }: { listing
       setMessage("Метки сохранены");
       router.refresh();
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Не удалось сохранить метки");
+      setError(userMessage(issue, "Не удалось сохранить метки"));
     } finally { setBusy(false); }
   }
 

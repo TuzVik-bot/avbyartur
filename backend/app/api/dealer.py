@@ -22,12 +22,16 @@ from app.dealer_services import (
     resolve_company_for_user,
 )
 from app.models import AuditEvent, Company, DealerClickEvent, DealerTeamMember, Listing, User, UserSession
-from app.security import client_ip
+from app.security import client_ip, client_ip_is_trusted_proxy, ip_scoped_limit, rate_limit_exhausted
 from app.services import check_revision, consume_rate_limit, fail, lock_owner
 from app.admin_service import lock_active_administrators
 
 
 router = APIRouter(prefix="/api/v1/dealer", tags=["dealer"])
+
+DEALER_CLICK_IP_HOURLY_LIMIT = 120
+DEALER_CLICK_DEDUP_WINDOW = timedelta(minutes=10)
+DEALER_CLICK_DEDUP_NAMESPACE = "dealer-click-listing-ip"
 
 
 @router.post("/clicks", status_code=202)
@@ -37,7 +41,17 @@ def record_dealer_click(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     """Record an anonymous, non-PII click from a public listing to its company page."""
-    consume_rate_limit(db, "dealer-click-ip", client_ip(request), 120, timedelta(hours=1))
+    ip = client_ip(request)
+    consume_rate_limit(
+        db, "dealer-click-ip", ip, ip_scoped_limit(ip, DEALER_CLICK_IP_HOURLY_LIMIT), timedelta(hours=1)
+    )
+    # Count one click per listing and client per window. The bucket key is a
+    # hash, so the raw address is never stored. With an unresolved client IP
+    # every visitor shares one address, so deduplication would drop real clicks.
+    dedup_subject = f"{payload.listing_id}:{ip}"
+    deduplicate = not client_ip_is_trusted_proxy(ip)
+    if deduplicate and rate_limit_exhausted(db, DEALER_CLICK_DEDUP_NAMESPACE, dedup_subject, 1, DEALER_CLICK_DEDUP_WINDOW):
+        return {"accepted": True}
     listing = db.scalar(
         select(Listing).where(
             Listing.id == payload.listing_id,
@@ -49,6 +63,8 @@ def record_dealer_click(
         if company is not None:
             db.add(DealerClickEvent(company_id=company.id, listing_id=listing.id, source=payload.source))
             db.commit()
+            if deduplicate:
+                consume_rate_limit(db, DEALER_CLICK_DEDUP_NAMESPACE, dedup_subject, 1, DEALER_CLICK_DEDUP_WINDOW)
     return {"accepted": True}
 
 

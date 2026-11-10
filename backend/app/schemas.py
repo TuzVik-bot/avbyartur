@@ -32,6 +32,8 @@ class ApiErrorOut(BaseModel):
     code: str
     message: str
     field_errors: dict[str, str]
+    field_error_types: dict[str, str] | None = None
+    field_error_context: dict[str, dict[str, str | int | float | bool]] | None = None
     request_id: str
 
 

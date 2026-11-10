@@ -1,9 +1,82 @@
 # Off-host Backup Delivery
 
-## Encrypted bundle workflow
+Only age-encrypted bundles leave the host. The former plaintext transfer of a
+snapshot directory (database dump, private media) has been removed:
+`scripts/backup-offsite.sh` without `--encrypted-bundle` prints usage and
+exits with status 2 without contacting the remote host.
 
-Off-host copying is opt-in and is not triggered by `make backup` or the daily
-backup timer. Encrypt each completed snapshot before sending it to a remote
+## Daily automatic delivery
+
+`deploy/systemd/avtorinok-offsite-backup.timer` starts
+`avtorinok-offsite-backup.service` every day at 04:30 (plus up to 15 min random
+delay, `Persistent=true`), after the local `avtorinok-backup` timer has
+produced the newest snapshot. The service runs
+`scripts/backup-offsite-daily.py --backup-root /home/suite/backups/avtorinok`,
+which:
+
+1. Picks the newest complete snapshot directory named
+   `avtorinok-YYYYMMDDTHHMMSSZ` (partial or suffixed names are skipped).
+2. Exits successfully without a transfer if `offsite-status.json` already
+   records that snapshot's bundle as delivered.
+3. Encrypts the snapshot with `scripts/backup-encrypt.py` into a private
+   temporary work directory inside the backup root.
+4. Sends only the `.tar.age` ciphertext with
+   `scripts/backup-offsite-encrypted.py` (the same code path as
+   `backup-offsite.sh --encrypted-bundle`): staged upload, remote SHA-256
+   check, then a no-clobber rename.
+5. On success, atomically writes `BACKUP_ROOT/offsite-status.json` (mode `600`)
+   with `schema_version`, `bundle`, `snapshot_created_at_utc` and
+   `delivered_at_utc`. The local ciphertext is always removed afterwards; it
+   can be recreated from the snapshot.
+
+Each run logs one JSON line to stderr (journald): `offsite_backup_delivered`,
+`offsite_backup_current`, or `offsite_backup_failed` with `reason`
+(`no_snapshot`, `encrypt`, `transfer`). A failure leaves the previous status
+file untouched.
+
+`avtorinok-monitor.service` passes `--offsite-status-file
+/home/suite/backups/avtorinok/offsite-status.json --max-offsite-age-hours 48`
+to `scripts/monitor-runtime.py`. The monitor raises `offsite_backup_stale`
+when the status file is missing, not a regular file, accessible to group or
+others, unreadable or invalid, or when the newest
+delivered snapshot is older than 48 hours (allowed range 1–336).
+
+### Installation (operator, on explicit request only)
+
+1. Generate the age identity on a separate recovery workstation (see step 1 of
+   the manual workflow below). Only the public `age1...` recipient goes to the
+   server.
+2. Create `/etc/avtorinok/offsite-backup.env` as `root:root`, mode `600`:
+
+   ```sh
+   AVTORINOK_OFFSITE_TARGET=backup-user@backup-host:/absolute/path
+   AVTORINOK_BACKUP_AGE_RECIPIENT=age1...
+   ```
+
+   The script refuses to start unless both variables and the backup root are
+   set.
+3. Give the `suite` user a passphrase-less SSH key restricted to the backup
+   host, and provision the backup host key in `~suite/.ssh/known_hosts`
+   through a trusted channel (`StrictHostKeyChecking=yes`, `BatchMode=yes`).
+4. Run a manual preflight with an encrypted bundle (step 3 of the manual
+   workflow) before enabling the timer.
+5. Install the unit and timer from `deploy/systemd/`, then
+   `systemctl enable --now avtorinok-offsite-backup.timer`. Without root,
+   follow the user-unit instructions in the header of
+   `avtorinok-offsite-backup.service`.
+6. Start one run with `systemctl start avtorinok-offsite-backup.service`,
+   check `journalctl -u avtorinok-offsite-backup.service` for
+   `offsite_backup_delivered`, and confirm that `offsite-status.json` exists.
+   The monitor alert `offsite_backup_stale` stays active until the first
+   successful delivery.
+
+Remote bundles are never pruned or overwritten by these scripts; the remote
+retention schedule is operator-managed.
+
+## Manual encrypted bundle workflow
+
+Use these steps for a one-off copy, a preflight before enabling the timer, or
+an investigation. Encrypt each completed snapshot before sending it to a remote
 host:
 
 1. On a separate recovery workstation, generate and protect an age identity.
@@ -99,24 +172,10 @@ project with separate databases and volumes. Local encryption/decryption
 verification is not evidence of a remote transfer, off-host restore, or
 production RPO/RTO measurement.
 
-## Legacy plaintext snapshot transfer
+## Configuration status
 
-`backup-offsite.sh BACKUP_DIRECTORY` and
-`backup-offsite.sh --preflight BACKUP_DIRECTORY` remain available for
-compatibility with existing v1–v5 workflows. They transfer the snapshot
-directory in plaintext. Do not use this path for off-host storage when the
-encrypted-bundle workflow is available.
-
-The legacy preflight validates the local manifest and checksums, SSH host-key
-access, remote `rsync`, checksum utilities, GNU `mv -T -n`, writable target
-or nearest existing parent, a free final snapshot name, and enough remote
-space for the local snapshot plus a 10% margin. It does not write remotely.
-The transfer rechecks the snapshot in a per-snapshot staging directory before
-a no-clobber rename. A failed transfer can leave a hidden `.incoming`
-directory for inspection.
-
-Both transfer modes require `AVTORINOK_OFFSITE_TARGET` to be explicitly set.
-The repository contains no remote credentials or configured destination.
-Until an operator configures a real target, runs preflight and transfer, and
-completes a separate isolated restore rehearsal, off-host delivery is not
-confirmed.
+`AVTORINOK_OFFSITE_TARGET` must be set explicitly for every transfer. The
+repository contains no remote credentials or configured destination. Until an
+operator configures a real target, a successful delivery appears in
+`offsite-status.json`, and a separate isolated restore rehearsal from a remote
+bundle completes, off-host delivery is not confirmed.

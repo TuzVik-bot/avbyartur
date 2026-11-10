@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AccountNav } from "@/components/account-nav";
 import { ListingStatusActions } from "@/components/listing-status-actions";
+import { MarketPriceHint, type OwnerMarketComparison } from "@/components/market-price-hint";
 import { serverApi } from "@/lib/server-api";
 import { formatMoney } from "@/lib/format";
 import { requireSession } from "@/lib/server";
@@ -33,6 +34,11 @@ function retryUrl(page: number, currentAttempt: string | string[] | undefined) {
   return `/account/listings?${query}`;
 }
 
+function marketComparisonOf(listing: Listing): OwnerMarketComparison | null {
+  const price = listing.price as (Listing["price"] & { market_comparison?: OwnerMarketComparison | null }) | null;
+  return price?.market_comparison ?? null;
+}
+
 export default async function AccountListingsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requireSession("/account/listings");
   const params = await searchParams;
@@ -61,8 +67,9 @@ export default async function AccountListingsPage({ searchParams }: { searchPara
         {listings.map((listing) => {
           const catalogTitle = [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ");
           const title = listing.title?.trim() || catalogTitle || "Черновик без выбранного автомобиля";
+          const marketComparison = listing.status === "active" ? marketComparisonOf(listing) : null;
           return <article className="account-list-item" key={listing.id}>
-          <div><h2><Link href={`/sell?listing=${encodeURIComponent(listing.id)}`}>{title}</Link></h2><p className="muted">{formatMoney(listing.price)} · ревизия {listing.revision}</p><span className={`status-pill status-${listing.status}`}>{statusLabels[listing.status] || listing.status}</span>{listing.status === "rejected" && <><p className="inline-error">Исправьте замечания и отправьте объявление повторно.</p>{listing.moderation_reason?.trim() && <p className="inline-error" role="alert">Причина отклонения: {listing.moderation_reason}</p>}</>}<div className="form-actions listing-owner-links"><Link className="button button-secondary button-small" href={`/account/listings/analytics?listing_id=${encodeURIComponent(listing.id)}`}>Статистика</Link>{promotableListingIds.has(listing.id) && <Link className="button button-secondary button-small" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}</div></div>
+          <div><h2><Link href={`/sell?listing=${encodeURIComponent(listing.id)}`}>{title}</Link></h2><p className="muted">{formatMoney(listing.price)} · ревизия {listing.revision}</p><span className={`status-pill status-${listing.status}`}>{statusLabels[listing.status] || listing.status}</span><MarketPriceHint listingId={listing.id} comparison={marketComparison} />{listing.status === "rejected" && <><p className="inline-error">Исправьте замечания и отправьте объявление повторно.</p>{listing.moderation_reason?.trim() && <p className="inline-error" role="alert">Причина отклонения: {listing.moderation_reason}</p>}</>}<div className="form-actions listing-owner-links"><Link className="button button-secondary button-small" href={`/account/listings/analytics?listing_id=${encodeURIComponent(listing.id)}`}>Статистика</Link>{promotableListingIds.has(listing.id) && <Link className="button button-secondary button-small" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}</div></div>
           <ListingStatusActions listing={listing} />
         </article>;
         })}

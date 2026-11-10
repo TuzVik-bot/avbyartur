@@ -27,8 +27,9 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
+from functools import partial
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 
 import httpx
 from PIL import Image, UnidentifiedImageError
@@ -80,6 +81,18 @@ COLOR_MAP = {
     "other": "other",
 }
 ALLOWED_IMAGE_FORMATS = {"JPEG", "MPO", "PNG", "WEBP", "HEIF", "HEIC"}
+# Photos in Onliner advert payloads are served from this CDN host only.
+ONLINER_IMAGE_HOSTS = frozenset({"content.onliner.by"})
+MAX_IMAGE_REDIRECTS = 3
+REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
+
+_Result = TypeVar("_Result")
+
+
+@dataclass(frozen=True)
+class _ImageHop:
+    body: bytes
+    location: str | None
 
 
 class OnlinerFetchError(RuntimeError):
@@ -144,35 +157,39 @@ class OnlinerClient:
         else:
             self._last_api_at = now
 
+    def _retry(self, url: str, *, image: bool, send: Callable[[], tuple[int, _Result]]) -> tuple[int, _Result]:
+        last_error: Exception | None = None
+        for attempt in range(MAX_HTTP_ATTEMPTS):
+            self._throttle(image=image)
+            try:
+                status, result = send()
+            except httpx.HTTPError as exc:
+                last_error = exc
+            else:
+                if status < 400 or status == 404:
+                    return status, result
+                if status == 403:
+                    raise OnlinerBlockedError(f"HTTP 403 for {url}")
+                last_error = OnlinerFetchError(f"HTTP {status} for {url}")
+                if status not in RETRY_STATUS_CODES:
+                    raise last_error
+            self._sleep(min(30.0, 2.0**attempt + 1.0))
+        raise OnlinerFetchError(
+            f"{url} failed after {MAX_HTTP_ATTEMPTS} attempts: {last_error}"
+        )
+
     def _request(
         self,
         method: str,
         url: str,
         *,
         params: dict[str, str] | None = None,
-        image: bool = False,
     ) -> httpx.Response:
-        last_error: Exception | None = None
-        for attempt in range(MAX_HTTP_ATTEMPTS):
-            self._throttle(image=image)
-            try:
-                response = self._http.request(method, url, params=params)
-            except httpx.HTTPError as exc:
-                last_error = exc
-            else:
-                if response.status_code < 400:
-                    return response
-                if response.status_code == 404:
-                    return response
-                if response.status_code == 403:
-                    raise OnlinerBlockedError(f"HTTP 403 for {url}")
-                last_error = OnlinerFetchError(f"HTTP {response.status_code} for {url}")
-                if response.status_code not in RETRY_STATUS_CODES:
-                    raise last_error
-            self._sleep(min(30.0, 2.0**attempt + 1.0))
-        raise OnlinerFetchError(
-            f"{url} failed after {MAX_HTTP_ATTEMPTS} attempts: {last_error}"
-        )
+        def send() -> tuple[int, httpx.Response]:
+            response = self._http.request(method, url, params=params)
+            return response.status_code, response
+
+        return self._retry(url, image=False, send=send)[1]
 
     def dictionaries(self) -> dict:
         return self._request("GET", "/dictionaries").json()
@@ -206,13 +223,61 @@ class OnlinerClient:
         return payload if isinstance(payload, dict) else {}
 
     def download_image(self, url: str, *, max_bytes: int) -> bytes:
-        response = self._request("GET", url, image=True)
-        if response.status_code == 404:
-            raise OnlinerFetchError(f"image not found: {url}")
-        raw = response.content
-        if len(raw) > max_bytes:
+        """Fetch a photo from the Onliner CDN; every redirect hop is re-validated."""
+        current = _allowed_image_url(url)
+        for _hop in range(MAX_IMAGE_REDIRECTS + 1):
+            target = current
+            status, hop = self._retry(
+                str(target), image=True, send=partial(self._image_hop, target, max_bytes)
+            )
+            if status == 404:
+                raise OnlinerFetchError(f"image not found: {url}")
+            if status not in REDIRECT_STATUS_CODES:
+                return hop.body
+            if not hop.location:
+                raise OnlinerFetchError(f"image redirect without location: {url}")
+            current = _allowed_image_url(str(target.join(hop.location)))
+        raise OnlinerFetchError(f"image redirected too many times: {url}")
+
+    def _image_hop(self, url: httpx.URL, max_bytes: int) -> tuple[int, _ImageHop]:
+        with self._http.stream(
+            "GET", url, follow_redirects=False, headers={"Accept": "image/*"}
+        ) as response:
+            status = response.status_code
+            if status in REDIRECT_STATUS_CODES:
+                return status, _ImageHop(b"", response.headers.get("location"))
+            if status >= 300:
+                return status, _ImageHop(b"", None)
+            return status, _ImageHop(_read_capped(response, max_bytes, url), None)
+
+
+def _allowed_image_url(url: str) -> httpx.URL:
+    try:
+        parsed = httpx.URL(url)
+    except (httpx.InvalidURL, TypeError) as exc:
+        raise OnlinerFetchError(f"invalid image url: {url}") from exc
+    if (
+        parsed.scheme != "https"
+        or parsed.host not in ONLINER_IMAGE_HOSTS
+        or parsed.userinfo
+        or parsed.port not in (None, 443)
+    ):
+        raise OnlinerFetchError(f"image url is not on the Onliner CDN: {url}")
+    return parsed
+
+
+def _read_capped(response: httpx.Response, max_bytes: int, url: httpx.URL) -> bytes:
+    declared = response.headers.get("content-length")
+    if declared is not None and declared.isdigit() and int(declared) > max_bytes:
+        raise OnlinerFetchError(f"image exceeds size limit: {url}")
+    chunks: list[bytes] = []
+    received = 0
+    for chunk in response.iter_bytes():
+        received += len(chunk)
+        if received > max_bytes:
             raise OnlinerFetchError(f"image exceeds size limit: {url}")
-        return raw
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 @dataclass(frozen=True)

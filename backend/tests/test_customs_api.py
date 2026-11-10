@@ -234,8 +234,25 @@ def test_invalid_request_is_returned_in_api_error_contract() -> None:
     response = client.post(CALCULATE_PATH, json=_request_body(personal_use=False))
 
     assert response.status_code == 422
-    assert response.json()["code"] == "validation_error"
-    assert set(response.json()) == {"code", "message", "field_errors", "request_id"}
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert set(body) == {
+        "code",
+        "message",
+        "field_errors",
+        "field_error_types",
+        "field_error_context",
+        "request_id",
+    }
+    assert set(body["field_error_types"]) == set(body["field_errors"])
+    assert all(isinstance(value, str) for value in body["field_error_types"].values())
+
+
+def test_api_error_schema_documents_field_error_types_and_context() -> None:
+    properties = app.openapi()["components"]["schemas"]["ApiErrorOut"]["properties"]
+
+    assert "field_error_types" in properties
+    assert "field_error_context" in properties
 
 
 def test_openapi_documents_decimal_string_input_and_customs_endpoints() -> None:

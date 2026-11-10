@@ -38,6 +38,7 @@ from app.models import (
     Listing,
     ListingCategoryDetails,
     ListingPhoto,
+    ListingPriceEvent,
     ListingPromotion,
     ListingStatusEvent,
     ListingViewEvent,
@@ -747,6 +748,68 @@ def _attach_view_counts(db: Session, listings: list[Listing], items: list[dict],
     ).all())
     for listing, item in zip(listings, items, strict=True):
         item["view_count"] = counts.get(listing.id, 0)
+
+
+# Search badges and the price_drop sort only consider discounts this recent.
+PRICE_DROP_BADGE_WINDOW = timedelta(days=30)
+
+
+def recent_price_drops_subquery(listing_ids: list[UUID] | None = None):
+    """Latest price event per listing when it is a same-currency drop inside the badge window.
+
+    Events are filtered to the window before ranking: an event inside the window
+    can only be the latest one when no newer event exists, so a later price rise
+    or removal still hides an earlier discount.
+    """
+    cutoff = datetime.now(timezone.utc) - PRICE_DROP_BADGE_WINDOW
+    ranked = select(
+        ListingPriceEvent.listing_id,
+        ListingPriceEvent.event_type,
+        ListingPriceEvent.price_amount,
+        ListingPriceEvent.currency,
+        ListingPriceEvent.previous_price_amount,
+        ListingPriceEvent.previous_currency,
+        ListingPriceEvent.created_at,
+        func.row_number().over(
+            partition_by=ListingPriceEvent.listing_id,
+            order_by=(ListingPriceEvent.revision.desc(), ListingPriceEvent.id.desc()),
+        ).label("position"),
+    ).where(ListingPriceEvent.created_at >= cutoff)
+    if listing_ids is not None:
+        ranked = ranked.where(ListingPriceEvent.listing_id.in_(listing_ids))
+    ranked = ranked.subquery()
+    return select(
+        ranked.c.listing_id,
+        ranked.c.price_amount,
+        ranked.c.previous_price_amount,
+        ranked.c.currency,
+        ranked.c.created_at.label("changed_at"),
+    ).where(
+        ranked.c.position == 1,
+        ranked.c.event_type == "changed",
+        ranked.c.currency == ranked.c.previous_currency,
+        ranked.c.price_amount < ranked.c.previous_price_amount,
+    ).subquery()
+
+
+def attach_last_price_drops(db: Session, listings: list[Listing], items: list[dict]) -> None:
+    """Set ``last_price_drop`` for a listing page with one query."""
+    if not listings:
+        return
+    if not table_available(db, "listing_price_events"):
+        for item in items:
+            item["last_price_drop"] = None
+        return
+    drops = recent_price_drops_subquery([listing.id for listing in listings])
+    found = {row.listing_id: row for row in db.execute(select(drops)).all()}
+    for listing, item in zip(listings, items, strict=True):
+        row = found.get(listing.id)
+        item["last_price_drop"] = None if row is None else {
+            "amount": str(row.price_amount),
+            "previous_amount": str(row.previous_price_amount),
+            "currency": row.currency,
+            "changed_at": row.changed_at,
+        }
 
 
 def listing_publication_dates(db: Session, listings: list[Listing]) -> dict[UUID, datetime]:

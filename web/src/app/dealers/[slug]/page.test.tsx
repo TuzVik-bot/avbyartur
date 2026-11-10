@@ -13,7 +13,7 @@ vi.mock("@/components/dealer-reviews", () => ({
 }));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
 
-import DealerPage from "./page";
+import DealerPage, { generateMetadata } from "./page";
 
 const company = {
   id: "company-1",
@@ -163,5 +163,24 @@ describe("dealer page public company details", () => {
     expect(rendered.querySelector('nav[aria-label="Страницы объявлений компании"]')).not.toBeNull();
     expect(rendered.querySelector('a[aria-label="Предыдущая страница, страница 1"]')?.getAttribute("href")).toBe(`/dealers/${company.slug}`);
     expect(rendered.querySelector('[aria-current="page"]')?.textContent).toBe("Страница 2 из 3");
+  });
+});
+
+describe("dealer page metadata", () => {
+  it("keeps a self-canonical paginated URL and a query-free Open Graph URL for page 2+", async () => {
+    mocks.dealer.mockResolvedValueOnce({
+      ...dealerResult(),
+      listings: { items: [listing], pagination: { page: 2, page_size: 25, total: 30, pages: 2 } }
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: company.slug }),
+      searchParams: Promise.resolve({ page: "2" })
+    });
+
+    expect(metadata.title).toBe(company.name);
+    expect(String(metadata.alternates?.canonical)).toMatch(/\/dealers\/company-one\?page=2$/);
+    const openGraph = metadata.openGraph as { url?: string } | undefined;
+    expect(String(openGraph?.url)).toMatch(/\/dealers\/company-one$/);
   });
 });

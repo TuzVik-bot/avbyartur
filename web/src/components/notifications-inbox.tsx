@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { api, ApiClientError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { UserNotification, UserNotificationList } from "@/lib/types";
+import { fieldMessages, userMessage } from "@/lib/user-message";
 
 type NotificationsInboxProps = {
   initialItems: UserNotification[];
@@ -35,8 +36,8 @@ function digestTitle(count: number) {
 }
 
 function messageFor(error: unknown, fallback: string) {
-  if (error instanceof ApiClientError && error.fieldErrors && Object.keys(error.fieldErrors).length) return Object.values(error.fieldErrors).join(" ");
-  return error instanceof Error ? error.message : fallback;
+  if (error instanceof ApiClientError && error.fieldErrors && Object.keys(error.fieldErrors).length) return Object.values(fieldMessages(error)).join(" ");
+  return userMessage(error, fallback);
 }
 
 function notificationDate(value: string) {

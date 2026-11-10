@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiClientError } from "@/lib/api";
 import { adminApi, type AdminCatalogItem as CatalogItem, type AdminCatalogKind, type AdminCatalogVersion } from "@/lib/admin";
+import { userMessage } from "@/lib/user-message";
 
 function cleanUrl(value: string | null | undefined) {
   if (!value) return null;
@@ -17,7 +18,7 @@ function errorText(issue: unknown) {
     if (issue.code === "reauthentication_failed") return "Текущий пароль администратора не подошёл.";
     if (issue.status === 403) return "Администраторская роль больше не активна.";
   }
-  return issue instanceof Error ? issue.message : "Не удалось изменить запись справочника.";
+  return userMessage(issue, "Не удалось изменить запись справочника.");
 }
 
 function snapshotLabel(snapshot: AdminCatalogVersion["before"]) {
@@ -44,7 +45,7 @@ export function AdminCatalogItem({ kind, initialItem }: { kind: AdminCatalogKind
     if (!nextOpen || versions) return;
     setBusy(true); setError("");
     try { setVersions((await adminApi.catalogVersions(kind, item.id)).items); }
-    catch (issue) { setError(issue instanceof Error ? issue.message : "Не удалось загрузить историю."); }
+    catch (issue) { setError(userMessage(issue, "Не удалось загрузить историю.")); }
     finally { setBusy(false); }
   }
 

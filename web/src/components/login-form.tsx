@@ -10,6 +10,7 @@ import { safeNextPath } from "@/lib/routing";
 import { trackFunnelEvent } from "@/lib/funnel-analytics";
 import styles from "./login-form.module.css";
 import { PhoneAuth } from "@/components/phone-auth";
+import { userMessage } from "@/lib/user-message";
 
 export function LoginForm({ nextPath, consentVersions = null }: { nextPath: string; consentVersions?: RegistrationConsentVersions | null }) {
   const { setSession } = useAuth();
@@ -56,7 +57,7 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
       if (issue instanceof ApiClientError && issue.status === 429) setError("Слишком много попыток. Подождите и попробуйте снова.");
       else if (registering && issue instanceof ApiClientError && issue.status === 409) setError(issue.code === "consent_version_mismatch" ? "Обновите страницу: документы изменились." : "Эта почта уже используется. Попробуйте войти.");
       else if (issue instanceof ApiClientError && (issue.status === 401 || issue.status === 422)) setError("Проверьте адрес почты и пароль.");
-      else setError(issue instanceof Error ? issue.message : "Не удалось войти. Повторите попытку.");
+      else setError(userMessage(issue, "Не удалось войти. Повторите попытку."));
     } finally {
       setBusy(false);
     }

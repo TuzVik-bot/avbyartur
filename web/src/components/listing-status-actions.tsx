@@ -6,6 +6,7 @@ import { Check, Pause, Play, ShoppingBag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Listing } from "@/lib/types";
+import { userMessage } from "@/lib/user-message";
 
 export function ListingStatusActions({ listing }: { listing: Listing }) {
   const router = useRouter();
@@ -19,7 +20,7 @@ export function ListingStatusActions({ listing }: { listing: Listing }) {
       await api.listingAction(listing.id, action, listing.revision);
       router.refresh();
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Не удалось изменить объявление");
+      setError(userMessage(issue, "Не удалось изменить объявление"));
     } finally {
       setBusy(false);
     }

@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import type { ListingSearch } from "@/lib/types";
 import { ApiClientError, apiRequest } from "@/lib/api";
 import { savedSearchLimitMessage } from "@/lib/saved-search-limits";
+import { fieldMessages, userMessage } from "@/lib/user-message";
 
 type SavedSearchActionProps = {
   search: ListingSearch;
@@ -40,9 +41,9 @@ function canonicalSearch(search: ListingSearch) {
 
 function messageFor(error: unknown) {
   if (error instanceof ApiClientError && error.fieldErrors && Object.keys(error.fieldErrors).length) {
-    return Object.values(error.fieldErrors).join(" ");
+    return Object.values(fieldMessages(error)).join(" ");
   }
-  return error instanceof Error ? error.message : "Не удалось сохранить поиск.";
+  return userMessage(error, "Не удалось сохранить поиск.");
 }
 
 function idempotencyKey() {

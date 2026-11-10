@@ -4,6 +4,7 @@ import { Bell, Check, ExternalLink, Pause, Play, Plus, Save, Trash2 } from "luci
 import { useEffect, useMemo, useState } from "react";
 import { apiRequest, ApiClientError } from "@/lib/api";
 import { savedSearchLimitMessage } from "@/lib/saved-search-limits";
+import { fieldMessages, userMessage } from "@/lib/user-message";
 
 export type SavedSearchStatus = "active" | "paused";
 export type SavedSearchChannel = "email" | "web";
@@ -107,8 +108,8 @@ function filterSummary(filters: Record<string, unknown>) {
 }
 
 function errorMessage(error: unknown, fallback: string) {
-  if (error instanceof ApiClientError && error.fieldErrors && Object.keys(error.fieldErrors).length) return Object.values(error.fieldErrors).join(" ");
-  return error instanceof Error ? error.message : fallback;
+  if (error instanceof ApiClientError && error.fieldErrors && Object.keys(error.fieldErrors).length) return Object.values(fieldMessages(error)).join(" ");
+  return userMessage(error, fallback);
 }
 
 async function createSavedSearch(data: { name: string; url: string; filters: Record<string, unknown> }) {

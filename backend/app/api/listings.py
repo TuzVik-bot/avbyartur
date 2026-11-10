@@ -83,8 +83,9 @@ from app.validation_policy_schemas import ListingValidationPolicyOut
 from app.listing_change_audit import build_listing_edit_event, snapshot_listing_fields
 from app.contact_channels import validated_contact_channels
 from app.listing_price_history import record_active_listing_price_state
-from app.security import client_ip, new_secret, secret_hash
+from app.security import client_ip, ip_scoped_limit, new_secret, secret_hash
 from app.services import (
+    attach_last_price_drops,
     MAX_PAGE,
     table_available,
     active_quota_count,
@@ -102,6 +103,7 @@ from app.services import (
     require_owned_listing,
     seller_company,
     serialize_listing,
+    recent_price_drops_subquery,
     serialize_listings,
     validate_listing_for_submit,
 )
@@ -418,6 +420,24 @@ def _convert_price(amount: Decimal, source: str | None, target: str, rate: Excha
     return None
 
 
+def _with_difference_percent(
+    comparison: dict | None,
+    amount: Decimal,
+    currency: str | None,
+    rate_info: tuple[ExchangeRate | None, bool],
+) -> dict | None:
+    """Add the signed whole-percent gap between the listing price and the market median."""
+    if comparison is None:
+        return None
+    rate, fresh = rate_info
+    median = Decimal(comparison["median_byn"])
+    price_byn = _convert_price(amount, currency, "BYN", rate, fresh=fresh)
+    percent = None
+    if price_byn is not None and median > 0:
+        percent = int(((price_byn / median - 1) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return {**comparison, "difference_percent": percent}
+
+
 def _listed(
     db: Session,
     listings: list[Listing],
@@ -428,6 +448,7 @@ def _listed(
     display_currency: str | None = None,
     include_modification: bool = False,
     publication_dates: dict[UUID, datetime] | None = None,
+    include_market_comparison: bool | None = None,
 ) -> list[dict]:
     if rate_info is None:
         rate_info = _latest_exchange_rate(db)
@@ -437,13 +458,21 @@ def _listed(
         db, listings, public=public, include_contact=include_contact,
         include_modification=include_modification,
     )
+    attach_last_price_drops(db, listings, items)
     publication_dates = publication_dates if publication_dates is not None else listing_publication_dates(db, listings)
-    market_comparisons = build_market_comparisons(db, listings, rate_info) if public else {}
+    if include_market_comparison is None:
+        include_market_comparison = public
+    comparable = [listing for listing in listings if listing.status == "active"]
+    market_comparisons = (
+        build_market_comparisons(db, comparable, rate_info) if include_market_comparison and comparable else {}
+    )
     for listing, item in zip(listings, items, strict=True):
         item["published_at"] = publication_dates.get(listing.id)
         if item["price"]:
-            item["price"]["market_comparison"] = market_comparisons.get(listing.id)
             amount = Decimal(str(listing.price_amount))
+            item["price"]["market_comparison"] = _with_difference_percent(
+                market_comparisons.get(listing.id), amount, listing.currency, rate_info,
+            )
             if fresh and rate:
                 byn = _convert_price(amount, listing.currency, "BYN", rate, fresh=True)
                 if byn is not None:
@@ -462,6 +491,13 @@ def _active_query():
     return public_listings_query()
 
 
+ListingSearchSort = Literal[
+    "newest", "published_desc", "oldest", "price_asc", "price_desc", "year_desc", "year_asc", "mileage_asc", "price_drop",
+]
+# Sorts whose page query already selects published_at for the page.
+PUBLICATION_ORDERED_SORTS = {"newest", "published_desc", "oldest", "price_drop"}
+
+
 @router.get("/listing-options", response_model=ListingOptionsOut)
 def listing_options() -> dict:
     return LISTING_OPTIONS
@@ -477,7 +513,7 @@ def search_listings(
         "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
         "cruise_control", "parking_sensors", "rear_camera", "leather_seats", "carplay", "android_auto",
     ]] | None, Query()] = None,
-    sort: Literal["newest", "published_desc", "oldest", "price_asc", "price_desc", "year_desc", "year_asc", "mileage_asc"] = "newest",
+    sort: ListingSearchSort = "newest",
 ) -> dict:
     filters = filters.model_copy(update={"equipment": equipment})
     price_operation = filters.price_min is not None or filters.price_max is not None or sort in {"price_asc", "price_desc"}
@@ -501,9 +537,14 @@ def search_listings(
         "price_desc": (display_price.desc().nullslast(), Listing.id.desc()),
         "year_desc": (Listing.year.desc().nullslast(), Listing.id.desc()),
         "mileage_asc": (Listing.mileage_km.asc().nullslast(), Listing.id.asc()),
+        "price_drop": (publication_order.desc(), Listing.id.desc()),
     }[sort]
+    if sort == "price_drop":
+        recent_drops = recent_price_drops_subquery()
+        query = query.outerjoin(recent_drops, recent_drops.c.listing_id == Listing.id)
+        order = (recent_drops.c.changed_at.desc().nullslast(), *order)
     publication_dates_for_page: dict[UUID, datetime] = {}
-    if sort in {"newest", "published_desc", "oldest"}:
+    if sort in PUBLICATION_ORDERED_SORTS:
         query = query.add_columns(Listing.published_at)
     bind = db.get_bind()
     promotion_table_available = (
@@ -532,7 +573,7 @@ def search_listings(
         query = query.outerjoin(active_boost, active_boost.c.listing_id == Listing.id)
         order = (active_boost.c.rank.desc().nullslast(), *order)
     page_query = query.order_by(*order).offset((page - 1) * page_size).limit(page_size)
-    if sort in {"newest", "published_desc", "oldest"}:
+    if sort in PUBLICATION_ORDERED_SORTS:
         selected_rows = db.execute(page_query).all()
         rows = [row[0] for row in selected_rows]
         publication_dates_for_page = {
@@ -546,7 +587,7 @@ def search_listings(
             rows,
             rate_info=rate_info,
             display_currency=filters.currency,
-            publication_dates=publication_dates_for_page if sort in {"newest", "published_desc", "oldest"} else None,
+            publication_dates=publication_dates_for_page if sort in PUBLICATION_ORDERED_SORTS else None,
         ),
         "pagination": {"page": page, "page_size": page_size, "total": total, "pages": (total + page_size - 1) // page_size},
     }
@@ -565,7 +606,7 @@ def count_public_listings(
         "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
         "cruise_control", "parking_sensors", "rear_camera", "leather_seats", "carplay", "android_auto",
     ]] | None, Query()] = None,
-    sort: Literal["newest", "published_desc", "oldest", "price_asc", "price_desc", "year_desc", "year_asc", "mileage_asc"] = "newest",
+    sort: ListingSearchSort = "newest",
 ) -> dict:
     # Pagination and ordering are accepted for call compatibility but do not affect the count.
     del page, page_size, sort
@@ -875,7 +916,10 @@ def reveal_phone(
             db,
             "guest-phone-reveal-ip",
             ip_fingerprint,
-            getattr(get_settings(), "guest_contact_ip_hourly_limit", GUEST_PHONE_REVEAL_IP_LIMIT),
+            ip_scoped_limit(
+                ip,
+                getattr(get_settings(), "guest_contact_ip_hourly_limit", GUEST_PHONE_REVEAL_IP_LIMIT),
+            ),
             timedelta(hours=1),
         )
         consume_rate_limit(
@@ -1158,7 +1202,8 @@ def my_listings(
     query = select(Listing).where(visibility).order_by(Listing.updated_at.desc(), Listing.id.desc())
     total = int(db.scalar(select(func.count(Listing.id)).where(visibility)) or 0)
     rows = db.scalars(query.offset((page - 1) * page_size).limit(page_size)).all()
-    return {"items": _listed(db, rows, public=False, include_contact=True), "pagination": {"page": page, "page_size": page_size, "total": total, "pages": (total + page_size - 1) // page_size}}
+    items = _listed(db, rows, public=False, include_contact=True, include_market_comparison=True)
+    return {"items": items, "pagination": {"page": page, "page_size": page_size, "total": total, "pages": (total + page_size - 1) // page_size}}
 
 
 @router.get("/me/favorites", response_model=ListingFavoritesOut, response_model_exclude_unset=True)

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { isPublicAssistantPage, validateAssistantFilters, type AssistantFilters, type AssistantPage, type AssistantReply } from "@/lib/assistant";
 import { formatMileage, formatMoney, listingHref, listingPhotoAlt, vehicleLabel } from "@/lib/format";
+import { hasCyrillic } from "@/lib/user-message";
 import styles from "./site-assistant.module.css";
 
 type Message = { id: number; role: "user" | "assistant"; text: string; reply?: AssistantReply };
@@ -166,7 +167,7 @@ export function SiteAssistant() {
       setAnnouncement(reply.text);
       setMessages((items) => [...items, { id: sequence.current++, role: "assistant", text: reply.text, reply }]);
       if (summary && voiceAvailable) speak(reply.text);
-    } catch (problem) { setError(problem instanceof Error && problem.name !== "AbortError" ? problem.message : "Помощник не ответил вовремя. Попробуйте снова."); }
+    } catch (problem) { setError(problem instanceof Error && problem.name !== "AbortError" && hasCyrillic(problem.message) ? problem.message : "Помощник не ответил вовремя. Попробуйте снова."); }
     finally { clearTimeout(timer); lock.current = false; setBusy(false); controller.current = null; input.current?.focus(); }
   }
   function reset() { setAnnouncement(""); controller.current?.abort(); stopVoice(); recognition.current?.stop(); setMessages([greeting]); setFilters({}); setError(""); lastRequest.current = null; setDraft(""); }

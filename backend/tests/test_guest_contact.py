@@ -478,3 +478,30 @@ def test_shared_proxy_ip_limit_is_configurable_without_removing_device_limit(int
     token = _bootstrap_guest(other_ip)
     assert other_ip.post(path, headers={"X-Guest-Contact-Token": token}).status_code == 200
     assert other_ip.post(path, headers={"X-Guest-Contact-Token": token}).status_code == 429
+
+
+def test_guest_contact_ip_limit_is_widened_when_the_client_ip_is_unresolved(integration, monkeypatch):
+    factory = integration["SessionLocal"]
+    owner = _add_user(factory)
+    first = _add_listing(factory, owner.id)
+    second = _add_listing(factory, owner.id)
+    _enable_guest_contact(monkeypatch, True)
+    monkeypatch.setattr(listings_api, "GUEST_PHONE_REVEAL_IP_LIMIT", 1)
+    monkeypatch.setattr(listings_api, "GUEST_PHONE_REVEAL_LISTING_LIMIT", 10)
+    scoped: list[tuple[str, int]] = []
+
+    def unresolved_ip_limit(ip: str, limit: int) -> int:
+        scoped.append((ip, limit))
+        return limit * 20
+
+    monkeypatch.setattr(listings_api, "ip_scoped_limit", unresolved_ip_limit)
+    client = _client(integration, "198.51.100.43")
+    token = _bootstrap_guest(client)
+
+    responses = [
+        client.post(f"/api/v1/listings/{listing.id}/phone-reveal", headers={"X-Guest-Contact-Token": token})
+        for listing in (first, second)
+    ]
+
+    assert [response.status_code for response in responses] == [200, 200]
+    assert scoped == [("198.51.100.43", 1), ("198.51.100.43", 1)]

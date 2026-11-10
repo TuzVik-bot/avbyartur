@@ -8,11 +8,15 @@ import styles from "./favorite-price-drop-toggle.module.css";
 export function FavoritePriceDropToggle({
   listingId,
   listingTitle,
-  initialEnabled
+  initialEnabled,
+  label = "Уведомлять о снижении цены",
+  loginNext = "/account/favorites"
 }: {
   listingId: string;
   listingTitle: string;
   initialEnabled: boolean;
+  label?: string;
+  loginNext?: string;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(initialEnabled);
@@ -33,7 +37,7 @@ export function FavoritePriceDropToggle({
         : "Уведомления о снижении цены выключены.");
     } catch (issue) {
       if (issue instanceof ApiClientError && issue.status === 401) {
-        router.push(`/login?next=${encodeURIComponent("/account/favorites")}`);
+        router.push(`/login?next=${encodeURIComponent(loginNext)}`);
       } else {
         setError("Не удалось сохранить настройку уведомления. Повторите попытку.");
       }
@@ -51,7 +55,7 @@ export function FavoritePriceDropToggle({
         disabled={busy}
         onChange={(event) => void changeEnabled(event.currentTarget.checked)}
       />
-      <span>Уведомлять о снижении цены</span>
+      <span>{label}</span>
     </label>
     {busy && <p className={styles.muted} role="status">Сохраняем настройку…</p>}
     {notice && <p className={styles.success} role="status">{notice}</p>}

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ApiClientError, createIdempotencyKey } from "@/lib/api";
 import { dealerTeamApi, type DealerTeamMember, type DealerTeamMemberRole } from "@/lib/dealer";
+import { userMessage } from "@/lib/user-message";
 
 const roleLabels: Record<DealerTeamMemberRole | "owner", string> = {
   owner: "Владелец",
@@ -20,7 +21,7 @@ function errorText(issue: unknown) {
     if (issue.code === "inactive_user") return "Этот аккаунт неактивен и не может быть возвращён в команду.";
     if (issue.status === 401) return "Сессия закончилась. Войдите снова.";
   }
-  return issue instanceof Error ? issue.message : "Не удалось выполнить действие.";
+  return userMessage(issue, "Не удалось выполнить действие.");
 }
 
 export function DealerTeam({ initialMembers, currentUserId }: { initialMembers: DealerTeamMember[] | null; currentUserId: string }) {

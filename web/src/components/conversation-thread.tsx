@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import { api, ApiClientError, createIdempotencyKey } from "@/lib/api";
 import { listingHref } from "@/lib/format";
 import { MAX_CONVERSATION_MESSAGE_LENGTH, type ConversationThread } from "@/lib/types";
+import { fieldMessages, userMessage } from "@/lib/user-message";
 
 function messageTime(value: string) {
   const date = new Date(value);
@@ -16,8 +17,8 @@ function messageTime(value: string) {
 }
 
 function errorMessage(issue: unknown, fallback: string) {
-  if (issue instanceof ApiClientError && Object.keys(issue.fieldErrors).length) return Object.values(issue.fieldErrors).join(" ");
-  return issue instanceof Error ? issue.message : fallback;
+  if (issue instanceof ApiClientError && Object.keys(issue.fieldErrors).length) return Object.values(fieldMessages(issue)).join(" ");
+  return userMessage(issue, fallback);
 }
 
 export function ConversationThreadView({ conversationId }: { conversationId: string }) {

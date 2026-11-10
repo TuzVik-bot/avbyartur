@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminApi, type AdminRole, type AdminUser, type AdminUserUpdate } from "@/lib/admin";
+import { userMessage } from "@/lib/user-message";
 
 export function AdminUserActions({ user, currentUserId, onUpdated }: {
   user: AdminUser;
@@ -52,7 +53,7 @@ export function AdminUserActions({ user, currentUserId, onUpdated }: {
       onUpdated?.();
       router.refresh();
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Не удалось изменить права пользователя.");
+      setError(userMessage(issue, "Не удалось изменить права пользователя."));
     } finally {
       setBusy(false);
     }

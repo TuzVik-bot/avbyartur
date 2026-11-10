@@ -12,6 +12,7 @@ import { catalogRequestsApi, type CatalogRequest } from "@/lib/catalog-requests"
 import { buildListingQuality, type ListingQualityTarget } from "@/lib/listing-quality";
 import type { CatalogItem, CatalogModification, Company, Listing, ListingDraftInput, ListingPhoto } from "@/lib/types";
 import { getListingSubcategories, isListingSubcategory, listingSubcategoryDetailsField, type ListingCategoryCode } from "@/lib/listing-subcategories";
+import { fieldMessages, userMessage } from "@/lib/user-message";
 
 const FUEL_OPTIONS = ["petrol", "diesel", "hybrid", "electric", "lpg", "other"] as const satisfies readonly NonNullable<ListingDraftInput["fuel"]>[];
 const TRANSMISSION_OPTIONS = ["manual", "automatic", "robot", "cvt", "other"] as const satisfies readonly NonNullable<ListingDraftInput["transmission"]>[];
@@ -286,7 +287,7 @@ export function payloadFor(fields: FormFields, categoryCode: ListingCategoryCode
 
 function errorMessage(error: unknown) {
   if (error instanceof ApiClientError && error.status === 409) return "Черновик изменился. Обновите страницу и повторите попытку.";
-  return error instanceof Error ? error.message : "Не удалось сохранить данные";
+  return userMessage(error, "Не удалось сохранить данные");
 }
 
 function catalogRequestStatusLabel(status: CatalogRequest["status"]) {
@@ -439,8 +440,8 @@ const fieldSteps: Partial<Record<FieldErrorKey, number>> = {
 function safeFieldErrors(error: unknown): FieldErrors {
   if (!(error instanceof ApiClientError)) return {};
   const knownFields = new Set(Object.keys(fieldErrorLabels));
-  return Object.entries(error.fieldErrors).reduce<FieldErrors>((result, [field, value]) => {
-    if (!knownFields.has(field) || typeof value !== "string") return result;
+  return Object.entries(fieldMessages(error)).reduce<FieldErrors>((result, [field, value]) => {
+    if (!knownFields.has(field)) return result;
     const message = value.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 240);
     if (message) result[field as FieldErrorKey] = message;
     return result;

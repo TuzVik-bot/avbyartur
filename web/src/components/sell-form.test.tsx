@@ -623,8 +623,33 @@ describe("manual vehicle entry", () => {
     expect(updateDraft).toHaveBeenCalledOnce();
     expect(yearInput?.getAttribute("aria-invalid")).toBe("true");
     expect(yearInput?.getAttribute("aria-describedby")).toBe("year-error");
-    expect(container.querySelector("#year-error")?.textContent).toBe("Year is outside the allowed range");
+    expect(container.querySelector("#year-error")?.textContent).toBe("Проверьте значение поля");
+    expect(container.textContent).not.toContain("Year is outside the allowed range");
     expect(container.textContent).not.toContain("do not expose this");
+  });
+
+  it("renders Russian field errors from pydantic error types", async () => {
+    const listing = draft();
+    vi.spyOn(api, "updateDraft").mockRejectedValue(new ApiClientError(422, {
+      code: "validation_error",
+      message: "Проверьте правильность заполнения полей",
+      field_errors: { year: "Input should be greater than or equal to 1900" },
+      field_error_types: { year: "greater_than_equal" },
+      field_error_context: { year: { ge: 1900 } }
+    }));
+
+    await act(async () => {
+      root.render(createElement(SellForm, {
+        initialListing: listing,
+        makes: [listing.make!], models: [listing.model!], generations: [], bodyTypes: [], regions: [listing.region!], cities: [listing.city!], company: null
+      }));
+    });
+    await clickContinue();
+    await act(async () => { inputValue("Год выпуска", "2021"); });
+    await clickContinue();
+
+    expect(container.querySelector("#year-error")?.textContent).toBe("Значение должно быть не меньше 1900");
+    expect(container.textContent).not.toContain("Input should be");
   });
 
   it("ignores a model response for the previously selected make", async () => {

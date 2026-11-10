@@ -2,7 +2,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { FavoritePriceDropToggle } from "@/components/favorite-price-drop-toggle";
-import { api } from "@/lib/api";
+import { api, ApiClientError } from "@/lib/api";
 
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
@@ -69,5 +69,21 @@ describe("FavoritePriceDropToggle", () => {
 
     expect(checkbox.checked).toBe(false);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("Не удалось сохранить настройку уведомления");
+  });
+
+  it("accepts a custom label and returns a signed-out user to the given page", async () => {
+    setAlert.mockRejectedValueOnce(new ApiClientError(401, { message: "Unauthorized" }));
+    await act(async () => root.render(createElement(FavoritePriceDropToggle, {
+      listingId: "listing-1",
+      listingTitle: "Марка Модель",
+      initialEnabled: false,
+      label: "Сообщить о снижении цены",
+      loginNext: "/cars/marka/model/listing-1"
+    })));
+    expect(container.textContent).toContain("Сообщить о снижении цены");
+
+    await act(async () => { container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click(); });
+
+    expect(routerMocks.push).toHaveBeenCalledWith(`/login?next=${encodeURIComponent("/cars/marka/model/listing-1")}`);
   });
 });

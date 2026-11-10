@@ -40,13 +40,13 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const page = Array.isArray(paramsQuery.page) ? 1 : parsePage(paramsQuery.page) ?? 1;
   try {
     const result = await getDealer(slug, page);
-    const path = pageUrl(slug, page);
     const description = `${result.company.name}: автомобили в наличии, адрес и режим работы компании на Авторынке.`;
     return {
       title: result.company.name,
       description,
-      alternates: { canonical: new URL(path, `${SITE_ORIGIN}/`).toString() },
-      openGraph: buildOpenGraph({ title: result.company.name, description, path }),
+      // Paginated pages stay self-canonical; Open Graph always points at the company page itself.
+      alternates: { canonical: new URL(pageUrl(slug, page), `${SITE_ORIGIN}/`).toString() },
+      openGraph: buildOpenGraph({ title: result.company.name, description, path: pageUrl(slug, 1) }),
     };
   } catch {
     return { title: "Компания" };

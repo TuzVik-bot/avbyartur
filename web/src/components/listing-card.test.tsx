@@ -279,3 +279,70 @@ describe("photo labels", () => {
     expect(container.querySelector(".listing-photo-badges")).toBeNull();
   });
 });
+
+describe("price-drop alert offer after saving a favorite", () => {
+  it("offers the inline price-drop alert right after a signed-in user saves the listing", async () => {
+    mocks.user = { id: "user-1" };
+    vi.spyOn(api, "addFavorite").mockResolvedValue({ ok: true });
+    const setAlert = vi.spyOn(api, "setFavoritePriceDropAlert").mockResolvedValue({ enabled: true });
+    act(() => root.render(createElement(ListingCard, { listing: listing() })));
+    expect(container.querySelector('[data-testid="favorite-price-drop-toggle"]')).toBeNull();
+
+    await act(async () => { container.querySelector<HTMLButtonElement>(".favorite-button")!.click(); });
+
+    const offer = container.querySelector('[data-testid="favorite-price-drop-toggle"]');
+    expect(offer?.textContent).toContain("Сообщить о снижении цены");
+    const checkbox = offer!.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(checkbox.checked).toBe(false);
+    await act(async () => { checkbox.click(); });
+    expect(setAlert).toHaveBeenCalledWith("listing-1", true);
+  });
+
+  it("shows nothing new to guests and does not offer the alert for an already saved listing", async () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing() })));
+    await act(async () => { container.querySelector<HTMLButtonElement>(".favorite-button")!.click(); });
+    expect(mocks.push).toHaveBeenCalledWith("/login?next=%2Fcars%2Fmarka%2Fmodel%2Flisting-1");
+    expect(container.querySelector('[data-testid="favorite-price-drop-toggle"]')).toBeNull();
+
+    act(() => root.unmount());
+    act(() => { root = createRoot(container); });
+    mocks.user = { id: "user-1" };
+    act(() => root.render(createElement(ListingCard, { listing: listing(), saved: true })));
+    expect(container.querySelector('[data-testid="favorite-price-drop-toggle"]')).toBeNull();
+  });
+
+  it("hides the offer again when the listing is removed from favorites", async () => {
+    mocks.user = { id: "user-1" };
+    vi.spyOn(api, "addFavorite").mockResolvedValue({ ok: true });
+    vi.spyOn(api, "removeFavorite").mockResolvedValue({ ok: true });
+    act(() => root.render(createElement(ListingCard, { listing: listing() })));
+    const button = container.querySelector<HTMLButtonElement>(".favorite-button")!;
+
+    await act(async () => { button.click(); });
+    await act(async () => { button.click(); });
+
+    expect(container.querySelector('[data-testid="favorite-price-drop-toggle"]')).toBeNull();
+  });
+});
+
+describe("recent price drop badge", () => {
+  const text = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ");
+
+  it("shows the size of the latest recent price drop in the listing currency", () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing({
+      last_price_drop: { amount: "9000.00", previous_amount: "10500.00", currency: "BYN", changed_at: "2026-11-08T10:00:00Z" }
+    } as Partial<ListingSummary>) })));
+
+    expect(text(container.querySelector("[data-price-drop]")?.textContent)).toBe("Цена снижена на 1 500 BYN");
+  });
+
+  it("omits the badge when there is no recent drop or the data is not a decrease", () => {
+    act(() => root.render(createElement(ListingCard, { listing: listing({
+      last_price_drop: { amount: "9000.00", previous_amount: "9000.00", currency: "USD", changed_at: "2026-11-08T10:00:00Z" }
+    } as Partial<ListingSummary>) })));
+    expect(container.querySelector("[data-price-drop]")).toBeNull();
+
+    act(() => root.render(createElement(ListingCard, { listing: listing({ last_price_drop: null } as Partial<ListingSummary>) })));
+    expect(container.querySelector("[data-price-drop]")).toBeNull();
+  });
+});

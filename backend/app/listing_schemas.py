@@ -47,6 +47,17 @@ class ListingMarketComparisonOut(BaseModel):
     seller_count: int
     as_of: datetime
     rate_date: str | None
+    # Signed difference of the listing price from the median, in whole percent.
+    difference_percent: int | None = None
+
+
+class ListingLastPriceDropOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    amount: str
+    previous_amount: str
+    currency: Literal["BYN", "USD"]
+    changed_at: datetime
 
 
 def canonical_catalog_ids(value: str) -> str:
@@ -257,6 +268,7 @@ class ListingPublicOut(BaseModel):
     can_chat: bool = True
     view_count: int | None = None
     promotion_badges: list[Literal["bump", "highlight", "top"]] = Field(default_factory=list)
+    last_price_drop: ListingLastPriceDropOut | None = None
     photo_urls: list[str]
     photos: list[ListingPhotoOut]
     modification: ListingModificationOut | None = None

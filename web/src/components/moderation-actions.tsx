@@ -8,6 +8,7 @@ import { Ban, Check, CheckCircle2, CircleX, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { api } from "@/lib/api";
 import type { Company, DealerReviewReport, Listing, ModerationDealerReview, Report } from "@/lib/types";
+import { userMessage } from "@/lib/user-message";
 
 export function ListingModerationActions({ listing, isAdmin = false }: { listing: Listing; isAdmin?: boolean }) {
   const router = useRouter();
@@ -21,7 +22,7 @@ export function ListingModerationActions({ listing, isAdmin = false }: { listing
     if (action !== "approve" && !reason.trim()) { setError("Укажите причину решения."); return; }
     setBusy(true); setError("");
     try { await api.moderateListing(listing.id, action, listing.revision, reason.trim() || undefined); router.refresh(); }
-    catch (issue) { setError(issue instanceof Error ? issue.message : "Не удалось сохранить решение"); }
+    catch (issue) { setError(userMessage(issue, "Не удалось сохранить решение")); }
     finally { setBusy(false); }
   }
 
@@ -45,7 +46,7 @@ export function CompanyModerationActions({ company }: { company: Company }) {
     if (action !== "approve" && !reason.trim()) { setError("Укажите причину решения."); return; }
     setBusy(true); setError("");
     try { await api.moderateCompany(company.id, action, company.revision, reason.trim() || undefined); router.refresh(); }
-    catch (issue) { setError(issue instanceof Error ? issue.message : "Не удалось сохранить решение"); }
+    catch (issue) { setError(userMessage(issue, "Не удалось сохранить решение")); }
     finally { setBusy(false); }
   }
   return <div className="moderation-actions">
@@ -66,7 +67,7 @@ export function ReportResolution({ report }: { report: Report }) {
     if (!resolution.trim()) { setError("Укажите решение."); return; }
     setBusy(true); setError("");
     try { await api.resolveReport(report.id, resolution.trim()); router.refresh(); }
-    catch (issue) { setError(issue instanceof Error ? issue.message : "Не удалось закрыть жалобу"); }
+    catch (issue) { setError(userMessage(issue, "Не удалось закрыть жалобу")); }
     finally { setBusy(false); }
   }
   return <form className="report-resolution" onSubmit={submit}>
@@ -92,7 +93,7 @@ export function DealerReviewReportResolution({ report }: { report: DealerReviewR
       setResolved(true);
       router.refresh();
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Не удалось закрыть жалобу");
+      setError(userMessage(issue, "Не удалось закрыть жалобу"));
     } finally {
       setBusy(false);
     }
@@ -119,7 +120,7 @@ export function DealerReviewModerationActions({ review }: { review: ModerationDe
       await api.moderateDealerReview(review.id, review.revision, status, reason.trim());
       router.refresh();
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Не удалось сохранить решение");
+      setError(userMessage(issue, "Не удалось сохранить решение"));
     } finally {
       setBusy(false);
     }

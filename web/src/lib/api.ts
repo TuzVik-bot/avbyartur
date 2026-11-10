@@ -41,19 +41,45 @@ function idempotencyHeaders(key?: string) {
   return { "Idempotency-Key": key || createIdempotencyKey() };
 }
 
+type ApiErrorPayload = Partial<ApiErrorShape> & {
+  field_error_types?: Record<string, string> | null;
+  field_error_context?: Record<string, Record<string, string | number | boolean>> | null;
+};
+
 export class ApiClientError extends Error {
   status: number;
   code: string;
   fieldErrors: Record<string, string>;
+  fieldErrorTypes: Record<string, string>;
+  fieldErrorContext: Record<string, Record<string, string | number | boolean>>;
   requestId?: string;
 
-  constructor(status: number, error: Partial<ApiErrorShape>) {
+  constructor(status: number, error: ApiErrorPayload) {
     super(error.message || "Запрос не выполнен");
     this.name = "ApiClientError";
     this.status = status;
     this.code = error.code || "request_failed";
     this.fieldErrors = error.field_errors || {};
+    this.fieldErrorTypes = error.field_error_types || {};
+    this.fieldErrorContext = error.field_error_context || {};
     this.requestId = error.request_id;
+  }
+}
+
+const NETWORK_ERROR_MESSAGE = "Нет соединения с сервером. Проверьте интернет и повторите попытку.";
+
+function isAbortError(error: unknown) {
+  // DOMException is not an Error subclass in every runtime, so compare the name only.
+  return typeof error === "object" && error !== null && (error as { name?: unknown }).name === "AbortError";
+}
+
+// fetch rejects with browser-specific English TypeErrors ("Failed to fetch", "Load failed").
+async function networkFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    throw new ApiClientError(0, { code: "network", message: NETWORK_ERROR_MESSAGE });
   }
 }
 
@@ -116,7 +142,7 @@ async function ensureCsrfToken(path: string) {
   if (!preAuthOtp && currentCsrfToken) return currentCsrfToken;
   if (typeof window === "undefined") return undefined;
 
-  const response = await fetch(`${API_PREFIX}/${preAuthOtp ? "auth/otp/csrf" : "me"}`, { credentials: "include", cache: "no-store" });
+  const response = await networkFetch(`${API_PREFIX}/${preAuthOtp ? "auth/otp/csrf" : "me"}`, { credentials: "include", cache: "no-store" });
   if (!response.ok) return undefined;
   const session = (await response.json()) as Pick<AuthSession, "csrf_token">;
   if (preAuthOtp) {
@@ -145,7 +171,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   }
 
   const base = typeof window === "undefined" ? internalApiBase() : API_PREFIX;
-  const response = await fetch(`${base}/${path.replace(/^\//, "")}`, {
+  const response = await networkFetch(`${base}/${path.replace(/^\//, "")}`, {
     ...init,
     method,
     headers,
@@ -165,7 +191,7 @@ export type ListingMessengerChannel = {
 
 async function loadGuestContactCapabilities(): Promise<GuestContactCapabilities> {
   const base = typeof window === "undefined" ? internalApiBase() : API_PREFIX;
-  const response = await fetch(`${base}/listings/public-capabilities`, {
+  const response = await networkFetch(`${base}/listings/public-capabilities`, {
     credentials: "include",
     cache: "no-store"
   });

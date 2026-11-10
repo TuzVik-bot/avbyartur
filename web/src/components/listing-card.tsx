@@ -7,10 +7,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { CompareButton } from "@/components/compare-button";
+import { FavoritePriceDropToggle } from "@/components/favorite-price-drop-toggle";
 import { ListingPhotoBadges } from "@/components/listing-photo-badges";
 import { api, ApiClientError } from "@/lib/api";
 import { formatMileage, formatMoney, listingHref, listingPhotoAlt, vehicleLabel } from "@/lib/format";
 import type { ListingSummary, Money } from "@/lib/types";
+import { userMessage } from "@/lib/user-message";
 import styles from "./listing-card.module.css";
 
 const fallbackPhoto = "/vehicles/silver-wagon.png";
@@ -22,6 +24,14 @@ type MarketComparison = {
   seller_count: number;
   as_of: string;
   rate_date: string | null;
+  difference_percent?: number | null;
+};
+
+type LastPriceDrop = {
+  amount: string;
+  previous_amount: string;
+  currency: Money["currency"];
+  changed_at: string;
 };
 
 type CardListing = Omit<ListingSummary, "promotion_badges"> & {
@@ -30,7 +40,15 @@ type CardListing = Omit<ListingSummary, "promotion_badges"> & {
   engine_volume_l?: string | number | null;
   power_hp?: number | null;
   price: (Money & { market_comparison?: MarketComparison | null }) | null;
+  last_price_drop?: LastPriceDrop | null;
 };
+
+function priceDropText(drop: LastPriceDrop | null | undefined) {
+  if (!drop) return null;
+  const difference = Number(drop.previous_amount) - Number(drop.amount);
+  if (!Number.isFinite(difference) || difference <= 0) return null;
+  return `Цена снижена на ${formatMoney({ amount: String(difference), currency: drop.currency })}`;
+}
 
 function minskDateParts(value: Date) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -83,6 +101,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
   const title = listing.title || [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ") || "Автомобиль без названия";
   const comparison = listing.price?.market_comparison;
   const age = publishedAge(listing.published_at);
+  const priceDrop = priceDropText(listing.last_price_drop);
   const engineVolumeValue = listing.engine_volume_l;
   const engineVolume = typeof engineVolumeValue === "string"
     ? engineVolumeValue.trim() ? Number(engineVolumeValue) : null
@@ -96,7 +115,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
         {!hasActualPhoto && <span className="synthetic-label">Синтетическое фото</span>}
         {hasActualPhoto && <ListingPhotoBadges badges={listing.photo_badges} />}
         {listing.promotion_badges?.includes("urgent") && <span className={styles.urgentBadge} data-urgent-badge>Срочно</span>}
-        <FavoriteButton listingId={listing.id} href={href} initialSaved={saved} />
+        <FavoriteButton listingId={listing.id} listingTitle={title} href={href} initialSaved={saved} />
         <CompareButton listingId={listing.id} />
       </div>
       <div className="card-body">
@@ -105,6 +124,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
         <div className="card-price-line">
           <p className="card-price">{formatMoney(listing.price)}</p>
           {comparison && <span className={`market-badge ${comparison.label}`} data-market-comparison title={marketTooltip(comparison)} tabIndex={0} aria-label={`${comparison.label === "below_market" ? "Цена ниже рынка" : "Цена выше рынка"}. ${marketTooltip(comparison)}`}>{comparison.label === "below_market" ? "Цена ниже рынка" : "Цена выше рынка"}</span>}
+          {priceDrop && <span className={styles.priceDropBadge} data-price-drop>{priceDrop}</span>}
         </div>
         <div className="card-specs">
           <span>{listing.year ? `${listing.year} г.` : "Год не указан"}</span>
@@ -128,12 +148,20 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
   );
 }
 
-export function FavoriteButton({ listingId, href, initialSaved }: { listingId: string; href: string; initialSaved: boolean }) {
+export function FavoriteButton({ listingId, listingTitle, href, initialSaved, placement = "overlay" }: {
+  listingId: string;
+  listingTitle?: string;
+  href: string;
+  initialSaved: boolean;
+  placement?: "overlay" | "inline";
+}) {
   const { user } = useAuth();
   const router = useRouter();
   const [saved, setSaved] = useState(initialSaved);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  // The price-drop alert is offered only right after this user saved the listing here.
+  const [offerPriceAlert, setOfferPriceAlert] = useState(false);
 
   async function toggle() {
     setMessage("");
@@ -146,12 +174,13 @@ export function FavoriteButton({ listingId, href, initialSaved }: { listingId: s
       if (saved) await api.removeFavorite(listingId);
       else await api.addFavorite(listingId);
       setSaved(!saved);
+      setOfferPriceAlert(!saved);
       if (saved) router.refresh();
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 401) {
         router.push(`/login?next=${encodeURIComponent(href)}`);
       } else {
-        setMessage(error instanceof Error ? error.message : "Не удалось изменить избранное");
+        setMessage(userMessage(error, "Не удалось изменить избранное"));
       }
     } finally {
       setBusy(false);
@@ -164,6 +193,15 @@ export function FavoriteButton({ listingId, href, initialSaved }: { listingId: s
         <Heart size={20} fill={saved ? "currentColor" : "none"} />
       </button>
       {message && <span className="favorite-error" role="alert">{message}</span>}
+      {offerPriceAlert && user && <div className={placement === "inline" ? styles.priceAlertInline : styles.priceAlertOverlay}>
+        <FavoritePriceDropToggle
+          listingId={listingId}
+          listingTitle={listingTitle || "объявление"}
+          initialEnabled={false}
+          label="Сообщить о снижении цены"
+          loginNext={href}
+        />
+      </div>}
     </>
   );
 }

@@ -33,3 +33,26 @@
   .card:global(.listing-row) :global(.card-title) { font-size: 18px; }
   .card:global(.listing-row) :global(.card-price) { font-size: 20px; }
 }
+.priceDropBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  margin-bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 14px;
+  background: var(--soft-green);
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 750;
+}
+.priceAlertOverlay {
+  position: absolute;
+  z-index: 3;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+}
+.priceAlertInline {
+  margin-block: 8px;
+}

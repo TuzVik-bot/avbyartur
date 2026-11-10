@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { api, type AccountDeletionResult, type AuthCapabilities, type ConsentHistoryItem, type UserProfile } from "@/lib/api";
+import { userMessage } from "@/lib/user-message";
 
 export function AccountIdentityControls({ initialProfile, initialConsents }: {
   initialProfile: UserProfile | null;
@@ -40,7 +41,7 @@ export function AccountIdentityControls({ initialProfile, initialConsents }: {
       setProfile(profileResult.profile);
       setDisplayName(profileResult.profile.display_name);
       setConsents(consentResult.items);
-    } catch (issue) { setError(issue instanceof Error ? issue.message : "Не удалось загрузить профиль."); }
+    } catch (issue) { setError(userMessage(issue, "Не удалось загрузить профиль.")); }
   }
 
   async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
@@ -55,7 +56,7 @@ export function AccountIdentityControls({ initialProfile, initialConsents }: {
       setDisplayName(result.profile.display_name);
       setNotice("Профиль сохранён.");
       router.refresh();
-    } catch (issue) { setError(issue instanceof Error ? issue.message : "Не удалось сохранить профиль."); }
+    } catch (issue) { setError(userMessage(issue, "Не удалось сохранить профиль.")); }
     finally { setBusy(false); }
   }
 
@@ -65,7 +66,7 @@ export function AccountIdentityControls({ initialProfile, initialConsents }: {
     try {
       await api.requestEmailVerification(user.email);
       setNotice("Если для этого адреса доступно подтверждение, письмо отправлено. Перейдите по ссылке из письма.");
-    } catch (issue) { setError(issue instanceof Error ? issue.message : "Не удалось запросить письмо."); }
+    } catch (issue) { setError(userMessage(issue, "Не удалось запросить письмо.")); }
     finally { setBusy(false); }
   }
 
@@ -78,7 +79,7 @@ export function AccountIdentityControls({ initialProfile, initialConsents }: {
       const result = await api.requestAccountDeletion();
       setDeleted(result);
       setSession(null);
-    } catch (issue) { setError(issue instanceof Error ? issue.message : "Не удалось выполнить запрос."); }
+    } catch (issue) { setError(userMessage(issue, "Не удалось выполнить запрос.")); }
     finally { setBusy(false); }
   }
 
@@ -92,7 +93,7 @@ export function AccountIdentityControls({ initialProfile, initialConsents }: {
       const challenge = await api.requestPhoneChange(phone);
       setPhoneChangeChallenge(challenge);
     } catch (issue) {
-      setPhoneError(issue instanceof Error ? issue.message : "Не удалось отправить коды подтверждения.");
+      setPhoneError(userMessage(issue, "Не удалось отправить коды подтверждения."));
     } finally { setPhoneBusy(false); }
   }
 
@@ -116,7 +117,7 @@ export function AccountIdentityControls({ initialProfile, initialConsents }: {
       router.replace("/login?notice=phone-changed");
       router.refresh();
     } catch (issue) {
-      setPhoneError(issue instanceof Error ? issue.message : "Коды не подошли или устарели. Запросите новые.");
+      setPhoneError(userMessage(issue, "Коды не подошли или устарели. Запросите новые."));
     } finally { setPhoneBusy(false); }
   }
 

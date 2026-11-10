@@ -15,6 +15,7 @@ from app.listing_change_audit import list_listing_change_history
 from app.listing_price_history import record_active_listing_price_state
 from app.schemas import CompanyModerationInput, ModerationInput, ReportResolveInput
 from app.services import (
+    MAX_PAGE,
     check_revision,
     enqueue_saved_search_match,
     fail,
@@ -102,7 +103,7 @@ def _lock_listing_owner_first(db: Session, listing_id: UUID, actor: User | None 
 def listing_queue(
     moderator: Annotated[User, Depends(require_moderator)], db: Annotated[Session, Depends(get_db)],
     status: Literal["pending_review", "active"] = "pending_review",
-    page: Annotated[int, Query(ge=1)] = 1, page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1, page_size: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> dict:
     query = select(Listing).where(Listing.status == status).order_by(Listing.created_at, Listing.id)
     total = int(db.scalar(select(func.count(Listing.id)).where(Listing.status == status)) or 0)

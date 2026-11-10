@@ -24,6 +24,7 @@ import { formatDate, formatMileage, formatMoney, listingHref, listingPhotoAlt, v
 import { trackContactClick, type ContactChannel } from "@/lib/analytics";
 import { listingCatalogBreadcrumbs } from "@/lib/listing-breadcrumbs";
 import type { Listing, ReportCategory } from "@/lib/types";
+import { userMessage } from "@/lib/user-message";
 import type { components } from "@/lib/types.generated";
 
 const fallbackPhoto = "/vehicles/silver-wagon.png";
@@ -243,7 +244,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 401) router.push(`/login?next=${encodeURIComponent(href)}`);
       else if (error instanceof ApiClientError && error.status === 429) setPhoneError("Слишком много запросов на показ телефона. Попробуйте позже или напишите продавцу.");
-      else setPhoneError(error instanceof Error ? error.message : "Не удалось показать контакт");
+      else setPhoneError(userMessage(error, "Не удалось показать контакт"));
     } finally {
       setPhoneBusy(false);
     }
@@ -310,7 +311,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             {listing.can_chat !== false && user?.id !== listing.seller.id && <Link className={`button ${listing.has_phone === false && !listing.has_external_contacts ? "button-primary" : "button-secondary"} contact-chat`} href={conversationStartHref} onClick={() => recordContactClick("internal_chat")}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
             {listing.can_chat !== false && listing.exchange && user?.id !== listing.seller.id && <Link className="button button-secondary exchange-offer" href={exchangeStartHref}>Предложить обмен</Link>}
           </> : <ListingContactActions active={false} guestContactRevealEnabled={false} phone="" busy={false} error="" onReveal={() => undefined} />}
-          <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
+          <FavoriteButton listingId={listing.id} listingTitle={listing.title} href={href} initialSaved={initialSaved} placement="inline" />
           {canManageActiveListing && <Link className="button button-secondary contact-chat" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}
           <div className="detail-actions">
             <ComparisonAction listingId={listing.id} />
@@ -363,7 +364,7 @@ function ReportForm({ listingId, href }: { listingId: string; href: string }) {
       formElement.reset();
     } catch (issue) {
       if (issue instanceof ApiClientError && issue.status === 401) router.push(`/login?next=${encodeURIComponent(href)}`);
-      else setError(issue instanceof Error ? issue.message : "Не удалось отправить жалобу");
+      else setError(userMessage(issue, "Не удалось отправить жалобу"));
     } finally {
       setBusy(false);
     }

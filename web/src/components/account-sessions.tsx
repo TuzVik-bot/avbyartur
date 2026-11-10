@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiRequest } from "@/lib/api";
+import { userMessage } from "@/lib/user-message";
 
 export type AccountSession = {
   id: string;
@@ -32,7 +33,7 @@ function formatDate(value: string) {
 }
 
 function issueMessage(issue: unknown, fallback: string) {
-  return issue instanceof Error && issue.message ? issue.message : fallback;
+  return userMessage(issue, fallback);
 }
 
 export function AccountSessions({ initialSessions }: SessionManagementProps) {

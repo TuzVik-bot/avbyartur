@@ -397,3 +397,74 @@ def test_dealer_analytics_counts_company_views_contacts_and_chats(integration):
     assert isolated.status_code == 200, isolated.text
     assert isolated.json()["totals"]["listings"] == 0
     assert all(item["listing_id"] != str(listing_id) for item in isolated.json()["items"])
+
+
+def _add_public_company_listing(factory, *, label: str) -> uuid.UUID:
+    owner_id, _ = _add_user(factory, label=f"{label}-owner")
+    company_id = _add_company(factory, owner_id)
+    with factory() as db:
+        listing = Listing(
+            owner_id=owner_id,
+            company_id=company_id,
+            slug=f"{label}-{uuid.uuid4().hex}",
+            title="Click car",
+            description="A test listing",
+            contact_phone="+375291234567",
+            status="active",
+        )
+        db.add(listing)
+        db.commit()
+        return listing.id
+
+
+def _click_count(factory, listing_id: uuid.UUID) -> int:
+    from sqlalchemy import func, select
+
+    from app.models import DealerClickEvent
+
+    with factory() as db:
+        return db.scalar(select(func.count()).select_from(DealerClickEvent).where(DealerClickEvent.listing_id == listing_id))
+
+
+def test_dealer_click_is_recorded_once_per_listing_and_client_ip_window(integration):
+    factory = integration["SessionLocal"]
+    listing_id = _add_public_company_listing(factory, label="click-dedup")
+    other_listing_id = _add_public_company_listing(factory, label="click-dedup-other")
+    app = integration["client"].app
+    first = TestClient(app, base_url="http://testserver", client=("198.51.100.71", 50000))
+    second = TestClient(app, base_url="http://testserver", client=("198.51.100.72", 50000))
+
+    statuses = [first.post("/api/v1/dealer/clicks", json={"listing_id": str(listing_id)}).status_code for _ in range(3)]
+    other = first.post("/api/v1/dealer/clicks", json={"listing_id": str(other_listing_id)})
+    second_ip = second.post("/api/v1/dealer/clicks", json={"listing_id": str(listing_id)})
+
+    assert statuses == [202, 202, 202]
+    assert other.status_code == 202
+    assert second_ip.status_code == 202
+    assert _click_count(factory, listing_id) == 2
+    assert _click_count(factory, other_listing_id) == 1
+
+
+def test_dealer_click_ip_limit_widens_when_client_ip_is_unresolved(integration, monkeypatch):
+    from types import SimpleNamespace
+
+    from app import security
+    from app.api import dealer as dealer_api
+
+    proxy_ip = "192.168.213.253"
+    monkeypatch.setattr(security, "get_settings", lambda: SimpleNamespace(trusted_proxy_cidrs=f"{proxy_ip}/32"))
+    limits = []
+    real_consume = dealer_api.consume_rate_limit
+
+    def recording_consume(db, namespace, subject, limit, period):
+        limits.append((namespace, limit))
+        return real_consume(db, namespace, subject, limit, period)
+
+    monkeypatch.setattr(dealer_api, "consume_rate_limit", recording_consume)
+    listing_id = _add_public_company_listing(factory=integration["SessionLocal"], label="click-proxy")
+    behind_proxy = TestClient(integration["client"].app, base_url="http://testserver", client=(proxy_ip, 50000))
+
+    response = behind_proxy.post("/api/v1/dealer/clicks", json={"listing_id": str(listing_id)})
+
+    assert response.status_code == 202, response.text
+    assert ("dealer-click-ip", 120 * security.UNKNOWN_CLIENT_IP_LIMIT_FACTOR) in limits

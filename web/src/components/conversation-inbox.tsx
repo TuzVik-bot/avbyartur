@@ -7,6 +7,7 @@ import { AlertTriangle, MessageCircle, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { api, ApiClientError } from "@/lib/api";
 import type { ConversationSummary } from "@/lib/types";
+import { fieldMessages, userMessage } from "@/lib/user-message";
 
 function conversationTime(value: string | null) {
   if (!value) return "";
@@ -16,8 +17,8 @@ function conversationTime(value: string | null) {
 }
 
 function errorMessage(issue: unknown) {
-  if (issue instanceof ApiClientError && Object.keys(issue.fieldErrors).length) return Object.values(issue.fieldErrors).join(" ");
-  return issue instanceof Error ? issue.message : "Не удалось загрузить переписки.";
+  if (issue instanceof ApiClientError && Object.keys(issue.fieldErrors).length) return Object.values(fieldMessages(issue)).join(" ");
+  return userMessage(issue, "Не удалось загрузить переписки.");
 }
 
 function loginAfterUnauthorized(issue: unknown, nextPath: string, router: ReturnType<typeof useRouter>) {

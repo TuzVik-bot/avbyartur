@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { api, type AuthCapabilities, type RegistrationConsentVersions } from "@/lib/api";
 import { safeNextPath } from "@/lib/routing";
+import { userMessage } from "@/lib/user-message";
 
 type PhoneMode = "login" | "register";
 
@@ -46,7 +47,7 @@ export function PhoneAuth({ nextPath, capabilities, loadingCapabilities, consent
       setAwaitingCode(true);
       setNotice("Если номер подходит для этого способа входа, код отправлен. Проверьте SMS.");
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Не удалось запросить код. Попробуйте позже.");
+      setError(userMessage(issue, "Не удалось запросить код. Попробуйте позже."));
     } finally { setBusy(false); }
   }
 
@@ -64,7 +65,7 @@ export function PhoneAuth({ nextPath, capabilities, loadingCapabilities, consent
       router.replace(safeNextPath(nextPath));
       router.refresh();
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Код не подошёл или истёк. Запросите новый код.");
+      setError(userMessage(issue, "Код не подошёл или истёк. Запросите новый код."));
     } finally { setBusy(false); }
   }
 

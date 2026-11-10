@@ -18,6 +18,7 @@ from app.models import (
     ExchangeRate,
     Listing,
     ListingPhoto,
+    ListingPriceEvent,
     ListingStatusEvent,
     LocationCity,
     LocationRegion,
@@ -219,9 +220,68 @@ def test_listing_search_uses_a_bounded_number_of_relation_queries(integration):
     assert response.status_code == 200, response.text
     assert len(response.json()["items"]) == 25
     # One batched query each, never one per listing: rate, count, page, category
-    # characteristics, import provenance, promotions, sellers, photos, views.
-    assert len(statements) <= 9
+    # characteristics, import provenance, promotions, sellers, photos, views,
+    # latest price drops.
+    assert len(statements) <= 10
     assert sum("listing_category_details" in statement for statement in statements) == 1
+    assert sum("listing_price_events" in statement for statement in statements) == 1
+
+
+def test_price_drop_sorted_search_keeps_a_bounded_number_of_queries(integration):
+    factory = integration["SessionLocal"]
+    owner = add_user(factory, f"drop-batch-{uuid.uuid4().hex[:8]}@example.com")
+    with factory() as db:
+        listings = [
+            Listing(
+                owner_id=owner.id,
+                slug=f"drop-batch-{uuid.uuid4().hex}",
+                status="active",
+                revision=2,
+                title=f"Synthetic dropped car {index}",
+                description="Synthetic load test listing",
+                contact_phone="+375291234567",
+                damaged=False,
+                parts_only=False,
+                price_amount=Decimal("9000.00"),
+                currency="BYN",
+            )
+            for index in range(25)
+        ]
+        db.add_all(listings)
+        db.flush()
+        db.add_all(
+            ListingPriceEvent(
+                listing_id=listing.id,
+                revision=2,
+                event_type="changed",
+                price_amount=Decimal("9000.00"),
+                currency="BYN",
+                previous_price_amount=Decimal("10000.00"),
+                previous_currency="BYN",
+            )
+            for listing in listings
+        )
+        db.commit()
+
+    client = integration["client"].__class__(integration["client"].app, base_url="http://testserver")
+    statements = []
+
+    def record_select(_connection, _cursor, statement, _parameters, _context, _executemany):
+        if statement.lstrip().lower().startswith("select"):
+            statements.append(statement)
+
+    engine = integration["engine"]
+    event.listen(engine, "before_cursor_execute", record_select)
+    try:
+        response = client.get("/api/v1/listings", params={"page_size": 25, "sort": "price_drop"})
+    finally:
+        event.remove(engine, "before_cursor_execute", record_select)
+
+    assert response.status_code == 200, response.text
+    items = response.json()["items"]
+    assert len(items) == 25
+    assert all(item["last_price_drop"]["previous_amount"] == "10000.00" for item in items)
+    assert len(statements) <= 10
 
 
 def test_login_csrf_draft_idempotency_and_ownership(integration):

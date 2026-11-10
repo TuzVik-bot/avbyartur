@@ -11,6 +11,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
+import defusedxml.ElementTree as DefusedET
+from defusedxml import DefusedXmlException
 from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import and_, func, or_, select
@@ -35,6 +37,7 @@ from app.services import fail
 
 MAX_FEED_BYTES = 10 * 1024 * 1024
 MAX_FEED_ROWS = 5000
+CSV_ENCODINGS = ("utf-8-sig", "cp1251")
 
 
 class FeedParseError(ValueError):
@@ -78,11 +81,19 @@ def _record_values(raw: Mapping[str, object], mapping: Mapping[str, str]) -> dic
     return values
 
 
+def _decode_csv(content: bytes) -> str:
+    # UTF-8 (with or without BOM) wins; many Belarusian dealer exports from
+    # Excel/1C are Windows-1251, so fall back to it instead of rejecting the feed.
+    for encoding in CSV_ENCODINGS:
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise FeedParseError("invalid_encoding", "CSV must use UTF-8 or Windows-1251 encoding")
+
+
 def _parse_csv(content: bytes, mapping: Mapping[str, str]) -> list[dict]:
-    try:
-        decoded = content.decode("utf-8-sig")
-    except UnicodeDecodeError as exc:
-        raise FeedParseError("invalid_encoding", "CSV must use UTF-8 encoding") from exc
+    decoded = _decode_csv(content)
 
     try:
         reader = csv.DictReader(io.StringIO(decoded, newline=""), strict=True)
@@ -136,7 +147,10 @@ def _xml_records(content: bytes, mapping: Mapping[str, str]) -> list[dict]:
     if re.search(rb"<!\s*(?:DOCTYPE|ENTITY)\b", content, flags=re.IGNORECASE):
         raise FeedParseError("unsafe_xml", "XML document type and entity declarations are not allowed")
     try:
-        root = ET.fromstring(content)
+        # forbid_dtd also catches declarations the byte pattern misses (UTF-16, UTF-32).
+        root = DefusedET.fromstring(content, forbid_dtd=True, forbid_entities=True, forbid_external=True)
+    except DefusedXmlException as exc:
+        raise FeedParseError("unsafe_xml", "XML document type and entity declarations are not allowed") from exc
     except (ET.ParseError, ValueError) as exc:
         raise FeedParseError("invalid_xml", "XML could not be parsed") from exc
 

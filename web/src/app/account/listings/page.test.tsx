@@ -168,4 +168,30 @@ describe("account listing drafts", () => {
     expect(html).toContain("Страница 2 из 3");
     expect(html).toContain('href="/sell?listing=listing-26"');
   });
+
+  it("shows a market price hint with a price edit link only for active listings with comparison data", async () => {
+    mocks.requireSession.mockResolvedValue({ user: { display_name: "Тест", email: "pilot@example.com" } });
+    const base = {
+      slug: "x", revision: 2, make: null, model: null, generation: null, year: 2018, mileage_km: 90000, fuel: "petrol",
+      transmission: "manual", drive: null, region: null, city: null,
+      seller: { type: "private", id: "seller-1", name: "Тест" }, created_at: "2026-09-28T00:00:00Z",
+      damaged: false, parts_only: false
+    };
+    const comparison = { median_byn: "10000.00", sample_size: 12, seller_count: 6, as_of: "2026-11-10T00:00:00Z", rate_date: null };
+    mocks.meListings.mockResolvedValueOnce({ items: [
+      { ...base, id: "above", title: "Above", status: "active", price: { amount: "12000.00", currency: "BYN", market_comparison: { ...comparison, label: "above_market", difference_percent: 20 } } },
+      { ...base, id: "below", title: "Below", status: "active", price: { amount: "8500.00", currency: "BYN", market_comparison: { ...comparison, label: "below_market", difference_percent: -15 } } },
+      { ...base, id: "unknown", title: "Unknown", status: "active", price: { amount: "9000.00", currency: "BYN", market_comparison: null } },
+      { ...base, id: "paused", title: "Paused", status: "paused", price: { amount: "12000.00", currency: "BYN", market_comparison: { ...comparison, label: "above_market", difference_percent: 20 } } }
+    ] });
+    mocks.listingPromotionEligibility.mockResolvedValue({ promotable: false });
+
+    const html = renderToStaticMarkup(await AccountListingsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain("Цена выше рынка на 20%");
+    expect(html).toContain("Цена ниже рынка на 15%");
+    expect(html.match(/data-market-hint/g)).toHaveLength(2);
+    expect(html.match(/>Изменить цену</g)).toHaveLength(2);
+    expect(html).toMatch(/data-market-hint[^]*?href="\/sell\?listing=above"[^>]*>Изменить цену</);
+  });
 });

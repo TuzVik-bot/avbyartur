@@ -6,6 +6,7 @@ import { useState } from "react";
 import { api, ApiClientError } from "@/lib/api";
 import type { Company, User } from "@/lib/types";
 import styles from "./company-form.module.css";
+import { fieldMessages, userMessage } from "@/lib/user-message";
 
 type CompanyRole = NonNullable<User["company_role"]>;
 type CompanyHours = NonNullable<Company["business_hours"]>;
@@ -92,15 +93,15 @@ function describeError(issue: unknown): FormError {
     if (Object.keys(issue.fieldErrors).length) {
       return {
         message: "Проверьте поля, отмеченные сообщениями об ошибке.",
-        fieldErrors: issue.fieldErrors
+        fieldErrors: fieldMessages(issue)
       };
     }
     if (issue.status >= 500) {
       return { message: "Сервис временно недоступен. Повторите попытку через несколько минут.", fieldErrors: {}, canRefresh: true };
     }
-    return { message: issue.message || "Не удалось сохранить сведения о компании.", fieldErrors: {} };
+    return { message: userMessage(issue, "Не удалось сохранить сведения о компании."), fieldErrors: {} };
   }
-  return { message: issue instanceof Error ? issue.message : "Не удалось сохранить сведения о компании.", fieldErrors: {} };
+  return { message: userMessage(issue, "Не удалось сохранить сведения о компании."), fieldErrors: {} };
 }
 
 export function CompanyForm({ initialCompany, companyRole }: { initialCompany: Company | null; companyRole?: CompanyRole | null }) {

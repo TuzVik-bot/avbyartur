@@ -26,6 +26,7 @@ export function SearchSort({ search, priceOperationsAvailable = true }: { search
         <option value="mileage_asc">С наименьшим пробегом</option>
         <option value="year_desc">Новые по году</option>
         <option value="year_asc">Старые по году</option>
+        <option value="price_drop">Сначала подешевевшие</option>
       </select>
       {!priceOperationsAvailable && (
         <p className="muted" id="search-sort-price-status" role="status">

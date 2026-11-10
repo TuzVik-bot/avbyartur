@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { History, RefreshCw, Save } from "lucide-react";
 import { contentApi, type ContentItem, type ContentKind, type ContentVersion } from "@/lib/content";
+import { userMessage } from "@/lib/user-message";
 
 const labels: Record<ContentKind, string> = { notification_template: "Шаблоны уведомлений", seo_page: "SEO-страницы", legal_document: "Юридические документы" };
 const predefined: Partial<Record<ContentKind, [string, string][]>> = {
@@ -53,7 +54,7 @@ export function ManagedContentEditor({ initialItems, initialError }: { initialIt
         reason: get("reason"), current_password: get("current_password"), confirmation: "UPDATE_CONTENT" });
       setItems(previous => [...previous.filter(item => !(item.kind === kind && item.key === key)), result.content]);
       setVersionList(null); setSuccess(`Сохранена редакция ${result.content.revision}.`);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось сохранить материал."); }
+    } catch (reason) { setError(userMessage(reason, "Не удалось сохранить материал.")); }
     finally {
       const password = form.elements.namedItem("current_password") as HTMLInputElement | null;
       if (password) password.value = "";

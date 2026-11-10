@@ -6,6 +6,7 @@ import { useAuth } from "@/components/auth-provider";
 import { api } from "@/lib/api";
 import type { DealerReview, DealerReviewPrivate, DealerReviews as DealerReviewsData } from "@/lib/types";
 import styles from "./dealer-reviews.module.css";
+import { userMessage } from "@/lib/user-message";
 
 const statusLabels: Record<DealerReviewPrivate["status"], string> = {
   pending: "На проверке",
@@ -59,7 +60,7 @@ export function DealerReviews({ slug, reviews }: { slug: string; reviews: Dealer
       setReviewText(result.review.text);
       setMessage("Отзыв отправлен на проверку модератору.");
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Не удалось сохранить отзыв.");
+      setError(userMessage(issue, "Не удалось сохранить отзыв."));
     } finally {
       setBusy(false);
     }
@@ -75,7 +76,7 @@ export function DealerReviews({ slug, reviews }: { slug: string; reviews: Dealer
       setReportId("");
       setReportReason("");
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Не удалось отправить жалобу.");
+      setError(userMessage(issue, "Не удалось отправить жалобу."));
     } finally {
       setBusy(false);
     }

@@ -14,6 +14,7 @@ import {
   type TariffStatus
 } from "@/lib/admin-tariffs";
 import styles from "./admin-tariff-editor.module.css";
+import { userMessage } from "@/lib/user-message";
 
 type EditorMode = { kind: "create" } | { kind: "update" | "delete"; tariff: AdminTariff };
 
@@ -35,7 +36,7 @@ function errorText(issue: unknown) {
     if (issue.status === 403) return "Администраторская роль или проверка CSRF больше не активна. Обновите страницу.";
     if (issue.status === 429) return "Слишком много попыток. Подождите и повторите изменение.";
   }
-  return issue instanceof Error ? issue.message : "Не удалось сохранить тариф.";
+  return userMessage(issue, "Не удалось сохранить тариф.");
 }
 
 function exactAmount(raw: string) {
