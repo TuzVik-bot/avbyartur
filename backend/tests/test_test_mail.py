@@ -21,7 +21,6 @@ def test_test_mail_disabled_for_admin_by_default(monkeypatch):
 
 def test_enabled_inbox_is_read_only_and_never_cached(monkeypatch):
     from app.api import test_mail
-    import uuid
     identifier = "abcdefghijklmnopqrstuv"
     monkeypatch.setitem(app.dependency_overrides, get_current_user, lambda: SimpleNamespace(role='admin'))
     monkeypatch.setattr(test_mail, 'get_settings', lambda: SimpleNamespace(test_mail_enabled=True))

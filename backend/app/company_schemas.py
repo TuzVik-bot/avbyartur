@@ -4,7 +4,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.dealer_review_schemas import DealerReviewsOut
 from app.listing_schemas import ListingProvenanceOut
+from app.photo_badge_schemas import PhotoBadge
 from app.schemas import CompanyBusinessHours
 
 
@@ -16,6 +18,7 @@ class PrivateCompanyOut(BaseModel):
     revision: int
     address: str
     business_hours: CompanyBusinessHours | None
+    logo_url: str | None = None
     moderation_reason: str | None
     unp: str
     phone: str
@@ -29,6 +32,12 @@ class PublicCompanyOut(BaseModel):
     revision: int
     address: str
     business_hours: CompanyBusinessHours | None
+    logo_url: str | None = None
+
+
+class CompanyLogoOut(BaseModel):
+    logo_url: str
+    revision: int
 
 
 class MyCompanyResponse(BaseModel):
@@ -142,6 +151,7 @@ class DealerListingSummaryOut(BaseModel):
     can_chat: bool = True
     view_count: int | None = None
     promotion_badges: list[Literal["bump", "highlight", "top"]] = Field(default_factory=list)
+    photo_badges: list[PhotoBadge] = Field(default_factory=list)
     photo_urls: list[str]
     photos: list[DealerListingPhotoOut]
 
@@ -154,3 +164,4 @@ class DealerListingsPageOut(BaseModel):
 class DealerDetailResponse(BaseModel):
     company: PublicCompanyOut
     listings: DealerListingsPageOut
+    reviews: DealerReviewsOut

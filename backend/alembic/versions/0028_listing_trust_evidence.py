@@ -15,6 +15,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if sa.inspect(op.get_bind()).has_table("listing_trust_evidence"):
+        return
     op.create_table(
         "listing_trust_evidence",
         sa.Column("id", sa.Uuid(), nullable=False),

@@ -3,18 +3,23 @@ import re
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import company_context_for_user, get_current_user, require_csrf
 from app.company_schemas import (
+    CompanyLogoOut,
     CompanyMutationResponse,
     DealerDetailResponse,
     DealerDirectoryResponse,
     MyCompanyResponse,
 )
+from app.company_logo import logo_path, logo_url, remove_logo, sanitize_logo, store_logo
+from app.config import get_settings
+from app.dealer_review_service import public_reviews
 from app.dealer_services import MANAGER_ROLES, require_company_role
 from app.db import get_db
 from app.models import AuditEvent, Company, DealerTeamMember, Listing, User, UserSession
@@ -34,6 +39,7 @@ def _company_out(company: Company, *, private: bool) -> dict:
         "id": str(company.id), "name": company.name, "slug": company.slug,
         "status": company.status, "revision": getattr(company, "revision", 1), "address": company.address,
         "business_hours": company.business_hours,
+        "logo_url": logo_url(company.logo_storage_name),
     }
     if private:
         result.update(unp=company.unp, phone=company.phone, moderation_reason=company.moderation_reason)
@@ -144,6 +150,56 @@ def update_company(
     return {"company": _company_out(company, private=True)}
 
 
+@router.put("/companies/{company_id}/logo", response_model=CompanyLogoOut)
+def upload_company_logo(
+    company_id: UUID,
+    file: Annotated[UploadFile, File()],
+    expected_revision: Annotated[int, Form(ge=1)],
+    user: Annotated[User, Depends(get_current_user)],
+    csrf: Annotated[UserSession, Depends(require_csrf)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    company, _role = require_company_role(db, company_id, user, MANAGER_ROLES, lock=True)
+    check_revision(company, expected_revision, "Company")
+    settings = get_settings()
+    raw = file.file.read(settings.upload_max_bytes + 1)
+    if len(raw) > settings.upload_max_bytes:
+        fail(413, "photo_too_large", "Logo exceeds the 20 MiB limit")
+    storage_name, target = store_logo(settings.media_root, sanitize_logo(raw, file.content_type))
+    previous = company.logo_storage_name
+    company.logo_storage_name = storage_name
+    company.revision += 1
+    db.add(AuditEvent(
+        actor_id=user.id, entity_type="company", entity_id=company.id, action="logo_updated",
+        details={"revision": company.revision},
+    ))
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        target.unlink(missing_ok=True)
+        raise
+    remove_logo(settings.media_root, previous)
+    return {"logo_url": logo_url(storage_name), "revision": company.revision}
+
+
+@router.get(
+    "/company-logos/{storage_name}",
+    response_class=FileResponse,
+    responses={200: {"description": "Company logo", "content": {"image/webp": {"schema": {"type": "string", "format": "binary"}}}}},
+)
+def company_logo(storage_name: str, db: Annotated[Session, Depends(get_db)]) -> FileResponse:
+    path = logo_path(get_settings().media_root, storage_name)
+    company_status = db.scalar(select(Company.status).where(Company.logo_storage_name == storage_name)) if path else None
+    if path is None or company_status in {None, "blocked"} or not path.is_file():
+        fail(404, "not_found", "Company logo not found")
+    # Names are random and never reused, so a logo file is immutable.
+    return FileResponse(
+        path, media_type="image/webp",
+        headers={"Cache-Control": "public, max-age=86400, immutable", "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @router.get("/dealers", response_model=DealerDirectoryResponse)
 def dealers(
     db: Annotated[Session, Depends(get_db)], page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
@@ -190,6 +246,7 @@ def dealer_detail(
     rows = db.scalars(query.offset((page - 1) * page_size).limit(page_size)).all()
     return {
         "company": _company_out(company, private=False),
+        "reviews": public_reviews(db, company.id),
         "listings": {
             "items": serialize_listings(db, rows),
             "pagination": {

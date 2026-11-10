@@ -11,7 +11,7 @@ from sqlalchemy import func, select, text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import account, admin, admin_catalog, admin_settings, auth, billing, catalog, companies, conversations, dealer, feeds, listings, managed_content, media, moderation, monitoring, notifications, profile_identity, saved_searches
-from app.api import admin_tariffs, catalog_requests
+from app.api import admin_tariffs, catalog_requests, dealer_reviews
 from app.api import customs_calculator
 from app.api import analytics
 from app.api import test_mail
@@ -221,6 +221,18 @@ ROUTE_ERROR_STATUSES: dict[tuple[str, str], tuple[int, ...]] = {
     ),
     ("/api/v1/moderation/reports", "get"): (401, 403),
     ("/api/v1/moderation/reports/{report_id}/resolve", "post"): (401, 403, 404, 409),
+    ("/api/v1/billing/listings/{listing_id}/eligibility", "get"): (401, 403, 404, 422),
+    ("/api/v1/companies/{company_id}/logo", "put"): (401, 403, 404, 409, 413, 415, 422, 500),
+    ("/api/v1/company-logos/{storage_name}", "get"): (404,),
+    ("/api/v1/moderation/listings/{listing_id}/photo-badges", "put"): (401, 403, 404, 409, 422),
+    ("/api/v1/dealers/{slug}/reviews/mine", "get"): (401, 403, 404),
+    ("/api/v1/dealers/{slug}/reviews", "post"): (401, 403, 404, 409, 422, 429),
+    ("/api/v1/dealer-reviews/{review_id}", "patch"): (401, 403, 404, 409, 422),
+    ("/api/v1/dealer-reviews/{review_id}/reports", "post"): (401, 403, 404, 409, 422, 429),
+    ("/api/v1/moderation/dealer-reviews", "get"): (401, 403, 422),
+    ("/api/v1/moderation/dealer-reviews/{review_id}/review", "post"): (401, 403, 404, 409, 422),
+    ("/api/v1/moderation/dealer-review-reports", "get"): (401, 403, 422),
+    ("/api/v1/moderation/dealer-review-reports/{report_id}/resolve", "post"): (401, 403, 404, 409, 422),
 }
 API_ERROR_DESCRIPTIONS = {
     401: "Authentication required or credentials are invalid",
@@ -250,7 +262,7 @@ def document_api_error_response(
     json_content = response.setdefault("content", {}).setdefault("application/json", {})
     json_content["schema"] = {"$ref": "#/components/schemas/ApiErrorOut"}
 
-for route_module in (auth, catalog, listings, media, companies, moderation, saved_searches, notifications, conversations, admin, admin_tariffs, admin_catalog, admin_settings, dealer, feeds, account, billing, managed_content, monitoring, profile_identity, catalog_requests, customs_calculator, test_mail, analytics):
+for route_module in (auth, catalog, listings, media, companies, moderation, dealer_reviews, saved_searches, notifications, conversations, admin, admin_tariffs, admin_catalog, admin_settings, dealer, feeds, account, billing, managed_content, monitoring, profile_identity, catalog_requests, customs_calculator, test_mail, analytics):
     app.include_router(route_module.router)
 
 
@@ -425,10 +437,14 @@ class UploadBodyLimitMiddleware:
 
     @staticmethod
     def _is_photo_upload(scope) -> bool:
-        if scope.get("type") != "http" or scope.get("method") != "POST":
+        if scope.get("type") != "http":
             return False
         parts = scope.get("path", "").split("/")
-        return len(parts) == 6 and parts[1:4] == ["api", "v1", "listings"] and parts[5] == "photos"
+        if len(parts) != 6 or parts[1:3] != ["api", "v1"]:
+            return False
+        listing_photo = scope.get("method") == "POST" and parts[3] == "listings" and parts[5] == "photos"
+        company_logo = scope.get("method") == "PUT" and parts[3] == "companies" and parts[5] == "logo"
+        return listing_photo or company_logo
 
     @staticmethod
     def _is_feed_upload(scope) -> bool:

@@ -13,6 +13,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if sa.inspect(op.get_bind()).has_table("contact_click_events"):
+        return
     op.create_table(
         "contact_click_events",
         sa.Column("id", sa.Uuid(), nullable=False),

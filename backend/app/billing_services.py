@@ -200,6 +200,19 @@ def _provider_ready(provider: PaymentProvider) -> None:
         fail(503, "commerce_provider_unconfigured", "Payment provider is not configured")
 
 
+def listing_is_promotable(listing: Listing) -> bool:
+    return listing.status == "active"
+
+
+def listing_promotion_eligibility(db: Session, *, user: User, listing_id: UUID) -> bool:
+    """Whether the user may buy a paid service for this listing right now.
+
+    Uses the same ownership rule as order creation, so foreign listings are 404.
+    """
+
+    return listing_is_promotable(require_owned_listing(db, listing_id, user))
+
+
 def _authorize_target(
     db: Session,
     *,
@@ -225,7 +238,7 @@ def _authorize_target(
     if target.listing_id is None or target.company_id is not None:
         fail(422, "invalid_billing_target", "This service requires a listing target")
     listing = require_owned_listing(db, target.listing_id, user, lock=lock)
-    if listing.status != "active":
+    if not listing_is_promotable(listing):
         fail(409, "listing_not_promotable", "Only an active listing can receive a paid service")
     return listing, None
 

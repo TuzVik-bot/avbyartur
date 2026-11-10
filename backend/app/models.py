@@ -78,6 +78,8 @@ class Company(Base):
     address: Mapped[str] = mapped_column(String(300))
     phone: Mapped[str] = mapped_column(String(40))
     business_hours: Mapped[dict | None] = mapped_column(JSONB().with_variant(JSON(), "sqlite"), nullable=True)
+    # Migration 0030: a sanitized WebP under MEDIA_ROOT/company-logos.
+    logo_storage_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     moderation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -400,6 +402,10 @@ class Listing(Base):
     generation_name_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_make: Mapped[str | None] = mapped_column(String(180), nullable=True)
     manual_model: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    # Migration 0025: administrator-assigned photo labels, cleared on seller edits.
+    photo_badges: Mapped[list[str]] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"), default=list, server_default="[]", nullable=False
+    )
     title: Mapped[str] = mapped_column(String(240), default="")
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     mileage_km: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -802,6 +808,42 @@ class Report(Base):
     status: Mapped[str] = mapped_column(String(20), default="open", index=True)
     revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     resolution: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DealerReview(Base):
+    """Moderated public dealer review; schema created by migration 0030."""
+
+    __tablename__ = "dealer_reviews"
+    __table_args__ = (
+        UniqueConstraint("company_id", "author_id", name="uq_dealer_review_company_author"),
+        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_dealer_review_rating"),
+        CheckConstraint("status IN ('pending', 'published', 'rejected', 'hidden')", name="ck_dealer_review_status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(String(2000), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="pending", server_default="pending", index=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    moderation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class DealerReviewReport(Base):
+    """User complaint about a published dealer review; schema created by migration 0030."""
+
+    __tablename__ = "dealer_review_reports"
+    __table_args__ = (UniqueConstraint("review_id", "reporter_id", name="uq_dealer_review_reporter"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_id)
+    review_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("dealer_reviews.id", ondelete="CASCADE"), index=True)
+    reporter_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    reason: Mapped[str] = mapped_column(String(1000), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="open", server_default="open", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

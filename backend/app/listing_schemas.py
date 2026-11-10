@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 
 from app.listing_categories import CategoryCode
 from app.listing_subcategories import SUBCATEGORY_VALUES
+from app.photo_badge_schemas import PhotoBadge
 
 
 class ListingPublicCapabilitiesOut(BaseModel):
@@ -268,6 +269,7 @@ class ListingPublicOut(BaseModel):
     can_chat: bool = True
     view_count: int | None = None
     promotion_badges: list[Literal["bump", "highlight", "top"]] = Field(default_factory=list)
+    photo_badges: list[PhotoBadge] = Field(default_factory=list)
     last_price_drop: ListingLastPriceDropOut | None = None
     photo_urls: list[str]
     photos: list[ListingPhotoOut]

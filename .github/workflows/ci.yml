@@ -78,6 +78,18 @@ jobs:
       - name: Backend tests
         working-directory: backend
         run: uv run pytest -q -p no:cacheprovider
+      - name: Migrations from an empty database
+        # 0001 builds the schema from current models; every later migration must
+        # tolerate that, and the newest one must downgrade and re-apply cleanly.
+        working-directory: backend
+        env:
+          APP_ENV: development
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/avtorinok_ci_migrations_test
+        run: |
+          uv run python -c "import psycopg; psycopg.connect('postgresql://postgres:postgres@127.0.0.1:5432/postgres', autocommit=True).execute('CREATE DATABASE avtorinok_ci_migrations_test')"
+          uv run alembic upgrade head
+          uv run alembic downgrade -1
+          uv run alembic upgrade head
       - name: Script tests
         # Standalone stdlib unittest suites for scripts/ (docker, ssh and rsync are stubbed).
         run: python3 -m unittest discover -s scripts -p 'test_*.py'

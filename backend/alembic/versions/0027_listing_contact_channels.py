@@ -15,8 +15,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("listings", sa.Column("telegram_contact_url", sa.String(length=320), nullable=True))
-    op.add_column("listings", sa.Column("viber_contact_url", sa.String(length=320), nullable=True))
+    # 0001 builds a fresh database from current models, which already have these columns.
+    columns = {column["name"] for column in sa.inspect(op.get_bind()).get_columns("listings")}
+    if "telegram_contact_url" not in columns:
+        op.add_column("listings", sa.Column("telegram_contact_url", sa.String(length=320), nullable=True))
+    if "viber_contact_url" not in columns:
+        op.add_column("listings", sa.Column("viber_contact_url", sa.String(length=320), nullable=True))
 
 
 def downgrade() -> None:

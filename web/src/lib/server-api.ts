@@ -34,7 +34,6 @@ export const serverApi = {
   listings: (search: ListingSearch = {}) => serverApiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
   listing: (id: string) => serverApiRequest<{ listing: Listing }>(`listings/${encodeURIComponent(id)}`),
   relatedListings: (id: string) => serverApiRequest<{ items: ListingSummary[] }>(`listings/${encodeURIComponent(id)}/related`),
-  sellerListings: (id: string) => serverApiRequest<{ items: (ListingSummary & { status: "active" })[] }>(`listings/${encodeURIComponent(id)}/seller-listings`),
   listingAnalytics: (id: string, options: { dateFrom?: string; dateTo?: string } = {}) => {
     const params = new URLSearchParams();
     if (options.dateFrom) params.set("date_from", options.dateFrom);
@@ -51,7 +50,6 @@ export const serverApi = {
     return publicServerApiRequest<{ items: CatalogItem[] }>(`catalog/${kind}${query ? `?${query}` : ""}`);
   },
   dealers: (page = 1) => serverApiRequest<ListResponse<CompanySummary>>(`dealers?${new URLSearchParams({ page: String(page) })}`),
-  publicStats: () => serverApiRequest<{ active_listings: number; approved_companies: number; published_reviews: number }>("public-stats"),
   dealer: (slug: string, page = 1) => serverApiRequest<{ company: CompanySummary; listings: ListResponse<ListingSummary>; reviews: DealerReviews }>(`dealers/${encodeURIComponent(slug)}?${new URLSearchParams({ page: String(page) })}`),
   meListings: (page = 1, pageSize = 25) => {
     const query = new URLSearchParams({ page: String(page), page_size: String(pageSize) }).toString();

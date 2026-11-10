@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
-from sqlalchemy.orm import sessionmaker
 
 from app.config import get_settings
 from app.db import Base, configure_database, get_db

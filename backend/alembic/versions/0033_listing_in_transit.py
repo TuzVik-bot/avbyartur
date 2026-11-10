@@ -13,6 +13,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    columns = {column["name"] for column in sa.inspect(op.get_bind()).get_columns("listings")}
+    if "in_transit" in columns:
+        return
     op.add_column("listings", sa.Column("in_transit", sa.Boolean(), nullable=False, server_default=sa.false()))
 
 

@@ -11,7 +11,6 @@ from sqlalchemy import select
 from app.models import (
     Company,
     DealerExternalListingKey,
-    DealerFeed,
     DealerTeamMember,
     Favorite,
     FeedImportRun,

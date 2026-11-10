@@ -1,6 +1,5 @@
 """Expired abuse-control keys do not grow indefinitely or reset live quotas."""
 from datetime import datetime,timedelta,timezone
-from sqlalchemy import select
 from app.models import RateLimitBucket
 
 

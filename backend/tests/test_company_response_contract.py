@@ -48,10 +48,10 @@ def test_company_openapi_shapes_keep_private_and_public_fields_separate() -> Non
     assert {"type": "null"} in my_company["anyOf"]
     assert set(components["PrivateCompanyOut"]["properties"]) == {
         "id", "name", "slug", "status", "revision", "address", "business_hours",
-        "moderation_reason", "unp", "phone",
+        "logo_url", "moderation_reason", "unp", "phone",
     }
     assert set(components["PublicCompanyOut"]["properties"]) == {
-        "id", "name", "slug", "status", "revision", "address", "business_hours",
+        "id", "name", "slug", "status", "revision", "address", "business_hours", "logo_url",
     }
 
     directory = components["DealerDirectoryResponse"]["properties"]
@@ -61,6 +61,8 @@ def test_company_openapi_shapes_keep_private_and_public_fields_separate() -> Non
     detail = components["DealerDetailResponse"]["properties"]
     assert detail["company"] == {"$ref": "#/components/schemas/PublicCompanyOut"}
     assert detail["listings"] == {"$ref": "#/components/schemas/DealerListingsPageOut"}
+    assert detail["reviews"] == {"$ref": "#/components/schemas/DealerReviewsOut"}
+    assert "author_id" not in components["DealerReviewOut"]["properties"]
     listings = components["DealerListingsPageOut"]["properties"]
     assert listings["pagination"] == {"$ref": "#/components/schemas/CompanyPaginationOut"}
     summary_ref = listings["items"]["items"]["$ref"]
@@ -85,6 +87,7 @@ def test_company_moderation_reason_is_private_to_the_owner() -> None:
         unp="123456789",
         phone="+375291234567",
         business_hours={"mon": {"open": "09:00", "close": "18:00"}},
+        logo_storage_name=None,
     )
 
     public = _company_out(company, private=False)

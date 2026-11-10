@@ -178,6 +178,18 @@ EXPECTED_ROUTE_ERROR_STATUSES: dict[tuple[str, str], set[str]] = {
     ("/api/v1/moderation/reports/{report_id}/resolve", "post"): {
         "401", "403", "404", "409"
     },
+    ("/api/v1/billing/listings/{listing_id}/eligibility", "get"): {"401", "403", "404", "422"},
+    ("/api/v1/companies/{company_id}/logo", "put"): {"401", "403", "404", "409", "413", "415", "422", "500"},
+    ("/api/v1/company-logos/{storage_name}", "get"): {"404", "422"},
+    ("/api/v1/moderation/listings/{listing_id}/photo-badges", "put"): {"401", "403", "404", "409", "422"},
+    ("/api/v1/dealers/{slug}/reviews/mine", "get"): {"401", "403", "404", "422"},
+    ("/api/v1/dealers/{slug}/reviews", "post"): {"401", "403", "404", "409", "422", "429"},
+    ("/api/v1/dealer-reviews/{review_id}", "patch"): {"401", "403", "404", "409", "422"},
+    ("/api/v1/dealer-reviews/{review_id}/reports", "post"): {"401", "403", "404", "409", "422", "429"},
+    ("/api/v1/moderation/dealer-reviews", "get"): {"401", "403", "422"},
+    ("/api/v1/moderation/dealer-reviews/{review_id}/review", "post"): {"401", "403", "404", "409", "422"},
+    ("/api/v1/moderation/dealer-review-reports", "get"): {"401", "403", "422"},
+    ("/api/v1/moderation/dealer-review-reports/{report_id}/resolve", "post"): {"401", "403", "404", "409", "422"},
 }
 
 

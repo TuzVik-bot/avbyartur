@@ -286,7 +286,6 @@ def _legal_document_payload(version: str, *, approved: bool = True) -> dict:
 
 def test_registration_requires_matching_approved_published_document_versions(integration, monkeypatch):
     from app.managed_content import ManagedContent
-    from app.profile_identity_service import registration_consent_error
 
     factory = integration["SessionLocal"]
     actor_id = _create_phone_user(factory, f"legal-author-{uuid.uuid4().hex[:10]}@example.com")

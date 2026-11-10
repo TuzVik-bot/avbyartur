@@ -270,7 +270,7 @@ def test_company_business_hours_and_team_profile_permissions(integration):
         )
         assert added.status_code == 200, added.text
 
-    for client, member, role in (
+    for client, _member, role in (
         (owner_client, owner, "owner"),
         (admin_client, admin, "admin"),
         (seller_client, seller, "seller"),

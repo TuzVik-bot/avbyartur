@@ -1052,6 +1052,13 @@ def update_listing(
                 fail(403, "company_listing_protected", "Only the company owner can move their own listing to a private account")
         listing.company_id = None
     _apply_fields(db, listing, values, user, creating=False)
+    if listing.photo_badges:
+        # Badges vouch for the reviewed content; any seller edit voids them.
+        db.add(AuditEvent(
+            actor_id=user.id, entity_type="listing", entity_id=listing.id, action="photo_badges_cleared",
+            details={"before": list(listing.photo_badges), "after": [], "reason": "seller_edit", "revision": listing.revision + 1},
+        ))
+        listing.photo_badges = []
     previous_status = listing.status
     if previous_status != "draft":
         listing.status = "draft"

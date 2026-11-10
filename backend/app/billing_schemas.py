@@ -77,3 +77,7 @@ class BillingCallbackOut(BaseModel):
     duplicate: bool
     order_id: UUID
     status: OrderStatus
+
+
+class ListingPromotionEligibilityOut(BaseModel):
+    promotable: bool

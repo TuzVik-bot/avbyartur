@@ -14,6 +14,7 @@ from app.billing_schemas import (
     BillingOrderListOut,
     BillingOrderOut,
     BillingTariffOut,
+    ListingPromotionEligibilityOut,
 )
 from app.billing_services import (
     OrderTarget,
@@ -23,6 +24,7 @@ from app.billing_services import (
     get_user_order,
     list_active_tariffs,
     list_user_orders,
+    listing_promotion_eligibility,
     process_payment_callback,
 )
 from app.db import get_db
@@ -41,6 +43,15 @@ def active_tariffs(db: Annotated[Session, Depends(get_db)]) -> list:
     """Return only explicitly active, owner-provided price rows."""
 
     return list_active_tariffs(db)
+
+
+@router.get("/listings/{listing_id}/eligibility", response_model=ListingPromotionEligibilityOut)
+def promotion_eligibility(
+    listing_id: UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    return {"promotable": listing_promotion_eligibility(db, user=user, listing_id=listing_id)}
 
 
 @router.post("/orders", response_model=BillingCheckoutOut)
