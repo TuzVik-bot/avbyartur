@@ -2,4 +2,4 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec "$SCRIPT_DIR/backup-offsite.sh" --preflight "$@"
+exec "$SCRIPT_DIR/backup-offsite.sh" --encrypted-bundle --preflight "$@"

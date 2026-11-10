@@ -58,7 +58,10 @@ def login(client, email: str) -> str:
     return response.json()["csrf_token"]
 
 
-def _auth_login_harness(monkeypatch, user, *, verifier=None):
+LOGIN_LIMITS = {"login-email": 10, "login-ip": 50}
+
+
+def _auth_login_harness(monkeypatch, user, *, verifier=None, ip="203.0.113.42", limits=LOGIN_LIMITS):
     from app.api import auth
 
     events = []
@@ -80,18 +83,25 @@ def _auth_login_harness(monkeypatch, user, *, verifier=None):
             return verifier(password, stored_hash)
         return user is not None and user.status == "active" and stored_hash == "stored" and password == PASSWORD
 
+    def check_limit_args(namespace, limit, period):
+        assert limits[namespace] == limit
+        assert period == timedelta(minutes=15)
+
+    def tracked_exhausted(db, namespace, subject, limit, period):
+        check_limit_args(namespace, limit, period)
+        return counts.get((namespace, subject), 0) >= limit
+
     def tracked_rate_limit(db, namespace, subject, limit, period):
         events.append(("limit", namespace))
-        assert namespace == "login"
-        assert limit == 10
-        assert period == timedelta(minutes=15)
+        check_limit_args(namespace, limit, period)
         key = (namespace, subject)
         counts[key] = counts.get(key, 0) + 1
         if counts[key] > limit:
             raise HTTPException(status_code=429)
 
-    monkeypatch.setattr(auth, "client_ip", lambda request: "203.0.113.42")
+    monkeypatch.setattr(auth, "client_ip", lambda request: ip)
     monkeypatch.setattr(auth, "verify_password", tracked_verify)
+    monkeypatch.setattr(auth, "rate_limit_exhausted", tracked_exhausted)
     monkeypatch.setattr(auth, "consume_rate_limit", tracked_rate_limit)
     monkeypatch.setattr(auth, "secret_hash", lambda value: f"hashed-{value}")
     monkeypatch.setattr(auth, "user_out", lambda db, record: {"email": record.email})
@@ -163,17 +173,25 @@ def test_moderator_can_view_and_approve_pending_listing(integration):
     assert approved.json()["listing"]["status"] == "active"
 
 
-def test_ten_failed_logins_do_not_block_correct_password(monkeypatch):
+FAILED_LOGIN_EVENTS = [("verify", "stored"), ("limit", "login-email"), ("limit", "login-ip")]
+
+
+def test_correct_password_is_refused_after_ten_failures_for_the_email(monkeypatch):
     email = f"limited-{uuid.uuid4().hex[:8]}@example.com"
     user = SimpleNamespace(id=uuid.uuid4(), email=email, password_hash="stored", status="active")
-    attempt, counts, _ = _auth_login_harness(monkeypatch, user)
+    attempt, counts, events = _auth_login_harness(monkeypatch, user)
     for _ in range(10):
         assert attempt(email, "wrong-password") == 401
+    events.clear()
 
     correct = attempt(email, PASSWORD)
 
-    assert correct == 200
-    assert counts[("login", f"203.0.113.42:{email}")] == 10
+    assert correct == 429
+    assert counts[("login-email", email)] == 10
+    assert counts[("login-ip", "203.0.113.42")] == 10
+    # The limit is checked before the password; a dummy verification keeps
+    # the response time independent of the stored hash.
+    assert events == [("verify", None)]
 
 
 def test_successful_logins_do_not_increment_failed_attempt_quota(monkeypatch):
@@ -201,7 +219,35 @@ def test_wrong_credentials_are_rate_limited_after_ten_failures(monkeypatch):
     statuses = [attempt(email, "wrong-password") for _ in range(11)]
 
     assert statuses == [401] * 10 + [429]
-    assert events == [(event, value) for _ in range(11) for event, value in (("verify", "stored"), ("limit", "login"))]
+    assert events == FAILED_LOGIN_EVENTS * 10 + [("verify", None)]
+
+
+def test_ip_limit_blocks_login_across_many_emails(monkeypatch):
+    user = SimpleNamespace(id=uuid.uuid4(), email="ip-limit@example.com", password_hash="stored", status="active")
+    attempt, _, _ = _auth_login_harness(monkeypatch, user)
+
+    statuses = [attempt(f"spray-{index}@example.com", "wrong-password") for index in range(50)]
+    blocked = attempt("ip-limit@example.com", PASSWORD)
+
+    assert statuses == [401] * 50
+    assert blocked == 429
+
+
+def test_login_ip_limit_becomes_coarse_site_cap_when_client_ip_is_a_trusted_proxy(monkeypatch):
+    from app import security
+
+    proxy_ip = "192.168.213.253"
+    monkeypatch.setattr(security, "get_settings", lambda: SimpleNamespace(trusted_proxy_cidrs=f"{proxy_ip}/32"))
+    widened = {"login-email": 10, "login-ip": 50 * security.UNKNOWN_CLIENT_IP_LIMIT_FACTOR}
+    user = SimpleNamespace(id=uuid.uuid4(), email="proxy@example.com", password_hash="stored", status="active")
+    attempt, _, _ = _auth_login_harness(monkeypatch, user, ip=proxy_ip, limits=widened)
+
+    statuses = [attempt(f"spray-{index}@example.com", "wrong-password") for index in range(50)]
+    allowed = attempt("proxy@example.com", PASSWORD)
+
+    # Fifty failures from distinct emails no longer lock everybody behind the proxy out.
+    assert statuses == [401] * 50
+    assert allowed == 200
 
 
 def test_unknown_email_still_uses_dummy_password_verification(monkeypatch):
@@ -219,7 +265,25 @@ def test_unknown_email_still_uses_dummy_password_verification(monkeypatch):
 
     assert status == 401
     assert verified_hashes == [None]
-    assert events == [("verify", None), ("limit", "login")]
+    assert events == [("verify", None), ("limit", "login-email"), ("limit", "login-ip")]
+
+
+def test_login_email_limit_survives_correct_password_against_database(integration):
+    factory = integration["SessionLocal"]
+    user = add_user(factory, f"brute-{uuid.uuid4().hex[:8]}@example.com")
+    client = TestClient(integration["client"].app, base_url="http://testserver")
+
+    for _ in range(10):
+        failed = client.post("/api/v1/auth/login", json={"email": user.email, "password": "wrong-password-123"})
+        assert failed.status_code == 401, failed.text
+
+    blocked = client.post("/api/v1/auth/login", json={"email": user.email, "password": PASSWORD})
+
+    assert blocked.status_code == 429, blocked.text
+    assert blocked.json()["code"] == "rate_limited"
+    other = add_user(factory, f"other-{uuid.uuid4().hex[:8]}@example.com")
+    allowed = client.post("/api/v1/auth/login", json={"email": other.email, "password": PASSWORD})
+    assert allowed.status_code == 200, allowed.text
 
 
 def test_production_requires_secure_session_cookies():

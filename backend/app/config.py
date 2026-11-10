@@ -7,6 +7,10 @@ from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# Hosts that only capture mail locally (compose service `test-mail` runs mailpit).
+LOCAL_SMTP_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "mailpit", "test-mail"})
+
+
 def _current_utc_year() -> int:
     return datetime.now(timezone.utc).year
 
@@ -174,6 +178,14 @@ class Settings(BaseSettings):
             raise ValueError("SMTP_TIMEOUT_SECONDS must be between 1 and 60")
         if self.smtp_ssl and self.smtp_starttls:
             raise ValueError("SMTP_SSL and SMTP_STARTTLS cannot both be enabled")
+        smtp_host = self.smtp_host.strip().lower()
+        if (
+            environment == "production"
+            and smtp_host
+            and smtp_host not in LOCAL_SMTP_HOSTS
+            and not (self.smtp_ssl or self.smtp_starttls)
+        ):
+            raise ValueError("Production SMTP requires SMTP_STARTTLS or SMTP_SSL for a remote host")
         if bool(self.smtp_username.strip()) != bool(
             self.smtp_password.get_secret_value().strip()
         ):

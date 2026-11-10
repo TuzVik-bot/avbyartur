@@ -1,8 +1,8 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import String, cast, select
+from fastapi import APIRouter, Depends, Query, Response
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.catalog_schemas import CatalogItemsOut, CatalogModificationsOut
@@ -19,9 +19,29 @@ from app.models import (
     LocationRegion,
 )
 from app.listing_categories import CategoryCode
-from app.services import catalog_item, catalog_modification_item, fail
+from app.services import (
+    LIKE_ESCAPE,
+    catalog_item,
+    catalog_modification_item,
+    contains_pattern,
+    fail,
+)
 
-router = APIRouter(prefix="/api/v1", tags=["catalog"])
+# Catalog and location references change rarely; let browsers and proxies
+# reuse them briefly instead of re-querying on every page render.
+REFERENCE_CACHE_CONTROL = "public, max-age=300"
+CATALOG_SEARCH_MAX_LENGTH = 80
+
+
+def _cache_reference_response(response: Response) -> None:
+    response.headers["Cache-Control"] = REFERENCE_CACHE_CONTROL
+
+
+router = APIRouter(
+    prefix="/api/v1",
+    tags=["catalog"],
+    dependencies=[Depends(_cache_reference_response)],
+)
 
 
 def items(rows: list, **relations) -> dict:
@@ -42,8 +62,11 @@ def makes(
         )
         query = query.where(CatalogMake.id.in_(categorized_make_ids))
     if q:
-        term = f"%{q[:80]}%"
-        query = query.where(CatalogMake.name.ilike(term) | CatalogMake.slug.ilike(term) | cast(CatalogMake.aliases, String).ilike(term))
+        term = contains_pattern(q, CATALOG_SEARCH_MAX_LENGTH)
+        query = query.where(or_(*(
+            column.ilike(term, escape=LIKE_ESCAPE)
+            for column in (CatalogMake.name, CatalogMake.slug, cast(CatalogMake.aliases, String))
+        )))
     return items(db.scalars(query).all())
 
 
@@ -68,8 +91,11 @@ def models(
     if make_id:
         query = query.where(CatalogModel.make_id == make_id)
     if q:
-        term = f"%{q[:80]}%"
-        query = query.where(CatalogModel.name.ilike(term) | CatalogModel.slug.ilike(term) | cast(CatalogModel.aliases, String).ilike(term))
+        term = contains_pattern(q, CATALOG_SEARCH_MAX_LENGTH)
+        query = query.where(or_(*(
+            column.ilike(term, escape=LIKE_ESCAPE)
+            for column in (CatalogModel.name, CatalogModel.slug, cast(CatalogModel.aliases, String))
+        )))
     rows = db.scalars(query).all()
     return items(rows, **{str(row.id): {"make_id": row.make_id} for row in rows})
 

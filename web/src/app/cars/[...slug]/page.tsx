@@ -2,18 +2,24 @@ import type { Metadata } from "next";
 import { cache, Fragment } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
+import { ListingCard } from "@/components/listing-card";
 import { ListingDetail } from "@/components/listing-detail";
 import { getCatalogCities, SearchRoute } from "@/components/search-route";
 import { ApiClientError } from "@/lib/api";
 import { getSessionServer, serverApi } from "@/lib/server-api";
 import { listingCatalogBreadcrumbs } from "@/lib/listing-breadcrumbs";
 import { listingHref, modelDisplayName } from "@/lib/format";
-import { buildBreadcrumbJsonLd, buildListingMetadata, buildVehicleJsonLd, serializeJsonLd } from "@/lib/seo";
+import { ARCHIVED_LISTING_ROBOTS, buildBreadcrumbJsonLd, buildListingMetadata, buildVehicleJsonLd, serializeJsonLd } from "@/lib/seo";
 import { siteUrl } from "@/lib/site-config";
 import { isCatalogLandingItem, MIN_CATEGORY_LISTINGS, MIN_CITY_LISTINGS } from "@/lib/catalog-indexing";
-import type { CatalogCity, CatalogItem, ListingSearch } from "@/lib/types";
+import type { CatalogCity, CatalogItem, Listing, ListingSearch, ListingSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const SIMILAR_LISTINGS_LIMIT = 6;
+
+type SimilarListings = { title: string; items: ListingSummary[] };
+type CatalogRef = { id: string; name: string } | null | undefined;
 
 const getListing = cache((id: string) => serverApi.listing(id));
 const getMakeCatalog = cache((slug: string) => serverApi.catalog("makes", { q: slug, category_code: "cars" }));
@@ -57,7 +63,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       const { listing } = await getListing(id);
       return buildListingMetadata(listing);
     } catch (error) {
-      if (error instanceof ApiClientError && (error.status === 404 || error.status === 410)) return {};
+      if (error instanceof ApiClientError && error.status === 410) return { robots: ARCHIVED_LISTING_ROBOTS };
+      if (error instanceof ApiClientError && error.status === 404) return {};
       return { alternates: { canonical: routeCanonical(slug) } };
     }
   }
@@ -95,8 +102,59 @@ function unavailable(message: string) {
   return <div className="page-width"><p className="notice" role="alert">{message}</p><Link className="button button-secondary" href="/cars">Вернуться к поиску</Link></div>;
 }
 
-function gone() {
-  return <div className="page-width"><p className="notice" role="status">Объявление снято с публикации. Посмотрите другие автомобили в каталоге.</p><Link className="button button-secondary" href="/cars">Вернуться к поиску</Link></div>;
+function gone(similar: SimilarListings | null) {
+  return (
+    <div className="page-width">
+      <p className="notice" role="status">Объявление снято с публикации. Посмотрите другие автомобили в каталоге.</p>
+      <Link className="button button-secondary" href="/cars">Вернуться к поиску</Link>
+      {similar && similar.items.length > 0 && (
+        <section className="related-listings section" aria-labelledby="similar-listings-heading">
+          <div className="section-heading"><h2 id="similar-listings-heading">Похожие {similar.title}</h2></div>
+          <div className="listing-stack">{similar.items.map((item) => <ListingCard key={item.id} listing={item} variant="row" />)}</div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+// Similar offers are a courtesy for visitors of a removed listing; any failure just hides the block.
+async function similarListings(make: CatalogRef, model: CatalogRef, excludeId?: string): Promise<SimilarListings | null> {
+  if (!make || !model) return null;
+  try {
+    const { items } = await serverApi.listings({ make_id: make.id, model_id: model.id, page_size: String(SIMILAR_LISTINGS_LIMIT) });
+    return { title: modelDisplayName(make.name, model.name), items: items.filter((item) => item.id !== excludeId).slice(0, SIMILAR_LISTINGS_LIMIT) };
+  } catch {
+    return null;
+  }
+}
+
+// A 410 response carries no listing body, so make and model come from the canonical URL segments.
+async function similarListingsForSlug(makeSlug: string, modelSlug: string, excludeId: string): Promise<SimilarListings | null> {
+  try {
+    const make = (await getMakeCatalog(makeSlug)).items.find((item) => item.slug === makeSlug);
+    if (!make) return null;
+    const model = (await getModelsCatalog(make.id)).items.find((item) => item.slug === modelSlug);
+    return await similarListings(make, model, excludeId);
+  } catch {
+    return null;
+  }
+}
+
+async function isListingSaved(listingId: string) {
+  if (!await getSessionServer()) return false;
+  return (await serverApi.favorites()).items.some((item) => item.id === listingId);
+}
+
+// Session and related requests are independent; each one degrades to an empty value on failure.
+async function loadListingExtras(listing: Listing) {
+  const [saved, related] = await Promise.allSettled([
+    isListingSaved(listing.id),
+    serverApi.relatedListings(listing.id).then((result) => result.items),
+  ]);
+  return {
+    initialSaved: saved.status === "fulfilled" && saved.value,
+    relatedListings: related.status === "fulfilled" ? related.value : [],
+  };
 }
 
 export default async function CarsBySlugPage({ params }: { params: Promise<{ slug: string[] }> }) {
@@ -109,23 +167,15 @@ export default async function CarsBySlugPage({ params }: { params: Promise<{ slu
     } catch (error) {
       if (error instanceof ApiClientError) {
         if (error.status === 404) notFound();
-        if (error.status === 410) return gone();
+        if (error.status === 410) return gone(await similarListingsForSlug(slug[0], slug[1], id));
       }
       return unavailable("Не удалось загрузить объявление. Проверьте соединение и повторите попытку.");
     }
-    if (listing.status === "archived") return gone();
+    if (listing.status === "archived") return gone(await similarListings(listing.make, listing.model, listing.id));
     if (listing.status !== "active" && listing.status !== "sold") notFound();
     const canonical = listingHref(listing);
     if (canonical !== `/cars/${slug.map(encodeURIComponent).join("/")}`) permanentRedirect(canonical);
-    let initialSaved = false;
-    try {
-      if (await getSessionServer()) {
-        initialSaved = (await serverApi.favorites()).items.some((item) => item.id === listing.id);
-      }
-    } catch { /* Keep the public detail page available if session or favorites are temporarily unavailable. */ }
-    let relatedListings: import("@/lib/types").ListingSummary[] = [];
-    try { relatedListings = (await serverApi.relatedListings(listing.id)).items; }
-    catch { /* A related-listing outage does not block the primary detail page. */ }
+    const { initialSaved, relatedListings } = await loadListingExtras(listing);
     const vehicleJsonLd = buildVehicleJsonLd(listing);
     const breadcrumbJsonLd = buildBreadcrumbJsonLd([
       { name: "Главная", path: "/" },

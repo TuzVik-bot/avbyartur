@@ -33,9 +33,13 @@ export function formatMileage(km: number | null) {
   return `${new Intl.NumberFormat("ru-BY", { maximumFractionDigits: 0 }).format(km)} км`;
 }
 
+// Server (UTC container) and browser must render the same calendar day for Belarusian users.
+const DISPLAY_TIME_ZONE = "Europe/Minsk";
+const dateFormatter = new Intl.DateTimeFormat("ru-BY", { dateStyle: "medium", timeZone: DISPLAY_TIME_ZONE });
+
 export function formatDate(date: string) {
   const parsed = new Date(date);
-  return Number.isNaN(parsed.getTime()) ? date : new Intl.DateTimeFormat("ru-BY", { dateStyle: "medium", timeZone: "Europe/Minsk" }).format(parsed);
+  return Number.isNaN(parsed.getTime()) ? date : dateFormatter.format(parsed);
 }
 
 const vehicleLabels: Record<string, string> = {

@@ -1,0 +1,25 @@
+{
+  "project": "/private/tmp/av-full-security-input",
+  "online": false,
+  "runs": [
+    {
+      "name": "gitleaks",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "artifact": "/tmp/av-full-security-report/gitleaks.log"
+    },
+    {
+      "name": "zizmor",
+      "status": "skipped",
+      "reason": "No workflow YAML files"
+    },
+    {
+      "name": "osv-scanner",
+      "status": "skipped",
+      "reason": "Use --online to send dependency names and versions to OSV"
+    }
+  ],
+  "passed": true,
+  "note": "Review JSON artifacts. Skipped checks are not passes. No dependency code/build scripts executed."
+}

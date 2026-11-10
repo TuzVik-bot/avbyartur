@@ -265,3 +265,109 @@ def test_history_rejects_user_selected_invalid_currency_ids_and_long_periods() -
         client.get_history(0, date(2026, 10, 1), date(2026, 10, 4), 1)
     with pytest.raises(ValueError, match="range"):
         client.get_history(431, date(2025, 10, 4), date(2026, 10, 5), 1)
+
+
+class _ManualClock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def test_failed_refresh_is_cached_so_callers_fail_fast() -> None:
+    from app.customs_rates import FAILURE_CACHE_SECONDS
+
+    calls = 0
+
+    def opener(request, timeout):
+        nonlocal calls
+        calls += 1
+        raise TimeoutError("timed out")
+
+    clock = _ManualClock()
+    client = NbrbRateClient(opener=opener, clock=clock)
+    for _ in range(3):
+        with pytest.raises(RatesUnavailable):
+            client.get_rates(date(2026, 10, 4))
+    assert calls == 1
+
+    clock.now = FAILURE_CACHE_SECONDS + 1
+    with pytest.raises(RatesUnavailable):
+        client.get_rates(date(2026, 10, 4))
+    assert calls == 2
+
+
+def test_failure_for_one_date_does_not_block_another_date() -> None:
+    def opener(request, timeout):
+        if "ondate=2026-10-04" in request.full_url:
+            raise TimeoutError("timed out")
+        return _Response(_payload(on_date="2026-10-05"))
+
+    client = NbrbRateClient(opener=opener, clock=_ManualClock())
+    with pytest.raises(RatesUnavailable):
+        client.get_rates(date(2026, 10, 4))
+
+    assert client.get_rates(date(2026, 10, 5)).rate_date == date(2026, 10, 5)
+
+
+def test_expired_snapshot_is_served_while_one_refresh_runs_outside_the_lock() -> None:
+    calls = 0
+    refresh_started = threading.Event()
+    release_refresh = threading.Event()
+
+    def opener(request, timeout):
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            refresh_started.set()
+            release_refresh.wait(2)
+        return _Response(_payload())
+
+    clock = _ManualClock()
+    client = NbrbRateClient(opener=opener, cache_ttl_seconds=10, clock=clock)
+    stale = client.get_rates(date(2026, 10, 4))
+    clock.now = 11.0
+    refreshed: list[object] = []
+    refresher = threading.Thread(target=lambda: refreshed.append(client.get_rates(date(2026, 10, 4))))
+    refresher.start()
+    assert refresh_started.wait(2)
+
+    started = time.monotonic()
+    served = [client.get_rates(date(2026, 10, 4)) for _ in range(3)]
+    elapsed = time.monotonic() - started
+    release_refresh.set()
+    refresher.join(2)
+
+    assert all(item is stale for item in served)
+    assert elapsed < 0.5
+    assert calls == 2
+    assert refreshed and refreshed[0] is not stale
+    assert client.get_rates(date(2026, 10, 4)) is refreshed[0]
+
+
+def test_history_fetch_does_not_hold_the_shared_lock() -> None:
+    history_started = threading.Event()
+    release_history = threading.Event()
+
+    def opener(request, timeout):
+        if "dynamics" in request.full_url:
+            history_started.set()
+            release_history.wait(2)
+            raise TimeoutError("timed out")
+        return _Response(_payload())
+
+    client = NbrbRateClient(opener=opener)
+    history = threading.Thread(
+        target=lambda: pytest.raises(RatesUnavailable, client.get_history, 431, date(2026, 10, 1), date(2026, 10, 4), 1)
+    )
+    history.start()
+    assert history_started.wait(2)
+    started = time.monotonic()
+    snapshot = client.get_rates(date(2026, 10, 4))
+    elapsed = time.monotonic() - started
+    release_history.set()
+    history.join(2)
+
+    assert snapshot.rate_date == date(2026, 10, 4)
+    assert elapsed < 0.5

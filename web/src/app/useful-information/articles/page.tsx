@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   }),
 };
 
+// Most editorial photos are 1010x568; the attributes reserve layout space and height:auto keeps each photo's real ratio.
+const EDITORIAL_IMAGE_SIZE = { width: 1010, height: 568 } as const;
+// Only the first visible thumbnail is above the fold; the rest wait until they scroll into view.
+const FIRST_THUMBNAIL_INDEX = editorialArticles.findIndex((article) => article.leadImage);
+
 export default function ArticlesPage() {
   return (
     <InformationalPage
@@ -32,12 +37,20 @@ export default function ArticlesPage() {
 
       <section className="info-section" aria-label="Список статей">
         <div className={styles.articleGrid}>
-          {editorialArticles.map((article) => (
+          {editorialArticles.map((article, index) => (
             <article className={`info-card ${styles.articleCard}`} key={article.slug}>
               {article.leadImage ? (
                 <Link href={`/useful-information/articles/${article.slug}`} aria-label={article.title}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- статические файлы из public с неизвестными размерами */}
-                  <img className={styles.articleThumb} src={article.leadImage.src} alt={article.leadImage.alt} />
+                  <img
+                    className={styles.articleThumb}
+                    src={article.leadImage.src}
+                    alt={article.leadImage.alt}
+                    {...EDITORIAL_IMAGE_SIZE}
+                    style={{ height: "auto" }}
+                    loading={index === FIRST_THUMBNAIL_INDEX ? "eager" : "lazy"}
+                    decoding="async"
+                  />
                 </Link>
               ) : null}
               <p className={styles.articleSection}>{article.section} · ≈ {articleReadingMinutes(article)} мин чтения</p>

@@ -105,6 +105,8 @@ def test_default_policy_preserves_one_ready_photo_and_current_year_behavior():
             "wheels": {"top_level": [], "category_details": ["diameter_in", "width_in", "bolt_holes", "pcd_mm"]},
             "tires": {"top_level": [], "category_details": ["width_mm", "profile_percent", "diameter_in", "season"]},
         },
+        # Auto-publication is off unless LISTING_AUTO_PUBLISH_ENABLED is set.
+        "publication_mode": "moderated",
     }
 
 

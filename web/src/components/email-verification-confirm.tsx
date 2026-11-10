@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useUrlFragmentToken } from "@/lib/url-fragment";
 
 export function EmailVerificationConfirm({ token }: { token?: string }) {
   const fragmentToken = useUrlFragmentToken();
   const actionToken = token || fragmentToken;
+  // Scrub the one-time token from the address bar and history so analytics,
+  // referrers and shared screenshots never see it; the value stays in props/state.
+  useEffect(() => {
+    if (actionToken) window.history.replaceState(null, "", window.location.pathname);
+  }, [actionToken]);
   const [busy, setBusy] = useState(false);
   const [verified, setVerified] = useState(false);
   const [error, setError] = useState("");

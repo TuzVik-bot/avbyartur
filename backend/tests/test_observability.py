@@ -33,20 +33,81 @@ def test_monitoring_snapshot_requires_admin_and_explains_stale_failed_work(integ
     assert "never-return-job-payload" not in response.text
 
 
-def test_sentry_scrubber_discards_request_locals_identifiers_and_exception_text():
+def test_sentry_scrubber_keeps_frames_but_discards_request_locals_identifiers_and_secrets():
     from app.error_monitoring import scrub_error_event
+    frame = {"filename": "app/api/listings.py", "abs_path": "/app/app/api/listings.py", "function": "create_listing",
+             "module": "app.api.listings", "lineno": 42, "in_app": True, "context_line": "token = 'src-secret'",
+             "vars": {"password": "local-secret"}}
     source = {"event_id": "0123456789abcdef0123456789abcdef", "level": "error",
               "message": "password-secret +375291234567", "user": {"email": "private@example.com"},
-              "request": {"headers": {"authorization": "secret-token"}, "data": "body-secret"},
-              "exception": {"values": [{"type": "RuntimeError", "value": "exception-secret", "stacktrace": {"frames": [{"vars": {"password": "local-secret"}}]}}]},
-              "tags": {"component": "api", "error_type": "RuntimeError", "request_id": "a" * 32, "user_id": "private-id"},
+              "request": {"method": "POST", "url": "https://avto.example/api/v1/listings?token=query-secret",
+                          "query_string": "token=query-secret", "headers": {"authorization": "secret-token"},
+                          "cookies": {"session": "cookie-secret"}, "data": "body-secret", "env": {"REMOTE_ADDR": "10.0.0.1"}},
+              "exception": {"values": [{"type": "RuntimeError", "value": "failed token=exception-secret", "module": "builtins",
+                                        "mechanism": {"type": "generic", "handled": True, "data": {"x": "mech-secret"}},
+                                        "stacktrace": {"frames": [frame]}}]},
+              "breadcrumbs": {"values": [{"message": "crumb-secret"}]},
+              "contexts": {"trace": {"x": "ctx-secret"}},
+              "tags": {"component": "api", "error_type": "RuntimeError", "request_id": "nginx-req.0001", "user_id": "private-id"},
               "extra": {"url": "https://private.example/?token=hidden"}}
     cleaned = scrub_error_event(source, {})
     serialized = json.dumps(cleaned)
-    for secret in ["password-secret", "+375291234567", "private@example.com", "secret-token", "body-secret", "exception-secret", "local-secret", "private-id", "hidden"]:
+    for secret in ["password-secret", "+375291234567", "private@example.com", "secret-token", "body-secret",
+                   "exception-secret", "local-secret", "private-id", "hidden", "query-secret", "cookie-secret",
+                   "10.0.0.1", "crumb-secret", "ctx-secret", "mech-secret", "src-secret"]:
         assert secret not in serialized
     assert cleaned["message"] == "RuntimeError"
-    assert cleaned["tags"] == {"component": "api", "error_type": "RuntimeError", "request_id": "a" * 32}
+    assert cleaned["tags"] == {"component": "api", "error_type": "RuntimeError", "request_id": "nginx-req.0001"}
+    assert cleaned["request"] == {"method": "POST", "url": "/api/v1/listings"}
+    value = cleaned["exception"]["values"][0]
+    assert value["type"] == "RuntimeError"
+    assert value["value"] == "failed token=[redacted]"
+    assert value["stacktrace"]["frames"] == [{"filename": "app/api/listings.py", "abs_path": "/app/app/api/listings.py",
+                                              "function": "create_listing", "module": "app.api.listings",
+                                              "lineno": 42, "in_app": True}]
+
+
+def test_sentry_capture_sends_exception_frames_without_locals_or_request_secrets(monkeypatch):
+    import sentry_sdk
+    from pydantic import SecretStr
+    from sentry_sdk.transport import Transport
+
+    from app import error_monitoring
+    from app.config import Settings
+
+    sent = []
+
+    class RecordingTransport(Transport):
+        def capture_envelope(self, envelope):
+            sent.extend(item.payload.json for item in envelope.items if item.payload.json)
+
+    real_init = sentry_sdk.init
+    monkeypatch.setattr(error_monitoring, "_configured_dsn", None)
+    monkeypatch.setattr(sentry_sdk, "init", lambda **options: real_init(**options, transport=RecordingTransport()))
+    monkeypatch.setattr(error_monitoring, "get_settings", lambda: Settings(
+        _env_file=None, sentry_dsn=SecretStr("https://public@sentry.example/1")
+    ))
+
+    def explode(api_password="local-secret"):
+        raise ValueError("bad value token=exception-secret")
+
+    try:
+        explode()
+    except ValueError as exc:
+        error_monitoring.capture_safe_error("api", "ValueError", request_id="a" * 32, exc=exc,
+                                            method="GET", path="/api/v1/listings")
+    sentry_sdk.flush()
+    events = [item for item in sent if item.get("exception")]
+    assert len(events) == 1
+    event = events[0]
+    frames = event["exception"]["values"][0]["stacktrace"]["frames"]
+    assert any(frame.get("function") == "explode" for frame in frames)
+    assert all("vars" not in frame for frame in frames)
+    assert event["request"] == {"method": "GET", "url": "/api/v1/listings"}
+    assert event["tags"]["request_id"] == "a" * 32
+    assert "local-secret" not in json.dumps(event)
+    assert "exception-secret" not in json.dumps(event)
+    sentry_sdk.init()
 
 
 def test_sentry_is_disabled_until_configured_and_send_failure_never_breaks_app(monkeypatch):
@@ -271,3 +332,52 @@ def test_empty_monitoring_status_environment_path_is_unconfigured():
     from app.config import Settings
 
     assert Settings(_env_file=None, monitoring_status_path="").monitoring_status_path is None
+
+
+def _heartbeat(factory, worker_id: str, age: timedelta) -> None:
+    with factory() as db:
+        db.merge(models.WorkerHeartbeat(worker_id=worker_id, last_seen_at=datetime.now(timezone.utc) - age))
+        db.commit()
+
+
+def test_readiness_reports_informational_worker_heartbeat_signal(integration, monkeypatch):
+    import app.main as main_module
+
+    monkeypatch.setattr(main_module, "SessionLocal", integration["SessionLocal"])
+    client = integration["client"]
+    factory = integration["SessionLocal"]
+
+    never_seen = client.get("/health/ready")
+    assert never_seen.status_code == 200
+    assert never_seen.json() == {"status": "ok", "worker": {"status": "unknown", "last_seen_seconds": None}}
+
+    _heartbeat(factory, "worker-old", timedelta(minutes=30))
+    stale = client.get("/health/ready")
+    assert stale.status_code == 200
+    assert stale.json()["status"] == "ok"
+    assert stale.json()["worker"]["status"] == "stale"
+    assert stale.json()["worker"]["last_seen_seconds"] >= 1700
+
+    _heartbeat(factory, "worker-fresh", timedelta(seconds=5))
+    fresh = client.get("/health/ready").json()
+    assert fresh["worker"]["status"] == "ok"
+    assert 0 <= fresh["worker"]["last_seen_seconds"] < 60
+
+
+def test_readiness_worker_signal_failure_does_not_fail_readiness(integration, monkeypatch):
+    import app.main as main_module
+
+    monkeypatch.setattr(main_module, "SessionLocal", integration["SessionLocal"])
+    # Simulates the heartbeat query failing (e.g. table missing before migration 0034).
+    monkeypatch.setattr(main_module, "WorkerHeartbeat", None)
+    response = integration["client"].get("/health/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "worker": {"status": "unknown", "last_seen_seconds": None}}
+
+
+def test_liveness_response_is_unchanged():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    assert TestClient(app).get("/health/live").json() == {"status": "ok"}

@@ -19,6 +19,7 @@ class MonitoringAlertOut(BaseModel):
         "feed_import_failed",
         "payment_failed",
         "payment_pending_aged",
+        "payment_paid_unfulfilled",
         "exchange_rate_unavailable",
         "runtime_monitor_unavailable",
         "docker_unhealthy",
@@ -148,4 +149,5 @@ class HostMonitoringStatusFile(BaseModel):
         "backup_checksum_failed",
         "monitor_configuration",
         "health_endpoint_unavailable",
+        "offsite_backup_stale",
     ]]

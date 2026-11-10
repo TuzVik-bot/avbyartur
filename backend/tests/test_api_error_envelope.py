@@ -35,7 +35,7 @@ def test_unexpected_error_response_log_and_header_share_request_id() -> None:
 
     @app.get("/api/v1/__p0_error_envelope_test")
     def _raise_unexpected_error() -> None:
-        raise RuntimeError("secret-error-text")
+        raise RuntimeError("failed token=secret-error-text")
 
     test_route = next(
         route for route in app.routes if getattr(route, "path", None) == "/api/v1/__p0_error_envelope_test"
@@ -63,4 +63,6 @@ def test_unexpected_error_response_log_and_header_share_request_id() -> None:
     record = next(json.loads(line) for line in output.getvalue().splitlines())
     assert record["event"] == "request_failed"
     assert record["request_id"] == request_id
+    assert record["error_message"] == "failed token=[redacted]"
+    assert "_raise_unexpected_error" in record["traceback"]
     assert "secret-error-text" not in output.getvalue()

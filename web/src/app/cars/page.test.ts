@@ -14,7 +14,7 @@ describe("cars search canonical", () => {
   it.each([{}, { page: "1" }])("keeps the clean catalog canonical for %j", async (params) => {
     const metadata = await generateMetadata({ searchParams: Promise.resolve(params) });
     expect(metadata.robots).toBeUndefined();
-    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars");
+    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars");
   });
   it("preserves page and supported filters while dropping tracking parameters", async () => {
     const metadata = await generateMetadata({
@@ -22,13 +22,13 @@ describe("cars search canonical", () => {
     });
 
     expect(metadata.alternates?.canonical).toBe(
-      "https://suite-s1.denjik.by/cars?make_id=make-1&page=2&sort=newest"
+      "https://xn--80aeylebmo7f.xn--90ais/cars?make_id=make-1&page=2&sort=newest"
     );
   });
 
   it("normalizes repeated filters to their first value", async () => {
     const metadata = await generateMetadata({ searchParams: Promise.resolve({ q: ["BMW", "ignored"] }) });
 
-    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars?q=BMW");
+    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars?q=BMW");
   });
 });

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.api.listings import _active_query
 from app.api.moderation import require_admin
+from app.billing_services import count_paid_unfulfilled_orders
 from app.config import get_settings
 from app.db import get_db
 from app.identity_models import IdentityEmailOutbox
@@ -141,6 +142,8 @@ def _backup_snapshot(now: datetime) -> tuple[dict, list[dict]]:
         "backup_checksum_failed": ("backup_checksum_failed", "high"),
         "monitor_configuration": ("runtime_monitor_unavailable", "medium"),
         "health_endpoint_unavailable": ("docker_unhealthy", "high"),
+        # No encrypted off-host copy newer than the monitor's limit (48 h).
+        "offsite_backup_stale": ("backup_stale", "high"),
     }
     alerts = []
     for code in host.alert_codes:
@@ -240,6 +243,9 @@ def monitoring_snapshot(
         alerts.append({"code": "payment_failed", "severity": "medium", "count": payment_failed})
     if pending_aged:
         alerts.append({"code": "payment_pending_aged", "severity": "medium", "count": pending_aged})
+    paid_unfulfilled = count_paid_unfulfilled_orders(db)
+    if paid_unfulfilled:
+        alerts.append({"code": "payment_paid_unfulfilled", "severity": "high", "count": paid_unfulfilled})
 
     rate = db.scalar(
         select(ExchangeRate).where(ExchangeRate.currency == "USD", ExchangeRate.rate_date <= now.date().isoformat())

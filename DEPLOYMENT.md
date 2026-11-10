@@ -69,7 +69,7 @@ Tag: `pilot-20261002T133421Z`. Активный symlink:
 лицензированных статей cars.ru с фото и атрибуцией, SEO-серия и лендинги
 категорий; бэкенд не менялся. 646 web-тестов/typecheck/build PASS; все
 сервисы healthy; noindex и закрытый режим сохранены; регистрация проверена
-браузерно; pre/post-deploy бэкапы проверены. Отчёт: [RELEASE_2026-10-25](docs/runtime/RELEASE_2026-10-25.md).
+браузерно; pre/post-deploy бэкапы проверены. Отчёт: [RELEASE_2026-10-25](docs/releases/2026/RELEASE_2026-10-25.md).
 
 Tag: `pilot-20261001T160530Z`. Активный symlink:
 `/home/suite/apps/avtorinok` → `/home/suite/apps/releases/pilot-20261001T160530Z`.
@@ -486,7 +486,7 @@ AMD64 API/web собраны на VPS; production build и TypeScript прошл
 - `data/catalog.json` на VPS имеет права 644 для чтения API (UID 10001).
   Данные каталога не являются секретами; секретный `.env` остаётся 600.
 
-`deploy/pilot-release.compose.yml` установлен на VPS как
+`docs/archive/deploy/pilot-release.compose.yml` установлен на VPS как
 `docker-compose.override.yml`. Он закрепляет точные теги для обычных команд
 `docker compose`, включая резервирование. Локальная разработка этот override
 не использует. После любых будущих обновлений требуется новый тег и проверка;
@@ -513,7 +513,7 @@ AMD64 API/web собраны на VPS; production build и TypeScript прошл
 - Basic Auth защищает HTML, API, изображения, статику, robots.txt и healthz.
 - `X-Robots-Tag: noindex, nofollow, noarchive` сохранён.
 - Конфигурация: `/etc/nginx/sites-available/suite-s1.denjik.by`;
-  её исходник: `deploy/suite-s1.denjik.by.pilot.nginx.conf`.
+  её исходник: `docs/archive/deploy/suite-s1.denjik.by.pilot.nginx.conf`.
 - `/healthz` проверяет Nginx и Basic Auth, а не БД. Готовность приложения
   проверяется Docker healthchecks и обращением к API.
 - Сессии используют Secure cookies; доверие API к proxy-IP не расширялось.
@@ -586,7 +586,7 @@ docker compose stop
 ```
 
 Это не восстанавливает старый магазин. Его отдельный архив описан
-в `deploy/RETIREMENT.md`. Процедура отката документирована, но не выполнялась.
+в `docs/archive/deploy/RETIREMENT.md`. Процедура отката документирована, но не выполнялась.
 
 ## Ограничения пилота
 
@@ -601,10 +601,10 @@ docker compose stop
 
 ## 4 октября 2026 — общий релиз и снятие HTTP Basic Auth
 
-Развёрнут `pilot-20261004T123401Z`, ревизия `64d2903`, миграция `0022_listing_categories`. Калькулятор доступен на реальном сайте, общий пароль отключён по запросу пользователя. 600 backend/422 frontend tests passed; HTTPS и browser desktop/mobile проверены без общего пароля; обычные user/admin входы проверены. Данные и тома сохранены, pre/post backups verified. Детали и ограничения: [отчёт релиза](docs/runtime/RELEASE_2026-10-04.md).
+Развёрнут `pilot-20261004T123401Z`, ревизия `64d2903`, миграция `0022_listing_categories`. Калькулятор доступен на реальном сайте, общий пароль отключён по запросу пользователя. 600 backend/422 frontend tests passed; HTTPS и browser desktop/mobile проверены без общего пароля; обычные user/admin входы проверены. Данные и тома сохранены, pre/post backups verified. Детали и ограничения: [отчёт релиза](docs/releases/2026/RELEASE_2026-10-04.md).
 
 ## 5 октября 2026: регистрация и почтовые сценарии для проверки
 
 Развёрнут `full-registration-20261005-r2`: регистрация по email/паролю, подтверждение адреса и восстановление через **тестовый SMTP**, защищённый просмотр писем `/admin/test-mail`. На внешние адреса письма не отправляются. Исправлен общий лимит пяти регистраций за прокси. Все пять сервисов healthy, данные и тома сохранены, noindex и пользовательская авторизация действуют.
 
-Проверки, backup/rollback, временные условия и инструкция: [отчёт полного цикла аккаунта](docs/runtime/FULL_REGISTRATION_2026-10-05.md).
+Проверки, backup/rollback, временные условия и инструкция: [отчёт полного цикла аккаунта](docs/releases/2026/FULL_REGISTRATION_2026-10-05.md).

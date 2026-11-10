@@ -14,4 +14,4 @@
 
 Откат web: из `/home/suite/apps/releases/footer-channels-20261013` выполнить `docker compose -p avtorinok up -d --no-deps --no-build --wait web`, затем атомарно вернуть symlink `/home/suite/apps/avtorinok` на этот каталог. Не откатывать БД и не удалять тома. Откат не запускался.
 
-Предрелизная квитанция на VPS: `theme-pre-deploy.json`. Скриншот в исходном workspace: `docs/runtime/theme-production-2026-10-13.png`.
+Предрелизная квитанция на VPS: `theme-pre-deploy.json`. Скриншот в исходном workspace: `docs/releases/2026/theme-production-2026-10-13.png`.

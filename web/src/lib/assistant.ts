@@ -14,6 +14,8 @@ export type AssistantReply = {
   searchHref?: string;
   links: AssistantLink[];
   engine: "basic" | "ai";
+  // Short user-facing note, e.g. when the model failed and the basic engine answered.
+  notice?: string;
 };
 export type AssistantPage = { path: string; title: string; text: string };
 
@@ -44,7 +46,8 @@ export function isPublicAssistantPage(path: string) {
   return /^\/(?:cars(?:\/[\w%.-]+){0,3}|help|about|support|services|useful-information|vin-check|sale-contract|customs-calculator|currency-converter|makes|dealers(?:\/[\w%.-]+)?|terms-of-use|privacy-policy|registration-terms|registration-privacy)?$/.test(path);
 }
 
-const normalize = (text: string) => text.toLocaleLowerCase("ru").replace(/ё/g, "е");
+// Belarusian і/ў are folded into Russian и/у so one set of patterns serves both languages.
+const normalize = (text: string) => text.toLocaleLowerCase("ru").replace(/ё/g, "е").replace(/і/g, "и").replace(/ў/g, "у");
 function catalogMatch(text: string, items: CatalogItem[]) {
   const haystack = ` ${normalize(text)} `;
   return items.filter((item) => [item.name, item.slug, ...(item.aliases || [])].some((name) => {
@@ -85,7 +88,7 @@ export function parseAssistantSearch(message: string, previous: AssistantFilters
   const reset = /заново|сброс|новый поиск/.test(text);
   const filters: AssistantFilters = reset ? { category_code: "cars" } : { category_code: "cars", ...previous };
   const relativeIncrease = relativeBudgetIncrease(text, filters.price_max);
-  const mentionedCurrency = /\$|usd|доллар|бакс/.test(text) ? "USD" : /byn|рубл|белорус|бел\.?\s*руб/.test(text) ? "BYN" : undefined;
+  const mentionedCurrency = /\$|usd|доллар|даляр|бакс/.test(text) ? "USD" : /byn|рубл|белорус|бел\.?\s*руб/.test(text) ? "BYN" : undefined;
   if (relativeIncrease && !relativeIncrease.currency && mentionedCurrency) relativeIncrease.currency = mentionedCurrency;
   const currencyConflict = Boolean(relativeIncrease?.currency && filters.currency && relativeIncrease.currency !== filters.currency);
   if (relativeIncrease?.currency && !filters.currency) filters.currency = relativeIncrease.currency;
@@ -99,7 +102,7 @@ export function parseAssistantSearch(message: string, previous: AssistantFilters
       appliedRelativeIncrease = true;
     }
   }
-  const budget = text.match(/(?:бюджет(?:ом)?\s*(?:до)?|цена\s*до|стоимост\S*\s*до|до|не дороже|максимум)\s*(\d{1,3}(?:\s\d{3})+|\d+(?:[.,]\d+)?)\s*(тыс\S*|k\b|к\b)?/);
+  const budget = text.match(/(?:бюджет(?:ом)?\s*(?:до)?|цена\s*до|стоимост\S*\s*до|до|(?<![а-яa-z])да(?=\s*\d)|не дороже|не дараж\S*|максимум)\s*(\d{1,3}(?:\s\d{3})+|\d+(?:[.,]\d+)?)\s*(тыс\S*|k\b|к\b)?/);
   if (budget && !/^(?:\s*(?:года|год|г\b|км|километр))/.test(text.slice((budget.index || 0) + budget[0].length))) {
     const n = Number(amount(budget[1], budget[2]));
     if (!(n >= 1886 && n <= new Date().getFullYear() + 1 && /год|старше|младше/.test(text))) filters.price_max = String(n);
@@ -113,11 +116,11 @@ export function parseAssistantSearch(message: string, previous: AssistantFilters
   const yearMax = text.match(/(?:до|не новее)\s*((?:19|20)\d{2})\s*(?:года|год|г\b)/);
   if (yearMin) filters.year_min = yearMin[1];
   if (yearMax) filters.year_max = yearMax[1];
-  const mileage = text.match(/пробег\S*\s*(?:до|не больше)?\s*(\d+(?:\s\d{3})?)\s*(тыс\S*)?/);
+  const mileage = text.match(/пр[ао]бег\S*\s*(?:до|не больше)?\s*(\d+(?:\s\d{3})?)\s*(тыс\S*)?/);
   if (mileage) filters.mileage_max = amount(mileage[1], mileage[2]);
   const values: [keyof AssistantFilters, RegExp, string][] = [
-    ["transmission", /автомат|акпп/, "automatic"], ["transmission", /механик|мкпп/, "manual"], ["transmission", /вариатор/, "cvt"], ["transmission", /робот/, "robot"],
-    ["fuel", /дизел/, "diesel"], ["fuel", /бензин/, "petrol"], ["fuel", /гибрид/, "hybrid"], ["fuel", /электр/, "electric"],
+    ["transmission", /автомат|аутамат|акпп/, "automatic"], ["transmission", /механик|мкпп/, "manual"], ["transmission", /вариатор/, "cvt"], ["transmission", /робот/, "robot"],
+    ["fuel", /дизел|дызел/, "diesel"], ["fuel", /бензин/, "petrol"], ["fuel", /гибр[иы]д/, "hybrid"], ["fuel", /электр/, "electric"],
     ["drive", /полн\S*\s*привод|4[хx×]4/, "all"], ["drive", /передн\S*\s*привод/, "front"], ["drive", /задн\S*\s*привод/, "rear"],
     ["body_type", /универсал/, "wagon"], ["body_type", /седан/, "sedan"], ["body_type", /х[еэ]тчб[еэ]к/, "hatchback"], ["body_type", /кроссовер|внедорожник/, "suv"],
     ["has_photos", /с фото/, "true"], ["damaged", /не бит|без поврежден/, "false"], ["sort", /дешев\S*\s*(?:сначала|первыми)|сначала дешев/, "price_asc"]
@@ -131,7 +134,7 @@ export function parseAssistantSearch(message: string, previous: AssistantFilters
   if (make && make.id !== filters.make_id) { filters.make_id = make.id; delete filters.model_id; }
   const model = catalogMatch(text, catalog.models.filter((item) => !filters.make_id || item.make_id === filters.make_id));
   if (model) { filters.model_id = model.id; if (model.make_id) filters.make_id = model.make_id; }
-  const city = catalogMatch(text.replace(/минске/g, "минск").replace(/бресте/g, "брест").replace(/гродно/g, "гродно").replace(/витебске/g, "витебск").replace(/гомеле/g, "гомель").replace(/могилеве/g, "могилев"), catalog.cities);
+  const city = catalogMatch(text.replace(/(\p{L}{2,}ск)[уе](?!\p{L})/gu, "$1").replace(/минске/g, "минск").replace(/бресте/g, "брест").replace(/гродно/g, "гродно").replace(/витебске/g, "витебск").replace(/гомеле/g, "гомель").replace(/могилеве/g, "могилев"), catalog.cities);
   if (city) filters.city_id = city.id;
   const validated = validateAssistantFilters(filters);
   const changed = JSON.stringify(validated) !== JSON.stringify(validateAssistantFilters({ category_code: "cars", ...previous }));

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -38,7 +39,7 @@ from app.identity_models import (
     VerifiedEmailContact,
 )
 from app.models import AuditEvent, Listing, ListingStatusEvent, User, UserConsent, UserSession
-from app.security import client_ip, hash_password, new_secret, normalize_email, secret_hash
+from app.security import client_ip, hash_password, ip_scoped_limit, new_secret, normalize_email, secret_hash
 from app.services import consume_rate_limit, enqueue_job, fail
 from app.sms_auth_schemas import OtpAcceptedResponse
 from app.managed_content import render_notification_template
@@ -100,9 +101,25 @@ def _profile(db: Session, user: User) -> dict:
     }
 
 
+# Safety net against a distributed flood; per-subject and per-IP buckets do
+# the real limiting so one attacker cannot lock recovery out for everyone.
+IDENTITY_SITE_HOURLY_CAP = 500
+
+
 def _rate_limit(db: Session, request_ip: str, namespace: str, subject: str, limit: int) -> None:
-    consume_rate_limit(db, f"identity-{namespace}-ip", request_ip, limit * 4, timedelta(hours=1))
+    consume_rate_limit(
+        db, f"identity-{namespace}-ip", request_ip, ip_scoped_limit(request_ip, limit * 4), timedelta(hours=1)
+    )
     consume_rate_limit(db, f"identity-{namespace}", subject, limit, timedelta(hours=1))
+
+
+def _rate_limit_with_site_cap(db: Session, request_ip: str, namespace: str, subject: str, limit: int) -> None:
+    consume_rate_limit(db, f"identity-{namespace}-site", "all", IDENTITY_SITE_HOURLY_CAP, timedelta(hours=1))
+    _rate_limit(db, request_ip, namespace, subject, limit)
+
+
+def _token_subject(token: str) -> str:
+    return "token:" + hashlib.sha256(token.encode()).hexdigest()
 
 
 def _active_challenge(challenge, now: datetime) -> bool:
@@ -293,7 +310,7 @@ def confirm_email_verification(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    _rate_limit(db, client_ip(request), "email-confirm", "all", 12)
+    _rate_limit_with_site_cap(db, client_ip(request), "email-confirm", _token_subject(payload.token), 12)
     now = _now()
     challenge = db.scalar(
         select(EmailVerificationChallenge)
@@ -358,7 +375,9 @@ def request_account_recovery(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    _rate_limit(db, client_ip(request), "recovery", "all", 10)
+    _rate_limit_with_site_cap(
+        db, client_ip(request), "recovery", "email:" + normalize_email(str(payload.email)), 10
+    )
     sender = get_email_sender(get_settings())
     if not sender.is_configured:
         return {"accepted": True}
@@ -413,7 +432,9 @@ def confirm_account_recovery(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    _rate_limit(db, client_ip(request), "recovery-confirm", "all", 12)
+    _rate_limit_with_site_cap(
+        db, client_ip(request), "recovery-confirm", _token_subject(payload.token), 12
+    )
     now = _now()
     challenge = db.scalar(
         select(AccountRecoveryChallenge)

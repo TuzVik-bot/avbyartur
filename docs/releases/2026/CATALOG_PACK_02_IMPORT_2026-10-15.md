@@ -54,7 +54,7 @@ trailer → trailers. Разделы motorhome/other сохранены как �
 
 Импортер: `scripts/import_catalog_pack_02.py` (по умолчанию rollback dry run,
 `--apply` для commit, PostgreSQL advisory lock общий с пакетом 01).
-Patch относительно серверного пакета 01: `docs/runtime/catalog-pack-02-20261015.patch`.
+Patch относительно серверного пакета 01: `docs/releases/2026/catalog-pack-02-20261015.patch`.
 Существенно изменённые исходники локального checkout не перезаписывались.
 Для будущей сборки из Git необходимо явно включить оба серверных patch.
 

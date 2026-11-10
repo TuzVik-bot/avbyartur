@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the encrypted Avtorinok off-host backup once a day
+
+[Timer]
+# After the local backup (03:15 + up to 15 min) has finished.
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=avtorinok-offsite-backup.service
+
+[Install]
+WantedBy=timers.target

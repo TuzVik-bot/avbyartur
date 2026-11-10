@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from app.db import Base, get_db
 from app.main import app
 from app.models import (
+    AuditEvent,
     Company,
     ExchangeRate,
     Listing,
@@ -34,6 +35,7 @@ def category_scope_api():
             User.__table__, Company.__table__, Listing.__table__,
             ListingCategoryDetails.__table__, ListingPhoto.__table__,
             ExchangeRate.__table__, ListingStatusEvent.__table__,
+            AuditEvent.__table__,
         ],
     )
     factory = sessionmaker(bind=engine, expire_on_commit=False)

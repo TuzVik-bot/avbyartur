@@ -1,0 +1,82 @@
+[
+  {
+    "path": "deploy/avtorinok-domain.nginx.conf",
+    "sha256": "f9dde4fd51831a95c85881ca394ad1ed29b4750c857bb0af7f8842d8b9f47802"
+  },
+  {
+    "path": "scripts/check-seo-sorting-release.cjs",
+    "sha256": "e1fd1bc2d5ae279d1075b80bed06f21dee4701a3a1c5da7a01f59ef4e2edf98c"
+  },
+  {
+    "path": "scripts/test_onliner_catalog_plan.py",
+    "sha256": "b5c291c7c57a289405dbfc736e2715b74d97cafb951d5ccdbe06879748434416"
+  },
+  {
+    "path": "scripts/collect_onliner_catalog.py",
+    "sha256": "379f302266a7d205a0ede8c742469ec783f5a11e21c5ab64881af444d03556cf"
+  },
+  {
+    "path": "scripts/refresh_wikidata_catalog.py",
+    "sha256": "9e836b7c8c4ff49602a8077c10f48015ca56991987341461560ebea94809e296"
+  },
+  {
+    "path": "scripts/check-catalog-input.cjs",
+    "sha256": "6d16066b277285ea24c68a15719b41f0a3143d6cb82677c6b852691ab9baf31f"
+  },
+  {
+    "path": "scripts/check-onliner-catalog.cjs",
+    "sha256": "370d422029213c4b75fdb891016f58e0defa9514065b48778f5966345e5a2234"
+  },
+  {
+    "path": "scripts/check-listing-improvements.cjs",
+    "sha256": "1c7d91630a45999d11e344934505e9fa6459caa0630bafcb9415e193f3425330"
+  },
+  {
+    "path": "data/catalog-coverage.json",
+    "sha256": "fe04ace6ee7a3c9bb58158efb4d7ad47c9f69b87eb7301b72b09d821dc9fd156"
+  },
+  {
+    "path": "backend/app/onliner_catalog_plan.py",
+    "sha256": "7c07678628d5a7100cc946d156b4035035c393685fa47e8897fa7c1f53a95f91"
+  },
+  {
+    "path": "backend/app/import_onliner_catalog.py",
+    "sha256": "c10d43ff78d1e1a56aba2a5fc37fea287fc5e416e56797a4a272ff331766e5db"
+  },
+  {
+    "path": "backend/tests/test_catalog_import.py",
+    "sha256": "e0740b6a05be5cead20c17e1e93c9ae7ce5edf2bd6c3331e575a97cedab707bc"
+  },
+  {
+    "path": "backend/tests/test_listing_validation_policy.py",
+    "sha256": "4a5c9c3547dc3a6445ca0ddf432e0d6a52db59a907c58e8c3adfc77e65b8119f"
+  },
+  {
+    "path": "web/src/app/page.test.tsx",
+    "sha256": "f83425a56895ac10a47ac6a7c848484adfabf1aae50e2c16de72b101c7f0d38b"
+  },
+  {
+    "path": "web/src/components/listing-detail.test.tsx",
+    "sha256": "bc36ebf0a1caf10f30a42b758938abe2f2f2f66bef2eb14570aa9bd5bac0d03b"
+  },
+  {
+    "path": "web/src/components/home-search.test.tsx",
+    "sha256": "94c0208e37b2b179f523ef4c8c4bf6fb72d62215bb1f83101e62157bd9886749"
+  },
+  {
+    "path": "web/src/components/listing-card.test.tsx",
+    "sha256": "e83325503c1d3e4f138eb7fc17eb2164f14a0fb13702b32a67743d5e384e370e"
+  },
+  {
+    "path": "web/src/components/sell-form.test.tsx",
+    "sha256": "6b2e2ce7cd1af776f3c64de20e788ae6af4a33741318eb9f54e87f9c8868d25f"
+  },
+  {
+    "path": "web/src/lib/catalog-search.test.ts",
+    "sha256": "639bcf8ef9a33a8ceb46c54e1180ffc6c78c8d5afba4722ea1eb4424a127cbbe"
+  },
+  {
+    "path": "web/src/app/cars/slug-route.test.tsx",
+    "sha256": "8fac5d0d59d5962d5f012a15eea008b37671f3e4baafe39a8eb408d1679a91e0"
+  }
+]

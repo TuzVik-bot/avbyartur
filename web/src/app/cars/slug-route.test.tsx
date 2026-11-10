@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   listings: vi.fn(),
   catalog: vi.fn(),
   favorites: vi.fn(),
+  relatedListings: vi.fn(),
   session: vi.fn(),
   notFound: vi.fn((): never => { throw new Error("NEXT_NOT_FOUND"); }),
   redirect: vi.fn((href: string): never => { throw new Error(`REDIRECT:${href}`); })
@@ -15,8 +16,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...props }: { href: string; children: React.ReactNode; [key: string]: unknown }) => <a href={href} {...props}>{children}</a> }));
-vi.mock("@/lib/server-api", () => ({ serverApi: { listing: mocks.listing, listings: mocks.listings, catalog: mocks.catalog, favorites: mocks.favorites }, getSessionServer: mocks.session }));
+vi.mock("@/lib/server-api", () => ({ serverApi: { listing: mocks.listing, listings: mocks.listings, catalog: mocks.catalog, favorites: mocks.favorites, relatedListings: mocks.relatedListings }, getSessionServer: mocks.session }));
 vi.mock("@/components/search-route", () => ({ SearchRoute: (props: unknown) => createElement("div", { "data-search": JSON.stringify(props) }), getCatalogCities: vi.fn() }));
+vi.mock("@/components/listing-card", () => ({ ListingCard: (props: { listing: { id: string } }) => createElement("div", { "data-similar": props.listing.id }) }));
 vi.mock("@/components/listing-detail", () => ({ ListingDetail: (props: { initialSaved: boolean }) => createElement("div", { "data-initial-saved": String(props.initialSaved) }) }));
 
 import CarsBySlugPage, { generateMetadata } from "@/app/cars/[...slug]/page";
@@ -28,6 +30,7 @@ beforeEach(() => {
   mocks.listings.mockReset();
   mocks.catalog.mockReset();
   mocks.favorites.mockReset();
+  mocks.relatedListings.mockReset().mockResolvedValue({ items: [] });
   mocks.session.mockReset().mockResolvedValue(null);
   mocks.notFound.mockClear();
   mocks.redirect.mockClear();
@@ -145,7 +148,7 @@ describe("catalog route resolution", () => {
 
     expect(mocks.catalog).toHaveBeenNthCalledWith(1, "makes", { q: "toyota", category_code: "cars" });
     expect(mocks.catalog).toHaveBeenNthCalledWith(2, "models", { make_id: "make-1", category_code: "cars" });
-    expect(route.props).toMatchObject({ search: { make_id: "make-1", model_id: "model-1", page_size: "25" }, title: "Toyota Corolla" });
+    expect(route.props).toMatchObject({ search: { make_id: "make-1", model_id: "model-1", page_size: "25" }, title: "Продажа Toyota Corolla" });
   });
 
   it("does not turn an unknown model slug into a make-only search", async () => {
@@ -231,5 +234,99 @@ describe("category metadata thresholds", () => {
 
     expect(missingCount.robots).toEqual(closedRobots);
     expect(unavailableCount.robots).toEqual(closedRobots);
+  });
+});
+
+describe("archived listings", () => {
+  const make = { id: "make-1", slug: "toyota", name: "Toyota" };
+  const model = { id: "model-1", slug: "corolla", name: "Corolla" };
+  const archived = { id: "listing-1", slug: "listing-1", status: "archived", make, model };
+  const similar = (count: number) => ({ items: Array.from({ length: count }, (_, index) => ({ id: `similar-${index}` })) });
+
+  it("noindexes an archived listing while keeping its links followable", async () => {
+    mocks.listing.mockResolvedValueOnce({ listing: archived });
+
+    const metadata = await generateMetadata({ params: Promise.resolve(params) });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+  });
+
+  it("noindexes a 410 listing while keeping its links followable", async () => {
+    mocks.listing.mockRejectedValueOnce(new ApiClientError(410, { code: "gone", message: "Снято" }));
+
+    const metadata = await generateMetadata({ params: Promise.resolve(params) });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
+  });
+
+  it("offers up to six active listings of the same model instead of the archived one", async () => {
+    mocks.listing.mockResolvedValueOnce({ listing: archived });
+    mocks.listings.mockResolvedValueOnce({ items: [{ id: "listing-1" }, ...similar(6).items] });
+
+    const html = renderToStaticMarkup(await CarsBySlugPage({ params: Promise.resolve(params) }));
+
+    expect(mocks.listings).toHaveBeenCalledWith({ make_id: "make-1", model_id: "model-1", page_size: "6" });
+    expect(html).toContain("Объявление снято с публикации");
+    expect(html).toContain("Похожие Toyota Corolla");
+    expect(html).not.toContain('data-similar="listing-1"');
+    expect(html.match(/data-similar=/g)).toHaveLength(6);
+  });
+
+  it("resolves make and model from the URL for a 410 response", async () => {
+    mocks.listing.mockRejectedValueOnce(new ApiClientError(410, { code: "gone", message: "Снято" }));
+    mocks.catalog.mockResolvedValueOnce({ items: [make] }).mockResolvedValueOnce({ items: [model] });
+    mocks.listings.mockResolvedValueOnce(similar(2));
+
+    const html = renderToStaticMarkup(await CarsBySlugPage({ params: Promise.resolve(params) }));
+
+    expect(mocks.listings).toHaveBeenCalledWith({ make_id: "make-1", model_id: "model-1", page_size: "6" });
+    expect(html).toContain("Похожие Toyota Corolla");
+    expect(html.match(/data-similar=/g)).toHaveLength(2);
+  });
+
+  it("keeps the gone state when similar listings are unavailable", async () => {
+    mocks.listing.mockResolvedValueOnce({ listing: archived });
+    mocks.listings.mockRejectedValueOnce(new ApiClientError(503, { message: "Недоступно" }));
+
+    const html = renderToStaticMarkup(await CarsBySlugPage({ params: Promise.resolve(params) }));
+
+    expect(html).toContain("Объявление снято с публикации");
+    expect(html).not.toContain("Похожие");
+  });
+
+  it("hides the block when the model has no other active offers", async () => {
+    mocks.listing.mockResolvedValueOnce({ listing: archived });
+    mocks.listings.mockResolvedValueOnce({ items: [{ id: "listing-1" }] });
+
+    const html = renderToStaticMarkup(await CarsBySlugPage({ params: Promise.resolve(params) }));
+
+    expect(html).not.toContain("Похожие");
+  });
+});
+
+describe("listing detail extras", () => {
+  const active = { id: "listing-1", slug: "listing-1", status: "active", make: { slug: "toyota" }, model: { slug: "corolla" } };
+
+  it("requests related listings without waiting for the session lookup", async () => {
+    let resolveSession: (value: null) => void = () => {};
+    mocks.listing.mockResolvedValueOnce({ listing: active });
+    mocks.session.mockReturnValueOnce(new Promise((resolve) => { resolveSession = resolve; }));
+
+    const pending = CarsBySlugPage({ params: Promise.resolve(params) });
+    await vi.waitFor(() => expect(mocks.relatedListings).toHaveBeenCalledWith("listing-1"));
+    resolveSession(null);
+    const html = renderToStaticMarkup(await pending);
+
+    expect(html).toContain('data-initial-saved="false"');
+  });
+
+  it("keeps the detail page when session, favorites and related listings fail", async () => {
+    mocks.listing.mockResolvedValueOnce({ listing: active });
+    mocks.session.mockRejectedValueOnce(new Error("offline"));
+    mocks.relatedListings.mockRejectedValueOnce(new Error("offline"));
+
+    const html = renderToStaticMarkup(await CarsBySlugPage({ params: Promise.resolve(params) }));
+
+    expect(html).toContain('data-initial-saved="false"');
   });
 });

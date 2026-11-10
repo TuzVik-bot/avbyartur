@@ -218,8 +218,9 @@ def test_listing_search_uses_a_bounded_number_of_relation_queries(integration):
 
     assert response.status_code == 200, response.text
     assert len(response.json()["items"]) == 25
-    # Category characteristics add one batched query, never one per listing.
-    assert len(statements) <= 7
+    # One batched query each, never one per listing: rate, count, page, category
+    # characteristics, import provenance, promotions, sellers, photos, views.
+    assert len(statements) <= 9
     assert sum("listing_category_details" in statement for statement in statements) == 1
 
 
@@ -261,7 +262,7 @@ def test_photo_queue_revision_moderation_search_and_contact(integration, tmp_pat
         region = LocationRegion(slug=f"region-{uuid.uuid4().hex[:8]}", name="Minsk region")
         db.add_all([make, region])
         db.flush()
-        model = CatalogModel(make_id=make.id, slug=f"model-{uuid.uuid4().hex[:8]}", name="3 Series", aliases=["3er"])
+        model = CatalogModel(make_id=make.id, slug=f"model-{uuid.uuid4().hex[:8]}", name="3 Series", aliases=["3er"], source_metadata={"category_codes": ["cars"]})
         body = CatalogBodyType(slug=f"sedan-{uuid.uuid4().hex[:8]}", name="Sedan")
         db.add_all([model, body])
         db.flush()
@@ -779,7 +780,7 @@ def test_heif_upload_worker_moderation_and_public_photo_delivery(integration):
         region = LocationRegion(slug=f"heif-region-{suffix}", name="Minsk region")
         db.add_all([make, region])
         db.flush()
-        model = CatalogModel(make_id=make.id, slug=f"heif-model-{suffix}", name="3 Series", aliases=[])
+        model = CatalogModel(make_id=make.id, slug=f"heif-model-{suffix}", name="3 Series", aliases=[], source_metadata={"category_codes": ["cars"]})
         body = CatalogBodyType(slug=f"heif-sedan-{suffix}", name="Sedan")
         db.add_all([model, body])
         db.flush()

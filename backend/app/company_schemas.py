@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.listing_schemas import ListingProvenanceOut
 from app.schemas import CompanyBusinessHours
 
 
@@ -115,6 +116,7 @@ class DealerListingSummaryOut(BaseModel):
     published_at: datetime | None = None
     damaged: bool
     parts_only: bool
+    in_transit: bool = False
     description: str
     engine_volume_l: str | None
     power_hp: int | None
@@ -132,6 +134,13 @@ class DealerListingSummaryOut(BaseModel):
     equipment: list[str] = Field(default_factory=list)
     district: str | None = None
     call_hours: str | None = None
+    # Mirrors ListingPublicOut: the dealer page serializes listings the same way.
+    has_phone: bool = False
+    has_external_contacts: bool = False
+    provenance: ListingProvenanceOut | None = None
+    is_imported: bool = False
+    can_chat: bool = True
+    view_count: int | None = None
     promotion_badges: list[Literal["bump", "highlight", "top"]] = Field(default_factory=list)
     photo_urls: list[str]
     photos: list[DealerListingPhotoOut]

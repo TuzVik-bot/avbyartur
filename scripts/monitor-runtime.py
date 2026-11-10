@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -33,9 +34,18 @@ ALERT_CODES = {
     "backup_checksum_failed",
     "monitor_configuration",
     "health_endpoint_unavailable",
+    "offsite_backup_stale",
 }
+DEFAULT_MAX_OFFSITE_AGE_HOURS = 48
 STATE_LIMIT = 4096
 STATUS_LIMIT = 4096
+EXPECTED_TITLE = "Автомобили Беларуси"
+TITLE_PATTERN = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+HOME_PAGE_LIMIT = 512 * 1024
+TELEGRAM_API = "https://api.telegram.org"
+TELEGRAM_TIMEOUT_SECONDS = 10
+ALERT_TOKEN_ENV = "MONITOR_TELEGRAM_BOT_TOKEN"
+ALERT_CHAT_ENV = "MONITOR_TELEGRAM_CHAT_ID"
 
 
 class MonitorError(ValueError):
@@ -86,6 +96,36 @@ def check_health_endpoint(url: str, credentials: tuple[str, str], timeout: float
             return response.status == 200
     except (OSError, urllib.error.URLError, ValueError):
         return False
+
+
+def _safe_origin(url: str) -> bool:
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+        return False
+    if parsed.query or parsed.fragment or parsed.path not in {"", "/"}:
+        return False
+    return parsed.scheme == "https" or parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+
+
+def _fetch_page(url: str, timeout: float) -> tuple[int, bytes]:
+    request = urllib.request.Request(url, headers={"Accept": "text/html"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.status, response.read(HOME_PAGE_LIMIT)
+
+
+def check_site_identity(url: str, *, fetch=_fetch_page, timeout: float = 8.0) -> bool:
+    """Detect a vhost mix-up: the home page must be Avtorinok, not a neighbouring site."""
+
+    if not _safe_origin(url):
+        return False
+    try:
+        status, body = fetch(url.rstrip("/") + "/", timeout)
+    except (OSError, urllib.error.URLError, ValueError):
+        return False
+    if status != 200:
+        return False
+    match = TITLE_PATTERN.search(body.decode("utf-8", errors="replace"))
+    return match is not None and EXPECTED_TITLE in match.group(1)
 
 
 def _decode_compose_json(content: str) -> list[dict]:
@@ -206,6 +246,22 @@ def read_backup_service(runner=subprocess.run) -> tuple[str, dt.datetime | None]
     return "success", parsed
 
 
+def offsite_backup_stale(status_file: Path, checked: dt.datetime, max_age_hours: int) -> bool:
+    """True unless the private status written by backup-offsite-daily.py shows a recent off-host copy."""
+
+    try:
+        metadata = status_file.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) & 0o077 or metadata.st_size > STATUS_LIMIT:
+            return True
+        descriptor = os.open(status_file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+        with os.fdopen(descriptor, "rb") as source:
+            payload = json.loads(source.read(STATUS_LIMIT + 1))
+        created = _parse_utc_stamp(payload["snapshot_created_at_utc"])
+    except (OSError, ValueError, TypeError, KeyError):
+        return True
+    return checked - created > dt.timedelta(hours=max_age_hours)
+
+
 def _iso(value: dt.datetime | None) -> str | None:
     return value.astimezone(dt.timezone.utc).isoformat(timespec="seconds") if value else None
 
@@ -219,6 +275,8 @@ def collect_status(
     now: dt.datetime | None = None,
     runner=subprocess.run,
     max_backup_age_hours: int = 36,
+    offsite_status_file: Path | None = None,
+    max_offsite_age_hours: int = DEFAULT_MAX_OFFSITE_AGE_HOURS,
 ) -> dict:
     checked = now or dt.datetime.now(dt.timezone.utc)
     checked = checked.astimezone(dt.timezone.utc)
@@ -232,6 +290,10 @@ def collect_status(
     docker_healthy, docker_alerts = check_docker_health(project_dir, runner)
     alert_codes.extend(docker_alerts)
     if credentials is None or not check_health_endpoint(base_url, credentials):
+        alert_codes.append("health_endpoint_unavailable")
+    elif not check_site_identity(base_url):
+        # The backend status schema has no dedicated code; a wrong site is
+        # reported as an unavailable health endpoint.
         alert_codes.append("health_endpoint_unavailable")
 
     service_state, last_success = read_backup_service(runner)
@@ -253,6 +315,8 @@ def collect_status(
         and "backup_stale" not in alert_codes
     ):
         alert_codes.append("backup_stale")
+    if offsite_status_file is not None and offsite_backup_stale(offsite_status_file, checked, max_offsite_age_hours):
+        alert_codes.append("offsite_backup_stale")
 
     alert_codes = sorted(set(alert_codes))
     return {
@@ -308,10 +372,7 @@ def _atomic_write_private(path: Path, payload: bytes) -> None:
         finally:
             os.close(directory_fd)
     finally:
-        try:
-            temporary.unlink()
-        except FileNotFoundError:
-            pass
+        temporary.unlink(missing_ok=True)
 
 
 def store_private_json(path: Path, payload: dict) -> None:
@@ -330,6 +391,87 @@ def update_alert_state(path: Path, current_codes: list[str]) -> tuple[bool, list
     return changed, new_codes
 
 
+def _parse_env_file(path: Path) -> dict[str, str]:
+    metadata = path.lstat()
+    if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) not in {0o400, 0o600}:
+        raise MonitorError("alert_file_unsafe")
+    if metadata.st_uid != os.geteuid() or metadata.st_size > STATE_LIMIT:
+        raise MonitorError("alert_file_unsafe")
+    values = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        key, separator, value = stripped.partition("=")
+        if separator:
+            values[key.strip()] = value.strip().strip("\"'")
+    return values
+
+
+def read_alert_config(environ: dict[str, str], env_file: Path | None) -> tuple[str, str] | None:
+    """Return (bot token, chat id) from the environment or a private file; None disables alerts."""
+
+    values = {key: environ.get(key, "") for key in (ALERT_TOKEN_ENV, ALERT_CHAT_ENV)}
+    if env_file is not None and not all(values.values()):
+        try:
+            from_file = _parse_env_file(env_file)
+        except FileNotFoundError:
+            from_file = {}
+        except (OSError, UnicodeError, MonitorError) as exc:
+            _log_stderr("alert_config_unreadable", error_type=type(exc).__name__)
+            from_file = {}
+        values = {key: values[key] or from_file.get(key, "") for key in values}
+    token, chat_id = values[ALERT_TOKEN_ENV], values[ALERT_CHAT_ENV]
+    if not token or not chat_id:
+        return None
+    return token, chat_id
+
+
+def _log_stderr(event: str, **fields) -> None:
+    print(json.dumps({"event": event, **fields}, sort_keys=True), file=sys.stderr)
+
+
+def _post_form(url: str, data: dict[str, str], timeout: int) -> None:
+    encoded = urllib.parse.urlencode(data).encode("utf-8")
+    request = urllib.request.Request(url, data=encoded, method="POST")
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        if response.status != 200:
+            raise urllib.error.URLError(f"status {response.status}")
+
+
+def notify_alert_changes(
+    config: tuple[str, str] | None,
+    previous: set[str] | None,
+    current: list[str],
+    base_url: str,
+    *,
+    sender=_post_form,
+) -> bool:
+    """Send one Telegram message when alerts appear or recover; never raise."""
+
+    if config is None:
+        return False
+    before = previous or set()
+    new_codes = sorted(set(current) - before)
+    recovered = sorted(before - set(current))
+    if not new_codes and not recovered:
+        return False
+    lines = [f"Avtorinok monitor: {base_url}"]
+    if new_codes:
+        lines.append("ALERT: " + ", ".join(new_codes))
+    if recovered:
+        lines.append("RECOVERED: " + ", ".join(recovered))
+    lines.append("Active: " + (", ".join(sorted(current)) or "none"))
+    token, chat_id = config
+    try:
+        sender(f"{TELEGRAM_API}/bot{token}/sendMessage", {"chat_id": chat_id, "text": "\n".join(lines)}, TELEGRAM_TIMEOUT_SECONDS)
+    except (OSError, urllib.error.URLError, ValueError) as exc:
+        # The exception text can contain the request URL, which embeds the token.
+        _log_stderr("telegram_alert_failed", error_type=type(exc).__name__)
+        return False
+    return True
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-dir", type=Path, required=True)
@@ -340,9 +482,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--status-file", type=Path, required=True)
     parser.add_argument("--status-owner-uid", type=int)
     parser.add_argument("--max-backup-age-hours", type=int, default=36)
+    parser.add_argument("--alert-env-file", type=Path, help="Optional private file with MONITOR_TELEGRAM_* settings")
+    parser.add_argument("--offsite-status-file", type=Path, help="Status file written by backup-offsite-daily.py")
+    parser.add_argument("--max-offsite-age-hours", type=int, default=DEFAULT_MAX_OFFSITE_AGE_HOURS)
     args = parser.parse_args(argv)
     if not 1 <= args.max_backup_age_hours <= 168:
         parser.error("--max-backup-age-hours must be between 1 and 168")
+    if not 1 <= args.max_offsite_age_hours <= 336:
+        parser.error("--max-offsite-age-hours must be between 1 and 336")
     return args
 
 
@@ -368,7 +515,10 @@ def main(argv: list[str] | None = None) -> int:
             access_file=args.access_file,
             backup_root=args.backup_root,
             max_backup_age_hours=args.max_backup_age_hours,
+            offsite_status_file=args.offsite_status_file,
+            max_offsite_age_hours=args.max_offsite_age_hours,
         )
+    previous_codes = _read_state(args.state_file)
     try:
         changed, new_codes = update_alert_state(args.state_file, report["alert_codes"])
         store_private_json(args.status_file, report)
@@ -377,6 +527,12 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, MonitorError):
         print(json.dumps({"status": "action_required", "alert_codes": ["monitor_configuration"]}, sort_keys=True))
         return 2
+    notify_alert_changes(
+        read_alert_config(dict(os.environ), args.alert_env_file),
+        previous_codes,
+        report["alert_codes"],
+        args.base_url,
+    )
     public_report = {
         "status": report["status"],
         "checked_at_utc": report["checked_at_utc"],

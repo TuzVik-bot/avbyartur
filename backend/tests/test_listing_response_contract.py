@@ -287,7 +287,10 @@ def test_favorites_collection_documents_public_listing_items() -> None:
     assert response_schema["$ref"] == "#/components/schemas/ListingFavoritesOut"
     favorites_schema = _component(openapi, response_schema["$ref"])
     item_schema = favorites_schema["properties"]["items"]["items"]
-    assert item_schema["$ref"] == "#/components/schemas/ListingPublicOut"
+    # Favorites extend the public listing DTO with the per-favorite price-drop toggle.
+    assert item_schema["$ref"] == "#/components/schemas/FavoriteListingOut"
+    item_properties = _component(openapi, item_schema["$ref"])["properties"]
+    assert "price_drop_notifications_enabled" in item_properties
     assert UNSAFE_PUBLIC_PROPERTIES.isdisjoint(
         _all_property_names(openapi, item_schema)
     )
@@ -302,7 +305,8 @@ def test_phone_reveal_documents_only_its_authenticated_phone_response() -> None:
 
     assert response_schema["$ref"] == "#/components/schemas/PhoneRevealOut"
     phone_schema = _component(openapi, response_schema["$ref"])
-    assert set(phone_schema["properties"]) == {"phone"}
+    # Opt-in messenger links are revealed together with the phone.
+    assert set(phone_schema["properties"]) == {"phone", "messengers"}
     assert phone_schema["properties"]["phone"]["type"] == "string"
 
 

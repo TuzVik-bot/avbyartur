@@ -25,7 +25,7 @@ from app.catalog_request_service import (
 )
 from app.db import get_db
 from app.models import User
-from app.services import fail
+from app.services import MAX_PAGE, fail
 
 
 router = APIRouter(prefix="/api/v1", tags=["catalog requests"])
@@ -83,7 +83,7 @@ def moderation_catalog_requests(
     db: Annotated[Session, Depends(get_db)],
     response: Response,
     status: Literal["pending", "resolved", "rejected"] | None = None,
-    page: Annotated[int, Query(ge=1)] = 1,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> dict:
     rows, total = list_catalog_requests(

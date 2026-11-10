@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import account, admin, admin_catalog, admin_settings, auth, billing, catalog, companies, conversations, dealer, feeds, listings, managed_content, media, moderation, monitoring, notifications, profile_identity, saved_searches
@@ -18,11 +18,14 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.health_schemas import HealthResponse
 from app.logging_config import (
+    accept_request_id,
     bind_request_id,
     configure_json_logger,
     log_event,
     reset_request_id,
+    safe_exception_message,
 )
+from app.models import WorkerHeartbeat
 from app.schemas import ApiErrorOut
 
 settings = get_settings()
@@ -449,7 +452,7 @@ app.add_middleware(UploadBodyLimitMiddleware)
 
 @app.middleware("http")
 async def request_context(request: Request, call_next):
-    request_id = uuid4().hex
+    request_id = accept_request_id(request.headers.get("x-request-id"))
     request.state.request_id = request_id
     token = bind_request_id(request_id)
     started_at = perf_counter()
@@ -470,30 +473,59 @@ async def request_context(request: Request, call_next):
         reset_request_id(token)
 
 
+VALIDATION_ERROR_MESSAGE = "Проверьте правильность заполнения полей"
+_PRIMITIVE_CONTEXT_TYPES = (str, int, float, bool)
+
+
+def _primitive_error_context(context: Any) -> dict[str, Any]:
+    """Keep only JSON-primitive pydantic ctx values (drops exception objects and the like)."""
+    if not isinstance(context, dict):
+        return {}
+    return {str(name): value for name, value in context.items() if isinstance(value, _PRIMITIVE_CONTEXT_TYPES)}
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
-    field_errors = {}
+    field_errors: dict[str, str] = {}
+    field_error_types: dict[str, str] = {}
+    field_error_context: dict[str, dict[str, Any]] = {}
     for error in exc.errors():
         location = ".".join(str(part) for part in error.get("loc", ()) if part not in {"body", "query", "path", "header"})
-        field_errors[location or "request"] = str(error.get("msg", "Invalid value"))
+        key = location or "request"
+        field_errors[key] = str(error.get("msg", "Invalid value"))
+        field_error_types[key] = str(error.get("type", "value_error"))
+        context = _primitive_error_context(error.get("ctx"))
+        if context:
+            field_error_context[key] = context
+    request_id = getattr(request.state, "request_id", "")
+    # field_errors keeps the English pydantic text for old clients; the web app
+    # renders Russian text from field_error_types and field_error_context.
     return JSONResponse(status_code=422, content={
-        "code": "validation_error", "message": "Request validation failed", "field_errors": field_errors,
-        "request_id": getattr(request.state, "request_id", ""),
-    }, headers={"X-Request-ID": getattr(request.state, "request_id", "")})
+        "code": "validation_error", "message": VALIDATION_ERROR_MESSAGE, "field_errors": field_errors,
+        "field_error_types": field_error_types, "field_error_context": field_error_context,
+        "request_id": request_id,
+    }, headers={"X-Request-ID": request_id})
 
 
 @app.exception_handler(Exception)
 async def unexpected_error(request: Request, exc: Exception) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "")
     from app.error_monitoring import capture_safe_error
-    capture_safe_error("api", type(exc).__name__, request_id=request_id)
+    capture_safe_error(
+        "api", type(exc).__name__, request_id=request_id, exc=exc,
+        method=request.method, path=request.url.path,
+    )
+    # Only method, path and the redacted exception are logged: never query
+    # strings, headers, cookies, bodies or frame locals.
     log_event(
         logger,
         logging.ERROR,
         "request_failed",
+        exc_info=exc,
         method=request.method,
         path=request.url.path,
         error_type=type(exc).__name__,
+        error_message=safe_exception_message(exc),
         request_id=request_id,
     )
     return JSONResponse(status_code=500, content={
@@ -535,9 +567,28 @@ async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=body, headers=headers)
 
 
-@app.get("/health/live", response_model=HealthResponse)
+@app.get("/health/live", response_model=HealthResponse, response_model_exclude_none=True)
 def live() -> dict:
     return {"status": "ok"}
+
+
+# A worker that has not finished a loop iteration for this long is stopped or stuck.
+WORKER_HEARTBEAT_STALE_SECONDS = 60
+_UNKNOWN_WORKER = {"status": "unknown", "last_seen_seconds": None}
+
+
+def _worker_signal(db) -> dict:
+    """Age of the freshest worker heartbeat; informational only."""
+    try:
+        now, last_seen = db.execute(select(func.now(), func.max(WorkerHeartbeat.last_seen_at))).one()
+    except Exception as exc:  # noqa: BLE001 - the worker signal must never fail readiness.
+        log_event(logger, logging.WARNING, "worker_signal_unavailable", error_type=type(exc).__name__)
+        return dict(_UNKNOWN_WORKER)
+    if last_seen is None:
+        return dict(_UNKNOWN_WORKER)
+    age_seconds = max(0, int((now - last_seen).total_seconds()))
+    status = "ok" if age_seconds < WORKER_HEARTBEAT_STALE_SECONDS else "stale"
+    return {"status": status, "last_seen_seconds": age_seconds}
 
 
 @app.get(
@@ -549,6 +600,7 @@ def ready() -> JSONResponse:
     try:
         with SessionLocal() as db:
             db.execute(text("SELECT 1"))
+            worker = _worker_signal(db)
     except Exception:
         return JSONResponse(status_code=503, content={"status": "unavailable"})
-    return JSONResponse(status_code=200, content={"status": "ok"})
+    return JSONResponse(status_code=200, content={"status": "ok", "worker": worker})

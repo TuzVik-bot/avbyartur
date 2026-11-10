@@ -38,6 +38,8 @@
 .panel button:disabled { cursor: default; opacity: .45; }
 .listening { color: var(--danger); background: var(--soft-danger); }
 .pending { color: var(--muted); font-size: 13px; }
+.notice { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .privacy { flex: 0 0 auto; margin: -4px 14px 10px; font-size: 10px; line-height: 1.35; color: var(--muted); }
 .pending span { animation: pulse 1s ease-in-out infinite alternate; }
 .error { padding: 10px 0; color: var(--danger); font-size: 13px; }

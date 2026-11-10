@@ -59,6 +59,9 @@ pilot-password*
 .DS_Store
 
 # Local tooling artifacts (baseline 2026-10-24)
+/output/
+*.orig
+*.rej
 .aislop/
 .serena/
 backend/.codex-test-deps-*/

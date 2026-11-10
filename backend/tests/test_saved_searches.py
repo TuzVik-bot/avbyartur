@@ -63,7 +63,12 @@ def test_saved_search_create_rejects_different_numeric_filters():
 
 def test_saved_search_create_rejects_filters_that_contradict_url():
     with pytest.raises(ValidationError, match="contradict"):
-        SavedSearchCreate(name="Audi", url="/cars?make_id=audi", filters={"make_id": "bmw"})
+        # Catalog filters are UUIDs validated by ListingSearchFilters.
+        SavedSearchCreate(
+            name="Audi",
+            url=f"/cars?make_id={uuid.UUID(int=1)}",
+            filters={"make_id": str(uuid.UUID(int=2))},
+        )
 
 
 def test_saved_search_create_requires_explicit_subscription_after_save():
@@ -197,8 +202,8 @@ def test_saved_search_crud_is_owner_scoped_and_revision_checked(integration):
     updated = owner_client.patch(
         f"/api/v1/me/saved-searches/{saved['id']}",
         json={
-            "url": "/cars?make_id=1",
-            "filters": {"make_id": "1"},
+            "url": f"/cars?make_id={uuid.UUID(int=1)}",
+            "filters": {"make_id": str(uuid.UUID(int=1))},
             "notifications_enabled": False,
             "notification_channel": None,
             "expected_revision": 4,

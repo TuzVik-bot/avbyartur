@@ -21,9 +21,14 @@ from sqlalchemy import (
     event,
     func,
     inspect,
+    or_,
+    select,
+    update,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
 
 from app.db import Base
 
@@ -432,9 +437,23 @@ class Listing(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     moderated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Denormalized first-ever transition to active, maintained from
+    # ListingStatusEvent inserts by _record_first_publication below.
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     category_details: Mapped["ListingCategoryDetails | None"] = relationship(
         back_populates="listing", uselist=False, cascade="all, delete-orphan", lazy="selectin"
     )
+
+
+# Serves publication-date sorts of the public search, which always filter by
+# status and category_code.
+Index(
+    "ix_listing_publication_order",
+    Listing.status,
+    Listing.category_code,
+    func.coalesce(Listing.published_at, Listing.created_at).desc(),
+    Listing.id.desc(),
+)
 
 
 class ListingCategoryDetails(Base):
@@ -882,6 +901,16 @@ class WorkerJob(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+
+class WorkerHeartbeat(Base):
+    """Last time each worker process finished a loop iteration."""
+
+    __tablename__ = "worker_heartbeats"
+
+    worker_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class BillingTariff(Base):
     """Owner-approved price and duration for a commerce service."""
 
@@ -1113,3 +1142,40 @@ def _keep_listing_promotion_snapshot_immutable(_mapper, _connection, promotion: 
     )
     if any(state.attrs[field].history.has_changes() for field in snapshot_fields):
         raise ValueError("Promotion commercial snapshot fields are immutable")
+
+
+@event.listens_for(Session, "after_flush")
+def _record_first_publication(session: Session, _flush_context) -> None:
+    """Keep Listing.published_at equal to the earliest event moving it to active.
+
+    Every writer records status transitions as ListingStatusEvent rows, so this
+    hook covers moderation, auto-publication, feeds and imports in one place.
+    updated_at is passed through to keep the column's onupdate from firing.
+    """
+    listing_ids = {
+        item.listing_id
+        for item in session.new
+        if isinstance(item, ListingStatusEvent) and item.to_status == "active"
+    }
+    if not listing_ids:
+        return
+    listings = Listing.__table__
+    events = ListingStatusEvent.__table__
+    first_active = (
+        select(func.min(events.c.created_at))
+        .where(events.c.listing_id == listings.c.id, events.c.to_status == "active")
+        .scalar_subquery()
+    )
+    statement = (
+        update(listings)
+        .where(
+            listings.c.id.in_(listing_ids),
+            or_(listings.c.published_at.is_(None), listings.c.published_at > first_active),
+        )
+        .values(published_at=first_active, updated_at=listings.c.updated_at)
+        .returning(listings.c.id, listings.c.published_at)
+    )
+    for listing_id, published_at in session.connection().execute(statement).all():
+        listing = session.identity_map.get(identity_key(Listing, listing_id))
+        if listing is not None:
+            set_committed_value(listing, "published_at", published_at)

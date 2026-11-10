@@ -76,8 +76,8 @@ describe("home listing cards", () => {
 
   it("keeps the Russian canonical URL and declares its locale alternate", () => {
     expect(metadata.alternates).toEqual({
-      canonical: "https://suite-s1.denjik.by/",
-      languages: { ru: "https://suite-s1.denjik.by/" }
+      canonical: "https://xn--80aeylebmo7f.xn--90ais/",
+      languages: { ru: "https://xn--80aeylebmo7f.xn--90ais/" }
     });
   });
 

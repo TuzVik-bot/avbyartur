@@ -1,0 +1,987 @@
+--- a/web/next.config.ts
++++ b/web/next.config.ts
+@@ -8,6 +8,9 @@
+ 
+ const nextConfig: NextConfig = {
+   output: "standalone",
++  // Resolve metadata before sending HTML for every browser and crawler.
++  // Streaming metadata otherwise appends title/canonical/robots to the body.
++  htmlLimitedBots: /.*/,
+   poweredByHeader: false,
+   images: {
+     formats: ["image/avif", "image/webp"],
+--- a/backend/tests/test_listing_currency.py
++++ b/backend/tests/test_listing_currency.py
+@@ -110,6 +110,30 @@
+         fetched_at=fetched_at,
+     ))
+     db.flush()
++
++
++@pytest.mark.parametrize("sort,expected", [
++    ("published_desc", [1, 2, 0]),
++    ("oldest", [0, 2, 1]),
++    ("year_asc", [1, 0, 2]),
++    ("year_desc", [0, 1, 2]),
++    ("mileage_asc", [1, 0, 2]),
++])
++def test_explicit_catalog_sort_modes(currency_api, sort, expected):
++    with currency_api["SessionLocal"]() as db:
++        owner = add_owner(db)
++        rows = [add_listing(db, owner, "10000", "BYN") for _ in range(3)]
++        for index, row in enumerate(rows):
++            row.created_at = datetime(2026, 1, 3 - index, tzinfo=timezone.utc)
++            row.year = [2020, 2010, None][index]
++            row.mileage_km = [90000, 10000, None][index]
++            db.add(ListingStatusEvent(listing_id=row.id, from_status="pending_review", to_status="active", revision=1,
++                                      created_at=datetime(2026, 2, [1, 3, 2][index], tzinfo=timezone.utc)))
++        ids = [str(row.id) for row in rows]
++        db.commit()
++    response = currency_api["client"].get("/api/v1/listings", params={"sort": sort})
++    assert response.status_code == 200, response.text
++    assert [item["id"] for item in response.json()["items"]] == [ids[index] for index in expected]
+ 
+ 
+ def test_search_converts_mixed_currency_for_filter_sort_and_display(currency_api):
+--- a/backend/app/api/listings.py
++++ b/backend/app/api/listings.py
+@@ -472,7 +472,7 @@
+         "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
+         "cruise_control", "parking_sensors", "rear_camera", "leather_seats", "carplay", "android_auto",
+     ]] | None, Query()] = None,
+-    sort: Literal["newest", "price_asc", "price_desc", "year_desc", "mileage_asc"] = "newest",
++    sort: Literal["newest", "published_desc", "oldest", "price_asc", "price_desc", "year_desc", "year_asc", "mileage_asc"] = "newest",
+ ) -> dict:
+     filters = filters.model_copy(update={"equipment": equipment})
+     price_operation = filters.price_min is not None or filters.price_max is not None or sort in {"price_asc", "price_desc"}
+@@ -499,13 +499,22 @@
+             func.coalesce(publication_dates.c.published_at, Listing.created_at).desc(),
+             Listing.id.desc(),
+         ),
++        "published_desc": (
++            func.coalesce(publication_dates.c.published_at, Listing.created_at).desc(),
++            Listing.id.desc(),
++        ),
++        "oldest": (
++            func.coalesce(publication_dates.c.published_at, Listing.created_at).asc(),
++            Listing.id.asc(),
++        ),
++        "year_asc": (Listing.year.asc().nullslast(), Listing.id.asc()),
+         "price_asc": (display_price.asc().nullslast(), Listing.id.asc()),
+         "price_desc": (display_price.desc().nullslast(), Listing.id.desc()),
+         "year_desc": (Listing.year.desc().nullslast(), Listing.id.desc()),
+         "mileage_asc": (Listing.mileage_km.asc().nullslast(), Listing.id.asc()),
+     }[sort]
+     publication_dates_for_page: dict[UUID, datetime] = {}
+-    if sort == "newest":
++    if sort in {"newest", "published_desc", "oldest"}:
+         query = query.outerjoin(publication_dates, publication_dates.c.listing_id == Listing.id)
+         query = query.add_columns(publication_dates.c.published_at)
+     bind = db.get_bind()
+@@ -535,7 +544,7 @@
+         query = query.outerjoin(active_boost, active_boost.c.listing_id == Listing.id)
+         order = (active_boost.c.rank.desc().nullslast(), *order)
+     page_query = query.order_by(*order).offset((page - 1) * page_size).limit(page_size)
+-    if sort == "newest":
++    if sort in {"newest", "published_desc", "oldest"}:
+         selected_rows = db.execute(page_query).all()
+         rows = [row[0] for row in selected_rows]
+         publication_dates_for_page = {
+@@ -549,7 +558,7 @@
+             rows,
+             rate_info=rate_info,
+             display_currency=filters.currency,
+-            publication_dates=publication_dates_for_page if sort == "newest" else None,
++            publication_dates=publication_dates_for_page if sort in {"newest", "published_desc", "oldest"} else None,
+         ),
+         "pagination": {"page": page, "page_size": page_size, "total": total, "pages": (total + page_size - 1) // page_size},
+     }
+@@ -568,7 +577,7 @@
+         "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
+         "cruise_control", "parking_sensors", "rear_camera", "leather_seats", "carplay", "android_auto",
+     ]] | None, Query()] = None,
+-    sort: Literal["newest", "price_asc", "price_desc", "year_desc", "mileage_asc"] = "newest",
++    sort: Literal["newest", "published_desc", "oldest", "price_asc", "price_desc", "year_desc", "year_asc", "mileage_asc"] = "newest",
+ ) -> dict:
+     # Pagination and ordering are accepted for call compatibility but do not affect the count.
+     del page, page_size, sort
+--- a/web/src/app/sitemap.test.ts
++++ b/web/src/app/sitemap.test.ts
+@@ -1,6 +1,8 @@
+ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+ import { SITE_ORIGIN } from "@/lib/site-config";
+ import { editorialArticlePaths } from "@/lib/editorial-articles";
++import { editorialContentUpdatedISO } from "@/lib/editorial-guide-actions";
++import { localeMetadata } from "@/lib/site-config";
+ import { STATIC_SITEMAP_PATHS } from "@/lib/seo";
+ 
+ const PUBLIC_INDEXING_ENV = "AVTORINOK_PUBLIC_INDEXING_ENABLED";
+@@ -50,6 +52,41 @@
+ }
+ 
+ describe("closed pilot sitemap", () => {
++  it("excludes fallback and unnamed category pages while retaining valid ads and Cyrillic brands", async () => {
++    vi.stubEnv(PUBLIC_INDEXING_ENV, "true");
++    const groups = [
++      ["belgee", "manual-9b704f4e9546", "Belgee", "X50"],
++      ["manual-123", "model", "Марка вручную", "Модель"],
++      ["empty", "model", "  ", "Модель"],
++      ["cur-unicode-9ce7a3a923", "gazelle", "ГАЗ", "Газель"],
++    ];
++    const items = groups.flatMap(([makeSlug, modelSlug, makeName, modelName]) => Array.from({ length: 3 }, (_, index) => listing(`${makeSlug}-${index}`, {
++      make: { id: makeSlug, slug: makeSlug, name: makeName },
++      model: { id: modelSlug, slug: modelSlug, name: modelName },
++    })));
++    mocks.listings.mockResolvedValue({ items, pagination: { pages: 1 } });
++    mocks.dealers.mockResolvedValue({ items: [], pagination: { pages: 1 } });
++    const urls = (await sitemap()).map(({ url }) => url);
++    expect(urls).not.toContain(`${SITE_ORIGIN}/cars/belgee/manual-9b704f4e9546`);
++    expect(urls).not.toContain(`${SITE_ORIGIN}/cars/manual-123`);
++    expect(urls).not.toContain(`${SITE_ORIGIN}/cars/empty`);
++    expect(urls).not.toContain(`${SITE_ORIGIN}/cars/empty/model`);
++    expect(urls).toContain(`${SITE_ORIGIN}/cars/belgee/manual-9b704f4e9546/belgee-0`);
++    expect(urls).toContain(`${SITE_ORIGIN}/cars/cur-unicode-9ce7a3a923`);
++    expect(urls).toContain(`${SITE_ORIGIN}/cars/cur-unicode-9ce7a3a923/gazelle`);
++  });
++
++  it("publishes known article and catalog modification dates and consistent home canonical", async () => {
++    vi.stubEnv(PUBLIC_INDEXING_ENV, "true");
++    mocks.listings.mockResolvedValue({ items: [listing("current")], pagination: { pages: 1 } });
++    mocks.dealers.mockResolvedValue({ items: [], pagination: { pages: 1 } });
++    const entries = await sitemap();
++    expect(entries.find(({ url }) => url === SITE_ORIGIN )?.url).toBe(localeMetadata("/").canonical?.replace(/\/$/, ""));
++    expect(entries.find(({ url }) => url === `${SITE_ORIGIN}/cars`)).toMatchObject({ lastModified: new Date("2026-09-28T12:00:00Z"), changeFrequency: "daily" });
++    for (const path of editorialArticlePaths) {
++      expect(entries.find(({ url }) => url === `${SITE_ORIGIN}${path}`)).toMatchObject({ lastModified: new Date(editorialContentUpdatedISO), changeFrequency: "monthly" });
++    }
++  });
+   it("keeps the sitemap empty and omits its robots advertisement until opt-in", async () => {
+     expect(await sitemap()).toEqual([]);
+     expect(await robots()).toEqual({ rules: { userAgent: "*", disallow: "/api/v1/" } });
+@@ -118,7 +155,7 @@
+     const entriesByUrl = new Map(entries.map((entry) => [entry.url, entry]));
+ 
+     expect(urls).toEqual(expect.arrayContaining([
+-      `${SITE_ORIGIN}/`,
++      SITE_ORIGIN,
+       `${SITE_ORIGIN}/cars`,
+       `${SITE_ORIGIN}/dealers`,
+       `${SITE_ORIGIN}/cars/bmw`,
+@@ -146,7 +183,7 @@
+     expect(entriesByUrl.get(`${SITE_ORIGIN}/cars/bmw`)?.lastModified).toEqual(new Date("2026-09-29T10:00:00Z"));
+     expect(entriesByUrl.get(`${SITE_ORIGIN}/cars/bmw/3-series`)?.lastModified).toEqual(new Date("2026-09-29T10:00:00Z"));
+     expect(entriesByUrl.get(`${SITE_ORIGIN}/cars/city/minsk`)?.lastModified).toEqual(new Date("2026-09-30T10:00:00Z"));
+-    expect(entriesByUrl.get(`${SITE_ORIGIN}/`)).not.toHaveProperty("lastModified");
++    expect(entriesByUrl.get(SITE_ORIGIN)).not.toHaveProperty("lastModified");
+     expect(entriesByUrl.get(`${SITE_ORIGIN}/cars/manual-1/manual-1/manual-1`)).not.toHaveProperty("lastModified");
+     expect(mocks.listings).toHaveBeenCalledTimes(2);
+   });
+@@ -159,13 +196,14 @@
+     const entries = await sitemap();
+     const urls = entries.map(({ url }) => url);
+     expect(urls).toEqual([
+-      `${SITE_ORIGIN}/`,
++      SITE_ORIGIN,
+       `${SITE_ORIGIN}/cars`,
+       `${SITE_ORIGIN}/dealers`,
+       ...staticSitemapUrls,
+       ...editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`),
+     ]);
+-    expect(entries.every((entry) => !("lastModified" in entry))).toBe(true);
++    const articleUrls = new Set(editorialArticlePaths.map((path) => `${SITE_ORIGIN}${path}`));
++    expect(entries.filter((entry) => !articleUrls.has(entry.url)).every((entry) => !("lastModified" in entry))).toBe(true);
+   });
+ 
+   it("advertises the sitemap without weakening the API disallow rule when enabled", async () => {
+@@ -207,7 +245,7 @@
+     const entries = await sitemap();
+ 
+     expect(entries.map(({ url }) => url)).toEqual([
+-      `${SITE_ORIGIN}/`,
++      SITE_ORIGIN,
+       `${SITE_ORIGIN}/cars`,
+       `${SITE_ORIGIN}/dealers`,
+       ...staticSitemapUrls,
+--- a/web/src/app/sitemap.ts
++++ b/web/src/app/sitemap.ts
+@@ -6,6 +6,7 @@
+ import type { CompanySummary, ListResponse } from "@/lib/types";
+ import { siteUrl } from "@/lib/site-config";
+ import { isPublicIndexingEnabled } from "@/lib/pilot-visibility";
++import { editorialContentUpdatedISO } from "@/lib/editorial-guide-actions";
+ 
+ const PAGE_SIZE = "25";
+ const PAGE_BATCH_SIZE = 5;
+@@ -58,6 +59,10 @@
+ 
+   return [
+     ...entries,
+-    ...editorialArticlePaths.map((path) => ({ url: siteUrl(path) })),
++    ...editorialArticlePaths.map((path) => ({
++      url: siteUrl(path),
++      lastModified: new Date(editorialContentUpdatedISO),
++      changeFrequency: "monthly" as const,
++    })),
+   ];
+ }
+--- a/web/src/app/layout.tsx
++++ b/web/src/app/layout.tsx
+@@ -54,13 +54,24 @@
+ 
+ export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+ 
++const GOOGLE_TAG_INIT_SCRIPT = `
++window.dataLayer = window.dataLayer || [];
++function gtag(){dataLayer.push(arguments);}
++gtag('js', new Date());
++gtag('config', 'G-48P5WKB0Z5');
++`;
++
+ export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+   // Keep public pages available if the API is temporarily offline. Protected
+   // route guards call the same lookup without swallowing service failures.
+   const initialSession = await getSessionServer().catch(() => null);
+   return (
+     <html lang={DEFAULT_LOCALE} suppressHydrationWarning>
+-      <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
++      <head>
++        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
++        <script async src="https://www.googletagmanager.com/gtag/js?id=G-48P5WKB0Z5" />
++        <script dangerouslySetInnerHTML={{ __html: GOOGLE_TAG_INIT_SCRIPT }} />
++      </head>
+       <body>
+         <AuthProvider initialSession={initialSession}>
+           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildWebsiteJsonLd()) }} />
+--- a/web/src/app/loading.tsx
++++ b/web/src/app/loading.tsx
+@@ -5,7 +5,7 @@
+  */
+ export default function AppLoading() {
+   return (
+-    <div className="page-width route-loading" aria-busy="true" aria-label="Загрузка страницы">
++    <div className="page-width route-loading" aria-busy="true" role="group" aria-label="Загрузка страницы">
+       <div className="route-skeleton app-loading-skeleton" aria-hidden="true">
+         <span />
+         <span />
+--- a/web/src/app/page.tsx
++++ b/web/src/app/page.tsx
+@@ -1,6 +1,6 @@
+ import Image from "next/image";
+ import Link from "next/link";
+-import { ArrowRight, Building2, Calculator, CarFront, Check, FileText, MapPin, Repeat2, ScanLine, SlidersHorizontal, UsersRound, Zap } from "lucide-react";
++import { ArrowRight, Building2, Calculator, CarFront, Check, FileText, MapPin, Repeat2, ScanLine, SlidersHorizontal, UsersRound, Zap } from "@/components/home-icons";
+ import { ListingCard } from "@/components/listing-card";
+ import { MachineIllustration } from "@/components/category-landing";
+ import { HomeSearch } from "@/components/home-search";
+@@ -111,7 +111,7 @@
+       <nav className={`page-width ${styles.categories}`} aria-label="Категории объявлений">
+         <h2>Разделы каталога</h2>
+         <ul className={styles.featuredCategories}>{featuredCategories.map(({ href, title, caption, art }, index) => <li key={href}><Link href={href}><span className={styles.categoryArt}><MachineIllustration kind={art} index={index} /></span><span className={styles.categoryCopy}><strong>{title}</strong><small>{caption}</small></span><ArrowRight size={16} aria-hidden="true" /></Link></li>)}</ul>
+-        <div className={styles.otherCategories} aria-label="Другие разделы каталога">{advertisementSections.filter(({ href }) => !featuredCategories.some((category) => category.href === href)).map(({ label, href }) => <Link href={href} key={href}>{label}<ArrowRight size={13} aria-hidden="true" /></Link>)}</div>
++        <div className={styles.otherCategories} role="group" aria-label="Другие разделы каталога">{advertisementSections.filter(({ href }) => !featuredCategories.some((category) => category.href === href)).map(({ label, href }) => <Link href={href} key={href}>{label}<ArrowRight size={13} aria-hidden="true" /></Link>)}</div>
+       </nav>
+ 
+       <section className={`page-width ${styles.section} ${styles.listings}`} aria-labelledby="home-listings-heading">
+@@ -126,7 +126,7 @@
+           </div>
+         </div>}
+         {!!listings?.items.length && <div className={styles.listingFooter}><Link className="button button-secondary" href="/cars">Смотреть все объявления <ArrowRight size={16} aria-hidden="true" /></Link></div>}
+-        <div className={styles.collections} aria-label="Подборки автомобилей">
++        <div className={styles.collections} role="group" aria-label="Подборки автомобилей">
+           <Link href="/cars?condition=new"><CarFront size={24} aria-hidden="true" /><div><strong>Новые автомобили</strong><span>Объявления с состоянием «Новый»</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
+           <Link href="/cars?condition=used"><CarFront size={24} aria-hidden="true" /><div><strong>Автомобили с пробегом</strong><span>Объявления с состоянием «С пробегом»</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
+           <Link href="/cars?category_code=cars&in_transit=true"><CarFront size={24} aria-hidden="true" /><div><strong>Авто в пути</strong><span>Продавец указал, что автомобиль в пути</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
+--- a/web/src/app/layout.test.tsx
++++ b/web/src/app/layout.test.tsx
+@@ -22,6 +22,18 @@
+ });
+ 
+ describe("closed-pilot root layout", () => {
++  it("includes the requested Google tag once in the shared head", async () => {
++    const html = renderToStaticMarkup(await RootLayout({ children: createElement("h1", null, "Содержимое") }));
++    const document = new DOMParser().parseFromString(html, "text/html");
++    const scripts = document.querySelectorAll('script[src="https://www.googletagmanager.com/gtag/js?id=G-48P5WKB0Z5"]');
++    expect(scripts).toHaveLength(1);
++    expect(scripts[0].hasAttribute("async")).toBe(true);
++    expect(scripts[0].parentElement?.tagName).toBe("HEAD");
++    const initializers = [...document.head.querySelectorAll("script:not([src])")].filter((script) => script.textContent?.includes("gtag('config', 'G-48P5WKB0Z5')"));
++    expect(initializers).toHaveLength(1);
++    expect(initializers[0].textContent).toContain("window.dataLayer = window.dataLayer || []");
++    expect(initializers[0].textContent).toContain("gtag('js', new Date())");
++  });
+   it("provides a keyboard skip link and keeps the closed pilot unindexable by default", async () => {
+     const html = renderToStaticMarkup(await RootLayout({ children: createElement("h1", null, "Содержимое") }));
+ 
+--- /dev/null
++++ b/web/src/app/footer-category-routes.test.tsx
+@@ -0,0 +1,28 @@
++import { renderToStaticMarkup } from "react-dom/server";
++import type { Metadata } from "next";
++import type { ReactElement } from "react";
++import { describe, expect, it, vi } from "vitest";
++
++vi.mock("@/components/search-route", () => ({
++  SearchRoute: ({ search }: { search: { category_code: string } }) => <div data-category={search.category_code} />,
++}));
++
++const pages = import.meta.glob("./*/page.tsx") as Record<string, () => Promise<{ default: () => ReactElement; metadata: Metadata }>>;
++
++describe("footer category routes", () => {
++  it.each([
++    ["buses", "Автобусы"],
++    ["trucks", "Грузовики"],
++    ["parts", "Запчасти и автотовары"],
++    ["trailers", "Прицепы"],
++  ])("serves /%s with its own heading, search and canonical", async (slug, title) => {
++    const load = pages[`./${slug}/page.tsx`];
++    expect(load).toBeTypeOf("function");
++    const { default: Page, metadata } = await load();
++    const container = document.createElement("div");
++    container.innerHTML = renderToStaticMarkup(<Page />);
++    expect(container.querySelector("h1")?.textContent).toBe(title);
++    expect(container.querySelector("[data-category]")?.getAttribute("data-category")).toBe(slug);
++    expect(new URL(String(metadata.alternates?.canonical)).pathname).toBe(`/${slug}`);
++  });
++});
+--- /dev/null
++++ b/web/src/components/home-icons.tsx
+@@ -0,0 +1,5 @@
++"use client";
++
++// Keep SVG trees inside the client rendering boundary so RSC streaming cannot
++// insert HTML <template> placeholders between their SVG paths.
++export { ArrowRight, Building2, Calculator, CarFront, Check, FileText, MapPin, Repeat2, ScanLine, SlidersHorizontal, UsersRound, Zap } from "lucide-react";
+--- a/web/src/components/listing-detail.test.tsx
++++ b/web/src/components/listing-detail.test.tsx
+@@ -331,7 +331,7 @@
+     const mainImage = () => container.querySelector<HTMLImageElement>("#detail-main-image")!;
+     expect(thumbnails).toHaveLength(6);
+     expect(mainImage().src).toContain("/photo-1.webp");
+-    expect(mainImage().alt).toBe("Фотография 1 из 6: Марка Модель");
++    expect(mainImage().alt).toBe("Продажа авто — Марка Модель — фото 1");
+     expect(thumbnails[0].getAttribute("aria-current")).toBe("true");
+ 
+     await act(async () => { thumbnails[5].click(); });
+--- a/web/src/components/search-sort.test.tsx
++++ b/web/src/components/search-sort.test.tsx
+@@ -19,6 +19,14 @@
+ });
+ 
+ describe("search sorting", () => {
++  it("offers the eight agreed sorting modes", async () => {
++    await act(async () => root.render(createElement(SearchSort, { search: {} })));
++    expect([...container.querySelectorAll("option")].map((option) => [option.value, option.textContent])).toEqual([
++      ["newest", "Актуальные"], ["price_asc", "Дешёвые"], ["price_desc", "Дорогие"],
++      ["published_desc", "Новые объявления"], ["oldest", "Старые объявления"],
++      ["mileage_asc", "С наименьшим пробегом"], ["year_desc", "Новые по году"], ["year_asc", "Старые по году"],
++    ]);
++  });
+   it("keeps active filters, carries currency, and submits the chosen sort", async () => {
+     await act(async () => root.render(createElement(SearchSort, {
+       search: { q: "BMW 3", make_id: "make-1", city_id: "city-1", category_code: "parts", page: "3", page_size: "50", currency: "USD", sort: "newest" }
+@@ -28,7 +36,7 @@
+     const requestSubmit = vi.spyOn(form, "requestSubmit").mockImplementation(() => undefined);
+     const select = container.querySelector<HTMLSelectElement>('select[name="sort"]')!;
+     expect([...select.options].map((option) => option.value)).toEqual([
+-      "newest", "price_asc", "price_desc", "year_desc", "mileage_asc"
++      "newest", "price_asc", "price_desc", "published_desc", "oldest", "mileage_asc", "year_desc", "year_asc"
+     ]);
+     expect(new FormData(form).get("q")).toBe("BMW 3");
+     expect(new FormData(form).get("city_id")).toBe("city-1");
+--- a/web/src/components/search-sort.tsx
++++ b/web/src/components/search-sort.tsx
+@@ -18,11 +18,14 @@
+         defaultValue={search.sort || "newest"}
+         onChange={(event) => event.currentTarget.form?.requestSubmit()}
+       >
+-        <option value="newest">Сначала новые</option>
+-        <option value="price_asc" disabled={!priceOperationsAvailable}>Сначала дешевле</option>
+-        <option value="price_desc" disabled={!priceOperationsAvailable}>Сначала дороже</option>
+-        <option value="year_desc">Сначала новее по году</option>
+-        <option value="mileage_asc">Сначала с меньшим пробегом</option>
++        <option value="newest">Актуальные</option>
++        <option value="price_asc" disabled={!priceOperationsAvailable}>Дешёвые</option>
++        <option value="price_desc" disabled={!priceOperationsAvailable}>Дорогие</option>
++        <option value="published_desc">Новые объявления</option>
++        <option value="oldest">Старые объявления</option>
++        <option value="mileage_asc">С наименьшим пробегом</option>
++        <option value="year_desc">Новые по году</option>
++        <option value="year_asc">Старые по году</option>
+       </select>
+       {!priceOperationsAvailable && (
+         <p className="muted" id="search-sort-price-status" role="status">
+--- a/web/src/components/listing-card.tsx
++++ b/web/src/components/listing-card.tsx
+@@ -9,7 +9,7 @@
+ import { ComparisonAction } from "@/components/comparison/comparison-action";
+ import { ListingPhotoBadges } from "@/components/listing-photo-badges";
+ import { api, ApiClientError } from "@/lib/api";
+-import { formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
++import { formatMileage, formatMoney, listingHref, listingPhotoAlt, vehicleLabel } from "@/lib/format";
+ import type { ListingSummary, Money } from "@/lib/types";
+ import styles from "./listing-card.module.css";
+ 
+@@ -91,7 +91,7 @@
+     <article className={`listing-card ${variant === "row" ? "listing-row" : ""}`}>
+       <div className="listing-card-media">
+         <Link href={href} aria-label={`Открыть объявление ${title}`}>
+-          <Image src={photo} alt={hasActualPhoto ? `Фотография: ${title}` : `Синтетическое изображение для объявления «${title}»`} width={900} height={563} sizes={listingImageSizes(variant)} priority={false} />
++          <Image src={photo} alt={hasActualPhoto ? listingPhotoAlt(title) : `Синтетическое изображение для объявления «${title}»`} width={900} height={563} sizes={listingImageSizes(variant)} priority={false} />
+         </Link>
+         {!hasActualPhoto && <span className="synthetic-label">Синтетическое фото</span>}
+         {hasActualPhoto && <ListingPhotoBadges badges={listing.photo_badges} />}
+@@ -121,7 +121,7 @@
+           </span>
+           {listing.city?.slug ? <Link href={`/cars/city/${encodeURIComponent(listing.city.slug)}`}>{listing.city.name}</Link> : <span>{listing.manual_city || "Населённый пункт не указан"}</span>}
+         </div>
+-        <div className="card-actions"><ComparisonAction listingId={listing.id} />{listing.view_count != null && <span className="listing-views" aria-label={`Просмотры: ${listing.view_count}`}><Eye size={15} aria-hidden="true" /> {listing.view_count.toLocaleString("ru-BY")}</span>}</div>
++        <div className="card-actions"><ComparisonAction listingId={listing.id} />{listing.view_count != null && <span className="listing-views" role="img" aria-label={`Просмотры: ${listing.view_count}`}><Eye size={15} aria-hidden="true" /> {listing.view_count.toLocaleString("ru-BY")}</span>}</div>
+       </div>
+     </article>
+   );
+--- a/web/src/components/home-search.tsx
++++ b/web/src/components/home-search.tsx
+@@ -135,19 +135,19 @@
+         </select>
+       </label>
+       {modelsError && <span className="home-search-count" id="home-model-error" role="status">Список моделей временно недоступен. Поиск по марке и названию продолжает работать.</span>}
+-      <label className="field search-range"><span>Цена, BYN</span><span className="range-fields">
++      <div className="field search-range" role="group" aria-label="Цена, BYN"><span>Цена, BYN</span><span className="range-fields">
+         <input name="price_min" disabled={!priceOperationsAvailable} aria-describedby={!priceOperationsAvailable ? "home-price-status" : undefined} type="number" min="1" inputMode="numeric" placeholder="От" aria-label="Цена от, BYN" />
+         <input name="price_max" disabled={!priceOperationsAvailable} aria-describedby={!priceOperationsAvailable ? "home-price-status" : undefined} type="number" min="1" inputMode="numeric" placeholder="До" aria-label="Цена до, BYN" />
+-      </span></label>
++      </span></div>
+       <input type="hidden" name="currency" value="BYN" disabled={!hasPrice || !priceOperationsAvailable} />
+-      <label className="field search-range"><span>Год выпуска</span><span className="range-fields">
++      <div className="field search-range" role="group" aria-label="Год выпуска"><span>Год выпуска</span><span className="range-fields">
+         <input name="year_min" type="number" min="1886" inputMode="numeric" placeholder="От" aria-label="Год от" />
+         <input name="year_max" type="number" min="1886" inputMode="numeric" placeholder="До" aria-label="Год до" />
+-      </span></label>
+-      <label className="field search-range"><span>Пробег, км</span><span className="range-fields">
++      </span></div>
++      <div className="field search-range" role="group" aria-label="Пробег, км"><span>Пробег, км</span><span className="range-fields">
+         <input name="mileage_min" type="number" min="0" inputMode="numeric" placeholder="От" aria-label="Пробег от, км" />
+         <input name="mileage_max" type="number" min="0" inputMode="numeric" placeholder="До" aria-label="Пробег до, км" />
+-      </span></label>
++      </span></div>
+       <label className="field"><span>Коробка</span><select name="transmission" defaultValue=""><option value="">Любая</option><option value="manual">Механическая</option><option value="automatic">Автоматическая</option><option value="robot">Робот</option><option value="cvt">Вариатор</option></select></label>
+       <label className="field"><span>Топливо</span><select name="fuel" defaultValue=""><option value="">Любое</option><option value="petrol">Бензин</option><option value="diesel">Дизель</option><option value="hybrid">Гибрид</option><option value="electric">Электро</option><option value="lpg">Газ</option></select></label>
+       <label className="field"><span>Кузов</span><select name="body_type" defaultValue=""><option value="">Любой</option>{bodyTypes.map((item) => <option key={item.id} value={item.slug}>{item.name}</option>)}</select></label>
+--- a/web/src/components/listing-detail.tsx
++++ b/web/src/components/listing-detail.tsx
+@@ -18,7 +18,7 @@
+ import { ShareButton } from "@/components/share-button";
+ import { api, ApiClientError } from "@/lib/api";
+ import type { ListingMessengerChannel } from "@/lib/api";
+-import { formatDate, formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
++import { formatDate, formatMileage, formatMoney, listingHref, listingPhotoAlt, vehicleLabel } from "@/lib/format";
+ import { trackContactClick, type ContactChannel } from "@/lib/analytics";
+ import { listingCatalogBreadcrumbs } from "@/lib/listing-breadcrumbs";
+ import type { Listing, ReportCategory } from "@/lib/types";
+@@ -74,7 +74,7 @@
+   const byn = price.currency === "USD" ? amount * usdRate : amount;
+   const format = (value: number) => new Intl.NumberFormat("ru-BY", { maximumFractionDigits: 0 }).format(value);
+ 
+-  return <div className="detail-conversions" aria-label="Цена в других валютах">
++  return <div className="detail-conversions" role="group" aria-label="Цена в других валютах">
+     <div className="detail-conversion-values"><span>≈ {format(byn / usdRate)} USD</span><span>≈ {format(byn / eurRate)} EUR</span></div>
+     <p className="detail-conversion-note">По курсу НБРБ на {formatDate(rates.rate_date)}</p>
+   </div>;
+@@ -232,7 +232,7 @@
+         <div className="detail-main-column">
+           <div className="detail-gallery" role="region" aria-label={`Фотографии автомобиля «${listing.title}»`} tabIndex={0} onKeyDown={handleGalleryKeyDown}>
+             <div className="detail-photo-wrap">
+-              <Image id="detail-main-image" className="detail-main-image" src={selectedPhoto} alt={hasSyntheticPhoto ? `Синтетическое изображение для объявления «${listing.title}»` : `Фотография ${safeSelectedPhotoIndex + 1} из ${photos.length}: ${listing.title}`} width={1448} height={1086} sizes="(max-width: 800px) calc(100vw - 28px), min(792px, 62vw)" priority />
++              <Image id="detail-main-image" className="detail-main-image" src={selectedPhoto} alt={hasSyntheticPhoto ? `Синтетическое изображение для объявления «${listing.title}»` : listingPhotoAlt(listing.title, safeSelectedPhotoIndex + 1)} width={1448} height={1086} sizes="(max-width: 800px) calc(100vw - 28px), min(792px, 62vw)" priority />
+               {hasSyntheticPhoto && <span className="synthetic-label detail-synthetic-label">Синтетическое фото</span>}
+               {!hasSyntheticPhoto && <ListingPhotoBadges badges={listing.photo_badges} />}
+               {photos.length > 1 && <>
+@@ -241,14 +241,14 @@
+               </>}
+             </div>
+             {photos.length > 1 && <>
+-              <div ref={thumbnailsRef} id="detail-photo-list" className={`detail-thumbnails${showAllPhotos ? " detail-thumbnails-expanded" : ""}`} role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt="" width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" /></button>)}</div>
++              <div ref={thumbnailsRef} id="detail-photo-list" className={`detail-thumbnails${showAllPhotos ? " detail-thumbnails-expanded" : ""}`} role="group" aria-label="Выбор фотографии">{photos.map((photo, index) => <button className={`detail-thumbnail ${index === safeSelectedPhotoIndex ? "is-selected" : ""}`} key={`${photo}-${index}`} type="button" aria-current={index === safeSelectedPhotoIndex ? "true" : undefined} aria-label={`Показать фото ${index + 1} из ${photos.length}`} aria-controls="detail-main-image" onClick={() => selectPhoto(index)}><Image src={photo} alt={listingPhotoAlt(listing.title, index + 1)} width={360} height={270} sizes="(max-width: 520px) calc((100vw - 48px) / 4), (max-width: 800px) 20vw, 16vw" /></button>)}</div>
+               <button className="detail-photos-toggle" type="button" aria-expanded={showAllPhotos} aria-controls="detail-photo-list" onClick={() => setShowAllPhotos((current) => !current)}>{showAllPhotos ? "Свернуть фотографии" : `Показать все фото (${photos.length})`}</button>
+             </>}
+           </div>
+           <section className="detail-summary section">
+             <h1 className="detail-title">{listing.title}</h1>
+             {listing.in_transit && <p className="status-pill">Авто в пути · указано продавцом</p>}
+-            <p className="muted location-line"><MapPin size={15} aria-hidden="true" /> {location} · добавлено {formatDate(listing.created_at)} {listing.view_count != null && <span className="listing-views" aria-label={`Просмотры: ${listing.view_count}`}><Eye size={15} aria-hidden="true" /> {listing.view_count.toLocaleString("ru-BY")}</span>}</p>
++            <p className="muted location-line"><MapPin size={15} aria-hidden="true" /> {location} · добавлено {formatDate(listing.created_at)} {listing.view_count != null && <span className="listing-views" role="img" aria-label={`Просмотры: ${listing.view_count}`}><Eye size={15} aria-hidden="true" /> {listing.view_count.toLocaleString("ru-BY")}</span>}</p>
+             <h2>Характеристики</h2>
+             <div className="detail-facts">{facts.map(([name, value]) => <div className="detail-fact" key={name}><span>{name}</span><strong>{value}</strong></div>)}</div>
+             {listing.damaged && <p className="notice">Продавец указал повреждения.</p>}
+--- a/web/src/components/search-filters.tsx
++++ b/web/src/components/search-filters.tsx
+@@ -4,6 +4,7 @@
+ import { Filter, SlidersHorizontal, X } from "lucide-react";
+ import Link from "next/link";
+ import { matchesCatalogSearch } from "@/lib/catalog-search";
++import { modelDisplayName } from "@/lib/format";
+ import { catalogIds } from "@/lib/search-state";
+ import { api } from "@/lib/api";
+ import type { CatalogCity, CatalogItem, CatalogModification, ListingSearch } from "@/lib/types";
+@@ -19,10 +20,7 @@
+ function modelLabel(item: CatalogItem, makes: CatalogItem[]) {
+   const make = makes.find((entry) => entry.id === item.make_id)?.name;
+   if (!make) return item.name;
+-  const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase().trim();
+-  const name = normalize(item.name);
+-  const prefix = normalize(make);
+-  return name === prefix || name.startsWith(`${prefix} `) || name.startsWith(`${prefix}-`) ? item.name : `${make} ${item.name}`;
++  return modelDisplayName(make, item.name);
+ }
+ 
+ function offerLabel(count: number) {
+@@ -126,7 +124,13 @@
+     if (!form) return;
+     let active = true;
+     let timeout: ReturnType<typeof setTimeout> | undefined;
+-    const updateCount = () => {
++    const updateCount = (event: Event) => {
++      // Catalog text and picker controls only edit the available options.
++      // Recount after make_ids/model_ids change, via the form event above.
++      // Updating state here before React's delegated onChange runs can reset
++      // the controlled search input and swallow the character being typed.
++      const target = event.target;
++      if ((target instanceof HTMLInputElement || target instanceof HTMLSelectElement) && !target.name) return;
+       if (timeout) clearTimeout(timeout);
+       const nextSearch = searchFromFilterForm(form);
+       const currentRequest = ++countRequestId.current;
+--- a/web/src/components/site-assistant.tsx
++++ b/web/src/components/site-assistant.tsx
+@@ -5,7 +5,7 @@
+ import { usePathname } from "next/navigation";
+ import { useEffect, useRef, useState } from "react";
+ import { isPublicAssistantPage, type AssistantFilters, type AssistantPage, type AssistantReply } from "@/lib/assistant";
+-import { formatMileage, formatMoney, listingHref, vehicleLabel } from "@/lib/format";
++import { formatMileage, formatMoney, listingHref, listingPhotoAlt, vehicleLabel } from "@/lib/format";
+ import styles from "./site-assistant.module.css";
+ 
+ type Message = { id: number; role: "user" | "assistant"; text: string; reply?: AssistantReply };
+@@ -139,7 +139,7 @@
+           <p>{item.text}</p>
+           {item.reply?.labels.length ? <div className={styles.labels}>{item.reply.labels.map((label, index) => <span key={`${index}-${label}`}>{label}</span>)}</div> : null}
+           {item.reply?.listings.map((listing) => <Link href={listingHref(listing)} key={listing.id} className={styles.listing} onClick={close}>
+-            {listing.cover_url || listing.photo_urls?.[0] ? <img src={listing.cover_url || listing.photo_urls?.[0]} alt="" width={88} height={72} loading="lazy" /> : <div className={styles.noPhoto}>Нет фото</div>}
++            {listing.cover_url || listing.photo_urls?.[0] ? <img src={listing.cover_url || listing.photo_urls?.[0]} alt={listingPhotoAlt(listing.title)} width={88} height={72} loading="lazy" /> : <div className={styles.noPhoto}>Нет фото</div>}
+             <div><strong>{listing.title || [listing.make?.name, listing.model?.name, listing.year].filter(Boolean).join(" ")}</strong><b>{formatMoney(listing.price)}</b><small>{[listing.year, vehicleLabel(listing.transmission), formatMileage(listing.mileage_km)].filter(Boolean).join(" · ")}</small></div>
+           </Link>)}
+           {item.reply?.searchHref && <Link className={styles.catalogLink} href={item.reply.searchHref} onClick={close}>Открыть подборку в каталоге <ArrowUpRight size={16} /></Link>}
+--- a/web/src/lib/types.generated.ts
++++ b/web/src/lib/types.generated.ts
+@@ -7494,7 +7494,7 @@
+                 page?: number;
+                 page_size?: number;
+                 equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+-                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
++                sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc";
+                 category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+                 subcategory?: string | null;
+                 q?: string | null;
+@@ -7585,7 +7585,7 @@
+                 page?: number;
+                 page_size?: number;
+                 equipment?: ("abs" | "esp" | "airbags" | "air_conditioning" | "climate_control" | "heated_seats" | "cruise_control" | "parking_sensors" | "rear_camera" | "leather_seats" | "carplay" | "android_auto")[] | null;
+-                sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
++                sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc";
+                 category_code?: "cars" | "trucks" | "buses" | "motorcycles" | "special_equipment" | "agricultural_equipment" | "trailers" | "watercraft" | "parts" | "wheels" | "tires";
+                 subcategory?: string | null;
+                 q?: string | null;
+--- /dev/null
++++ b/web/src/lib/metadata-streaming.test.ts
+@@ -0,0 +1,16 @@
++import { describe, expect, it } from "vitest";
++import { shouldServeStreamingMetadata } from "next/dist/server/lib/streaming-metadata";
++import nextConfig from "../../next.config";
++
++describe("SEO metadata delivery", () => {
++  it.each([
++    "Mozilla/5.0 Chrome/131.0.0.0 Safari/537.36",
++    "Screaming Frog SEO Spider/22.0",
++    "Googlebot/2.1 (+http://www.google.com/bot.html)",
++    "bingbot/2.0",
++    "curl/8.7.1",
++    "CustomCrawler/1.0",
++  ])("waits for head metadata for %s", (userAgent) => {
++    expect(shouldServeStreamingMetadata(userAgent, nextConfig.htmlLimitedBots?.source)).toBe(false);
++  });
++});
+--- a/web/src/lib/format.test.ts
++++ b/web/src/lib/format.test.ts
+@@ -1,6 +1,14 @@
+ import { describe, expect, it } from "vitest";
+-import { formatMileage, formatMoney } from "@/lib/format";
++import { formatMileage, formatMoney, listingPhotoAlt } from "@/lib/format";
+ import type { Money } from "@/lib/types";
++
++describe("automatic listing photo alt", () => {
++  it("uses the current listing heading and an optional photo number", () => {
++    expect(listingPhotoAlt(" BMW 530d 2020 ")).toBe("Продажа авто — BMW 530d 2020");
++    expect(listingPhotoAlt("BMW 530d 2020", 2)).toBe("Продажа авто — BMW 530d 2020 — фото 2");
++    expect(listingPhotoAlt(" ")).toBe("Продажа авто — объявление");
++  });
++});
+ 
+ function formatted(amount: string, currency: Money["currency"]) {
+   return `${new Intl.NumberFormat("ru-BY", { maximumFractionDigits: 0 }).format(Number(amount))} ${currency}`;
+--- a/web/src/lib/types.ts
++++ b/web/src/lib/types.ts
+@@ -293,7 +293,7 @@
+   seller_type?: string;
+   page?: string;
+   page_size?: string;
+-  sort?: "newest" | "price_asc" | "price_desc" | "year_desc" | "mileage_asc";
++  sort?: "newest" | "published_desc" | "oldest" | "price_asc" | "price_desc" | "year_desc" | "year_asc" | "mileage_asc";
+ };
+ 
+ type ListingDraftApiInput =
+--- a/web/src/lib/format.ts
++++ b/web/src/lib/format.ts
+@@ -1,4 +1,14 @@
+ import type { Money } from "@/lib/types";
++
++export function modelDisplayName(makeName: string, modelName: string): string {
++  const make = makeName.trim().replace(/\s+/g, " ");
++  const model = modelName.trim().replace(/\s+/g, " ");
++  const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
++  const prefix = normalize(make);
++  const name = normalize(model);
++  if (!make || name === prefix || name.startsWith(`${prefix} `) || name.startsWith(`${prefix}-`)) return model;
++  return `${make} ${model}`.trim();
++}
+ 
+ export function formatMoney(price: Money | null) {
+   if (!price) return "Цена не указана";
+@@ -44,3 +54,8 @@
+   const modelSlug = listing.model?.slug || fallback;
+   return `/cars/${encodeURIComponent(makeSlug)}/${encodeURIComponent(modelSlug)}/${encodeURIComponent(listing.id)}`;
+ }
++
++export function listingPhotoAlt(title: string, photoNumber?: number): string {
++  const heading = title.trim().replace(/\s+/g, " ") || "объявление";
++  return `Продажа авто — ${heading}${photoNumber ? ` — фото ${photoNumber}` : ""}`;
++}
+--- a/web/src/lib/seo.ts
++++ b/web/src/lib/seo.ts
+@@ -4,10 +4,9 @@
+ import { SITE_NAME, SITE_ORIGIN, siteUrl } from "@/lib/site-config";
+ import type { CompanySummary, Listing, ListingSummary } from "@/lib/types";
+ import type { EditorialArticle } from "@/lib/editorial-articles";
++import { isCatalogLandingItem, MIN_CATEGORY_LISTINGS, MIN_CITY_LISTINGS } from "@/lib/catalog-indexing";
+ 
+ const MAX_SITEMAP_URLS = 50_000;
+-const MIN_LISTINGS_FOR_MAKE_OR_MODEL_PAGE = 3;
+-const MIN_LISTINGS_FOR_CITY_PAGE = 10;
+ 
+ const DEFAULT_OG_IMAGE = { url: "/og-default.jpg", width: 1200, height: 630, alt: SITE_NAME };
+ 
+@@ -19,6 +18,10 @@
+   "/agricultural-equipment",
+   "/watercraft",
+   "/tires-and-wheels",
++  "/buses",
++  "/trucks",
++  "/trailers",
++  "/parts",
+   "/useful-information",
+   "/customs-calculator",
+   "/currency-converter",
+@@ -261,7 +264,7 @@
+ }
+ 
+ export function buildSitemapEntries(listings: SitemapListing[], dealers: CompanySummary[]): MetadataRoute.Sitemap {
+-  const urls = new Set<string>([siteUrl("/"), siteUrl("/cars"), siteUrl("/dealers"), ...STATIC_SITEMAP_PATHS.map((path) => siteUrl(path))]);
++  const urls = new Set<string>([SITE_ORIGIN, siteUrl("/cars"), siteUrl("/dealers"), ...STATIC_SITEMAP_PATHS.map((path) => siteUrl(path))]);
+   const listingCompanyIds = new Set<string>();
+   const makeListings = new Map<string, ListingAggregate>();
+   const modelListings = new Map<string, ListingAggregate>();
+@@ -274,38 +277,39 @@
+     if (listing.status && listing.status !== "active") continue;
+     if (listing.seller.type === "company") listingCompanyIds.add(listing.seller.id);
+ 
+-    if (listing.make?.slug) {
++    if (isCatalogLandingItem(listing.make) && listing.make) {
+       addListingToAggregate(makeListings, `/cars/${encodeURIComponent(listing.make.slug)}`, listing);
+     }
+-    if (listing.make?.slug && listing.model?.slug) {
++    if (isCatalogLandingItem(listing.make) && isCatalogLandingItem(listing.model) && listing.make && listing.model) {
+       addListingToAggregate(
+         modelListings,
+         `/cars/${encodeURIComponent(listing.make.slug)}/${encodeURIComponent(listing.model.slug)}`,
+         listing,
+       );
+     }
+-    if (listing.city?.slug) {
++    if (isCatalogLandingItem(listing.city) && listing.city) {
+       addListingToAggregate(cityListings, `/cars/city/${encodeURIComponent(listing.city.slug)}`, listing);
+     }
+     const listingUrl = siteUrl(listingHref(listing));
+     urls.add(listingUrl);
+     addLastModified(lastModifiedByUrl, listingUrl, listing.updated_at);
++    addLastModified(lastModifiedByUrl, siteUrl("/cars"), listing.updated_at);
+   }
+ 
+   for (const [path, aggregate] of makeListings) {
+-    if (aggregate.listingIds.size < MIN_LISTINGS_FOR_MAKE_OR_MODEL_PAGE) continue;
++    if (aggregate.listingIds.size < MIN_CATEGORY_LISTINGS) continue;
+     const url = siteUrl(path);
+     urls.add(url);
+     if (aggregate.lastModified) lastModifiedByUrl.set(url, aggregate.lastModified);
+   }
+   for (const [path, aggregate] of modelListings) {
+-    if (aggregate.listingIds.size < MIN_LISTINGS_FOR_MAKE_OR_MODEL_PAGE) continue;
++    if (aggregate.listingIds.size < MIN_CATEGORY_LISTINGS) continue;
+     const url = siteUrl(path);
+     urls.add(url);
+     if (aggregate.lastModified) lastModifiedByUrl.set(url, aggregate.lastModified);
+   }
+   for (const [path, aggregate] of cityListings) {
+-    if (aggregate.listingIds.size < MIN_LISTINGS_FOR_CITY_PAGE) continue;
++    if (aggregate.listingIds.size < MIN_CITY_LISTINGS) continue;
+     const url = siteUrl(path);
+     urls.add(url);
+     if (aggregate.lastModified) lastModifiedByUrl.set(url, aggregate.lastModified);
+@@ -319,6 +323,7 @@
+ 
+   return [...urls].slice(0, MAX_SITEMAP_URLS).map((url) => {
+     const lastModified = lastModifiedByUrl.get(url);
+-    return lastModified ? { url, lastModified } : { url };
++    const changeFrequency = new URL(url).pathname.startsWith("/cars") ? "daily" as const : undefined;
++    return { url, ...(lastModified ? { lastModified } : {}), ...(changeFrequency ? { changeFrequency } : {}) };
+   });
+ }
+--- /dev/null
++++ b/web/src/lib/catalog-indexing.ts
+@@ -0,0 +1,10 @@
++import type { CatalogItem } from "@/lib/types";
++
++export const MIN_CATEGORY_LISTINGS = 3;
++export const MIN_CITY_LISTINGS = 10;
++
++// manual-* represents a listing's free-text fallback, not a catalog route.
++// cur-unicode-* is a real catalog slug for Cyrillic names such as ГАЗ.
++export function isCatalogLandingItem(item: Pick<CatalogItem, "slug" | "name"> | null | undefined): boolean {
++  return Boolean(item?.slug && item.name?.trim() && !item.slug.startsWith("manual-"));
++}
+--- /dev/null
++++ b/web/src/app/trailers/page.tsx
+@@ -0,0 +1,13 @@
++import type { Metadata } from "next";
++import { CategoryLanding } from "@/components/category-landing";
++import { buildOpenGraph } from "@/lib/seo";
++import { siteUrl } from "@/lib/site-config";
++
++const description = "Прицепы и полуприцепы для легковых и грузовых автомобилей в Беларуси: объявления от владельцев и компаний.";
++export const metadata: Metadata = {
++  title: "Прицепы",
++  description,
++  alternates: { canonical: siteUrl("/trailers") },
++  openGraph: buildOpenGraph({ title: "Прицепы", description, path: "/trailers" }),
++};
++export default function TrailersPage() { return <CategoryLanding slug="trailers" />; }
+--- /dev/null
++++ b/web/src/app/parts/page.tsx
+@@ -0,0 +1,13 @@
++import type { Metadata } from "next";
++import { CategoryLanding } from "@/components/category-landing";
++import { buildOpenGraph } from "@/lib/seo";
++import { siteUrl } from "@/lib/site-config";
++
++const description = "Запчасти, расходники и аксессуары для автомобилей в Беларуси: предложения от частных продавцов и компаний.";
++export const metadata: Metadata = {
++  title: "Запчасти и автотовары",
++  description,
++  alternates: { canonical: siteUrl("/parts") },
++  openGraph: buildOpenGraph({ title: "Запчасти и автотовары", description, path: "/parts" }),
++};
++export default function PartsPage() { return <CategoryLanding slug="parts" />; }
+--- a/web/src/app/cars/page.test.ts
++++ b/web/src/app/cars/page.test.ts
+@@ -2,26 +2,33 @@
+ import { generateMetadata } from "./page";
+ 
+ describe("cars search canonical", () => {
++  it.each([
++    { condition: "used" }, { fuel: "electric" }, { page: "2" },
++    { sort: "newest" }, { page: "1", condition: "used" },
++    { page: ["1", "2"] }, { unknown: "value" },
++  ])("noindexes query variants %j while following their links", async (params) => {
++    const metadata = await generateMetadata({ searchParams: Promise.resolve(params) });
++    expect(metadata.robots).toMatchObject({ index: false, follow: true, googleBot: { index: false, follow: true } });
++  });
++
++  it.each([{}, { page: "1" }])("keeps the clean catalog canonical for %j", async (params) => {
++    const metadata = await generateMetadata({ searchParams: Promise.resolve(params) });
++    expect(metadata.robots).toBeUndefined();
++    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars");
++  });
+   it("preserves page and supported filters while dropping tracking parameters", async () => {
+     const metadata = await generateMetadata({
+       searchParams: Promise.resolve({ page: "2", sort: "newest", make_id: "make-1", utm_source: "newsletter" })
+     });
+ 
+     expect(metadata.alternates?.canonical).toBe(
+-      "https://xn--80aeylebmo7f.xn--90ais/cars?make_id=make-1&page=2&sort=newest"
++      "https://suite-s1.denjik.by/cars?make_id=make-1&page=2&sort=newest"
+     );
+   });
+ 
+   it("normalizes repeated filters to their first value", async () => {
+     const metadata = await generateMetadata({ searchParams: Promise.resolve({ q: ["BMW", "ignored"] }) });
+ 
+-    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars?q=BMW");
+-  });
+-
+-  it("uses the selected transport category in page metadata", async () => {
+-    const metadata = await generateMetadata({ searchParams: Promise.resolve({ category_code: "watercraft" }) });
+-
+-    expect(metadata.title).toBe("Найти: Водный транспорт Беларуси");
+-    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars?category_code=watercraft");
++    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars?q=BMW");
+   });
+ });
+--- a/web/src/app/cars/page.tsx
++++ b/web/src/app/cars/page.tsx
+@@ -24,9 +24,20 @@
+ }
+ 
+ export async function generateMetadata({ searchParams }: { searchParams: Promise<SearchParamsRecord> }): Promise<Metadata> {
+-  const search = readSearchParams(await searchParams);
++  const params = await searchParams;
++  const search = readSearchParams(params);
++  if (search.page === "1") delete search.page;
++  const hasQueryVariant = Object.entries(params).some(([key, value]) => {
++    if (value === undefined) return false;
++    const values = Array.isArray(value) ? value : [value];
++    return values.some((entry) => key !== "page" || entry !== "1");
++  });
+   const canonical = new URL(searchUrl(search), `${SITE_ORIGIN}/`).toString();
+-  return { title: `Найти: ${titleForCategory(search.category_code)}`, alternates: { canonical } };
++  return {
++    title: `Найти: ${titleForCategory(search.category_code)}`,
++    alternates: { canonical },
++    ...(hasQueryVariant ? { robots: { index: false, follow: true, googleBot: { index: false, follow: true } } } : {}),
++  };
+ }
+ 
+ export default async function CarsPage({ searchParams }: { searchParams: Promise<SearchParamsRecord> }) {
+--- /dev/null
++++ b/web/src/app/buses/page.tsx
+@@ -0,0 +1,13 @@
++import type { Metadata } from "next";
++import { CategoryLanding } from "@/components/category-landing";
++import { buildOpenGraph } from "@/lib/seo";
++import { siteUrl } from "@/lib/site-config";
++
++const description = "Городские, междугородние и туристические автобусы в Беларуси: объявления от владельцев и компаний.";
++export const metadata: Metadata = {
++  title: "Автобусы",
++  description,
++  alternates: { canonical: siteUrl("/buses") },
++  openGraph: buildOpenGraph({ title: "Автобусы", description, path: "/buses" }),
++};
++export default function BusesPage() { return <CategoryLanding slug="buses" />; }
+--- /dev/null
++++ b/web/src/app/trucks/page.tsx
+@@ -0,0 +1,13 @@
++import type { Metadata } from "next";
++import { CategoryLanding } from "@/components/category-landing";
++import { buildOpenGraph } from "@/lib/seo";
++import { siteUrl } from "@/lib/site-config";
++
++const description = "Грузовые автомобили, фургоны и самосвалы в Беларуси: объявления от владельцев и компаний.";
++export const metadata: Metadata = {
++  title: "Грузовики",
++  description,
++  alternates: { canonical: siteUrl("/trucks") },
++  openGraph: buildOpenGraph({ title: "Грузовики", description, path: "/trucks" }),
++};
++export default function TrucksPage() { return <CategoryLanding slug="trucks" />; }
+--- a/web/src/app/cars/[...slug]/page.tsx
++++ b/web/src/app/cars/[...slug]/page.tsx
+@@ -7,9 +7,10 @@
+ import { ApiClientError } from "@/lib/api";
+ import { getSessionServer, serverApi } from "@/lib/server-api";
+ import { listingCatalogBreadcrumbs } from "@/lib/listing-breadcrumbs";
+-import { listingHref } from "@/lib/format";
++import { listingHref, modelDisplayName } from "@/lib/format";
+ import { buildBreadcrumbJsonLd, buildListingMetadata, buildVehicleJsonLd, serializeJsonLd } from "@/lib/seo";
+ import { siteUrl } from "@/lib/site-config";
++import { isCatalogLandingItem, MIN_CATEGORY_LISTINGS, MIN_CITY_LISTINGS } from "@/lib/catalog-indexing";
+ import type { CatalogCity, CatalogItem, ListingSearch } from "@/lib/types";
+ 
+ export const dynamic = "force-dynamic";
+@@ -18,8 +19,6 @@
+ const getMakeCatalog = cache((slug: string) => serverApi.catalog("makes", { q: slug, category_code: "cars" }));
+ const getModelsCatalog = cache((makeId: string) => serverApi.catalog("models", { make_id: makeId, category_code: "cars" }));
+ const getCityCatalog = cache(getCatalogCities);
+-const MIN_CATEGORY_LISTINGS = 3;
+-const MIN_CITY_LISTINGS = 10;
+ 
+ const noindexFollowRobots: NonNullable<Metadata["robots"]> = {
+   index: false,
+@@ -32,11 +31,11 @@
+   return siteUrl(`/cars/${slug.map(encodeURIComponent).join("/")}`);
+ }
+ 
+-function categoryMetadata(title: string, slug: string[], total: number | null, minimumListings: number): Metadata {
++function categoryMetadata(title: string, slug: string[], total: number | null, minimumListings: number, items: CatalogItem[] = []): Metadata {
+   return {
+     title,
+     alternates: { canonical: routeCanonical(slug) },
+-    ...(total === null || total < minimumListings ? { robots: noindexFollowRobots } : {}),
++    ...(total === null || total < minimumListings || !items.every(isCatalogLandingItem) ? { robots: noindexFollowRobots } : {}),
+   };
+ }
+ 
+@@ -68,7 +67,7 @@
+       const city = (await getCityCatalog()).find((item) => item.slug === slug[1]);
+       if (!city) return {};
+       const total = await getActiveListingCount({ city_id: city.id });
+-      return categoryMetadata(`Автомобили в городе ${city.name}`, slug, total, MIN_CITY_LISTINGS);
++      return categoryMetadata(`Автомобили в городе ${city.name}`, slug, total, MIN_CITY_LISTINGS, [city]);
+     } catch {
+       return categoryMetadata("Автомобили в городе", slug, null, MIN_CITY_LISTINGS);
+     }
+@@ -81,12 +80,12 @@
+     if (!make) return {};
+     if (!slug[1]) {
+       const total = await getActiveListingCount({ make_id: make.id });
+-      return categoryMetadata(`Автомобили ${make.name}`, [make.slug], total, MIN_CATEGORY_LISTINGS);
++      return categoryMetadata(`Автомобили ${make.name}`, [make.slug], total, MIN_CATEGORY_LISTINGS, [make]);
+     }
+     const model = (await getModelsCatalog(make.id)).items.find((item) => item.slug === slug[1]);
+     if (!model) return {};
+     const total = await getActiveListingCount({ make_id: make.id, model_id: model.id });
+-    return categoryMetadata(`${make.name} ${model.name}`, [make.slug, model.slug], total, MIN_CATEGORY_LISTINGS);
++    return categoryMetadata(`Купить ${modelDisplayName(make.name, model.name)} в Беларуси`, [make.slug, model.slug], total, MIN_CATEGORY_LISTINGS, [make, model]);
+   } catch {
+     return categoryMetadata("Автомобили", slug, null, MIN_CATEGORY_LISTINGS);
+   }
+@@ -173,7 +172,7 @@
+     const model = models.find((item) => item.slug === slug[1]);
+     if (!model) notFound();
+     search = { make_id: make.id, model_id: model.id, page_size: "25" };
+-    title = `${make.name} ${model.name}`;
++    title = `Продажа ${modelDisplayName(make.name, model.name)}`;
+   }
+   return <div className="page-width"><SearchRoute search={search} title={title} /></div>;
+ }
+--- a/backend/tests/test_listing_completion.py
++++ b/backend/tests/test_listing_completion.py
+@@ -420,6 +420,12 @@
+     promoted_item = next(item for item in promoted.json()["items"] if item["id"] == str(boosted.id))
+     assert promoted_item["promotion_badges"] == ["top"]
+ 
++    for sort, first, second in [("published_desc", newest, boosted), ("oldest", boosted, newest)]:
++        response = client.get("/api/v1/listings", params={"sort": sort})
++        assert response.status_code == 200, response.text
++        ordered_ids = [item["id"] for item in response.json()["items"]]
++        assert ordered_ids.index(str(first.id)) < ordered_ids.index(str(second.id))
++
+     year_sorted = client.get("/api/v1/listings", params={"sort": "year_desc"})
+     assert year_sorted.status_code == 200, year_sorted.text
+     year_ids = [item["id"] for item in year_sorted.json()["items"]]

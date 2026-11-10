@@ -30,8 +30,10 @@ from app.email_registration_policy import email_registration_consent_error
 from app.schemas import LoginInput
 from app.security import (
     client_ip,
+    ip_scoped_limit,
     new_secret,
     normalize_email,
+    rate_limit_exhausted,
     secret_hash,
     verify_password,
     hash_password,
@@ -256,11 +258,12 @@ def _request_otp(
         return _existing_otp_response(existing_request, response)
 
     now = datetime.now(timezone.utc)
+    otp_ip = client_ip(request)
     consume_rate_limit(
         db,
         "sms-otp-request-ip",
-        client_ip(request),
-        settings.sms_otp_ip_requests_per_hour,
+        otp_ip,
+        ip_scoped_limit(otp_ip, settings.sms_otp_ip_requests_per_hour),
         timedelta(hours=1),
     )
     consume_rate_limit(
@@ -413,7 +416,10 @@ def register_email(
     settings = get_settings()
     _prevent_session_caching(response)
     _require_pre_auth_csrf(request, x_csrf_token)
-    consume_rate_limit(db, "email_registration_ip_v2", client_ip(request), 100, timedelta(hours=1))
+    registration_ip = client_ip(request)
+    consume_rate_limit(
+        db, "email_registration_ip_v2", registration_ip, ip_scoped_limit(registration_ip, 100), timedelta(hours=1)
+    )
     consume_rate_limit(db, "email_registration_address", normalize_email(str(payload.email)), 5, timedelta(hours=1))
     consent_error = email_registration_consent_error(db, settings, payload.terms_version, payload.privacy_version)
     if consent_error == "unavailable":
@@ -440,13 +446,33 @@ def register_email(
     return {"user": user_out(db, user), "csrf_token": raw_csrf}
 
 
+LOGIN_WINDOW = timedelta(minutes=15)
+LOGIN_EMAIL_ATTEMPTS = 10
+LOGIN_IP_ATTEMPTS = 50
+
+
+def _login_rate_limited(db: Session, email: str, ip: str) -> bool:
+    """Failed attempts are counted per account and per client; both gate every login."""
+
+    return rate_limit_exhausted(db, "login-email", email, LOGIN_EMAIL_ATTEMPTS, LOGIN_WINDOW) or rate_limit_exhausted(
+        db, "login-ip", ip, ip_scoped_limit(ip, LOGIN_IP_ATTEMPTS), LOGIN_WINDOW
+    )
+
+
 @router.post("/auth/login", response_model=AuthSessionResponse)
 def login(payload: LoginInput, request: Request, response: Response, db: Annotated[Session, Depends(get_db)]) -> dict:
     email = normalize_email(str(payload.email))
+    ip = client_ip(request)
+    if _login_rate_limited(db, email, ip):
+        # Spend the same hashing time as a real check so the 429 path does not
+        # reveal anything, then refuse even a correct password.
+        verify_password(payload.password, None)
+        fail(429, "rate_limited", "Too many requests")
     user = db.scalar(select(User).where(User.email == email))
     password_valid = verify_password(payload.password, user.password_hash if user is not None else None)
     if user is None or user.status != "active" or not password_valid:
-        consume_rate_limit(db, "login", f"{client_ip(request)}:{email}", 10, timedelta(minutes=15))
+        consume_rate_limit(db, "login-email", email, LOGIN_EMAIL_ATTEMPTS, LOGIN_WINDOW)
+        consume_rate_limit(db, "login-ip", ip, ip_scoped_limit(ip, LOGIN_IP_ATTEMPTS), LOGIN_WINDOW)
         fail(401, "invalid_credentials", "Email or password is incorrect")
 
     raw_csrf = _create_session(db, user, response)
@@ -540,11 +566,12 @@ def verify_phone_otp(
     phone = _normalize_phone_or_fail(payload.phone)
     phone_hash = phone_subject_digest(phone, settings.sms_otp_secret.get_secret_value())
     now = datetime.now(timezone.utc)
+    otp_ip = client_ip(request)
     consume_rate_limit(
         db,
         "sms-otp-verify-ip",
-        client_ip(request),
-        settings.sms_otp_ip_verifications_per_hour,
+        otp_ip,
+        ip_scoped_limit(otp_ip, settings.sms_otp_ip_verifications_per_hour),
         timedelta(hours=1),
     )
     consume_rate_limit(

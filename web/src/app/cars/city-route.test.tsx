@@ -67,7 +67,7 @@ describe("city page route", () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ slug: ["city", "minsk"] }) });
 
     expect(metadata.robots).toBeUndefined();
-    expect(metadata.alternates?.canonical).toBe("https://suite-s1.denjik.by/cars/city/minsk");
+    expect(metadata.alternates?.canonical).toBe("https://xn--80aeylebmo7f.xn--90ais/cars/city/minsk");
     expect(mocks.listings).toHaveBeenCalledWith({ city_id: minsk.id, page_size: "1" });
   });
 

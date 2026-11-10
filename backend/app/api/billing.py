@@ -1,7 +1,9 @@
+import logging
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_csrf
@@ -24,12 +26,14 @@ from app.billing_services import (
     process_payment_callback,
 )
 from app.db import get_db
+from app.logging_config import configure_json_logger, log_event
 from app.models import User, UserSession
 from app.services import fail
 
 
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
 MAX_PAYMENT_CALLBACK_BYTES = 64 * 1024
+logger = configure_json_logger("avtorinok.billing")
 
 
 @router.get("/tariffs", response_model=list[BillingTariffOut])
@@ -97,13 +101,26 @@ async def payment_callback(
         if len(body) > MAX_PAYMENT_CALLBACK_BYTES:
             fail(413, "payment_callback_too_large", "Payment callback exceeds the allowed size")
 
-    result = process_payment_callback(
-        db,
-        provider=provider,
-        raw_body=bytes(body),
-        signature=signature,
-    )
+    # Database work is synchronous; keep it off the event loop.
+    return await run_in_threadpool(_apply_payment_callback, db, provider, bytes(body), signature)
+
+
+def _apply_payment_callback(
+    db: Session,
+    provider: PaymentProvider,
+    raw_body: bytes,
+    signature: str | None,
+) -> dict:
+    result = process_payment_callback(db, provider=provider, raw_body=raw_body, signature=signature)
     db.commit()
+    if result.unfulfilled_reason is not None and not result.duplicate:
+        log_event(
+            logger,
+            logging.ERROR,
+            "payment_paid_unfulfilled",
+            order_id=str(result.order.id),
+            reason=result.unfulfilled_reason,
+        )
     return {
         "received": True,
         "duplicate": result.duplicate,

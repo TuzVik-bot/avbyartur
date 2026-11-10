@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -19,6 +20,9 @@ const businessDays = [
   { key: "sun", label: "Воскресенье" }
 ] as const;
 
+// Metadata and the page share one dealer request per render.
+const getDealer = cache((slug: string, page: number) => serverApi.dealer(slug, page));
+
 function parsePage(value: string | undefined) {
   if (!value || !/^[1-9]\d*$/.test(value)) return null;
   const page = Number(value);
@@ -35,7 +39,7 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const paramsQuery = await searchParams;
   const page = Array.isArray(paramsQuery.page) ? 1 : parsePage(paramsQuery.page) ?? 1;
   try {
-    const result = await serverApi.dealer(slug);
+    const result = await getDealer(slug, page);
     const path = pageUrl(slug, page);
     const description = `${result.company.name}: автомобили в наличии, адрес и режим работы компании на Авторынке.`;
     return {
@@ -55,7 +59,7 @@ export default async function DealerPage({ params, searchParams }: { params: Pro
   const requestedPage = Array.isArray(paramsQuery.page) ? 1 : parsePage(paramsQuery.page) ?? 1;
   const savedListingIdsPromise = getSavedListingIds();
   let result;
-  try { result = await serverApi.dealer(slug, requestedPage); } catch (error) {
+  try { result = await getDealer(slug, requestedPage); } catch (error) {
     if (error instanceof ApiClientError && (error.status === 404 || error.status === 410)) notFound();
     return <div className="page-width"><div className="notice" role="alert"><p>Страница компании временно недоступна. Проверьте соединение и повторите попытку.</p><div className="company-links"><Link className="button button-secondary button-small" href={`/dealers/${encodeURIComponent(slug)}?retry=1`}>Повторить загрузку</Link><Link className="button button-secondary button-small" href="/dealers">К списку компаний</Link></div></div></div>;
   }

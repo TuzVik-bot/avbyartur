@@ -11,13 +11,16 @@ from typing import Callable, Mapping
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-
 NBRB_API_URL = "https://api.nbrb.by/exrates/rates"
 SUPPORTED_CURRENCIES = ("EUR", "USD", "BYN", "RUB", "CNY")
 _NBRB_CURRENCIES = frozenset({"EUR", "USD", "RUB", "CNY"})
 MAX_RESPONSE_BYTES = 256 * 1024
 DEFAULT_TIMEOUT_SECONDS = 3.0
 DEFAULT_CACHE_TTL_SECONDS = 300.0
+# A failed upstream call is remembered so callers fail fast instead of each
+# waiting for the NBRB timeout while the service is down.
+FAILURE_CACHE_SECONDS = 60.0
+MAX_HISTORY_CACHE_ENTRIES = 32
 
 
 class RatesUnavailable(RuntimeError):
@@ -165,22 +168,74 @@ class NbrbRateClient:
         self.max_response_bytes = max_response_bytes
         self._opener = opener
         self._clock = clock
+        # Guards the cache fields only; network calls always run unlocked.
         self._lock = threading.Lock()
         self._cached: tuple[date, float, RateSnapshot] | None = None
+        self._failed_until: dict[date, float] = {}
+        self._refreshing: dict[date, threading.Event] = {}
         self._history_cache: dict[tuple[int, date, date, int], tuple[float, tuple[RateHistoryPoint, ...]]] = {}
+        self._history_failed_until: dict[tuple[int, date, date, int], float] = {}
 
     def get_rates(self, on_date: date) -> RateSnapshot:
         if type(on_date) is not date:
             raise TypeError("on_date must be a date")
         with self._lock:
             now = self._clock()
-            if self._cached is not None:
-                cached_date, expires_at, snapshot = self._cached
-                if cached_date == on_date and now < expires_at:
-                    return snapshot
+            cached = self._cached_snapshot(on_date, now)
+            if cached is not None:
+                return cached
+            refresh = self._refreshing.get(on_date)
+            is_leader = refresh is None
+            if is_leader:
+                refresh = threading.Event()
+                self._refreshing[on_date] = refresh
+        if not is_leader:
+            # Single flight: wait for the running refresh, then use its result.
+            refresh.wait(self.timeout_seconds + 1)
+            with self._lock:
+                cached = self._cached_snapshot(on_date, self._clock())
+            if cached is None:
+                raise RatesUnavailable("NBRB rate service is unavailable")
+            return cached
+        try:
             snapshot = self._fetch(on_date)
+        except RatesUnavailable:
+            with self._lock:
+                self._failed_until[on_date] = now + FAILURE_CACHE_SECONDS
+                if self._cached is not None and self._cached[0] == on_date:
+                    self._cached = None
+            raise
+        finally:
+            with self._lock:
+                self._refreshing.pop(on_date, None)
+            refresh.set()
+        with self._lock:
             self._cached = (on_date, self._clock() + self.cache_ttl_seconds, snapshot)
-            return snapshot
+            self._failed_until.pop(on_date, None)
+        return snapshot
+
+    def _cached_snapshot(self, on_date: date, now: float) -> RateSnapshot | None:
+        """Return a usable snapshot or raise a cached failure; caller holds the lock.
+
+        An expired same-date snapshot is still served while another thread
+        refreshes it. A failed refresh drops it, so stale rates are never served
+        once the upstream has been seen failing.
+        """
+        stale = None
+        if self._cached is not None:
+            cached_date, expires_at, snapshot = self._cached
+            if cached_date == on_date:
+                if now < expires_at:
+                    return snapshot
+                stale = snapshot
+        failed_until = self._failed_until.get(on_date)
+        if failed_until is not None:
+            if now < failed_until:
+                raise RatesUnavailable("NBRB rate service is unavailable")
+            del self._failed_until[on_date]
+        if stale is not None and on_date in self._refreshing:
+            return stale
+        return None
 
     def get_history(
         self,
@@ -204,15 +259,35 @@ class NbrbRateClient:
             cached = self._history_cache.get(key)
             if cached is not None and now < cached[0]:
                 return cached[1]
+            if now < self._history_failed_until.get(key, now):
+                raise RatesUnavailable("NBRB rate service is unavailable")
+        try:
             points = self._fetch_history(currency_id, start_date, end_date, default_scale)
+        except RatesUnavailable:
+            with self._lock:
+                self._history_failed_until[key] = now + FAILURE_CACHE_SECONDS
+                self._prune_history(now)
+            raise
+        with self._lock:
+            self._history_failed_until.pop(key, None)
             self._history_cache[key] = (self._clock() + self.history_cache_ttl_seconds, points)
-            if len(self._history_cache) > 32:
-                expired = [cache_key for cache_key, (expires_at, _) in self._history_cache.items() if expires_at <= now]
-                for cache_key in expired:
-                    self._history_cache.pop(cache_key, None)
-                while len(self._history_cache) > 32:
-                    self._history_cache.pop(next(iter(self._history_cache)))
-            return points
+            self._prune_history(now)
+        return points
+
+    def _prune_history(self, now: float) -> None:
+        """Bound history caches; caller holds the lock."""
+        failed = [cache_key for cache_key, until in self._history_failed_until.items() if until <= now]
+        for cache_key in failed:
+            del self._history_failed_until[cache_key]
+        while len(self._history_failed_until) > MAX_HISTORY_CACHE_ENTRIES:
+            self._history_failed_until.pop(next(iter(self._history_failed_until)))
+        if len(self._history_cache) <= MAX_HISTORY_CACHE_ENTRIES:
+            return
+        expired = [cache_key for cache_key, (expires_at, _) in self._history_cache.items() if expires_at <= now]
+        for cache_key in expired:
+            self._history_cache.pop(cache_key, None)
+        while len(self._history_cache) > MAX_HISTORY_CACHE_ENTRIES:
+            self._history_cache.pop(next(iter(self._history_cache)))
 
     def _fetch(self, on_date: date) -> RateSnapshot:
         url = f"{NBRB_API_URL}?periodicity=0&ondate={on_date.isoformat()}"

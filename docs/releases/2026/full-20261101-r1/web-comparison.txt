@@ -1,0 +1,4 @@
+Production baseline: 663 passed, 50 failed (713 tests).
+Candidate: 683 passed, 49 failed (732 tests).
+No new failing test names; one stale model-selection test corrected.
+Typecheck PASS.

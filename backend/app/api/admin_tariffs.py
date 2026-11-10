@@ -19,6 +19,7 @@ from app.api.dependencies import require_csrf
 from app.api.moderation import require_admin
 from app.db import get_db
 from app.models import User
+from app.services import MAX_PAGE
 
 router = APIRouter(prefix="/api/v1/admin/tariffs", tags=["administration"])
 
@@ -28,7 +29,7 @@ def admin_tariff_list(
     admin: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
     response: Response,
-    page: Annotated[int, Query(ge=1)] = 1,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> dict:
     del admin

@@ -1,27 +1,34 @@
 import { headers } from "next/headers";
-import { ApiClientError, internalApiBase, searchPath } from "@/lib/api";
+import { cache } from "react";
+import { ApiClientError, searchPath } from "@/lib/api";
+import { parseServerApiResponse, publicServerApiRequest, SERVER_API_TIMEOUT_MS, serverApiUrl } from "@/lib/public-server-api";
 import type { components } from "@/lib/types.generated";
-import type { ApiErrorShape, AuthSession, CatalogItem, Company, CompanySummary, DealerReviewReport, DealerReviews, FavoriteListing, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, ModerationDealerReview, Report, UserNotificationList } from "@/lib/types";
+import type { AuthSession, CatalogItem, Company, CompanySummary, DealerReviewReport, DealerReviews, FavoriteListing, Listing, ListingPhoto, ListingSearch, ListingSummary, ListResponse, ModerationDealerReview, Report, UserNotificationList } from "@/lib/types";
 import type { NotificationPreferences } from "@/lib/api";
+
+export { SERVER_API_TIMEOUT_MS };
 
 export async function serverApiRequest<T>(path: string): Promise<T> {
   const incoming = await headers();
   const requestHeaders = new Headers();
   const cookie = incoming.get("cookie");
   if (cookie) requestHeaders.set("cookie", cookie);
-  const response = await fetch(`${internalApiBase()}/${path.replace(/^\//, "")}`, { headers: requestHeaders, cache: "no-store" });
-  const payload: unknown = await response.json().catch(() => undefined);
-  if (!response.ok) throw new ApiClientError(response.status, (payload || {}) as Partial<ApiErrorShape>);
-  return payload as T;
+  const response = await fetch(serverApiUrl(path), {
+    headers: requestHeaders,
+    cache: "no-store",
+    signal: AbortSignal.timeout(SERVER_API_TIMEOUT_MS)
+  });
+  return parseServerApiResponse<T>(response);
 }
 
-export async function getSessionServer(): Promise<AuthSession | null> {
+// The root layout, pages and helpers all ask for the session; cache() keeps it to one /me call per request.
+export const getSessionServer = cache(async (): Promise<AuthSession | null> => {
   try { return await serverApiRequest<AuthSession>("me"); }
   catch (error) {
     if (error instanceof ApiClientError && error.status === 401) return null;
     throw error;
   }
-}
+});
 
 export const serverApi = {
   listings: (search: ListingSearch = {}) => serverApiRequest<ListResponse<ListingSummary> & { fx?: { rate_date: string; usd_rate: string; scale: number } }>(searchPath(search).replace("/api/v1/", "")),
@@ -41,7 +48,7 @@ export const serverApi = {
   billingOrder: (id: string) => serverApiRequest<components["schemas"]["BillingOrderOut"]>(`billing/orders/${encodeURIComponent(id)}`),
   catalog: (kind: "makes" | "models" | "generations" | "body-types" | "body-variants" | "modifications", params: { category_code?: ListingSearch["category_code"]; make_id?: string; model_id?: string; model_ids?: string; generation_id?: string; q?: string } = {}) => {
     const query = new URLSearchParams(params).toString();
-    return serverApiRequest<{ items: CatalogItem[] }>(`catalog/${kind}${query ? `?${query}` : ""}`);
+    return publicServerApiRequest<{ items: CatalogItem[] }>(`catalog/${kind}${query ? `?${query}` : ""}`);
   },
   dealers: (page = 1) => serverApiRequest<ListResponse<CompanySummary>>(`dealers?${new URLSearchParams({ page: String(page) })}`),
   publicStats: () => serverApiRequest<{ active_listings: number; approved_companies: number; published_reviews: number }>("public-stats"),
@@ -68,8 +75,8 @@ export const serverApi = {
   moderationReports: () => serverApiRequest<{ items: Report[] }>("moderation/reports"),
   moderationDealerReviews: (status: "pending" | "published" | "rejected" | "hidden" = "pending") => serverApiRequest<{ items: ModerationDealerReview[] }>(`moderation/dealer-reviews?${new URLSearchParams({ status })}`),
   moderationDealerReviewReports: (status: "open" | "resolved" = "open") => serverApiRequest<{ items: DealerReviewReport[] }>(`moderation/dealer-review-reports?${new URLSearchParams({ status })}`),
-  regions: () => serverApiRequest<{ items: CatalogItem[] }>("locations/regions"),
-  cities: (regionId = "") => serverApiRequest<{ items: CatalogItem[] }>(`locations/cities?region_id=${encodeURIComponent(regionId)}`),
+  regions: () => publicServerApiRequest<{ items: CatalogItem[] }>("locations/regions"),
+  cities: (regionId = "") => publicServerApiRequest<{ items: CatalogItem[] }>(`locations/cities?region_id=${encodeURIComponent(regionId)}`),
   photos: (id: string) => serverApiRequest<{ items: ListingPhoto[] }>(`listings/${encodeURIComponent(id)}/photos`),
   customsRates: () => serverApiRequest<components["schemas"]["CustomsRatesResponse"]>("customs-calculator/rates"),
   customsRateHistory: (

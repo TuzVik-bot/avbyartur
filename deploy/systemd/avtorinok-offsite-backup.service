@@ -1,0 +1,39 @@
+# Daily encrypted off-host copy of the newest local snapshot.
+#
+# Only an age-encrypted bundle leaves the host (scripts/backup-offsite-daily.py
+# -> backup-encrypt.py -> backup-offsite-encrypted.py). On success it writes
+# /home/suite/backups/avtorinok/offsite-status.json, which avtorinok-monitor
+# checks (alert offsite_backup_stale when the newest off-host copy is > 48 h).
+#
+# /etc/avtorinok/offsite-backup.env (root:root, mode 600) must define:
+#   AVTORINOK_OFFSITE_TARGET=backup-user@backup-host:/absolute/path
+#   AVTORINOK_BACKUP_AGE_RECIPIENT=age1...   (public recipient only)
+# The suite user needs an SSH key without passphrase restricted to the backup
+# host, and the host key in ~suite/.ssh/known_hosts (StrictHostKeyChecking=yes).
+#
+# Without root: install this unit and the timer as user units in
+# ~suite/.config/systemd/user/, drop User=/Group=/SupplementaryGroups=, point
+# EnvironmentFile= at ~suite/.config/avtorinok/offsite-backup.env (mode 600),
+# run `loginctl enable-linger suite` (needs root once) or keep a session open,
+# then `systemctl --user enable --now avtorinok-offsite-backup.timer`.
+[Unit]
+Description=Deliver an encrypted Avtorinok backup off-host
+Wants=network-online.target
+After=network-online.target avtorinok-backup.service
+
+[Service]
+Type=oneshot
+User=suite
+Group=suite
+WorkingDirectory=/home/suite/apps/avtorinok
+EnvironmentFile=/etc/avtorinok/offsite-backup.env
+Environment=AVTORINOK_BACKUP_DIR=/home/suite/backups/avtorinok
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /home/suite/apps/avtorinok/scripts/backup-offsite-daily.py --backup-root /home/suite/backups/avtorinok
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/suite/backups/avtorinok
+NoNewPrivileges=true

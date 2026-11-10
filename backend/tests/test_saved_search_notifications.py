@@ -872,7 +872,9 @@ def test_email_saved_search_rechecks_search_before_provider_send(
     monkeypatch.setattr(worker, "SessionLocal", change_search_before_final_guard)
     worker._deliver_notification(outbox.id)
 
-    assert session_calls == 2
+    # Session 2 is the final guard; a send adds session 3 to finalize the
+    # delivery after the row locks were released.
+    assert session_calls == (3 if should_send else 2)
     with factory() as db:
         current_outbox = db.get(models.NotificationOutbox, outbox.id)
         if should_send:

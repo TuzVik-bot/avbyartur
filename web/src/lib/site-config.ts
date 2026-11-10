@@ -1,7 +1,7 @@
 import { assertSafeLocalPath, DEFAULT_LOCALE, isSupportedLocale, localizedPath, type Locale } from "./i18n";
 
 export const DEFAULT_SITE_NAME = "Авторынок BY";
-export const DEFAULT_SITE_ORIGIN = "https://suite-s1.denjik.by";
+export const DEFAULT_SITE_ORIGIN = "https://xn--80aeylebmo7f.xn--90ais";
 
 export type SiteEnvironment = Record<string, string | undefined>;
 

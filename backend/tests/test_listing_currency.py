@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from app.db import Base, get_db
 from app.main import app
 from app.models import (
+    AuditEvent,
     CatalogBodyType,
     CatalogGeneration,
     CatalogMake,
@@ -39,6 +40,7 @@ def currency_api():
         tables=[
             User.__table__, Company.__table__, Listing.__table__, ListingCategoryDetails.__table__,
             ListingPhoto.__table__, ExchangeRate.__table__, ListingStatusEvent.__table__,
+            AuditEvent.__table__,
         ],
     )
     with engine.begin() as connection:
@@ -894,3 +896,31 @@ def test_unusable_rate_disables_price_operations_but_keeps_other_filters(currenc
     assert filtered.json()["items"][0]["price"]["currency"] == "BYN"
     assert "display_amount" not in filtered.json()["items"][0]["price"]
     assert "display_currency" not in filtered.json()["items"][0]["price"]
+
+
+def test_market_comparison_uses_the_most_recent_capped_analogs(integration, monkeypatch):
+    import app.market_pricing as market_pricing
+
+    monkeypatch.setattr(market_pricing, "MAXIMUM_ANALOGS_PER_LISTING", 12)
+    factory = integration["SessionLocal"]
+    with factory() as db:
+        catalog = _market_catalog(db)
+        target = _market_listing(db, add_owner(db), catalog, "18000")
+        target.created_at = datetime(2026, 10, 1, tzinfo=timezone.utc)
+        for index in range(12):
+            peer = _market_listing(db, add_owner(db), catalog, "20000")
+            peer.created_at = datetime(2026, 9, 20, tzinfo=timezone.utc) + timedelta(hours=index)
+        # Older outliers fall outside the cap and must not affect the median.
+        for index in range(5):
+            outlier = _market_listing(db, add_owner(db), catalog, "90000")
+            outlier.created_at = datetime(2026, 8, 1, tzinfo=timezone.utc) + timedelta(hours=index)
+        target_id = str(target.id)
+        db.commit()
+
+    response = integration["client"].get(f"/api/v1/listings/{target_id}")
+
+    assert response.status_code == 200, response.text
+    comparison = response.json()["listing"]["price"]["market_comparison"]
+    assert comparison["sample_size"] == 12
+    assert comparison["median_byn"] == "20000.00"
+    assert comparison["label"] == "below_market"

@@ -4,10 +4,49 @@ import { isPublicAssistantPage, validateAssistantFilters, type AssistantPage } f
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const buckets = new Map<string, { count: number; until: number }>();
+const HOUR_MS = 3600000;
+const DAY_MS = 24 * HOUR_MS;
+const PER_IP_REQUESTS_PER_HOUR = 10;
+const PER_IP_REQUESTS_PER_DAY = 30;
+const GLOBAL_MODEL_CALLS_PER_HOUR = 200;
+// Free OpenRouter accounts get about 50 requests a day without credits.
+const DEFAULT_DAILY_MODEL_BUDGET = 45;
+const MAX_IN_FLIGHT = 3;
+const MAX_TRACKED_CLIENTS = 5000;
+const PRUNE_TRACKED_CLIENTS_AT = 3000;
+
+type Window = { count: number; until: number };
+const buckets = new Map<string, { hour: Window; day: Window }>();
 let inFlight = 0;
-let hour = { count: 0, until: 0 };
-function json(body: unknown, status = 200) { return Response.json(body, { status, headers: { "Cache-Control": "no-store", ...(status === 429 ? { "Retry-After": "60" } : {}) } }); }
+let modelHour: Window = { count: 0, until: 0 };
+let modelDay: Window = { count: 0, until: 0 };
+const roll = (window: Window, now: number, length: number): Window => window.until <= now ? { count: 0, until: now + length } : window;
+function json(body: unknown, status = 200, retryAfterSeconds = 60) { return Response.json(body, { status, headers: { "Cache-Control": "no-store", ...(status === 429 ? { "Retry-After": String(retryAfterSeconds) } : {}) } }); }
+function dailyModelBudget() {
+  const configured = Number(process.env.ASSISTANT_DAILY_MODEL_BUDGET);
+  return Number.isInteger(configured) && configured >= 0 ? configured : DEFAULT_DAILY_MODEL_BUDGET;
+}
+// Only real model calls spend the global budget; when it is exhausted the
+// assistant answers with the basic engine instead of rejecting the request.
+function reserveModelCall() {
+  const now = Date.now();
+  modelHour = roll(modelHour, now, HOUR_MS);
+  modelDay = roll(modelDay, now, DAY_MS);
+  if (modelHour.count >= GLOBAL_MODEL_CALLS_PER_HOUR || modelDay.count >= dailyModelBudget()) return false;
+  modelHour.count++; modelDay.count++;
+  return true;
+}
+// Returns seconds to wait when the client is over its limit, otherwise counts the request.
+function takeClientSlot(identity: string, now: number) {
+  if (buckets.size > PRUNE_TRACKED_CLIENTS_AT) for (const [key, value] of buckets) if (value.day.until <= now) buckets.delete(key);
+  const current = buckets.get(identity);
+  const hour = roll(current?.hour ?? { count: 0, until: 0 }, now, HOUR_MS);
+  const day = roll(current?.day ?? { count: 0, until: 0 }, now, DAY_MS);
+  if (day.count >= PER_IP_REQUESTS_PER_DAY) return Math.ceil((day.until - now) / 1000);
+  if (hour.count >= PER_IP_REQUESTS_PER_HOUR) return Math.ceil((hour.until - now) / 1000);
+  buckets.set(identity, { hour: { ...hour, count: hour.count + 1 }, day: { ...day, count: day.count + 1 } });
+  return 0;
+}
 export function GET() { return json({ engine: assistantModelEnabled() ? "ai" : "basic" }); }
 
 export async function POST(request: Request) {
@@ -18,12 +57,10 @@ export async function POST(request: Request) {
   if (request.headers.get("sec-fetch-site") === "cross-site") return json({ message: "Запрос разрешён только с сайта." }, 403);
   if (!request.headers.get("content-type")?.includes("application/json")) return json({ message: "Ожидается JSON." }, 415);
   const now = Date.now();
-  if (hour.until <= now) hour = { count: 0, until: now + 3600000 };
   const identity = createHash("sha256").update(request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "shared").digest("hex");
-  if (buckets.size > 3000) for (const [key, value] of buckets) if (value.until <= now) buckets.delete(key);
-  const bucket = buckets.get(identity);
-  if ((bucket && bucket.until > now && bucket.count >= 20) || hour.count >= 200 || inFlight >= 3 || buckets.size > 5000) return json({ message: "Помощник занят. Попробуйте немного позже." }, 429);
-  if (!bucket || bucket.until <= now) buckets.set(identity, { count: 1, until: now + 300000 }); else bucket.count++;
+  if (inFlight >= MAX_IN_FLIGHT || (buckets.size > MAX_TRACKED_CLIENTS && !buckets.has(identity))) return json({ message: "Помощник занят. Попробуйте немного позже." }, 429);
+  const waitSeconds = takeClientSlot(identity, now);
+  if (waitSeconds > 0) return json({ message: "Помощник занят. Попробуйте немного позже." }, 429, waitSeconds);
   let body: Record<string, unknown>;
   try {
     // Bound bytes even when Content-Length is absent or forged.
@@ -41,9 +78,9 @@ export async function POST(request: Request) {
     const p = body.page as Record<string, unknown>;
     if (typeof p.path === "string" && isPublicAssistantPage(p.path) && typeof p.title === "string" && typeof p.text === "string") page = { path: p.path, title: p.title.slice(0, 160), text: p.text.slice(0, 6000) };
   }
-  inFlight++; hour.count++;
+  inFlight++;
   const listingIds = Array.isArray(body.listingIds) ? body.listingIds.filter((id) => typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)).slice(0, 3) : [];
-  try { return json(await answerAssistant({ message: body.message.trim(), filters: validateAssistantFilters(body.filters), history, page, listingIds, action: body.action === "summary" ? "summary" : undefined })); }
+  try { return json(await answerAssistant({ message: body.message.trim(), filters: validateAssistantFilters(body.filters), history, page, listingIds, reserveModelCall, action: body.action === "summary" ? "summary" : undefined })); }
   catch (error) {
     const code = error instanceof Error ? error.message : "";
     const message = code === "search_unavailable" ? "Поиск по цене сейчас недоступен: не удалось получить свежий курс валют. Попробуйте позже или откройте каталог." : code.startsWith("model_") ? "ИИ временно не ответил. Попробуйте ещё раз чуть позже; каталог сайта доступен." : "Не удалось получить данные сайта. Попробуйте ещё раз позже.";

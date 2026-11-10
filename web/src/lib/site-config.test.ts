@@ -10,7 +10,7 @@ describe("site configuration", () => {
   });
 
   it("uses stable defaults when configuration is absent", () => {
-    expect(getSiteConfig({})).toEqual({ siteName: DEFAULT_SITE_NAME, siteOrigin: "https://suite-s1.denjik.by" });
+    expect(getSiteConfig({})).toEqual({ siteName: DEFAULT_SITE_NAME, siteOrigin: "https://xn--80aeylebmo7f.xn--90ais" });
   });
 
   it.each([

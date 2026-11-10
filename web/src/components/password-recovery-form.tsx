@@ -8,6 +8,11 @@ import { useUrlFragmentToken } from "@/lib/url-fragment";
 export function PasswordRecoveryForm({ token }: { token?: string }) {
   const fragmentToken = useUrlFragmentToken();
   const actionToken = token || fragmentToken;
+  // Scrub the one-time token from the address bar and history so analytics,
+  // referrers and shared screenshots never see it; the value stays in props/state.
+  useEffect(() => {
+    if (actionToken) window.history.replaceState(null, "", window.location.pathname);
+  }, [actionToken]);
   const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
   const [checking, setChecking] = useState(true);
   const [busy, setBusy] = useState(false);

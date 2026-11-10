@@ -24,4 +24,4 @@ Nginx и TLS-конфигурация сервера не менялись; се
 а `suite-s1.denjik.by` — устаревший адрес. Результаты выше относятся только к
 проверке `suite-s1.denjik.by`; их нельзя трактовать как подтверждение
 недоступности портала. Canonical домен отдельно проверен по HTTPS и в браузере:
-`docs/runtime/CANONICAL_DOMAIN_ACCEPTANCE_2026-10-21.md`.
+`docs/releases/2026/CANONICAL_DOMAIN_ACCEPTANCE_2026-10-21.md`.

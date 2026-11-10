@@ -10,6 +10,9 @@ import { buildArticleJsonLd, buildOpenGraph, serializeJsonLd } from "@/lib/seo";
 import { siteUrl } from "@/lib/site-config";
 import styles from "../articles.module.css";
 
+// Most editorial photos are 1010x568; the attributes reserve layout space and height:auto keeps each photo's real ratio.
+const EDITORIAL_IMAGE_SIZE = { width: 1010, height: 568 } as const;
+
 type ArticlePageProps = { params: Promise<{ slug: string }> };
 
 export const dynamicParams = false;
@@ -62,7 +65,7 @@ export default async function ArticleDetailPage({ params }: ArticlePageProps) {
       {article.leadImage ? (
         <figure className={styles.articleLeadImage}>
           {/* eslint-disable-next-line @next/next/no-img-element -- статические файлы из public с неизвестными размерами */}
-          <img src={article.leadImage.src} alt={article.leadImage.alt} />
+          <img src={article.leadImage.src} alt={article.leadImage.alt} {...EDITORIAL_IMAGE_SIZE} style={{ height: "auto" }} fetchPriority="high" decoding="async" />
           {article.leadImage.caption ? <figcaption>{article.leadImage.caption}</figcaption> : null}
         </figure>
       ) : null}
@@ -81,7 +84,7 @@ export default async function ArticleDetailPage({ params }: ArticlePageProps) {
               return (
                 <figure key={`${section.heading}-image-${index}`} className={styles.articleImage}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- статические файлы из public с неизвестными размерами */}
-                  <img src={block.src} alt={block.alt} />
+                  <img src={block.src} alt={block.alt} {...EDITORIAL_IMAGE_SIZE} style={{ height: "auto" }} loading="lazy" decoding="async" />
                   {block.caption ? <figcaption>{block.caption}</figcaption> : null}
                 </figure>
               );

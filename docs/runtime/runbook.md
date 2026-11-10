@@ -1,6 +1,6 @@
 # Runtime Runbook
 
-> **4 октября 2026:** пользователь разрешил отключить общий HTTP Basic Auth для тестирования. На `suite-s1.denjik.by` он снят; обычные сессии и роли, loopback-доступ API/БД и `noindex` сохранены. Не включать общий пароль повторно без нового запроса. Ниже инструкции закрытого пилота описывают исторический режим; текущий релиз и проверки — [RELEASE_2026-10-04.md](RELEASE_2026-10-04.md).
+> **4 октября 2026:** пользователь разрешил отключить общий HTTP Basic Auth для тестирования. На `suite-s1.denjik.by` он снят; обычные сессии и роли, loopback-доступ API/БД и `noindex` сохранены. Не включать общий пароль повторно без нового запроса. Ниже инструкции закрытого пилота описывают исторический режим; текущий релиз и проверки — [RELEASE_2026-10-04.md](../releases/2026/RELEASE_2026-10-04.md).
 
 ## Local Run
 
@@ -40,7 +40,7 @@ The pilot plan's sizing guideline is 4 vCPU, 8 GiB RAM, and at least 60 GB SSD. 
 
 Run the project under a separate application directory such as `/home/suite/apps/avtorinok`, outside `/var/www/suite-s1.denjik.by`. Create `.env` on the host with `./scripts/init-secrets.sh`; keep it mode `600`. Use the tagged `linux/amd64` images verified by the AMD64 release procedure above, then transfer and load those exact image tags on the VPS. Never deploy ARM images to this host. Compose uses ordinary named volumes, so PostgreSQL and media will live under Docker's configured data-root unless the deployment is changed. Before deployment, check `docker info --format '{{.DockerRootDir}}'`, its backing mount, and free space; the prior inventory does not confirm a separate data disk.
 
-Only web is published, as `127.0.0.1:8080:3000`. API port 8000 and PostgreSQL 5432 have no host port mapping. The existing Nginx and upstream TLS proxy remain in place. The checked-in `deploy/suite-s1.denjik.by.nginx.conf` is a static-site placeholder, not the pilot proxy, and no host Nginx config was changed. For an authorized pilot deployment, adapt the correct vhost to proxy the app to `127.0.0.1:8080` and apply HTTP Basic Auth at server scope so HTML, `/api/v1`, health paths, and every image path require the same credential. The reference fragment `deploy/avtorinok-pilot-auth-proxy.inc` contains the auth directives and loopback route; merge it into the vhost, replacing any existing `location /` handler. Review it against the host's existing TLS and trusted `X-Forwarded-Proto` configuration before reload.
+Only web is published, as `127.0.0.1:8080:3000`. API port 8000 and PostgreSQL 5432 have no host port mapping. The existing Nginx and upstream TLS proxy remain in place. The checked-in `docs/archive/deploy/suite-s1.denjik.by.nginx.conf` is a static-site placeholder, not the pilot proxy, and no host Nginx config was changed. For an authorized pilot deployment, adapt the correct vhost to proxy the app to `127.0.0.1:8080` and apply HTTP Basic Auth at server scope so HTML, `/api/v1`, health paths, and every image path require the same credential. The reference fragment `docs/archive/deploy/avtorinok-pilot-auth-proxy.inc` contains the auth directives and loopback route; merge it into the vhost, replacing any existing `location /` handler. Review it against the host's existing TLS and trusted `X-Forwarded-Proto` configuration before reload.
 
 Generate the hash and one-time password handoff file on the VPS with:
 

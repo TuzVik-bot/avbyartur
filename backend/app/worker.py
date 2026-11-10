@@ -4,10 +4,13 @@ import math
 import os
 import shutil
 import socket
+import threading
 import time
 import urllib.request
 import uuid
 import warnings
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -15,11 +18,11 @@ from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pillow_heif import register_heif_opener
-from sqlalchemy import func, or_, select, text, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import get_settings
-from app.db import SessionLocal, engine
+from app.db import SessionLocal
 from app.email_delivery import EmailDeliveryUnavailable, get_email_sender
 from app.ingest_onliner import (
     OnlinerBlockedError,
@@ -50,6 +53,7 @@ from app.models import (
     SavedSearchNotificationMatch,
     User,
     UserNotification,
+    WorkerHeartbeat,
     WorkerJob,
 )
 from app.notification_service import (
@@ -59,15 +63,23 @@ from app.notification_service import (
     saved_search_matches,
 )
 from app.profile_identity_service import notification_delivery_allowed
-from app.services import enqueue_job
+from app.services import enqueue_job, listing_in_public_catalog
 
 register_heif_opener()
 Image.MAX_IMAGE_PIXELS = 60_000_000
 warnings.simplefilter("error", Image.DecompressionBombWarning)
 logger = configure_json_logger("avtorinok.worker")
 LEASE = timedelta(minutes=3)
-ADVISORY_LOCK_KEY = 617245319
+# A running job's lease is extended this often, well before it can expire, so
+# a second worker never reclaims a job that is still being processed.
+LEASE_RENEWAL_INTERVAL_SECONDS = LEASE.total_seconds() / 3
 MINSK = ZoneInfo("Europe/Minsk")
+SAVED_SEARCH_MATCH_CHUNK_SIZE = 500
+# Periodic job scheduling queries run at most this often, not every loop.
+SCHEDULER_INTERVAL_SECONDS = 60
+# The worker_heartbeats row is written at most this often.
+HEARTBEAT_INTERVAL_SECONDS = 15
+IDLE_SLEEP_SECONDS = 2
 HEIF_ORIENTATION_TRANSPOSE = {
     2: Image.Transpose.FLIP_LEFT_RIGHT,
     3: Image.Transpose.ROTATE_180,
@@ -364,7 +376,8 @@ def _parse_nbrb_usd_rate(
         ).date()
     except ValueError as exc:
         raise ValueError("NBRB USD rate response has no valid date") from exc
-    current_date = today or datetime.now(timezone.utc).date()
+    # NBRB publishes rates by Minsk calendar date, which is ahead of UTC.
+    current_date = today or datetime.now(MINSK).date()
     if rate_date > current_date:
         raise ValueError("NBRB USD rate response is dated in the future")
 
@@ -750,6 +763,31 @@ def _enqueue_daily_notification_batch(
     )
 
 
+def _notifiable_saved_searches(db) -> Iterator[SavedSearch]:
+    """Yield enabled saved searches by id, loading them in bounded chunks."""
+    last_id: uuid.UUID | None = None
+    while True:
+        query = (
+            select(SavedSearch)
+            .join(User, User.id == SavedSearch.user_id)
+            .where(
+                SavedSearch.status == "active",
+                SavedSearch.notifications_enabled.is_(True),
+                SavedSearch.notification_channel.is_not(None),
+                User.status == "active",
+            )
+            .order_by(SavedSearch.id)
+            .limit(SAVED_SEARCH_MATCH_CHUNK_SIZE)
+        )
+        if last_id is not None:
+            query = query.where(SavedSearch.id > last_id)
+        chunk = db.scalars(query).all()
+        yield from chunk
+        if len(chunk) < SAVED_SEARCH_MATCH_CHUNK_SIZE:
+            return
+        last_id = chunk[-1].id
+
+
 def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
     """Create one durable outbox item for every matching enabled search."""
 
@@ -768,18 +806,11 @@ def _match_saved_searches(listing_id: uuid.UUID, listing_revision: int) -> None:
             now = datetime.now(timezone.utc)
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
+        # No public search can contain a hidden listing, so skip the scan.
+        if not listing_in_public_catalog(db, listing):
+            return
         first_publication_at = _first_publication_at(db, listing)
-        searches = db.scalars(
-            select(SavedSearch)
-            .join(User, User.id == SavedSearch.user_id)
-            .where(
-                SavedSearch.status == "active",
-                SavedSearch.notifications_enabled.is_(True),
-                SavedSearch.notification_channel.is_not(None),
-                User.status == "active",
-            )
-            .order_by(SavedSearch.id)
-        ).all()
+        searches = _notifiable_saved_searches(db)
         email_settings = get_settings()
         email_sender = get_email_sender(email_settings)
         public_app_url = str(
@@ -1098,6 +1129,36 @@ def _deliver_identity_email(outbox_id: uuid.UUID) -> None:
             # from the outbox once retries are no longer needed.
             outbox.body = ""
             db.commit()
+
+
+def _finish_email_outbox(
+    outbox_id: uuid.UUID, delivery_worker_id: str, *, error_code: str | None = None
+) -> None:
+    """Record an email send result unless another worker took the outbox over.
+
+    Without an error the outbox becomes delivered; with one it is queued again.
+    """
+    with SessionLocal() as db:
+        outbox = db.scalar(
+            select(NotificationOutbox)
+            .where(NotificationOutbox.id == outbox_id)
+            .with_for_update()
+        )
+        if (
+            outbox is None
+            or outbox.status != "running"
+            or outbox.locked_by != delivery_worker_id
+        ):
+            return
+        if error_code is None:
+            outbox.status = "delivered"
+            outbox.delivered_at = datetime.now(timezone.utc)
+        else:
+            outbox.status = "queued"
+        outbox.last_error = error_code
+        outbox.locked_by = None
+        outbox.lease_until = None
+        db.commit()
 
 
 def _deliver_notification(outbox_id: uuid.UUID) -> None:
@@ -1514,36 +1575,16 @@ def _deliver_notification(outbox_id: uuid.UUID) -> None:
                         )
                         return
 
-                try:
-                    sender.send_email(
-                        recipient, subject, body, idempotency_key=dedupe_key
-                    )
-                except Exception as exc:
-                    error_code = _safe_email_error_code(exc)
-                    guard_db.rollback()
-                    with SessionLocal() as retry_db:
-                        retry_outbox = retry_db.scalar(
-                            select(NotificationOutbox)
-                            .where(NotificationOutbox.id == outbox_id)
-                            .with_for_update()
-                        )
-                        if (
-                            retry_outbox is not None
-                            and retry_outbox.status == "running"
-                        ):
-                            retry_outbox.status = "queued"
-                            retry_outbox.last_error = error_code
-                            retry_outbox.locked_by = None
-                            retry_outbox.lease_until = None
-                            retry_db.commit()
-                    raise EmailDeliveryUnavailable(error_code) from None
-
-                guarded_outbox.status = "delivered"
-                guarded_outbox.last_error = None
-                guarded_outbox.delivered_at = datetime.now(timezone.utc)
-                guarded_outbox.locked_by = None
-                guarded_outbox.lease_until = None
+                # Release row locks before the SMTP call; the lease guards the outbox.
                 guard_db.commit()
+
+            try:
+                sender.send_email(recipient, subject, body, idempotency_key=dedupe_key)
+            except Exception as exc:
+                error_code = _safe_email_error_code(exc)
+                _finish_email_outbox(outbox_id, delivery_worker_id, error_code=error_code)
+                raise EmailDeliveryUnavailable(error_code) from None
+            _finish_email_outbox(outbox_id, delivery_worker_id)
             return
 
         if outbox.channel != "web":
@@ -1602,106 +1643,125 @@ def _run_job(job_id: uuid.UUID, worker_id: str) -> None:
             return
         kind, payload = job.kind, dict(job.payload or {})
     try:
-        if kind == "photo.process":
-            _make_variants(uuid.UUID(payload["photo_id"]))
-        elif kind == "rates.refresh":
-            _refresh_usd_rate()
-        elif kind == "cleanup.retention":
-            _cleanup_retention()
-        elif kind == "saved-search.match":
-            _match_saved_searches(
-                uuid.UUID(payload["listing_id"]), int(payload["listing_revision"])
-            )
-        elif kind == "notification.deliver":
-            _deliver_notification(uuid.UUID(payload["outbox_id"]))
-        elif kind == "identity.email.deliver":
-            _deliver_identity_email(uuid.UUID(payload["outbox_id"]))
-        elif kind == "onliner.sync":
-            _onliner_sync(job_id)
-        else:
-            raise PermanentJobError(f"Unsupported job kind: {kind}")
+        with _lease_keeper(job_id, worker_id):
+            _dispatch_job(job_id, kind, payload)
     except Exception as exc:
-        with SessionLocal() as db:
-            job = db.get(WorkerJob, job_id)
-            if job is None:
-                return
-            notification_outbox = None
-            if kind == "notification.deliver":
-                try:
-                    notification_outbox = db.get(
-                        NotificationOutbox, uuid.UUID(payload["outbox_id"])
-                    )
-                except (KeyError, ValueError):
-                    notification_outbox = None
-            is_saved_search_email = bool(
-                notification_outbox is not None
-                and notification_outbox.channel == "email"
-            )
-            delivery_error = (
-                _safe_email_error_code(exc)
-                if kind == "identity.email.deliver" or is_saved_search_email
-                else None
-            )
-            job.last_error = delivery_error or str(exc)[:500]
-            job.locked_by = None
-            job.lease_until = None
-            terminal_failure = (
-                isinstance(exc, PermanentJobError) or job.attempts >= job.max_attempts
-            )
-            if terminal_failure:
-                job.status = "failed"
-                if kind == "photo.process":
-                    photo = db.get(ListingPhoto, uuid.UUID(payload["photo_id"]))
-                    if photo and photo.status in {"processing", "ready"}:
-                        photo.status = "failed"
-                elif kind == "identity.email.deliver":
-                    try:
-                        outbox = db.get(
-                            IdentityEmailOutbox, uuid.UUID(payload["outbox_id"])
-                        )
-                    except (KeyError, ValueError):
-                        outbox = None
-                    if outbox is not None and outbox.status != "delivered":
-                        outbox.status = "failed"
-                        outbox.last_error = delivery_error or "email_delivery_failed"
-                        outbox.locked_by = None
-                        outbox.lease_until = None
-                elif is_saved_search_email and notification_outbox is not None:
-                    if notification_outbox.status != "delivered":
-                        notification_outbox.status = "failed"
-                        notification_outbox.last_error = (
-                            delivery_error or "email_delivery_failed"
-                        )
-                        notification_outbox.locked_by = None
-                        notification_outbox.lease_until = None
-            else:
-                job.status = "queued"
-                database_now = db.scalar(select(func.now()))
-                job.run_after = database_now + timedelta(
-                    seconds=min(60 * (2 ** (job.attempts - 1)), 3600)
-                )
-            db.commit()
-        log_event(
-            logger,
-            logging.WARNING,
-            "worker_job_failed",
-            job_id=str(job_id),
-            job_kind=kind,
-            attempt=job.attempts if job else None,
-            error_type=type(exc).__name__,
-        )
-        from app.error_monitoring import capture_safe_error
-
-        capture_safe_error("worker", type(exc).__name__)
+        _record_job_failure(job_id, worker_id, kind, payload, exc)
         return
     with SessionLocal() as db:
         job = db.get(WorkerJob, job_id)
-        if job:
+        # Never overwrite a job another worker or a cancellation took over.
+        if job is not None and job.status == "running" and job.locked_by == worker_id:
             job.status = "succeeded"
             job.locked_by = None
             job.lease_until = None
             job.last_error = None
             db.commit()
+
+
+def _dispatch_job(job_id: uuid.UUID, kind: str, payload: dict) -> None:
+    if kind == "photo.process":
+        _make_variants(uuid.UUID(payload["photo_id"]))
+    elif kind == "rates.refresh":
+        _refresh_usd_rate()
+    elif kind == "cleanup.retention":
+        _cleanup_retention()
+    elif kind == "saved-search.match":
+        _match_saved_searches(
+            uuid.UUID(payload["listing_id"]), int(payload["listing_revision"])
+        )
+    elif kind == "notification.deliver":
+        _deliver_notification(uuid.UUID(payload["outbox_id"]))
+    elif kind == "identity.email.deliver":
+        _deliver_identity_email(uuid.UUID(payload["outbox_id"]))
+    elif kind == "onliner.sync":
+        _onliner_sync(job_id)
+    else:
+        raise PermanentJobError(f"Unsupported job kind: {kind}")
+
+
+def _record_job_failure(
+    job_id: uuid.UUID, worker_id: str, kind: str, payload: dict, exc: Exception
+) -> None:
+    with SessionLocal() as db:
+        job = db.get(WorkerJob, job_id)
+        attempt = job.attempts if job is not None else None
+        # A job taken over by another worker or cancelled meanwhile keeps its state.
+        owned = job is not None and job.status == "running" and job.locked_by == worker_id
+        if owned:
+            _store_job_failure(db, job, kind, payload, exc)
+            db.commit()
+    log_event(
+        logger,
+        logging.WARNING,
+        "worker_job_failed",
+        job_id=str(job_id),
+        job_kind=kind,
+        attempt=attempt,
+        error_type=type(exc).__name__,
+        exc_info=exc,
+    )
+    from app.error_monitoring import capture_safe_error
+
+    capture_safe_error("worker", type(exc).__name__, exc=exc)
+
+
+def _store_job_failure(db, job: WorkerJob, kind: str, payload: dict, exc: Exception) -> None:
+    notification_outbox = None
+    if kind == "notification.deliver":
+        try:
+            notification_outbox = db.get(
+                NotificationOutbox, uuid.UUID(payload["outbox_id"])
+            )
+        except (KeyError, ValueError):
+            notification_outbox = None
+    is_saved_search_email = bool(
+        notification_outbox is not None
+        and notification_outbox.channel == "email"
+    )
+    delivery_error = (
+        _safe_email_error_code(exc)
+        if kind == "identity.email.deliver" or is_saved_search_email
+        else None
+    )
+    job.last_error = delivery_error or str(exc)[:500]
+    job.locked_by = None
+    job.lease_until = None
+    terminal_failure = (
+        isinstance(exc, PermanentJobError) or job.attempts >= job.max_attempts
+    )
+    if terminal_failure:
+        job.status = "failed"
+        if kind == "photo.process":
+            photo = db.get(ListingPhoto, uuid.UUID(payload["photo_id"]))
+            if photo and photo.status in {"processing", "ready"}:
+                photo.status = "failed"
+        elif kind == "identity.email.deliver":
+            try:
+                outbox = db.get(
+                    IdentityEmailOutbox, uuid.UUID(payload["outbox_id"])
+                )
+            except (KeyError, ValueError):
+                outbox = None
+            if outbox is not None and outbox.status != "delivered":
+                outbox.status = "failed"
+                outbox.last_error = delivery_error or "email_delivery_failed"
+                outbox.locked_by = None
+                outbox.lease_until = None
+        elif is_saved_search_email and notification_outbox is not None:
+            if notification_outbox.status != "delivered":
+                notification_outbox.status = "failed"
+                notification_outbox.last_error = (
+                    delivery_error or "email_delivery_failed"
+                )
+                notification_outbox.locked_by = None
+                notification_outbox.lease_until = None
+    else:
+        job.status = "queued"
+        database_now = db.scalar(select(func.now()))
+        job.run_after = database_now + timedelta(
+            seconds=min(60 * (2 ** (job.attempts - 1)), 3600)
+        )
 
 
 def _onliner_sync(job_id: uuid.UUID) -> None:
@@ -1873,39 +1933,135 @@ def _schedule_daily_rates() -> None:
         db.commit()
 
 
+_heartbeat_lock = threading.Lock()
+_heartbeat_last_written: float | None = None
+
+
+def _record_heartbeat(worker_id: str) -> None:
+    """Upsert this worker's heartbeat row, at most once per HEARTBEAT_INTERVAL_SECONDS."""
+    global _heartbeat_last_written
+
+    with _heartbeat_lock:
+        now = time.monotonic()
+        if (
+            _heartbeat_last_written is not None
+            and now - _heartbeat_last_written < HEARTBEAT_INTERVAL_SECONDS
+        ):
+            return
+        _heartbeat_last_written = now
+    with SessionLocal() as db:
+        db.execute(
+            pg_insert(WorkerHeartbeat)
+            .values(worker_id=worker_id, last_seen_at=func.now())
+            .on_conflict_do_update(
+                index_elements=[WorkerHeartbeat.worker_id],
+                set_={"last_seen_at": func.now()},
+            )
+        )
+        db.commit()
+
+
+def _renew_job_lease(job_id: uuid.UUID, worker_id: str) -> bool:
+    """Extend a running job's lease; False once the job is no longer ours."""
+    with SessionLocal() as db:
+        renewed = db.execute(
+            update(WorkerJob)
+            .where(
+                WorkerJob.id == job_id,
+                WorkerJob.status == "running",
+                WorkerJob.locked_by == worker_id,
+            )
+            .values(lease_until=func.now() + LEASE)
+            .returning(WorkerJob.id)
+        ).first()
+        db.commit()
+    return renewed is not None
+
+
+def _keep_lease(job_id: uuid.UUID, worker_id: str, stop: threading.Event) -> None:
+    while not stop.wait(LEASE_RENEWAL_INTERVAL_SECONDS):
+        try:
+            if not _renew_job_lease(job_id, worker_id):
+                return
+            _record_heartbeat(worker_id)
+        except Exception as exc:
+            # The next tick retries; the lease still has two intervals left.
+            log_event(
+                logger,
+                logging.WARNING,
+                "worker_lease_renewal_failed",
+                job_id=str(job_id),
+                error_type=type(exc).__name__,
+                exc_info=exc,
+            )
+
+
+@contextmanager
+def _lease_keeper(job_id: uuid.UUID, worker_id: str) -> Iterator[None]:
+    """Renew the job lease from a background thread while the job body runs."""
+    stop = threading.Event()
+    keeper = threading.Thread(
+        target=_keep_lease,
+        args=(job_id, worker_id, stop),
+        name=f"lease-{job_id}",
+        daemon=True,
+    )
+    keeper.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        keeper.join()
+
+
+_schedulers_last_run: float | None = None
+
+
+def _run_schedulers_if_due() -> None:
+    """Enqueue periodic jobs at most once per SCHEDULER_INTERVAL_SECONDS."""
+    global _schedulers_last_run
+
+    now = time.monotonic()
+    if (
+        _schedulers_last_run is not None
+        and now - _schedulers_last_run < SCHEDULER_INTERVAL_SECONDS
+    ):
+        return
+    _schedulers_last_run = now
+    _schedule_daily_rates()
+    _schedule_onliner_sync()
+
+
+def _work_once(worker_id: str, sleep: Callable[[float], None] = time.sleep) -> bool:
+    """Claim and run one job; returns False when the queue had nothing due.
+
+    Several worker processes may run this concurrently: _claim_one hands each
+    job to one worker (FOR UPDATE SKIP LOCKED) and _lease_keeper keeps the
+    lease alive, so a running job is never claimed a second time.
+    """
+    _record_heartbeat(worker_id)
+    _run_schedulers_if_due()
+    job_id = _claim_one(worker_id)
+    if job_id is None:
+        sleep(IDLE_SLEEP_SECONDS)
+        return False
+    _run_job(job_id, worker_id)
+    return True
+
+
 def run_forever() -> None:
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     log_event(logger, logging.INFO, "worker_started", worker_id=worker_id)
     while True:
         try:
-            _schedule_daily_rates()
-            _schedule_onliner_sync()
-            with engine.connect() as lock_connection:
-                got_lock = lock_connection.scalar(
-                    text("SELECT pg_try_advisory_lock(:key)"),
-                    {"key": ADVISORY_LOCK_KEY},
-                )
-                if not got_lock:
-                    time.sleep(2)
-                    continue
-                try:
-                    job_id = _claim_one(worker_id)
-                    if job_id is None:
-                        time.sleep(2)
-                    else:
-                        _run_job(job_id, worker_id)
-                finally:
-                    lock_connection.execute(
-                        text("SELECT pg_advisory_unlock(:key)"),
-                        {"key": ADVISORY_LOCK_KEY},
-                    )
-                    lock_connection.commit()
+            _work_once(worker_id)
         except Exception as exc:
             log_event(
                 logger,
                 logging.ERROR,
                 "worker_loop_failed",
                 error_type=type(exc).__name__,
+                exc_info=exc,
             )
             time.sleep(3)
 

@@ -71,7 +71,11 @@ function validImageUrl(value: string | null | undefined) {
   }
 }
 
+// A removed listing is a soft-404 for search engines; links to similar offers stay crawlable.
+export const ARCHIVED_LISTING_ROBOTS = { index: false, follow: true } as const satisfies NonNullable<Metadata["robots"]>;
+
 export function buildListingMetadata(listing: Listing): Metadata {
+  if (listing.status === "archived") return { robots: ARCHIVED_LISTING_ROBOTS };
   if (listing.status !== "active" && listing.status !== "sold") return {};
 
   const title = listing.title.trim() || [listing.make?.name, listing.model?.name, listing.year]

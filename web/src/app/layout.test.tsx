@@ -10,6 +10,9 @@ vi.mock("@/components/site-header", () => ({ SiteHeader: () => null }));
 vi.mock("@/components/site-footer", () => ({ SiteFooter: () => null }));
 vi.mock("@/components/install-prompt", () => ({ InstallPrompt: () => <div data-install-prompt /> }));
 vi.mock("@/components/compare-provider", () => ({ CompareProvider: ({ children }: { children: React.ReactNode }) => <div data-compare-provider>{children}</div> }));
+vi.mock("@/components/measurement-provider", () => ({
+  MeasurementProvider: ({ children, measurementId }: { children: React.ReactNode; measurementId?: string }) => <div data-measurement-id={measurementId}>{children}</div>,
+}));
 vi.mock("@/lib/server-api", () => ({ getSessionServer: mocks.getSessionServer }));
 
 import RootLayout, { metadata } from "./layout";
@@ -22,18 +25,20 @@ afterEach(() => {
 });
 
 describe("closed-pilot root layout", () => {
-  it("includes the requested Google tag once in the shared head", async () => {
+  it("never ships a Google tag in server markup and hands the configured ID to the consent-gated provider", async () => {
+    vi.stubEnv("GA_MEASUREMENT_ID", "G-ENV12345");
     const html = renderToStaticMarkup(await RootLayout({ children: createElement("h1", null, "Содержимое") }));
     const document = new DOMParser().parseFromString(html, "text/html");
-    const scripts = document.querySelectorAll('script[src="https://www.googletagmanager.com/gtag/js?id=G-48P5WKB0Z5"]');
-    expect(scripts).toHaveLength(1);
-    expect(scripts[0].hasAttribute("async")).toBe(true);
-    expect(scripts[0].parentElement?.tagName).toBe("HEAD");
-    const initializers = [...document.head.querySelectorAll("script:not([src])")].filter((script) => script.textContent?.includes("gtag('config', 'G-48P5WKB0Z5')"));
-    expect(initializers).toHaveLength(1);
-    expect(initializers[0].textContent).toContain("window.dataLayer = window.dataLayer || []");
-    expect(initializers[0].textContent).toContain("gtag('js', new Date())");
+    expect(document.querySelectorAll('script[src*="googletagmanager.com"]')).toHaveLength(0);
+    expect(html).not.toContain("gtag(");
+    expect(document.querySelector("[data-measurement-id]")?.getAttribute("data-measurement-id")).toBe("G-ENV12345");
   });
+
+  it("falls back to the production measurement ID when the variable is unset", async () => {
+    const html = renderToStaticMarkup(await RootLayout({ children: createElement("h1", null, "Содержимое") }));
+    expect(html).toContain('data-measurement-id="G-48P5WKB0Z5"');
+  });
+
   it("provides a keyboard skip link and keeps the closed pilot unindexable by default", async () => {
     const html = renderToStaticMarkup(await RootLayout({ children: createElement("h1", null, "Содержимое") }));
 

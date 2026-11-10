@@ -105,4 +105,4 @@ UI регистрации требуется отдельная проверка
 `suite-s1.denjik.by` является устаревшим адресом. Диагностика TLS выше относится
 только к `suite-s1.denjik.by`; она не подтверждает недоступность портала на
 canonical домене. Проверка canonical домена и браузерная приемка записаны в
-`docs/runtime/CANONICAL_DOMAIN_ACCEPTANCE_2026-10-21.md`.
+`docs/releases/2026/CANONICAL_DOMAIN_ACCEPTANCE_2026-10-21.md`.

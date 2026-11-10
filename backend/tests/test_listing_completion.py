@@ -1,7 +1,8 @@
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -384,7 +385,8 @@ def test_public_detail_views_feed_owner_scoped_analytics(integration):
 
     assert anonymous.get(f"/api/v1/listings/{listing.id}").status_code == 200
     assert owner_client.get(f"/api/v1/listings/{listing.id}").status_code == 200
-    today = date.today().isoformat()
+    # The analytics window counts Minsk calendar days.
+    today = datetime.now(ZoneInfo("Europe/Minsk")).date().isoformat()
     analytics = owner_client.get(
         f"/api/v1/listings/{listing.id}/analytics",
         params={"date_from": today, "date_to": today},

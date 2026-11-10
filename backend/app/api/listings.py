@@ -5,6 +5,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -84,6 +85,8 @@ from app.contact_channels import validated_contact_channels
 from app.listing_price_history import record_active_listing_price_state
 from app.security import client_ip, new_secret, secret_hash
 from app.services import (
+    MAX_PAGE,
+    table_available,
     active_quota_count,
     check_revision,
     consume_rate_limit,
@@ -110,6 +113,9 @@ from app.listing_discovery import (
 )
 
 router = APIRouter(prefix="/api/v1", tags=["listings"])
+
+# Seller-facing analytics days follow the Belarus calendar.
+MINSK = ZoneInfo("Europe/Minsk")
 
 
 def _listing_search_filters(**values):
@@ -465,7 +471,7 @@ def listing_options() -> dict:
 def search_listings(
     db: Annotated[Session, Depends(get_db)],
     filters: Annotated[ListingSearchFilters, Depends(_listing_search_filters)],
-    page: Annotated[int, Query(ge=1)] = 1,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
     page_size: Annotated[int, Query(ge=1, le=25)] = 25,
     equipment: Annotated[list[Literal[
         "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
@@ -484,28 +490,12 @@ def search_listings(
 
     query, display_price = build_public_listing_query(db, filters, rate_info)
     total = int(db.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0)
-    publication_dates = (
-        select(
-            ListingStatusEvent.listing_id.label("listing_id"),
-            func.min(ListingStatusEvent.created_at).label("published_at"),
-        )
-        .where(ListingStatusEvent.to_status == "active")
-        .group_by(ListingStatusEvent.listing_id)
-        .subquery()
-    )
+    # Matches the ix_listing_publication_order expression index.
+    publication_order = func.coalesce(Listing.published_at, Listing.created_at)
     order = {
-        "newest": (
-            func.coalesce(publication_dates.c.published_at, Listing.created_at).desc(),
-            Listing.id.desc(),
-        ),
-        "published_desc": (
-            func.coalesce(publication_dates.c.published_at, Listing.created_at).desc(),
-            Listing.id.desc(),
-        ),
-        "oldest": (
-            func.coalesce(publication_dates.c.published_at, Listing.created_at).asc(),
-            Listing.id.asc(),
-        ),
+        "newest": (publication_order.desc(), Listing.id.desc()),
+        "published_desc": (publication_order.desc(), Listing.id.desc()),
+        "oldest": (publication_order.asc(), Listing.id.asc()),
         "year_asc": (Listing.year.asc().nullslast(), Listing.id.asc()),
         "price_asc": (display_price.asc().nullslast(), Listing.id.asc()),
         "price_desc": (display_price.desc().nullslast(), Listing.id.desc()),
@@ -514,8 +504,7 @@ def search_listings(
     }[sort]
     publication_dates_for_page: dict[UUID, datetime] = {}
     if sort in {"newest", "published_desc", "oldest"}:
-        query = query.outerjoin(publication_dates, publication_dates.c.listing_id == Listing.id)
-        query = query.add_columns(publication_dates.c.published_at)
+        query = query.add_columns(Listing.published_at)
     bind = db.get_bind()
     promotion_table_available = (
         bind.dialect.name == "postgresql"
@@ -570,7 +559,7 @@ def search_listings(
 def count_public_listings(
     db: Annotated[Session, Depends(get_db)],
     filters: Annotated[ListingSearchFilters, Depends(_listing_search_filters)],
-    page: Annotated[int, Query(ge=1)] = 1,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
     page_size: Annotated[int, Query(ge=1, le=25)] = 25,
     equipment: Annotated[list[Literal[
         "abs", "esp", "airbags", "air_conditioning", "climate_control", "heated_seats",
@@ -749,7 +738,7 @@ def get_listing(listing_id: UUID, db: Annotated[Session, Depends(get_db)], user:
         public
         and not owner_view
         and (user is None or user.role == "user")
-        and sa_inspect(db.get_bind()).has_table("listing_view_events")
+        and table_available(db, "listing_view_events")
     ):
         db.add(ListingViewEvent(listing_id=listing.id))
         db.commit()
@@ -798,7 +787,8 @@ def listing_analytics(
     if listing is None or (listing.owner_id != user.id and not company_access):
         fail(404, "not_found", "Listing not found")
 
-    today = datetime.now(timezone.utc).date()
+    # Sellers think in Minsk calendar days; UTC boundaries shift late-evening events.
+    today = datetime.now(MINSK).date()
     if date_from is None and date_to is None:
         date_from, date_to = today - timedelta(days=29), today
     elif date_from is None:
@@ -810,9 +800,9 @@ def listing_analytics(
     if (date_to - date_from).days > 366:
         fail(422, "period_too_wide", "Analytics period cannot exceed 367 days")
 
-    start = datetime.combine(date_from, time.min, tzinfo=timezone.utc)
-    end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=timezone.utc)
-    view_events_available = sa_inspect(db.get_bind()).has_table("listing_view_events")
+    start = datetime.combine(date_from, time.min, tzinfo=MINSK)
+    end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=MINSK)
+    view_events_available = table_available(db, "listing_view_events")
     counts = {
         "views": int(db.scalar(select(func.count(ListingViewEvent.id)).where(
             ListingViewEvent.listing_id == listing.id,
@@ -1161,7 +1151,7 @@ def sold_listing(listing_id: UUID, payload: RevisionInput, user: Annotated[User,
 @router.get("/me/listings", response_model=ListingOwnerSearchOut, response_model_exclude_unset=True)
 def my_listings(
     user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)],
-    page: Annotated[int, Query(ge=1)] = 1, page_size: Annotated[int, Query(ge=1, le=100)] = 25,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1, page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> dict:
     company_ids = company_ids_for_user(db, user)
     visibility = or_(Listing.owner_id == user.id, Listing.company_id.in_(company_ids)) if company_ids else Listing.owner_id == user.id

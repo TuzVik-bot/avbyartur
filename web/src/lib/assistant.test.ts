@@ -55,6 +55,16 @@ describe("assistant search", () => {
   it("rejects arbitrary keys, unsafe identifiers and invalid enums", () => {
     expect(validateAssistantFilters({ currency: "EUR", make_id: "../../admin", status: "draft", page_size: "1000", price_max: -1, year_min: 1700, transmission: "automatic" })).toEqual({ transmission: "automatic" });
   });
+  it("understands Belarusian spelling of transmission, fuel, currency and city", () => {
+    const result = parseAssistantSearch("Аўтамат, дызель, да 10 тыс даляраў у Мінску", {}, catalog);
+    expect(result.filters).toMatchObject({ transmission: "automatic", fuel: "diesel", currency: "USD", city_id: "minsk" });
+    const budget = parseAssistantSearch("Машына не даражэй 12 тысяч рублёў, гібрыд", {}, catalog);
+    expect(budget.filters).toMatchObject({ price_max: "12000", currency: "BYN", fuel: "hybrid" });
+  });
+  it("matches catalog names written with Belarusian letters", () => {
+    const belarusCatalog = { ...catalog, cities: [{ id: "vitebsk", name: "Витебск", slug: "vitebsk", aliases: ["Віцебск"] }] };
+    expect(parseAssistantSearch("Шукаю ў Віцебску", {}, belarusCatalog).filters.city_id).toBe("vitebsk");
+  });
   it("excludes private and form pages from summarization", () => {
     for (const path of ["/account", "/admin", "/login", "/sell", "/api/v1/me", "//evil.example", "/cars/../../account"]) expect(isPublicAssistantPage(path)).toBe(false);
     expect(isPublicAssistantPage("/cars/bmw/x5/abc-123")).toBe(true);

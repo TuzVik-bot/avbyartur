@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMileage, formatMoney, listingPhotoAlt } from "@/lib/format";
+import { formatDate, formatMileage, formatMoney, listingPhotoAlt } from "@/lib/format";
 import type { Money } from "@/lib/types";
 
 describe("automatic listing photo alt", () => {
@@ -70,5 +70,16 @@ describe("formatMoney", () => {
 describe("formatMileage", () => {
   it("renders an explicit fallback when a draft has no mileage", () => {
     expect(formatMileage(null)).toBe("Пробег не указан");
+  });
+});
+
+describe("user-facing dates", () => {
+  it("renders the Minsk calendar day regardless of the server time zone", () => {
+    // 22:30 UTC on 31 December is already 1 January in Minsk (UTC+3).
+    expect(formatDate("2026-12-31T22:30:00Z")).toBe(new Intl.DateTimeFormat("ru-BY", { dateStyle: "medium", timeZone: "Europe/Minsk" }).format(new Date("2027-01-01T12:00:00Z")));
+  });
+
+  it("keeps an unparsable value as is", () => {
+    expect(formatDate("не дата")).toBe("не дата");
   });
 });

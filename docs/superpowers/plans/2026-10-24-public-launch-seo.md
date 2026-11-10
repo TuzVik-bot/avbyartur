@@ -13,14 +13,14 @@ production по действующей релизной процедуре VPS.
 
 - Активный релиз VPS: `category-subcategories-20261024-r3`; цепочка edge:
   внешний OpenResty (TLS, HTTP→HTTPS 301) → nginx VPS
-  (`deploy/suite-s1.denjik.by.pilot.nginx.conf`, `add_header X-Robots-Tag
+  (`docs/archive/deploy/suite-s1.denjik.by.pilot.nginx.conf`, `add_header X-Robots-Tag
   "noindex, nofollow, noarchive" always;`) → web `127.0.0.1:8080`.
 - Индексация запрещена на 3 уровнях: X-Robots-Tag (next.config.ts + nginx),
   meta robots корневого layout, точечные noindex страниц. Флаг
   `AVTORINOK_PUBLIC_INDEXING_ENABLED` управляет только robots.txt/sitemap.
 - На живом сайте meta robots = `index, follow` при локальном коде noindex —
   задокументированное расхождение
-  (`docs/runtime/CATEGORY_SUBCATEGORIES_DEPLOY_2026-10-24.md`, строки 44–47).
+  (`docs/releases/2026/CATEGORY_SUBCATEGORIES_DEPLOY_2026-10-24.md`, строки 44–47).
   Новый релиз из репо делает репо источником истины.
 - Каталог публично пуст (0 активных объявлений), sitemap = 7 URL; ссылки на
   `/trucks`, `/trailers`, `/buses`, `/parts` битые (категории в backend есть,

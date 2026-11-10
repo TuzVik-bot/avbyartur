@@ -12,7 +12,8 @@ from typing import Protocol
 from urllib.parse import urlsplit
 from uuid import UUID
 
-from sqlalchemy import func, select, text
+from fastapi import HTTPException
+from sqlalchemy import exists, func, select, text
 from sqlalchemy.orm import Session
 
 from app.dealer_services import MANAGER_ROLES, resolve_company_for_user
@@ -87,6 +88,9 @@ class CallbackResult:
     order: BillingOrder
     event: PaymentCallbackEvent
     duplicate: bool
+    # Set when the provider confirmed the money but the service could not be
+    # activated; the order stays paid and needs a manual refund or fulfilment.
+    unfulfilled_reason: str | None = None
 
 
 class PaymentProvider(Protocol):
@@ -533,15 +537,18 @@ def process_payment_callback(
 
     now = _now()
     outcome = "applied"
+    unfulfilled_reason = None
     if payload.status == "succeeded":
-        if order.status == "pending" and order.expires_at <= now:
-            fail(409, "payment_order_expired", "Payment order has expired")
+        order_expired = order.status == "pending" and order.expires_at <= now
         # A late success is authoritative even if an earlier failure callback
-        # arrived first. A later failure cannot reverse a paid order.
+        # arrived first. A later failure cannot reverse a paid order. The money
+        # is taken either way, so the payment is recorded before activation.
         order.status = "paid"
         order.paid_at = order.paid_at or now
         attempt.status = "succeeded"
-        activate_paid_order(db, order)
+        unfulfilled_reason = "payment_order_expired" if order_expired else _try_activate_paid_order(db, order)
+        if unfulfilled_reason is not None:
+            _record_paid_unfulfilled(db, order, provider_name=provider.name, reason=unfulfilled_reason)
     elif order.status == "paid":
         outcome = "ignored"
     elif order.status not in {"pending", "failed", "cancelled", "expired"}:
@@ -570,7 +577,42 @@ def process_payment_callback(
     )
     db.add(event)
     db.flush()
-    return CallbackResult(order=order, event=event, duplicate=False)
+    return CallbackResult(order=order, event=event, duplicate=False, unfulfilled_reason=unfulfilled_reason)
+
+
+def _try_activate_paid_order(db: Session, order: BillingOrder) -> str | None:
+    """Activate inside a savepoint; return the refusal code instead of aborting the payment."""
+
+    try:
+        with db.begin_nested():
+            activate_paid_order(db, order)
+    except HTTPException as exc:
+        if exc.status_code != 409:
+            raise
+        return str(exc.detail["code"])
+    return None
+
+
+def _record_paid_unfulfilled(db: Session, order: BillingOrder, *, provider_name: str, reason: str) -> None:
+    db.add(AuditEvent(
+        actor_id=order.user_id,
+        entity_type="billing_order",
+        entity_id=order.id,
+        action="paid_unfulfilled",
+        details={"reason": reason, "provider": provider_name, "amount": str(order.amount), "currency": order.currency},
+    ))
+    db.flush()
+
+
+def count_paid_unfulfilled_orders(db: Session) -> int:
+    """Paid orders without an activated service: each needs a refund or manual fulfilment.
+
+    Every paid service (bump, highlight, top, urgent, dealer_package) is
+    activated by activate_paid_order, which always creates a ListingPromotion.
+    """
+
+    has_promotion = exists().where(ListingPromotion.order_id == BillingOrder.id)
+    return int(db.scalar(select(func.count(BillingOrder.id)).where(BillingOrder.status == "paid", ~has_promotion)) or 0)
 
 
 def list_active_tariffs(db: Session) -> list[BillingTariff]:

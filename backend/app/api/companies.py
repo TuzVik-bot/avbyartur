@@ -19,7 +19,7 @@ from app.dealer_services import MANAGER_ROLES, require_company_role
 from app.db import get_db
 from app.models import AuditEvent, Company, DealerTeamMember, Listing, User, UserSession
 from app.schemas import CompanyInput, CompanyPatchInput
-from app.services import check_revision, fail, lock_owner, serialize_listings
+from app.services import MAX_PAGE, check_revision, fail, lock_owner, serialize_listings
 
 router = APIRouter(prefix="/api/v1", tags=["companies"])
 
@@ -146,7 +146,7 @@ def update_company(
 
 @router.get("/dealers", response_model=DealerDirectoryResponse)
 def dealers(
-    db: Annotated[Session, Depends(get_db)], page: Annotated[int, Query(ge=1)] = 1,
+    db: Annotated[Session, Depends(get_db)], page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
     page_size: Annotated[int, Query(ge=1, le=50)] = 25,
 ) -> dict:
     query = select(Company).where(Company.status == "approved").order_by(Company.name, Company.id)
@@ -162,7 +162,7 @@ def dealers(
 def dealer_detail(
     slug: str,
     db: Annotated[Session, Depends(get_db)],
-    page: Annotated[int, Query(ge=1)] = 1,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
     page_size: Annotated[int, Query(ge=1, le=50)] = 25,
 ) -> dict:
     company = db.scalar(select(Company).where(Company.slug == slug, Company.status == "approved"))

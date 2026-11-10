@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from statistics import median, quantiles
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from app.models import Company, ExchangeRate, Listing, User
@@ -16,9 +16,30 @@ from app.models import Company, ExchangeRate, Listing, User
 MINIMUM_SAMPLE_SIZE = 10
 MINIMUM_SELLER_COUNT = 5
 MAXIMUM_IQR_RATIO = Decimal("0.5")
+# Only the most recently created analogs are compared, so popular models
+# cannot turn one listing page into thousands of loaded rows.
+MAXIMUM_ANALOGS_PER_LISTING = 500
+# Columns read from analog rows; full ORM entities are never loaded.
+_ANALOG_COLUMNS = (
+    Listing.id,
+    Listing.owner_id,
+    Listing.company_id,
+    Listing.category_code,
+    Listing.make_id,
+    Listing.model_id,
+    Listing.generation_id,
+    Listing.body_type_id,
+    Listing.condition,
+    Listing.fuel,
+    Listing.transmission,
+    Listing.year,
+    Listing.mileage_km,
+    Listing.price_amount,
+    Listing.currency,
+)
 
 
-def _seller_key(listing: Listing) -> tuple[str, UUID]:
+def _seller_key(listing: Any) -> tuple[str, UUID]:
     if listing.company_id is not None:
         return "company", listing.company_id
     return "owner", listing.owner_id
@@ -67,6 +88,40 @@ def _usd_to_byn(amount: Decimal, rate: ExchangeRate) -> Decimal:
     return amount * rate.official_rate / Decimal(rate.scale)
 
 
+def _analog_query(index: int, target: Listing):
+    mileage_tolerance = max(5000, target.mileage_km * 0.10)
+    return (
+        select(literal(index).label("target_index"), *_ANALOG_COLUMNS)
+        .join(User, Listing.owner_id == User.id)
+        .outerjoin(Company, Listing.company_id == Company.id)
+        .where(
+            Listing.status == "active",
+            User.status == "active",
+            or_(Listing.company_id.is_(None), Company.status == "approved"),
+            Listing.price_amount.is_not(None),
+            Listing.currency.in_({"BYN", "USD"}),
+            Listing.mileage_km.is_not(None),
+            Listing.damaged.is_(False),
+            Listing.parts_only.is_(False),
+            Listing.id != target.id,
+            func.abs(Listing.mileage_km - target.mileage_km) <= mileage_tolerance,
+            _cohort_clause(target),
+        )
+        .order_by(Listing.created_at.desc(), Listing.id.desc())
+        .limit(MAXIMUM_ANALOGS_PER_LISTING)
+    )
+
+
+def _load_analogs(db: Session, targets: list[Listing]) -> dict[int, list[Any]]:
+    """Load capped analog rows for every target in one UNION ALL statement."""
+    queries = [_analog_query(index, target) for index, target in enumerate(targets)]
+    statement = queries[0] if len(queries) == 1 else union_all(*queries)
+    grouped: dict[int, list[Any]] = {}
+    for row in db.execute(statement):
+        grouped.setdefault(row.target_index, []).append(row)
+    return grouped
+
+
 def build_market_comparisons(
     db: Session,
     listings: list[Listing],
@@ -80,31 +135,15 @@ def build_market_comparisons(
         return output
 
     rate, rate_is_fresh = rate_info
-    clauses = [_cohort_clause(listing) for listing in targets]
-    candidates = db.scalars(
-        select(Listing)
-        .join(User, Listing.owner_id == User.id)
-        .outerjoin(Company, Listing.company_id == Company.id)
-        .where(
-            Listing.status == "active",
-            User.status == "active",
-            or_(Listing.company_id.is_(None), Company.status == "approved"),
-            Listing.price_amount.is_not(None),
-            Listing.currency.in_({"BYN", "USD"}),
-            Listing.mileage_km.is_not(None),
-            Listing.damaged.is_(False),
-            Listing.parts_only.is_(False),
-            or_(*clauses),
-        )
-    ).all()
+    candidates_by_target = _load_analogs(db, targets)
 
     calculation_date = datetime.now(timezone.utc).date()
     as_of = datetime.combine(calculation_date, datetime.min.time(), tzinfo=timezone.utc)
-    for target in targets:
+    for index, target in enumerate(targets):
         mileage_tolerance = max(5000, target.mileage_km * 0.10)
         target_seller = _seller_key(target)
         target_candidates = [
-            candidate for candidate in candidates
+            candidate for candidate in candidates_by_target.get(index, ())
             if candidate.id != target.id
             and _seller_key(candidate) != target_seller
             and candidate.category_code == "cars"

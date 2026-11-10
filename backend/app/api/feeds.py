@@ -1,9 +1,11 @@
 import json
+from functools import partial
 from pathlib import PurePosixPath
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Header, Query, Response, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -251,14 +253,41 @@ async def import_dealer_feed_file(
     complete_snapshot: Annotated[bool, Query()] = False,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> dict:
+    # Locking, parsing and importing are synchronous: keep them off the event loop.
+    content = await file.read(MAX_FEED_BYTES + 1)
+    filename = PurePosixPath((file.filename or "upload").replace("\\", "/")).name[:180] or "upload"
+    return await run_in_threadpool(
+        partial(
+            _import_feed_file,
+            db,
+            user=user,
+            feed_id=feed_id,
+            content=content,
+            filename=filename,
+            dry_run=dry_run,
+            complete_snapshot=complete_snapshot,
+            idempotency_key=idempotency_key,
+        )
+    )
+
+
+def _import_feed_file(
+    db: Session,
+    *,
+    user: User,
+    feed_id: UUID,
+    content: bytes,
+    filename: str,
+    dry_run: bool,
+    complete_snapshot: bool,
+    idempotency_key: str | None,
+) -> dict:
     lock_owner(db, user.id)
     company, feed = _company_feed(db, user, feed_id, lock=True, allowed_roles=WRITE_ROLES)
     if feed.status != "active":
         fail(409, "feed_disabled", "This feed is disabled")
     if feed.format == "api":
         fail(409, "api_feed_required", "API feeds accept structured JSON imports")
-    content = await file.read(MAX_FEED_BYTES + 1)
-    filename = PurePosixPath((file.filename or "upload").replace("\\", "/")).name[:180] or "upload"
     parse_error = None
     try:
         rows = parse_feed_bytes(content, feed_format=feed.format, field_mapping=feed.field_mapping or {})

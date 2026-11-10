@@ -36,8 +36,9 @@ class FakeSession:
     def __init__(self, listings):
         self.listings = listings
 
-    def scalars(self, _statement):
-        return SimpleNamespace(all=lambda: self.listings)
+    def execute(self, _statement):
+        # Analog rows are tagged with the index of the single compared target.
+        return [SimpleNamespace(target_index=0, **vars(listing)) for listing in self.listings]
 
 
 def _compare(target, candidates):

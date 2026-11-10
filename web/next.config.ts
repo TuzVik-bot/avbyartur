@@ -29,6 +29,10 @@ const nextConfig: NextConfig = {
           ...(publicIndexing ? [] : [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }]),
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Content-Type-Options", value: "nosniff" },
+          // No script-src: inline bootstrap scripts exist and nonces are not wired yet.
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" },
+          // The site assistant uses speech recognition, so the microphone stays first-party only.
+          { key: "Permissions-Policy", value: "camera=(), geolocation=(), payment=(), microphone=(self)" },
           ...(publicIndexing ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }] : []),
         ],
       },

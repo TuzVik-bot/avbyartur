@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import String, and_, case, cast, false, func, inspect as sa_inspect, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
@@ -73,6 +74,28 @@ def listing_display_price_expression(currency: str, rate: ExchangeRate):
     return case((Listing.currency == "USD", amount), (Listing.currency == "BYN", converted), else_=None)
 
 
+# Upper bound for public and staff page numbers: deeper OFFSET scans get 422.
+MAX_PAGE = 1000
+LIKE_ESCAPE = "\\"
+SEARCH_TEXT_MAX_LENGTH = 100
+SEARCH_FIELD_MAX_LENGTH = 120
+
+
+def contains_pattern(value: str, max_length: int) -> str:
+    """Build an ILIKE substring pattern that treats user input literally.
+
+    Use with ``escape=LIKE_ESCAPE`` so ``%``, ``_`` and ``\\`` in the input
+    never act as wildcards.
+    """
+    term = value.strip()[:max_length]
+    escaped = (
+        term.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2)
+        .replace("%", f"{LIKE_ESCAPE}%")
+        .replace("_", f"{LIKE_ESCAPE}_")
+    )
+    return f"%{escaped}%"
+
+
 def public_listings_query():
     return (
         select(Listing)
@@ -104,11 +127,14 @@ def build_public_listing_query(
                 subcategory_details_condition(filters.category_code, filters.subcategory)
             )
     if filters.q:
-        term = f"%{filters.q.strip()[:100]}%"
+        term = contains_pattern(filters.q, SEARCH_TEXT_MAX_LENGTH)
+        searched = (
+            Listing.title, Listing.make_name_snapshot, Listing.model_name_snapshot,
+            CatalogMake.name, cast(CatalogMake.aliases, String), CatalogModel.name, cast(CatalogModel.aliases, String),
+            Listing.manual_city, Listing.district,
+        )
         query = query.outerjoin(CatalogMake, Listing.make_id == CatalogMake.id).outerjoin(CatalogModel, Listing.model_id == CatalogModel.id).where(
-            or_(Listing.title.ilike(term), Listing.make_name_snapshot.ilike(term), Listing.model_name_snapshot.ilike(term),
-                CatalogMake.name.ilike(term), cast(CatalogMake.aliases, String).ilike(term), CatalogModel.name.ilike(term), cast(CatalogModel.aliases, String).ilike(term),
-                Listing.manual_city.ilike(term), Listing.district.ilike(term))
+            or_(*(column.ilike(term, escape=LIKE_ESCAPE) for column in searched))
         )
     # The multi-select matches selected models per make; a make without selected
     # models includes all its models. Unknown or mismatched models match nothing.
@@ -158,9 +184,13 @@ def build_public_listing_query(
     if filters.equipment:
         query = query.where(Listing.equipment.contains(filters.equipment))
     if filters.district:
-        query = query.where(Listing.district.ilike(f"%{filters.district.strip()[:120]}%"))
+        query = query.where(
+            Listing.district.ilike(contains_pattern(filters.district, SEARCH_FIELD_MAX_LENGTH), escape=LIKE_ESCAPE)
+        )
     if filters.call_hours:
-        query = query.where(Listing.call_hours.ilike(f"%{filters.call_hours.strip()[:120]}%"))
+        query = query.where(
+            Listing.call_hours.ilike(contains_pattern(filters.call_hours, SEARCH_FIELD_MAX_LENGTH), escape=LIKE_ESCAPE)
+        )
     if filters.has_vin is not None:
         has_vin_expression = Listing.vin.is_not(None) & (func.length(func.trim(Listing.vin)) > 0)
         query = query.where(has_vin_expression if filters.has_vin else ~has_vin_expression)
@@ -203,6 +233,73 @@ def build_public_listing_query(
     return query, display_price
 
 
+# Filters compared with plain SQL equality; the listing attribute has the
+# same name and Python type as the parsed filter value.
+_EQUALITY_FILTER_FIELDS = (
+    "generation_id", "body_variant_id", "modification_id", "region_id", "city_id",
+    "fuel", "transmission", "drive", "condition", "color", "customs_status",
+    "technical_condition", "body_condition", "exchange", "bargaining", "credit",
+    "leasing", "damaged", "parts_only", "in_transit",
+)
+# (listing attribute, lower bound filter, upper bound filter) on integer columns.
+_INTEGER_RANGE_FILTER_FIELDS = (
+    ("year", "year_min", "year_max"),
+    ("mileage_km", "mileage_min", "mileage_max"),
+    ("power_hp", "power_min", "power_max"),
+)
+
+
+def _selected_make_ids(filters: ListingSearchFilters) -> list[UUID]:
+    if filters.make_ids:
+        return [UUID(item) for item in filters.make_ids.split(",")]
+    return [filters.make_id] if filters.make_id else []
+
+
+def _catalog_selection_may_match(filters: ListingSearchFilters, listing: Listing) -> bool:
+    if filters.make_ids is not None or filters.model_ids is not None:
+        # Every branch of the multi-select query restricts the listing make to
+        # the selected makes; the model part is left to SQL.
+        make_ids = _selected_make_ids(filters)
+        return not make_ids or listing.make_id in make_ids
+    if filters.make_id is not None and listing.make_id != filters.make_id:
+        return False
+    return filters.model_id is None or listing.model_id == filters.model_id
+
+
+def listing_may_match_filters(filters: ListingSearchFilters, listing: Listing) -> bool:
+    """Cheap in-memory necessary condition for build_public_listing_query.
+
+    Returns False only when the SQL query cannot contain the listing: SQL
+    equality and range predicates are false for NULL columns and so is the
+    corresponding Python comparison. Filters without an exact in-memory
+    equivalent (text search, catalog joins, prices, photos) are left to SQL.
+    """
+    if listing.category_code != filters.category_code:
+        return False
+    if not _catalog_selection_may_match(filters, listing):
+        return False
+    for field in _EQUALITY_FILTER_FIELDS:
+        expected = getattr(filters, field)
+        if expected is not None and getattr(listing, field) != expected:
+            return False
+    for attribute, lower_field, upper_field in _INTEGER_RANGE_FILTER_FIELDS:
+        value = getattr(listing, attribute)
+        lower, upper = getattr(filters, lower_field), getattr(filters, upper_field)
+        if lower is not None and (value is None or value < lower):
+            return False
+        if upper is not None and (value is None or value > upper):
+            return False
+    if filters.seller_type == "private" and listing.company_id is not None:
+        return False
+    return not (filters.seller_type == "company" and listing.company_id is None)
+
+
+def listing_in_public_catalog(db: Session, listing: Listing) -> bool:
+    """Whether the listing passes the visibility part of every public search."""
+    statement = public_listings_query().with_only_columns(Listing.id).where(Listing.id == listing.id).limit(1)
+    return db.scalar(statement) is not None
+
+
 def listing_matches_public_search(
     db: Session,
     filters: dict[str, Any],
@@ -212,6 +309,8 @@ def listing_matches_public_search(
     try:
         parsed_filters = ListingSearchFilters.model_validate(filters)
     except ValidationError:
+        return False
+    if not listing_may_match_filters(parsed_filters, listing):
         return False
     has_price_bounds = parsed_filters.price_min is not None or parsed_filters.price_max is not None
     if has_price_bounds and parsed_filters.currency is None:
@@ -328,6 +427,8 @@ def enqueue_job(
     run_after: datetime | None = None,
     max_attempts: int = 5,
 ) -> WorkerJob:
+    # Keep the historical contract that enqueueing flushes pending work.
+    db.flush()
     existing = db.scalar(select(WorkerJob).where(WorkerJob.job_key == job_key))
     if existing:
         return existing
@@ -341,10 +442,19 @@ def enqueue_job(
     }
     if run_after is not None:
         values["run_after"] = run_after
-    job = WorkerJob(**values)
-    db.add(job)
-    db.flush()
-    return job
+    # A concurrent transaction may insert the same key between the lookup and
+    # this insert; the conflict then resolves to that row instead of a 500.
+    insert = sqlite_insert if db.get_bind().dialect.name == "sqlite" else pg_insert
+    statement = (
+        insert(WorkerJob)
+        .values(**values)
+        .on_conflict_do_nothing(index_elements=[WorkerJob.job_key])
+        .returning(WorkerJob.id)
+    )
+    job_id = db.scalar(statement)
+    if job_id is not None:
+        return db.get_one(WorkerJob, job_id)
+    return db.scalars(select(WorkerJob).where(WorkerJob.job_key == job_key)).one()
 
 
 def enqueue_saved_search_match(db: Session, listing: Listing) -> WorkerJob | None:
@@ -613,8 +723,22 @@ def serialize_listing(
     return item
 
 
+def table_available(db: Session, table_name: str) -> bool:
+    """Whether an optional table exists in this database.
+
+    PostgreSQL schemas are managed by migrations, so every mapped table exists
+    there and the catalog lookup (one extra query per request) is skipped.
+    Partial SQLite test fixtures create only some tables, and session-like
+    objects without a bind (as _active_promotion_badges also allows) have none.
+    """
+    if not hasattr(db, "get_bind"):
+        return False
+    bind = db.get_bind()
+    return bind.dialect.name == "postgresql" or sa_inspect(bind).has_table(table_name)
+
+
 def _attach_view_counts(db: Session, listings: list[Listing], items: list[dict], *, public: bool) -> None:
-    if not public or not listings or not sa_inspect(db.get_bind()).has_table("listing_view_events"):
+    if not public or not listings or not table_available(db, "listing_view_events"):
         return
     counts = dict(db.execute(
         select(ListingViewEvent.listing_id, func.count(ListingViewEvent.id))

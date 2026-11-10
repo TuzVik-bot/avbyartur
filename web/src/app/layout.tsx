@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { resolveAnalyticsMeasurementId } from "@/components/analytics-consent-config";
 import { AuthProvider } from "@/components/auth-provider";
 import { CompareProvider } from "@/components/compare-provider";
 import { GlobalCompareTray } from "@/components/compare-button";
@@ -68,7 +69,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <AuthProvider initialSession={initialSession}>
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildWebsiteJsonLd()) }} />
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildOrganizationJsonLd()) }} />
-          <ContactClickConsentProvider><MeasurementProvider><CompareProvider>
+          <ContactClickConsentProvider><MeasurementProvider measurementId={resolveAnalyticsMeasurementId()}><CompareProvider>
             <a className="skip-link" href="#main-content">{getMessage("layout.skipToMainContent", DEFAULT_LOCALE)}</a>
             <SiteHeader />
             <main id="main-content">{children}</main>

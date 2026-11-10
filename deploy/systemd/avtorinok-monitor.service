@@ -12,7 +12,7 @@ StateDirectory=avtorinok-monitor
 StateDirectoryMode=0755
 UMask=0077
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/usr/bin/python3 /home/suite/apps/avtorinok/scripts/monitor-runtime.py --project-dir /home/suite/apps/avtorinok --base-url https://suite-s1.denjik.by --access-file /etc/avtorinok/monitor-basic-auth --backup-root /home/suite/backups/avtorinok --state-file /var/lib/avtorinok-monitor/alerts.json --status-file /var/lib/avtorinok-monitor/status.json --status-owner-uid=10001
+ExecStart=/usr/bin/python3 /home/suite/apps/avtorinok/scripts/monitor-runtime.py --project-dir /home/suite/apps/avtorinok --base-url https://xn--80aeylebmo7f.xn--90ais --access-file /etc/avtorinok/monitor-basic-auth --backup-root /home/suite/backups/avtorinok --state-file /var/lib/avtorinok-monitor/alerts.json --status-file /var/lib/avtorinok-monitor/status.json --status-owner-uid=10001 --alert-env-file /etc/avtorinok/monitor-alerts.env --offsite-status-file /home/suite/backups/avtorinok/offsite-status.json --max-offsite-age-hours 48
 Nice=15
 IOSchedulingClass=idle
 PrivateTmp=true
