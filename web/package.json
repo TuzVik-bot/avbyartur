@@ -13,18 +13,25 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "lucide-react": "^0.468.0",
-    "next": "^16.3.6",
+    "next": "16.4.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
     "@types/node": "^22.15.30",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "jsdom": "^26.1.0",
     "openapi-typescript": "7.13.0",
     "typescript": "^5.9.2",
-    "vitest": "^4.1.11"
+    "vitest": "4.1.12"
+  },
+  "pnpm": {
+    "overrides": {
+      "vite@7.3.6": "7.3.7"
+    }
   }
 }

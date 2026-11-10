@@ -8,6 +8,7 @@ const publicIndexing = process.env.AVTORINOK_PUBLIC_INDEXING_ENABLED === "true";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  devIndicators: false,
   // Resolve metadata before sending HTML for every browser and crawler.
   // Streaming metadata otherwise appends title/canonical/robots to the body.
   htmlLimitedBots: /.*/,

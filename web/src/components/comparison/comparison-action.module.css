@@ -59,3 +59,4 @@
     flex: 1 1 auto;
   }
 }
+.toggle { min-height: 44px; gap: 8px; border-radius: 6px; }

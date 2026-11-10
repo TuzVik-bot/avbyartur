@@ -35,7 +35,7 @@ export function formatMileage(km: number | null) {
 
 export function formatDate(date: string) {
   const parsed = new Date(date);
-  return Number.isNaN(parsed.getTime()) ? date : new Intl.DateTimeFormat("ru-BY", { dateStyle: "medium" }).format(parsed);
+  return Number.isNaN(parsed.getTime()) ? date : new Intl.DateTimeFormat("ru-BY", { dateStyle: "medium", timeZone: "Europe/Minsk" }).format(parsed);
 }
 
 const vehicleLabels: Record<string, string> = {

@@ -7,7 +7,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
   align-items: start;
-  gap: 16px;
+  gap: 32px;
 }
 
 .formPanel,
@@ -15,10 +15,9 @@
 .result {
   min-width: 0;
   margin: 0;
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
 }
 
 .formPanel h2,
@@ -43,15 +42,15 @@
   gap: 16px 14px;
 }
 
-.fields .field > input,
-.fields .field > select {
+.fields :global(.field) > input,
+.fields :global(.field) > select {
   min-height: 48px;
   font-size: 1rem;
 }
 
 .help {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.4;
 }
 
@@ -66,9 +65,9 @@
 .engine legend,
 .confirmations legend {
   margin-bottom: 7px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 750;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
 }
 
 .engine {
@@ -125,7 +124,7 @@
 .fieldError {
   margin: 0;
   color: var(--danger);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .status {
@@ -224,7 +223,6 @@
 .result {
   margin-top: 16px;
   border-color: var(--line);
-  box-shadow: 0 8px 24px rgba(36, 58, 104, .07);
 }
 
 .resultHeading {
@@ -242,7 +240,7 @@
 .resultVersion {
   flex: none;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   text-align: right;
 }
 
@@ -275,23 +273,22 @@
 .resultFacts .total dt,
 .resultFacts .total dd {
   color: var(--accent-dark);
-  font-size: 17px;
+  font-size: clamp(22px, 2.5vw, 28px);
   font-weight: 800;
 }
 
 .priceNote {
   margin: 12px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .rateDetails,
 .warnings {
   margin-top: 15px;
-  padding: 13px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface-muted);
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
 }
 
 .warnings {
@@ -302,13 +299,13 @@
 .resultMeta {
   margin-top: 13px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .provenance {
   margin: 13px 0 0 !important;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .visuallyHidden {
@@ -330,7 +327,7 @@
   .formPanel,
   .explainer,
   .result {
-    padding: 15px;
+    padding: 15px 0;
   }
 
   .fields {
@@ -358,3 +355,5 @@
     text-align: left;
   }
 }
+
+.fields :global(.field) > label { color: var(--ink); font-size: 16px; font-weight: 650; }

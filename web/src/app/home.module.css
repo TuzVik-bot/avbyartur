@@ -1,5 +1,5 @@
 .home { background: var(--surface); padding-bottom: 24px; }
-.home > :global(.page-width) { width: min(1240px, calc(100% - 48px)); }
+.home > :global(.page-width) { width: min(1280px, calc(100% - 64px)); }
 .home h1, .home h2, .home h3 { text-wrap: balance; }
 .home h2 { font-size: 24px; font-weight: 700; letter-spacing: -.025em; line-height: 1.25; }
 .home a:focus-visible, .home summary:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 4px; border-radius: 4px; }
@@ -219,4 +219,87 @@
   .categoryCopy strong { font-size: 13px; }
   .categoryCopy small { font-size: 10px; }
   .otherCategories { gap: 2px 12px; }
+}
+
+/* Editorial Motor: search and a real listing lead the page. */
+.intro { display: grid; grid-template-columns: minmax(0, .93fr) minmax(0, 1.07fr); gap: 30px; align-items: start; padding-top: 18px; }
+.heroSearch { min-width: 0; }
+.heading { display: block; margin: 0 0 24px; }
+.heading h1 { max-width: 11ch; margin: 0 0 6px; font-size: clamp(44px, 5.8vw, 82px); font-weight: 800; line-height: .94; letter-spacing: -.045em; }
+.lead { font-size: 24px; line-height: 1.35; color: var(--ink); }
+.searchPanel { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.search:global(.home-search) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.search :global(.field) > span { color: var(--ink); font-size: 14px; font-weight: 650; }
+.search :global(.field) input, .search :global(.field) select { font-size: 16px; }
+.search :global(.search-make), .search :global(.search-model) { grid-row: 1; }
+.search:global(.home-search) > :global(.search-range), .search:global(.home-search) > label:has(select[name="region_id"]) { grid-row: 2; }
+.search :global(.home-search-button) { grid-column: 1 / -1; grid-row: 3; justify-self: start; width: calc(70% - 8px); min-height: 50px; font-size: 16px; }
+.search :global(.home-search-extra) { grid-column: 1 / -1; grid-row: 3; justify-self: end; width: calc(30% - 8px); align-self: center; }
+.search :global(.home-search-extra) summary { min-height: 44px; display: flex; align-items: center; color: var(--accent-dark); font-weight: 650; cursor: pointer; }
+.search :global(.home-search-extra[open]) { grid-column: 1 / -1; grid-row: auto; justify-self: stretch; width: auto; }
+.search :global(.home-search-extra-fields) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding-top: 12px; }
+.search :global(.search-query) { grid-column: 1 / -1; }
+.search :global(.home-search-count) { font-size: 14px; }
+.featured { min-width: 0; }
+.featured > a { display: block; }
+.featured img { display: block; width: 100%; aspect-ratio: 1.6; object-fit: cover; }
+.featuredInfo { display: flex; justify-content: space-between; gap: 12px; padding-top: 10px; }
+.featuredInfo h2, .featuredInfo strong { margin: 0; font-size: 23px; font-weight: 750; line-height: 1.2; letter-spacing: -.025em; }
+.featuredInfo > div:first-child { min-width: 0; }
+.featuredInfo strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.featuredInfo span { color: var(--muted); font-size: 14px; }
+.featuredInfo > div:last-child { text-align: right; }
+.featuredInfo a { display: flex; justify-content: flex-end; align-items: center; gap: 6px; min-height: 44px; color: var(--accent-dark); font-weight: 650; }
+.adStrip { display: flex; align-items: center; gap: 24px; margin-top: 16px; padding: 10px 16px; border-block: 1px solid var(--line-strong); background: var(--surface-muted); }
+.adStrip span { position: relative; color: var(--muted); font-size: 14px; }
+.adStrip strong { position: relative; font-size: 23px; line-height: 1.2; letter-spacing: -.025em; }
+.adStrip a { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-left: auto; color: var(--accent-dark); font-size: 14px; font-weight: 600; }
+.listingGrid :global(.listing-card-media) { aspect-ratio: 3 / 2; background: var(--surface-muted); }
+.listingGrid :global(.listing-card-media) img { object-fit: contain; }
+.listingGrid:global(.listing-grid) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sellerCompact { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-block: 24px; border-block: 1px solid var(--line); }
+.sellerCompact h2 { margin: 0; }.sellerCompact p { margin: 6px 0 0; color: var(--muted); }
+@media (max-width: 760px) {
+ .home > :global(.page-width) { width: calc(100% - 32px); }
+ .intro { grid-template-columns: 1fr; gap: 16px; padding-top: 18px; }
+ .heading { margin-bottom: 12px; }.heading h1 { max-width: 13ch; font-size: clamp(32px, 8.6vw, 54px); line-height: 1.02; }.lead { font-size: 16px; }
+ .search:global(.home-search) { gap: 10px; }.search :global(.home-search-button) { grid-column: 1 / -1; grid-row: auto; width: 100%; }.search :global(.home-search-extra) { grid-column: 1 / -1; grid-row: auto; justify-self: start; width: auto; }
+ .search :global(.home-search-extra) summary { min-height: 44px; }.search :global(.field) input, .search :global(.field) select { font-size: 16px; }
+ .featuredInfo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+ .featuredInfo h2, .featuredInfo strong { font-size: 18px; }
+ .featuredInfo a { font-size: 14px; }
+ .listingGrid:global(.listing-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .adStrip { gap: 8px 14px; flex-wrap: wrap; padding: 12px; }.adStrip strong { font-size: 18px; }.adStrip a { margin-left: auto; font-size: 14px; }
+}
+@media (max-width: 520px) { .listingGrid:global(.listing-grid) { grid-template-columns: 1fr; }.sellerCompact { align-items: flex-start; flex-direction: column; } }
+.quickLinks { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-top: 20px; }
+.quickLinks a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--accent-dark); font-weight: 600; }
+.taskRow { display: flex; width: max-content; max-width: 100%; gap: 30px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.taskRow a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 400; }
+.taskRow a[aria-current] { border-bottom: 2px solid var(--ink); font-weight: 700; }
+.search :global(.home-search-count[data-count-state="generic"]) { display: none; }
+.listingGrid :global(.card-actions) { display: none; }
+.listingGrid :global(.seller-tag) { font-weight: 400; }
+.toolsSeller { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 24px; padding-block: 20px; border-block: 1px solid var(--line-strong); }
+.toolsSeller h2 { margin: 0 0 10px; font-size: 22px; }
+.toolShortcuts { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; }
+.toolShortcuts a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--accent-dark); font-size: 14px; font-weight: 600; }
+.toolsSeller .sellerCompact { border: 0; border-left: 1px solid var(--line); padding: 0 0 0 30px; }
+.toolsSeller .sellerCompact p { max-width: 39ch; font-size: 14px; }
+.toolsSeller .sellerCompact > a { flex: none; white-space: nowrap; font-size: 14px; }
+@media (max-width: 760px) { .toolsSeller { grid-template-columns: 1fr; gap: 18px; }.toolsSeller .sellerCompact { border-left: 0; border-top: 1px solid var(--line); padding: 18px 0 0; } }
+/* Align title and price while retaining the complete vehicle photograph. */
+@media (min-width: 1024px) {
+ .search :global(.home-search-count[data-count-state="count"]) { display: none; }
+ .listings { padding-top: 18px; }
+ .toolsSeller { margin-top: 16px; padding-block: 16px; }
+ .listingGrid :global(.card-body) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 4px 12px; padding: 8px 0 4px; }
+ .listingGrid :global(.card-title) { min-height: 0; margin: 0; font-size: 18px; line-height: 1.3; }
+ .listingGrid :global(.card-price-line) { justify-content: flex-end; }
+ .listingGrid :global(.card-price-line .card-price) { margin: 0; font-size: 18px; }
+ .listingGrid :global(.card-specs), .listingGrid :global(.card-footer), .listingGrid :global(.status-pill) { grid-column: 1 / -1; }
+ .listingGrid :global(.card-footer) { margin: 0; padding: 0; }
+ .listingGrid :global(.card-published), .listingGrid :global(.card-actions) { display: none; }
+ .taskRow { margin-bottom: 10px; }
+ .heading { margin-bottom: 10px; }
 }

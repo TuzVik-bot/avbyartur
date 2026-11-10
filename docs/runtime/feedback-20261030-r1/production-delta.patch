@@ -1,0 +1,647 @@
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -60,7 +60,9 @@
+       SMS_LOGIN_ENABLED: ${SMS_LOGIN_ENABLED:-false}
+       PUBLIC_REGISTRATION_ENABLED: ${PUBLIC_REGISTRATION_ENABLED:-false}
+       PUBLIC_GUEST_CONTACT_ENABLED: ${PUBLIC_GUEST_CONTACT_ENABLED:-false}
++      GUEST_CONTACT_IP_HOURLY_LIMIT: ${GUEST_CONTACT_IP_HOURLY_LIMIT:-30}
+       LISTING_STOP_WORDS_CSV: ${LISTING_STOP_WORDS_CSV:-}
++      LISTING_AUTO_PUBLISH_ENABLED: ${LISTING_AUTO_PUBLISH_ENABLED:-false}
+       MINIMUM_PHOTOS_NEW: ${MINIMUM_PHOTOS_NEW:-1}
+       MINIMUM_PHOTOS_USED: ${MINIMUM_PHOTOS_USED:-1}
+       MINIMUM_PHOTOS_DAMAGED: ${MINIMUM_PHOTOS_DAMAGED:-1}
+--- a/backend/app/config.py
++++ b/backend/app/config.py
+@@ -32,6 +32,7 @@
+     media_root: Path = Path("/app/private-media")
+     private_listing_quota: int = Field(default=5, ge=1, le=10000)
+     company_listing_quota: int = Field(default=50, ge=1, le=10000)
++    listing_auto_publish_enabled: bool = False
+     saved_search_limit: int = Field(default=20, ge=1, le=10000)
+     saved_search_mutations_per_hour: int = 60
+     upload_max_bytes: int = 20 * 1024 * 1024
+@@ -42,6 +43,7 @@
+     email_registration_enabled: bool = False
+     email_registration_pilot_enabled: bool = False
+     public_guest_contact_enabled: bool = False
++    guest_contact_ip_hourly_limit: int = Field(default=30, ge=1, le=10000)
+     sms_otp_secret: SecretStr = SecretStr("")
+     sms_otp_lifetime_seconds: int = 300
+     sms_otp_max_attempts: int = 5
+--- a/backend/tests/test_guest_contact.py
++++ b/backend/tests/test_guest_contact.py
+@@ -132,7 +132,7 @@
+         headers={"X-Guest-Contact-Token": token},
+     )
+     assert reveal.status_code == 200, reveal.text
+-    assert reveal.json() == {"phone": PHONE}
++    assert reveal.json() == {"phone": PHONE, "messengers": []}
+     assert reveal.headers["cache-control"] == "no-store, private, max-age=0"
+     assert reveal.headers["pragma"] == "no-cache"
+ 
+@@ -289,7 +289,7 @@
+     assert without_csrf.status_code == 403, without_csrf.text
+     with_csrf = client.post(path, headers={"X-CSRF-Token": login.json()["csrf_token"]})
+     assert with_csrf.status_code == 200, with_csrf.text
+-    assert with_csrf.json() == {"phone": PHONE}
++    assert with_csrf.json() == {"phone": PHONE, "messengers": []}
+     with factory() as db:
+         event = db.scalar(select(ContactReveal))
+         assert event is not None
+@@ -454,3 +454,27 @@
+     assert response.json()["code"] == "invalid_session"
+     with factory() as db:
+         assert db.scalar(select(ContactReveal.id)) is None
++
++
++def test_shared_proxy_ip_limit_is_configurable_without_removing_device_limit(integration, monkeypatch):
++    factory = integration["SessionLocal"]
++    owner = _add_user(factory)
++    listing = _add_listing(factory, owner.id)
++    _enable_guest_contact(monkeypatch, True)
++    settings = listings_api.get_settings()
++    settings.guest_contact_ip_hourly_limit = 2
++    monkeypatch.setattr(listings_api, "get_settings", lambda: settings)
++    monkeypatch.setattr(listings_api, "GUEST_PHONE_REVEAL_IP_LIMIT", 1)
++    monkeypatch.setattr(listings_api, "GUEST_PHONE_REVEAL_DEVICE_LIMIT", 1)
++    first = _client(integration, "198.51.100.90")
++    second = _client(integration, "198.51.100.90")
++    first_token = _bootstrap_guest(first)
++    second_token = _bootstrap_guest(second)
++    path = f"/api/v1/listings/{listing.id}/phone-reveal"
++    assert first.post(path, headers={"X-Guest-Contact-Token": first_token}).status_code == 200
++    assert second.post(path, headers={"X-Guest-Contact-Token": second_token}).status_code == 200
++    assert second.post(path, headers={"X-Guest-Contact-Token": second_token}).status_code == 429
++    other_ip = _client(integration, "198.51.100.91")
++    token = _bootstrap_guest(other_ip)
++    assert other_ip.post(path, headers={"X-Guest-Contact-Token": token}).status_code == 200
++    assert other_ip.post(path, headers={"X-Guest-Contact-Token": token}).status_code == 429
+--- a/backend/tests/test_registration_listing_journey.py
++++ b/backend/tests/test_registration_listing_journey.py
+@@ -1,5 +1,6 @@
+ import io
+ import uuid
++import pytest
+ from uuid import UUID
+ 
+ from fastapi.testclient import TestClient
+@@ -48,7 +49,8 @@
+     return user
+ 
+ 
+-def test_email_registration_to_published_listing_and_contact(integration, monkeypatch):
++@pytest.mark.parametrize("auto_publish", [False, True])
++def test_email_registration_to_published_listing_and_contact(integration, monkeypatch, auto_publish):
+     """Exercise the seller journey against the isolated disposable test database."""
+     factory = integration["SessionLocal"]
+     settings = get_settings().model_copy(
+@@ -59,6 +61,7 @@
+             "registration_privacy_version": PILOT_PRIVACY_VERSION,
+             "session_cookie_secure": False,
+             "public_guest_contact_enabled": False,
++            "listing_auto_publish_enabled": auto_publish,
+         }
+     )
+     monkeypatch.setattr(auth_api, "get_settings", lambda: settings)
+@@ -165,33 +168,34 @@
+     )
+     assert submitted.status_code == 200, submitted.text
+     pending = submitted.json()["listing"]
+-    assert pending["status"] == "pending_review"
+-
+-    # The moderator exists only in this test database; approval models the local review boundary.
+-    moderator = User(
+-        email=f"journey-moderator-{uuid.uuid4().hex}@example.com",
+-        display_name="Local test moderator",
+-        password_hash=hash_password(PASSWORD),
+-        role="moderator",
+-        status="active",
+-    )
+-    with factory() as db:
+-        db.add(moderator)
+-        db.commit()
+-
+-    moderator_client = _client(integration)
+-    moderator_login = moderator_client.post(
+-        "/api/v1/auth/login",
+-        json={"email": moderator.email, "password": PASSWORD},
+-    )
+-    assert moderator_login.status_code == 200, moderator_login.text
+-    approved = moderator_client.post(
+-        f"/api/v1/moderation/listings/{listing['id']}/approve",
+-        json={"expected_revision": pending["revision"]},
+-        headers=_csrf(moderator_login.json()["csrf_token"]),
+-    )
+-    assert approved.status_code == 200, approved.text
+-    assert approved.json()["listing"]["status"] == "active"
++    assert pending["status"] == ("active" if auto_publish else "pending_review")
++
++    if not auto_publish:
++        # The moderator exists only in this test database; approval models the local review boundary.
++        moderator = User(
++            email=f"journey-moderator-{uuid.uuid4().hex}@example.com",
++            display_name="Local test moderator",
++            password_hash=hash_password(PASSWORD),
++            role="moderator",
++            status="active",
++        )
++        with factory() as db:
++            db.add(moderator)
++            db.commit()
++
++        moderator_client = _client(integration)
++        moderator_login = moderator_client.post(
++            "/api/v1/auth/login",
++            json={"email": moderator.email, "password": PASSWORD},
++        )
++        assert moderator_login.status_code == 200, moderator_login.text
++        approved = moderator_client.post(
++            f"/api/v1/moderation/listings/{listing['id']}/approve",
++            json={"expected_revision": pending["revision"]},
++            headers=_csrf(moderator_login.json()["csrf_token"]),
++        )
++        assert approved.status_code == 200, approved.text
++        assert approved.json()["listing"]["status"] == "active"
+ 
+     public = _client(integration)
+     public_detail = public.get(f"/api/v1/listings/{listing['id']}")
+@@ -223,7 +227,7 @@
+         headers=_csrf(buyer_login.json()["csrf_token"]),
+     )
+     assert reveal.status_code == 200, reveal.text
+-    assert reveal.json() == {"phone": PHONE}
++    assert reveal.json() == {"phone": PHONE, "messengers": []}
+ 
+     with factory() as db:
+         event = db.scalar(
+--- /dev/null
++++ b/backend/tests/test_listing_auto_publish.py
+@@ -0,0 +1,116 @@
++from types import SimpleNamespace
++from uuid import uuid4
++from unittest.mock import Mock
++
++import pytest
++from fastapi import HTTPException
++
++from app.api import listings
++from app.config import Settings
++from app.models import AuditEvent, ListingStatusEvent
++
++
++@pytest.fixture
++def submission(monkeypatch):
++    listing = SimpleNamespace(id=uuid4(), owner_id=uuid4(), company_id=None,
++        status="draft", revision=3, submitted_revision=None,
++        moderation_reason="old rejection", moderated_at=None)
++    user = SimpleNamespace(id=listing.owner_id)
++    db = Mock()
++    db.scalar.return_value = None
++    db.scalars.return_value.all.return_value = [SimpleNamespace(status="ready")]
++    for name in ("lock_owner", "check_revision", "validate_listing_for_submit"):
++        monkeypatch.setattr(listings, name, Mock())
++    monkeypatch.setattr(listings, "require_owned_listing", Mock(return_value=listing))
++    monkeypatch.setattr(listings, "active_quota_count", Mock(return_value=0))
++    monkeypatch.setattr(listings, "quota_limit", Mock(return_value=5))
++    monkeypatch.setattr(listings, "serialize_listing", lambda db, value, **kwargs: {"status": value.status})
++    monkeypatch.setattr(listings, "enqueue_saved_search_match", Mock())
++    monkeypatch.setattr(listings, "record_active_listing_price_state", Mock())
++    monkeypatch.setattr(listings, "get_settings", lambda: SimpleNamespace(listing_auto_publish_enabled=True))
++    return listing, user, db
++
++
++def submit(context):
++    listing, user, db = context
++    return listings.submit_listing(listing.id, SimpleNamespace(expected_revision=3), user, None, db, "submit-1")
++
++
++def test_auto_publish_default_is_disabled():
++    assert Settings(_env_file=None).listing_auto_publish_enabled is False
++
++
++def test_auto_publish_can_be_enabled_from_environment(monkeypatch):
++    monkeypatch.setenv("LISTING_AUTO_PUBLISH_ENABLED", "true")
++    assert Settings(_env_file=None).listing_auto_publish_enabled is True
++
++
++@pytest.mark.parametrize("initial_status", ["draft", "rejected"])
++def test_enabled_submission_publishes_with_history_audit_and_notifications(submission, initial_status):
++    listing, user, db = submission
++    listing.status = initial_status
++    assert submit(submission)["listing"]["status"] == "active"
++    assert listing.revision == 4
++    assert listing.submitted_revision == 3
++    assert listing.moderated_at is not None
++    assert listing.moderation_reason is None
++    added = [call.args[0] for call in db.add.call_args_list]
++    event = next(value for value in added if isinstance(value, ListingStatusEvent))
++    assert (event.from_status, event.to_status, event.revision) == (initial_status, "active", 4)
++    assert event.actor_id == user.id
++    assert event.reason == "auto_publish_enabled"
++    audit = next(value for value in added if isinstance(value, AuditEvent))
++    assert audit.action == "auto_published"
++    assert audit.actor_id == user.id
++    assert audit.details == {"revision": 3, "reason": "auto_publish_enabled"}
++    listings.enqueue_saved_search_match.assert_called_once_with(db, listing)
++    listings.record_active_listing_price_state.assert_called_once_with(db, listing)
++    db.commit.assert_called_once()
++
++
++def test_disabled_submission_keeps_manual_review(submission, monkeypatch):
++    monkeypatch.setattr(listings, "get_settings", lambda: SimpleNamespace(listing_auto_publish_enabled=False))
++    listing, _, db = submission
++    assert submit(submission)["listing"]["status"] == "pending_review"
++    assert listing.revision == 3
++    assert listing.moderated_at is None
++    listings.enqueue_saved_search_match.assert_not_called()
++    listings.record_active_listing_price_state.assert_not_called()
++
++
++def test_duplicate_submission_has_no_second_publication(submission):
++    listing, _, db = submission
++    listing.status = "active"
++    listing.revision = 4
++    db.scalar.return_value = SimpleNamespace(resource_id=listing.id)
++    db.get.return_value = listing
++    assert submit(submission)["listing"]["status"] == "active"
++    listings.validate_listing_for_submit.assert_not_called()
++    db.add.assert_not_called()
++    db.commit.assert_not_called()
++    listings.enqueue_saved_search_match.assert_not_called()
++
++
++@pytest.mark.parametrize("failure", ["processing", "failed", "validation", "quota", "company", "revision", "owner"])
++def test_auto_publication_preserves_submission_guards(submission, failure):
++    listing, _, db = submission
++    if failure in {"processing", "failed"}:
++        db.scalars.return_value.all.return_value = [SimpleNamespace(status=failure)]
++    elif failure == "validation":
++        listings.validate_listing_for_submit.side_effect = HTTPException(422, "invalid")
++    elif failure == "quota":
++        listings.active_quota_count.return_value = 5
++    elif failure == "revision":
++        listings.check_revision.side_effect = HTTPException(409, "revision_conflict")
++    elif failure == "owner":
++        listings.require_owned_listing.side_effect = HTTPException(403, "forbidden")
++    else:
++        listing.company_id = uuid4()
++        db.scalar.side_effect = [None, SimpleNamespace(status="pending")]
++    with pytest.raises(HTTPException):
++        submit(submission)
++    assert listing.status == "draft"
++    assert listing.revision == 3
++    db.add.assert_not_called()
++    db.commit.assert_not_called()
++    listings.enqueue_saved_search_match.assert_not_called()
+--- a/backend/app/api/listings.py
++++ b/backend/app/api/listings.py
+@@ -43,6 +43,7 @@
+     ListingPublicCapabilitiesOut,
+ )
+ from app.models import (
++    AuditEvent,
+     CatalogBodyType,
+     CatalogBodyVariant,
+     CatalogGeneration,
+@@ -876,7 +877,7 @@
+             db,
+             "guest-phone-reveal-ip",
+             ip_fingerprint,
+-            GUEST_PHONE_REVEAL_IP_LIMIT,
++            getattr(get_settings(), "guest_contact_ip_hourly_limit", GUEST_PHONE_REVEAL_IP_LIMIT),
+             timedelta(hours=1),
+         )
+         consume_rate_limit(
+@@ -1067,7 +1068,26 @@
+         fail(409, "quota_exceeded", f"Active listing quota ({limit}) reached")
+     listing.submitted_revision = listing.revision
+     listing.moderation_reason = None
+-    _record_transition(db, listing, user, "pending_review")
++    if get_settings().listing_auto_publish_enabled:
++        listing.revision += 1
++        listing.moderated_at = datetime.now(timezone.utc)
++        _record_transition(db, listing, user, "active", "auto_publish_enabled")
++        enqueue_saved_search_match(db, listing)
++        record_active_listing_price_state(db, listing)
++        db.add(
++            AuditEvent(
++                actor_id=user.id,
++                entity_type="listing",
++                entity_id=listing.id,
++                action="auto_published",
++                details={
++                    "revision": listing.submitted_revision,
++                    "reason": "auto_publish_enabled",
++                },
++            )
++        )
++    else:
++        _record_transition(db, listing, user, "pending_review")
+     db.add(IdempotencyRecord(actor_id=user.id, scope=f"listing.submit:{listing_id}", key=idempotency_key, resource_id=listing.id))
+     db.commit()
+     return {"listing": serialize_listing(db, listing, public=False, include_contact=True)}
+--- a/web/src/components/listing-detail.test.tsx
++++ b/web/src/components/listing-detail.test.tsx
+@@ -70,6 +70,46 @@
+ };
+ 
+ describe("contact reveal", () => {
++  it("offers exchange only on active exchange listings to other users and preserves the intent through login", async () => {
++    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, exchange: true } })));
++    expect(container.querySelector('a.exchange-offer')?.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(`/account/messages/new?listing_id=${listing.id}&intent=exchange`)}`);
++    authMocks.user = { id: "buyer", role: "user" } as User;
++    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, exchange: true } })));
++    expect(container.querySelector('a.exchange-offer')?.getAttribute("href")).toBe(`/account/messages/new?listing_id=${listing.id}&intent=exchange`);
++    for (const nextListing of [{ ...listing, exchange: false }, { ...listing, exchange: true, status: "sold" as const }]) {
++      await act(async () => root.render(createElement(ListingDetail, { listing: nextListing })));
++      expect(container.querySelector('a.exchange-offer')).toBeNull();
++    }
++    authMocks.user = { id: listing.seller.id, role: "user" } as User;
++    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, exchange: true } })));
++    expect(container.querySelector('a.exchange-offer')).toBeNull();
++  });
++  it("explains the phone reveal limit without displaying the server message", async () => {
++    vi.spyOn(api, "revealPhone").mockRejectedValue(new ApiClientError(429, { code: "rate_limited", message: "Too many requests" }));
++    await act(async () => root.render(createElement(ListingDetail, { listing })));
++
++    await act(async () => { container.querySelector<HTMLButtonElement>(".contact-reveal")!.click(); });
++
++    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Слишком много запросов на показ телефона. Попробуйте позже или напишите продавцу.");
++    expect(container.textContent).not.toContain("Too many requests");
++    expect(container.querySelector<HTMLButtonElement>(".contact-reveal")?.disabled).toBe(false);
++    expect(container.querySelector(".contact-chat")).not.toBeNull();
++    expect(routerMocks.push).not.toHaveBeenCalled();
++  });
++
++  it.each([
++    { slug: "onliner-5071635", equipment: ["abs", "navigation_system", "seat_adjustment"], expected: "Уточняйте комплектацию у продавца" },
++    { slug: "seller-car", equipment: ["navigation_system", "seat_adjustment"], expected: "Уточняйте комплектацию у продавца" },
++    { slug: "seller-car", equipment: ["rear_camera", "navigation_system"], expected: "Камера заднего вида. Остальную комплектацию уточняйте у продавца" }
++  ])("does not present raw equipment fields as confirmed options ($slug, $equipment)", async ({ slug, equipment, expected }) => {
++    await act(async () => root.render(createElement(ListingDetail, { listing: { ...listing, slug, equipment } })));
++    const facts = container.querySelector(".detail-facts")?.textContent || "";
++    expect(facts).toContain(expected);
++    expect(facts).not.toContain("navigation_system");
++    expect(facts).not.toContain("seat_adjustment");
++  });
++
++
+   it("renders only the verified evidence attached to the public detail payload", async () => {
+     await act(async () => root.render(createElement(ListingDetail, { listing: {
+       ...listing,
+--- a/web/src/components/sell-form.tsx
++++ b/web/src/components/sell-form.tsx
+@@ -1603,7 +1603,7 @@
+       {error && <p className="inline-error" role="alert">{error}</p>}
+       <div className="form-actions">
+         {step > 1 ? <button className="button button-secondary" type="button" disabled={busy} onClick={previousStep}><ArrowLeft size={16} /> Назад</button> : <span />}
+-        {step < 6 ? <button className="button button-primary" type="button" disabled={busy} onClick={nextStep}>{busy ? "Сохраняем…" : <>Продолжить <ArrowRight size={16} /></>}</button> : <button className="button button-primary" type="submit" disabled={busy || saveState === "saving"}>{busy ? "Отправляем…" : <><Check size={17} /> Отправить на проверку</>}</button>}
++        {step < 6 ? <button className="button button-primary" type="button" disabled={busy} onClick={nextStep}>{busy ? "Сохраняем…" : <>Продолжить <ArrowRight size={16} /></>}</button> : <button className="button button-primary" type="submit" disabled={busy || saveState === "saving"}>{busy ? "Отправляем…" : <><Check size={17} /> Разместить объявление</>}</button>}
+       </div>
+       <p className="muted autosave-note">{draft ? "Изменения черновика сохраняются автоматически." : "Черновик создаётся при переходе со следующего шага."} Контакт и VIN не сохраняются в браузере.</p>
+     </form>
+--- a/web/src/components/site-header.tsx
++++ b/web/src/components/site-header.tsx
+@@ -83,6 +83,7 @@
+           {user && <button className="mobile-signout" type="button" onClick={onSignOut}><LogOut size={17} /> {message("header.signOut")}</button>}
+         </nav>
+         <div className={`header-actions ${styles.actions}`}>
++          <Link className={`icon-button ${styles.accountShortcut}`} href={user ? localizedPath("/account") : `${localizedPath("/login")}?next=%2Faccount`} aria-label={message("header.account")} title={message("header.account")} onClick={closeNavigation}><UserRound size={18} aria-hidden="true" /></Link>
+           <ThemeSwitcher />
+           {user && <button className="icon-button signout-button" type="button" title={message("header.signOut")} aria-label={message("header.signOut")} onClick={onSignOut}><LogOut size={18} /></button>}
+           <Link className="button button-primary header-sell" href={localizedPath("/sell")} aria-label={message("header.sellListing")} onClick={closeNavigation}><Plus size={17} /> {message("header.sellListing")}</Link>
+--- a/web/src/components/site-navigation.module.css
++++ b/web/src/components/site-navigation.module.css
+@@ -34,6 +34,7 @@
+ .group li a:hover, .group li a:focus-visible { background: var(--soft-accent); color: var(--accent-dark); }
+ .group li a:hover svg, .group li a:focus-visible svg { opacity: 1; }
+ .header .actions { flex: none; }
++.header .actions .accountShortcut { padding: 0; flex: none; }
+ .header .actions a { white-space: nowrap; font-size: 14px; padding-inline: 16px; }
+ @media (max-width: 1200px) {
+  .header .inner { gap: 16px; }
+@@ -74,7 +75,7 @@
+  .header .brand :global(.brand-country) { display: none; }
+  .header .mainNav { padding: 12px; }
+ }
+-@media (max-width: 360px) {
++@media (max-width: 400px) {
+  .header .brand { font-size: 15px; gap: 4px; }
+  .header .brand > span:nth-child(2) { display: none; }
+  .header .brand :global(.brand-mark) { width: 24px; height: 24px; }
+--- a/web/src/components/conversation-start-form.tsx
++++ b/web/src/components/conversation-start-form.tsx
+@@ -7,10 +7,10 @@
+ import { api, ApiClientError, createIdempotencyKey } from "@/lib/api";
+ import { MAX_CONVERSATION_MESSAGE_LENGTH } from "@/lib/types";
+ 
+-export function ConversationStartForm({ listingId, listingTitle }: { listingId: string; listingTitle: string }) {
++export function ConversationStartForm({ listingId, listingTitle, exchange = false }: { listingId: string; listingTitle: string; exchange?: boolean }) {
+   const router = useRouter();
+-  const nextPath = `/account/messages/new?listing_id=${encodeURIComponent(listingId)}`;
+-  const [message, setMessage] = useState("");
++  const nextPath = `/account/messages/new?listing_id=${encodeURIComponent(listingId)}${exchange ? "&intent=exchange" : ""}`;
++  const [message, setMessage] = useState(exchange ? "Здравствуйте! Хочу предложить обмен. Рассмотрите мой автомобиль?" : "");
+   const [busy, setBusy] = useState(false);
+   const [error, setError] = useState("");
+   const actionKey = useRef<{ body: string; key: string } | null>(null);
+--- a/web/src/components/conversation-components.test.tsx
++++ b/web/src/components/conversation-components.test.tsx
+@@ -4,7 +4,7 @@
+ import { ConversationInbox } from "@/components/conversation-inbox";
+ import { ConversationStartForm } from "@/components/conversation-start-form";
+ import { ConversationThreadView } from "@/components/conversation-thread";
+-import { api } from "@/lib/api";
++import { api, ApiClientError } from "@/lib/api";
+ import { MAX_CONVERSATION_MESSAGE_LENGTH, type ConversationMessage, type ConversationSummary, type ConversationThread } from "@/lib/types";
+ 
+ const mocks = vi.hoisted(() => ({
+@@ -250,6 +250,20 @@
+ });
+ 
+ describe("ConversationStartForm", () => {
++  it("prefills an editable exchange message without sending and retains intent after session expiry", async () => {
++    const create = vi.spyOn(api, "createConversation").mockRejectedValue(new ApiClientError(401, { message: "Unauthorized" }));
++    await act(async () => root.render(createElement(ConversationStartForm, { listingId: "listing-1", listingTitle: "BMW 320d", exchange: true })));
++    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[name="message"]')!;
++    expect(textarea.value).toBe("Здравствуйте! Хочу предложить обмен. Рассмотрите мой автомобиль?");
++    expect(create).not.toHaveBeenCalled();
++    await act(async () => {
++      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(textarea, "Предлагаю мой автомобиль");
++      textarea.dispatchEvent(new Event("input", { bubbles: true }));
++    });
++    await act(async () => { textarea.closest("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
++    expect(create).toHaveBeenCalledWith("listing-1", "Предлагаю мой автомобиль", expect.any(String));
++    expect(mocks.router.replace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent("/account/messages/new?listing_id=listing-1&intent=exchange")}`);
++  });
+   it("creates a plain-text conversation and opens its thread", async () => {
+     const create = vi.spyOn(api, "createConversation").mockRejectedValueOnce(new Error("offline")).mockResolvedValue({ conversation: summary });
+     await act(async () => { root.render(createElement(ConversationStartForm, { listingId: "listing-1", listingTitle: "BMW 320d" })); });
+--- a/web/src/components/sell-form-subcategories.test.tsx
++++ b/web/src/components/sell-form-subcategories.test.tsx
+@@ -28,7 +28,7 @@
+   seller_type: "private", make_mode: "catalog", model_mode: "catalog", make_id: "", model_id: "", manual_make: "", manual_model: "",
+   generation_id: "", modification_id: "", body_type_id: "", body_variant_id: "", year: "", mileage_km: "", fuel: "", transmission: "", drive: "",
+   engine_volume_l: "", power_hp: "", condition: "used", color: "", customs_status: "", technical_condition: "", body_condition: "",
+-  exchange: false, bargaining: false, credit: false, leasing: false, equipment: [], district: "", call_hours: "", damaged: false, parts_only: false,
++  exchange: false, bargaining: false, credit: false, leasing: false, equipment: [], district: "", call_hours: "", damaged: false, parts_only: false, in_transit: false,
+   vin: "", description: "", price_amount: "100", currency: "BYN", region_id: "", city_mode: "catalog", city_id: "", manual_city: "", contact_phone: "", telegram_contact_url: "", viber_contact_url: ""
+ } as Parameters<typeof payloadFor>[0];
+ 
+--- a/web/src/components/listing-detail.tsx
++++ b/web/src/components/listing-detail.tsx
+@@ -32,11 +32,14 @@
+   { value: "prohibited", label: "Запрещённое объявление" },
+   { value: "other", label: "Другое" }
+ ];
++const equipmentLabels: Record<string, string> = {
++  abs: "Антиблокировочная система тормозов (ABS)", esp: "Система курсовой устойчивости (ESP)", airbags: "Подушки безопасности", air_conditioning: "Кондиционер", climate_control: "Климат-контроль", heated_seats: "Подогрев сидений", cruise_control: "Круиз-контроль", parking_sensors: "Парктроники", rear_camera: "Камера заднего вида", leather_seats: "Кожаный салон", carplay: "Apple CarPlay", android_auto: "Android Auto"
++};
+ const optionLabels: Record<string, string> = {
+   black: "Чёрный", white: "Белый", gray: "Серый", silver: "Серебристый", red: "Красный", blue: "Синий", green: "Зелёный", yellow: "Жёлтый", brown: "Коричневый", beige: "Бежевый", orange: "Оранжевый", purple: "Фиолетовый", other: "Другой",
+   cleared_rb: "Оформлен в РБ (со слов продавца)", eaeu_import: "Ввезён из ЕАЭС (со слов продавца)", uncleared: "Не растаможен (со слов продавца)", unknown: "Не указано",
+   good: "Исправен", needs_repair: "Требует ремонта", non_operational: "Не на ходу", minor_damage: "Есть небольшие повреждения", significant_damage: "Есть серьёзные повреждения", repaired: "Был в ремонте",
+-  abs: "ABS", esp: "ESP", airbags: "Подушки безопасности", air_conditioning: "Кондиционер", climate_control: "Климат-контроль", heated_seats: "Подогрев сидений", cruise_control: "Круиз-контроль", parking_sensors: "Парктроники", rear_camera: "Камера заднего вида", leather_seats: "Кожаный салон", carplay: "Apple CarPlay", android_auto: "Android Auto"
++  ...equipmentLabels
+ };
+ 
+ function PriceConversions({ price }: { price: Listing["price"] }) {
+@@ -98,6 +101,8 @@
+   const hasSyntheticPhoto = !actualPhotos.length && !listing.cover_url;
+   const href = listingHref(listing);
+   const conversationStartPath = `/account/messages/new?listing_id=${encodeURIComponent(listing.id)}`;
++  const exchangeStartPath = `${conversationStartPath}&intent=exchange`;
++  const exchangeStartHref = user ? exchangeStartPath : `/login?next=${encodeURIComponent(exchangeStartPath)}`;
+   const conversationStartHref = user ? conversationStartPath : `/login?next=${encodeURIComponent(conversationStartPath)}`;
+   const location = `${listing.manual_city || listing.city?.name || "Населённый пункт не указан"}, ${listing.region?.name || "Область не указана"}`;
+   const powerHp = listing.power_hp ?? listing.modification?.specs?.power_hp;
+@@ -122,9 +127,10 @@
+   if (listing.equipment?.length) {
+     // Onlíner imports retain option IDs but not their values, so those IDs
+     // cannot reliably establish which equipment the car actually has.
+-    const equipment = /^onliner-\d+$/.test(listing.slug)
++    const labels = listing.equipment.flatMap((value) => Object.hasOwn(equipmentLabels, value) ? [equipmentLabels[value]] : []);
++    const equipment = /^onliner-\d+$/.test(listing.slug) || !labels.length
+       ? "Уточняйте комплектацию у продавца"
+-      : listing.equipment.map((value) => optionLabels[value] || value).join(", ");
++      : [...new Set(labels)].join(", ") + (labels.length < listing.equipment.length ? ". Остальную комплектацию уточняйте у продавца" : "");
+     facts.push(["Комплектация", equipment]);
+   }
+   const sellerClaims = [
+@@ -205,6 +211,7 @@
+       setContactsRevealed(true);
+     } catch (error) {
+       if (error instanceof ApiClientError && error.status === 401) router.push(`/login?next=${encodeURIComponent(href)}`);
++      else if (error instanceof ApiClientError && error.status === 429) setPhoneError("Слишком много запросов на показ телефона. Попробуйте позже или напишите продавцу.");
+       else setPhoneError(error instanceof Error ? error.message : "Не удалось показать контакт");
+     } finally {
+       setPhoneBusy(false);
+@@ -264,6 +271,7 @@
+           {listing.status === "active" ? <>
+             {(listing.has_phone !== false || listing.has_external_contacts === true) ? <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} revealed={contactsRevealed} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} messengers={messengers} onContactClick={recordContactClick} /> : <p className="muted">Продавец предпочитает общаться в переписке.</p>}
+             {user?.id !== listing.seller.id && <Link className={`button ${listing.has_phone === false && !listing.has_external_contacts ? "button-primary" : "button-secondary"} contact-chat`} href={conversationStartHref} onClick={() => recordContactClick("internal_chat")}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
++            {listing.exchange && user?.id !== listing.seller.id && <Link className="button button-secondary exchange-offer" href={exchangeStartHref}>Предложить обмен</Link>}
+           </> : <ListingContactActions active={false} guestContactRevealEnabled={false} phone="" busy={false} error="" onReveal={() => undefined} />}
+           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
+           {canManageActiveListing && <Link className="button button-secondary contact-chat" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}
+--- a/web/src/components/site-header.test.tsx
++++ b/web/src/components/site-header.test.tsx
+@@ -32,6 +32,12 @@
+ });
+ 
+ describe("moderation navigation", () => {
++  it("provides direct account access outside the collapsed menu for guests and members", () => {
++    act(() => root.render(createElement(AuthProvider, { key: "guest", initialSession: null, children: createElement(SiteHeader) })));
++    expect(container.querySelector('.header-actions a[aria-label="Кабинет"]')?.getAttribute("href")).toBe("/login?next=%2Faccount");
++    act(() => root.render(createElement(AuthProvider, { key: "member", initialSession: makeSession("user"), children: createElement(SiteHeader) })));
++    expect(container.querySelector('.header-actions a[aria-label="Кабинет"]')?.getAttribute("href")).toBe("/account");
++  });
+   it("opens catalog navigation and restores focus when Escape closes it", () => {
+     act(() => root.render(createElement(AuthProvider, { initialSession: null, children: createElement(SiteHeader) })));
+     const trigger = container.querySelector<HTMLButtonElement>('button[aria-controls="catalog-navigation"]');
+--- a/web/src/components/sell-form.test.tsx
++++ b/web/src/components/sell-form.test.tsx
+@@ -133,6 +133,7 @@
+   call_hours: "",
+   damaged: false,
+   parts_only: false,
++  in_transit: false,
+   vin: "",
+   description: "",
+   price_amount: "100",
+--- a/web/src/app/account/messages/new/page.test.tsx
++++ b/web/src/app/account/messages/new/page.test.tsx
+@@ -15,6 +15,15 @@
+ import NewMessagePage from "./page";
+ 
+ describe("new message page", () => {
++  it("preserves exchange intent through login and prefills only verified exchange listings", async () => {
++    mocks.listing.mockReset().mockResolvedValue({ listing: { title: "BMW 320d", status: "active", exchange: true } });
++    const html = renderToStaticMarkup(await NewMessagePage({ searchParams: Promise.resolve({ listing_id: "listing-1", intent: "exchange" }) }));
++    expect(mocks.requireSession).toHaveBeenCalledWith("/account/messages/new?listing_id=listing-1&intent=exchange");
++    expect(html).toContain("Здравствуйте! Хочу предложить обмен. Рассмотрите мой автомобиль?");
++    mocks.listing.mockResolvedValue({ listing: { title: "BMW 320d", status: "active", exchange: false } });
++    const ordinary = renderToStaticMarkup(await NewMessagePage({ searchParams: Promise.resolve({ listing_id: "listing-1", intent: "exchange" }) }));
++    expect(ordinary).not.toContain("Хочу предложить обмен");
++  });
+   it("keeps the listing query in the login return path and loads its active title", async () => {
+     mocks.listing.mockReset().mockResolvedValue({ listing: { id: "listing-1", slug: "bmw-320d", title: "BMW 320d", status: "active" } });
+     const html = renderToStaticMarkup(await NewMessagePage({ searchParams: Promise.resolve({ listing_id: "listing-1" }) }));
+--- a/web/src/app/account/messages/new/page.tsx
++++ b/web/src/app/account/messages/new/page.tsx
+@@ -5,24 +5,27 @@
+ import { requireSession } from "@/lib/server";
+ import { serverApi } from "@/lib/server-api";
+ 
+-type SearchParams = { listing_id?: string | string[] };
++type SearchParams = { listing_id?: string | string[]; intent?: string | string[] };
+ export const metadata: Metadata = { title: "Новое сообщение" };
+ 
+ export default async function NewMessagePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+   const params = await searchParams;
+   const rawListingId = Array.isArray(params.listing_id) ? params.listing_id[0] : params.listing_id;
+   const listingId = rawListingId?.trim() && rawListingId.length <= 128 ? rawListingId.trim() : "";
+-  const nextPath = listingId ? `/account/messages/new?listing_id=${encodeURIComponent(listingId)}` : "/account/messages/new";
++  const exchangeIntent = (Array.isArray(params.intent) ? params.intent[0] : params.intent) === "exchange";
++  const nextPath = listingId ? `/account/messages/new?listing_id=${encodeURIComponent(listingId)}${exchangeIntent ? "&intent=exchange" : ""}` : "/account/messages/new";
+   await requireSession(nextPath);
+ 
+   let listingTitle: string | null = null;
+   let listingAvailable = false;
++  let exchange = false;
+   if (listingId) {
+     try {
+       const result = await serverApi.listing(listingId);
+       if (result.listing.status === "active") {
+         listingTitle = result.listing.title;
+         listingAvailable = true;
++        exchange = exchangeIntent && result.listing.exchange === true;
+       }
+     } catch { /* Keep the unavailable state separate from the empty inbox. */ }
+   }
+@@ -30,7 +33,7 @@
+   return <div className="page-width">
+     <header className="page-head"><p className="eyebrow">Личный кабинет</p><h1>Новое сообщение</h1><p>Начните переписку по объявлению.</p></header>
+     <AccountNav current="/account/messages" />
+-    {listingAvailable && listingTitle ? <ConversationStartForm listingId={listingId} listingTitle={listingTitle} /> : <div className="empty-state conversation-start-error">
++    {listingAvailable && listingTitle ? <ConversationStartForm listingId={listingId} listingTitle={listingTitle} exchange={exchange} /> : <div className="empty-state conversation-start-error">
+       <h2>{listingId ? "Объявление недоступно для переписки" : "Выберите объявление"}</h2>
+       <p className="muted">{listingId ? "Откройте активное объявление продавца и попробуйте начать переписку оттуда." : "Чтобы написать продавцу, сначала откройте объявление."}</p>
+       <Link className="button button-secondary" href={listingId ? "/cars" : "/account/messages"}>{listingId ? "Найти автомобили" : "К перепискам"}</Link>
+--- /dev/null
++++ b/docker-compose.feedback.yml
+@@ -0,0 +1,14 @@
++services:
++  api:
++    image: avtorinok-api:feedback-20261030-r1
++    environment:
++      LISTING_AUTO_PUBLISH_ENABLED: "true"
++      PUBLIC_GUEST_CONTACT_ENABLED: "true"
++      GUEST_CONTACT_IP_HOURLY_LIMIT: "300"
++  worker:
++    image: avtorinok-api:feedback-20261030-r1
++  web:
++    image: avtorinok-web:feedback-20261030-r1
++    build:
++      args:
++        AVTORINOK_PUBLIC_INDEXING_ENABLED: "true"

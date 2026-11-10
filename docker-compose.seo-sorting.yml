@@ -1,0 +1,7 @@
+services:
+  api:
+    image: avtorinok-api:seo-sorting-20261101-r1
+  worker:
+    image: avtorinok-api:seo-sorting-20261101-r1
+  web:
+    image: avtorinok-web:seo-sorting-20261101-r1

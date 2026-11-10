@@ -33,6 +33,7 @@ from app.models import (
     UserSession,
 )
 from app.services import consume_rate_limit, enqueue_job, fail, listing_is_public
+from app.listing_provenance import listing_provenance
 
 
 router = APIRouter(prefix="/api/v1", tags=["conversations"])
@@ -97,6 +98,12 @@ def _locked_conversation(db: Session, conversation_id: UUID, user_id: UUID) -> C
 def _require_unblocked(db: Session, conversation: Conversation) -> None:
     if any(state.blocked_at is not None for state in _states_for(db, conversation).values()):
         fail(409, "conversation_blocked", "Messages cannot be sent in a blocked conversation")
+
+
+def _require_confirmed_recipient(db: Session, listing_id: UUID) -> None:
+    listing = db.get(Listing, listing_id)
+    if listing is not None and listing.id in listing_provenance(db, [listing]):
+        fail(409, "recipient_unavailable", "Messaging is unavailable for this listing")
 
 
 def _consume_message_send_limit(db: Session, user: User) -> None:
@@ -445,6 +452,7 @@ def create_conversation(
     del csrf
     key = _validated_idempotency_key(idempotency_key)
     scope = _idempotency_scope("create", resource_id=payload.listing_id)
+    _require_confirmed_recipient(db, payload.listing_id)
     prior = _prior_request(db, user.id, scope, key)
     if prior is not None:
         conversation = db.get(Conversation, prior.resource_id)
@@ -458,6 +466,7 @@ def create_conversation(
     listing = db.get(Listing, payload.listing_id)
     if listing is None:
         fail(404, "not_found", "Listing not found")
+    _require_confirmed_recipient(db, listing.id)
     if listing.owner_id == user.id:
         fail(409, "self_chat", "You cannot start a conversation about your own listing")
     existing = db.scalar(
@@ -481,6 +490,7 @@ def create_conversation(
     )
     if listing is None:
         fail(404, "not_found", "Listing not found")
+    _require_confirmed_recipient(db, listing.id)
     if listing.owner_id == user.id:
         fail(409, "self_chat", "You cannot start a conversation about your own listing")
     conversation = db.scalar(
@@ -613,6 +623,7 @@ def send_message(
     if conversation is None:
         fail(404, "not_found", "Conversation not found")
     _require_participant(conversation, user.id)
+    _require_confirmed_recipient(db, conversation.listing_id)
     prior = _prior_request(db, user.id, scope, key)
     if prior is not None:
         message = db.get(ConversationMessage, prior.resource_id)
@@ -624,6 +635,7 @@ def send_message(
     _consume_message_send_limit(db, user)
 
     conversation = _locked_conversation(db, conversation_id, user.id)
+    _require_confirmed_recipient(db, conversation.listing_id)
     prior = _prior_request(db, user.id, scope, key)
     if prior is not None:
         message = db.get(ConversationMessage, prior.resource_id)

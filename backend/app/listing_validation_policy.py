@@ -86,7 +86,10 @@ def _bounded_int(settings: Any, name: str, minimum: int, maximum: int) -> int:
 def listing_validation_policy(*, settings: Any | None = None, current_year: int | None = None) -> dict[str, Any]:
     """Return the public policy consumed by the seller form."""
 
-    return _Policy.from_settings(settings, current_year=current_year).public_dict()
+    settings = settings or get_settings()
+    result = _Policy.from_settings(settings, current_year=current_year).public_dict()
+    result["publication_mode"] = "automatic" if getattr(settings, "listing_auto_publish_enabled", False) else "moderated"
+    return result
 
 
 def minimum_required_photos(listing: Any, *, settings: Any | None = None) -> int:

@@ -13,7 +13,14 @@
  .toggle { min-width: 48px; min-height: 48px; padding: 3px 5px; flex-direction: column; gap: 0; }
  .headlights { width: 28px; height: 23px; }
  .copy { align-items: center; }
- .label { font-size: 8px; }
+ .label { display: none; }
  .state { display: none; }
+}
+@media (max-width: 1100px) {
+ .toggle { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 8px 12px; }
+ .headlights { width: 34px; height: 26px; }
+ .copy { align-items: flex-start; }
+ .label { display: block; color: var(--ink); font-size: 14px; font-weight: 650; }
+ .state { display: block; color: var(--muted); font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .toggle, .beams { transition: none; } }

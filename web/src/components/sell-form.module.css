@@ -1,0 +1,6 @@
+.form :global(.page-head) { border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+.form :global(.page-head) h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.05; letter-spacing: -.03em; }
+.form :global(.form-section) { border-top: 1px solid var(--line); }
+.form :global(.field) { font-size: 16px; }
+.form input:not([type="checkbox"]):not([type="radio"]), .form select, .form button { min-height: 44px; }
+.form :global(.autosave-note) { font-size: 14px; }

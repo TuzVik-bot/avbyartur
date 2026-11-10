@@ -11,3 +11,25 @@
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
 }
+.card:global(.listing-card) { border: 0; border-radius: 0; background: transparent; }
+.card :global(.favorite-button) { right: 60px; border-radius: 50%; }
+.card :global(.card-body) { padding: 10px 0 14px; }
+.card :global(.card-title) { min-height: auto; font-size: 18px; }
+.card :global(.card-specs), .card :global(.card-footer), .card :global(.listing-views), .card :global(.card-published) { font-size: 14px; }
+.card :global(.card-footer) { flex-direction: row-reverse; justify-content: flex-end; border-top: 0; padding-top: 0; }
+.card :global(.card-footer) strong { font-weight: 400; }
+@media (min-width: 1100px) {
+  .card:global(.listing-row) :global(.card-body) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; align-items: baseline; gap: 6px 20px; padding-block: 0; }
+  .card:global(.listing-row) :global(.card-title) { grid-column: 1; margin: 0; }
+  .card:global(.listing-row) :global(.card-price-line) { grid-column: 2; grid-row: 1; justify-content: flex-end; text-align: right; }
+  .card:global(.listing-row) :global(.card-price) { margin: 0; white-space: nowrap; }
+  .card:global(.listing-row) :global(.card-specs), .card:global(.listing-row) :global(.card-published), .card:global(.listing-row) :global(.card-footer), .card:global(.listing-row) :global(.card-actions), .card:global(.listing-row) :global(.status-pill) { grid-column: 1 / -1; }
+  .card:global(.listing-row) :global(.card-published), .card:global(.listing-row) :global(.card-footer), .card:global(.listing-row) :global(.card-actions) { margin: 0; padding-top: 0; }
+}
+@media (max-width: 520px) {
+  .card:global(.listing-row) { display: flex; flex-direction: column; gap: 0; padding: 0; }
+  .card:global(.listing-row) :global(.listing-card-media) { width: 100%; aspect-ratio: 16 / 10; }
+  .card:global(.listing-row) :global(.card-body) { padding: 10px 0 14px; }
+  .card:global(.listing-row) :global(.card-title) { font-size: 18px; }
+  .card:global(.listing-row) :global(.card-price) { font-size: 20px; }
+}

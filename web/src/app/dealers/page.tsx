@@ -39,16 +39,16 @@ export default async function DealersPage({ searchParams }: { searchParams: Prom
   const page = Math.min(data?.pagination?.page ?? requestedPage, pageCount);
   return (
     <div className="page-width">
-      <header className="page-head"><p className="eyebrow">Автокомпании</p><h1>Компании и дилеры</h1><p>Автомобили от продавцов, допущенных к пилоту.</p></header>
+      <header className="page-head"><p className="eyebrow">Автокомпании</p><h1>Компании и дилеры</h1><p>Предложения компаний и дилеров с опубликованными профилями на Авторынке.</p></header>
       {!data ? <div className="notice" role="alert"><p>Список компаний временно недоступен.</p><Link className="button button-secondary button-small" href="/dealers?retry=1">Повторить загрузку</Link></div> : data.items.length ? (
-        <section className="dealer-directory" aria-labelledby="dealer-directory-title"><h2 id="dealer-directory-title" className="sr-only">Компании, допущенные к пилоту</h2><div className="dealer-grid">{data.items.map((company) => <article className="dealer-card" key={company.id}>
+        <section className="dealer-directory" aria-labelledby="dealer-directory-title"><h2 id="dealer-directory-title" className="sr-only">Компании и дилеры на площадке</h2><div className="dealer-grid">{data.items.map((company) => <article className="dealer-card" key={company.id}>
           <div className="dealer-topline"><h2><Link href={`/dealers/${encodeURIComponent(company.slug)}`}>{company.name}</Link></h2><Building2 size={19} aria-hidden="true" /></div>
           <p>{company.address || "Адрес не указан"}</p>
-          {company.status === "approved" && <span className="verified-state" role="status">Допущена к пилоту</span>}
+          {company.status === "approved" && <span className="verified-state" role="status">Профиль одобрен</span>}
           <p>{company.listing_count === undefined ? "Автомобили компании" : `${company.listing_count} объявлений`}</p>
           <Link className="text-link" href={`/dealers/${encodeURIComponent(company.slug)}`}>Открыть страницу <ArrowRight size={15} /></Link>
         </article>)}</div></section>
-      ) : <div className="empty-state"><h2>Компании пока не добавлены</h2><p className="muted">Когда компания получит допуск, её объявления появятся здесь.</p><Link className="button button-secondary" href="/login">Войти в кабинет</Link></div>}
+      ) : <div className="empty-state"><h2>Компании пока не добавлены</h2><p className="muted">Здесь появятся профили компаний после одобрения.</p><Link className="button button-secondary" href="/login">Войти в кабинет</Link></div>}
       {data?.pagination && pageCount > 1 && <nav className="pagination" aria-label="Страницы компаний">
         {page > 1 && <Link className="button button-secondary button-small" href={pageUrl(page - 1)} aria-label={`Предыдущая страница, страница ${page - 1}`}>Назад</Link>}
         <span aria-current="page">Страница {page} из {pageCount}</span>

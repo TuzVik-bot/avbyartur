@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Building2, Calculator, CarFront, Check, FileText, MapPin, Repeat2, ScanLine, SlidersHorizontal, UsersRound, Zap } from "@/components/home-icons";
+import { ArrowRight, Building2, Calculator, CarFront, FileText, MapPin, Repeat2, ScanLine, SlidersHorizontal, UsersRound, Zap } from "@/components/home-icons";
 import { ListingCard } from "@/components/listing-card";
 import { MachineIllustration } from "@/components/category-landing";
 import { HomeSearch } from "@/components/home-search";
 import { getSavedListingIds, serverApi } from "@/lib/server-api";
 import { advertisementSections } from "@/lib/advertisement-sections";
 import { DEFAULT_LOCALE, getMessage } from "@/lib/i18n";
+import { formatMoney, formatMileage, listingHref, listingPhotoAlt } from "@/lib/format";
 import { localeMetadata } from "@/lib/site-config";
 import type { CatalogItem, CompanySummary, ListingSummary, ListResponse } from "@/lib/types";
 import styles from "./home.module.css";
@@ -72,52 +73,29 @@ export default async function HomePage() {
   const regions: CatalogItem[] = regionResult.status === "fulfilled" ? regionResult.value.items : [];
   const bodyTypes: CatalogItem[] = bodyTypeResult.status === "fulfilled" ? bodyTypeResult.value.items : [];
   const savedIds = new Set(savedListingIdsResult.status === "fulfilled" ? savedListingIdsResult.value : []);
+  const featured = listings?.items.find((item) => item.photo_urls?.some(Boolean) || item.cover_url);
+  const remainingListings = listings?.items.filter((item) => item.id !== featured?.id).slice(0, 3) ?? [];
   const failed = listingResult.status === "rejected";
   const dealers: ListResponse<CompanySummary> | null = dealerResult.status === "fulfilled" ? dealerResult.value : null;
   return (
     <div className={styles.home}>
       <section className={`page-width ${styles.intro}`} aria-labelledby="home-heading">
-        <div className={styles.heading}>
-          <div><p className={styles.eyebrow}>Авторынок Беларуси</p><h1 id="home-heading">Найдите автомобиль по своим условиям</h1><p className={styles.lead}>Задайте бюджет, регион и важные параметры — поиск покажет опубликованные объявления.</p></div>
-          <Link className={styles.catalogLink} href="/cars">Весь каталог <ArrowRight size={17} aria-hidden="true" /></Link>
+        <div className={styles.heroSearch}>
+          <div className={styles.heading}><h1 id="home-heading">Автомобили в Беларуси.</h1><p className={styles.lead}>Выбирайте. Сравнивайте. Считайте расходы.</p></div>
+          <nav className={styles.taskRow} aria-label="Действия"><a href="#home-search" aria-current="page">Купить</a><Link href="/sell">Продать</Link><Link href="/ownership-calculator">Рассчитать</Link></nav>
+          <div className={styles.searchPanel} id="home-search"><HomeSearch makes={makes} regions={regions} bodyTypes={bodyTypes} className={styles.search} priceOperationsAvailable={Boolean(listings?.fx)} /></div>
+          {makeResult.status === "rejected" && <p className="notice" role="status">Справочник марок временно недоступен. Поиск по названию автомобиля остаётся доступен.</p>}
         </div>
-        <nav className="quick-links" aria-label="Быстрые сценарии покупки">
-          {buyerShortcuts.map(({ href, title, icon: Icon }) => <Link href={href} key={title}><Icon size={17} aria-hidden="true" />{title}</Link>)}
-        </nav>
-        <div className={styles.discoveryLayout}>
-          <div className={styles.discoveryMain}>
-            <div className={styles.searchPanel} id="home-search">
-              <HomeSearch makes={makes} regions={regions} bodyTypes={bodyTypes} className={styles.search} priceOperationsAvailable={Boolean(listings?.fx)} />
-            </div>
-            {makeResult.status === "rejected" && <p className="notice" role="status">Справочник марок временно недоступен. Поиск по названию автомобиля остаётся доступен.</p>}
-            <aside className={`${styles.adSlot} ${styles.wideAd}`} aria-label="Реклама">
-              <span className={styles.adLabel}>Реклама</span>
-              <div><strong>Место для вашего бренда</strong><p>Расскажите о предложении автомобилистам.</p></div>
-              <Link href="/partner">Разместить рекламу <ArrowRight size={15} aria-hidden="true" /></Link>
-            </aside>
-            <nav className={styles.makes} aria-label="Быстрый поиск по марке">
-              <div className={styles.makeHeading}><h2>Популярные марки</h2><Link href="/makes">Все марки <ArrowRight size={14} aria-hidden="true" /></Link></div>
-              {popularMakes.length ? <ul>{popularMakes.map(({ name, href }) => <li key={name}><Link href={href}>{name}</Link></li>)}</ul> : <p className="muted">Справочник марок временно недоступен.</p>}
-            </nav>
-          </div>
-          <aside className={`${styles.adSlot} ${styles.verticalAd}`} aria-label="Реклама">
-            <span className={styles.adLabel}>Реклама</span>
-            <div><strong>Продвижение для автомобильного бизнеса</strong><p>Расскажите о своей компании и предложении.</p></div>
-            <Link href="/partner">Разместить рекламу <ArrowRight size={15} aria-hidden="true" /></Link>
-          </aside>
-        </div>
+        {featured && <article className={styles.featured}>
+          <Link href={listingHref(featured)}><Image src={featured.photo_urls?.find(Boolean) || featured.cover_url!} alt={listingPhotoAlt(featured.title || "Автомобиль")} width={900} height={560} sizes="(max-width: 760px) 100vw, 55vw" priority /></Link>
+          <div className={styles.featuredInfo}><div><h2>{featured.title || [featured.make?.name, featured.model?.name, featured.year].filter(Boolean).join(" ")}</h2><span>{formatMileage(featured.mileage_km)}</span></div><div><strong>{formatMoney(featured.price)}</strong><Link href={listingHref(featured)}>Открыть объявление <ArrowRight size={16} aria-hidden="true" /></Link></div></div>
+        </article>}
       </section>
-
-      <nav className={`page-width ${styles.categories}`} aria-label="Категории объявлений">
-        <h2>Разделы каталога</h2>
-        <ul className={styles.featuredCategories}>{featuredCategories.map(({ href, title, caption, art }, index) => <li key={href}><Link href={href}><span className={styles.categoryArt}><MachineIllustration kind={art} index={index} /></span><span className={styles.categoryCopy}><strong>{title}</strong><small>{caption}</small></span><ArrowRight size={16} aria-hidden="true" /></Link></li>)}</ul>
-        <div className={styles.otherCategories} role="group" aria-label="Другие разделы каталога">{advertisementSections.filter(({ href }) => !featuredCategories.some((category) => category.href === href)).map(({ label, href }) => <Link href={href} key={href}>{label}<ArrowRight size={13} aria-hidden="true" /></Link>)}</div>
-      </nav>
-
+      <aside className={`page-width ${styles.adStrip}`} aria-label="Реклама"><span>Реклама</span><strong>Покажите свой бизнес на Авторынке</strong><Link href="/partner">Узнать о размещении <ArrowRight size={16} aria-hidden="true" /></Link></aside>
       <section className={`page-width ${styles.section} ${styles.listings}`} aria-labelledby="home-listings-heading">
         <div className={styles.sectionHeading}><h2 id="home-listings-heading">Новые объявления</h2><Link className="text-link" href="/cars">Все предложения <ArrowRight size={16} aria-hidden="true" /></Link></div>
         {failed && <p className="notice" role="status">Каталог временно недоступен. Обновите страницу чуть позже.</p>}
-        {listings?.items.length ? <div className={`listing-grid ${styles.listingGrid}`}>{listings.items.map((listing) => <ListingCard key={listing.id} listing={listing} saved={savedIds.has(listing.id)} />)}</div> : <div className={styles.emptyState}>
+        {remainingListings.length ? <div className={`listing-grid ${styles.listingGrid}`}>{remainingListings.map((listing) => <ListingCard key={listing.id} listing={listing} saved={savedIds.has(listing.id)} />)}</div> : !featured && <div className={styles.emptyState}>
           <h3>{failed ? "Сейчас не удаётся загрузить объявления" : "Новых объявлений пока нет"}</h3>
           <p className="muted">{failed ? "Попробуйте открыть каталог позже: запрос не подтвердил, есть ли сейчас опубликованные предложения." : "В каталоге пока нет опубликованных предложений. Уточните условия поиска или выберите стартовую подборку."}</p>
           <div className={styles.emptyActions}>
@@ -125,8 +103,14 @@ export default async function HomePage() {
             <Link className="text-link" href="/useful-information#use-case-presets-title">Подборки по задаче <ArrowRight size={16} aria-hidden="true" /></Link>
           </div>
         </div>}
-        {!!listings?.items.length && <div className={styles.listingFooter}><Link className="button button-secondary" href="/cars">Смотреть все объявления <ArrowRight size={16} aria-hidden="true" /></Link></div>}
-        <div className={styles.collections} role="group" aria-label="Подборки автомобилей">
+
+      </section>
+
+      <section className={`page-width ${styles.toolsSeller}`} aria-label="Расчёты и продажа">
+        <div><h2>Покупайте с расчётом</h2><div className={styles.toolShortcuts}>{tools.slice(0, 3).map(({ href, title, icon: Icon }) => <Link href={href} key={href}><Icon size={22} aria-hidden="true" />{href === "/customs-calculator" ? "Растаможка" : title}<ArrowRight size={16} aria-hidden="true" /></Link>)}</div></div>
+        <div className={styles.sellerCompact}><div><h2 id="home-seller-heading">Продаёте свой автомобиль?</h2><p>Разместите автомобиль и управляйте объявлением в личном кабинете.</p></div><Link className="button button-primary" href="/sell">Подать объявление <ArrowRight size={16} aria-hidden="true" /></Link></div>
+      </section>
+      <section className={`page-width ${styles.section}`} aria-label="Подборки автомобилей">        <div className={styles.collections} role="group" aria-label="Подборки автомобилей">
           <Link href="/cars?condition=new"><CarFront size={24} aria-hidden="true" /><div><strong>Новые автомобили</strong><span>Объявления с состоянием «Новый»</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
           <Link href="/cars?condition=used"><CarFront size={24} aria-hidden="true" /><div><strong>Автомобили с пробегом</strong><span>Объявления с состоянием «С пробегом»</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
           <Link href="/cars?category_code=cars&in_transit=true"><CarFront size={24} aria-hidden="true" /><div><strong>Авто в пути</strong><span>Продавец указал, что автомобиль в пути</span></div><ArrowRight size={18} aria-hidden="true" /></Link>
@@ -134,42 +118,25 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className={`page-width ${styles.section}`} aria-labelledby="home-partners-heading">
-        <div className={styles.sectionHeading}><h2 id="home-partners-heading">Реклама</h2><Link className="text-link" href="/partner">Разместить рекламу <ArrowRight size={16} aria-hidden="true" /></Link></div>
-        <div className={styles.partnerCards}>
-          <article><span className={styles.adLabel}>Реклама</span><Link className={styles.partnerCategory} href="/tires-and-wheels">Шины и диски</Link><span>Место для предложения вашего бренда</span><Link className={styles.cardAction} href="/partner">Разместить рекламу <ArrowRight size={14} aria-hidden="true" /></Link></article>
-          <article><span className={styles.adLabel}>Реклама</span><strong>Страхование автомобиля</strong><span>Место для предложения вашей компании</span><Link className={styles.cardAction} href="/partner">Разместить рекламу <ArrowRight size={14} aria-hidden="true" /></Link></article>
-          <article><span className={styles.adLabel}>Реклама</span><Link className={styles.partnerCategory} href="/services">Автосервис и обслуживание</Link><span>Место для предложения вашего бренда</span><Link className={styles.cardAction} href="/partner">Разместить рекламу <ArrowRight size={14} aria-hidden="true" /></Link></article>
-        </div>
-      </section>
+      <nav className={`page-width ${styles.quickLinks}`} aria-label="Быстрые сценарии покупки">{buyerShortcuts.map(({ href, title, icon: Icon }) => <Link href={href} key={title}><Icon size={17} aria-hidden="true" />{title}</Link>)}</nav>
+      <nav className={`page-width ${styles.categories}`} aria-label="Категории объявлений">
+        <h2>Разделы каталога</h2>
+        <ul className={styles.featuredCategories}>{featuredCategories.map(({ href, title, caption, art }, index) => <li key={href}><Link href={href}><span className={styles.categoryArt}><MachineIllustration kind={art} index={index} /></span><span className={styles.categoryCopy}><strong>{title}</strong><small>{caption}</small></span><ArrowRight size={16} aria-hidden="true" /></Link></li>)}</ul>
+        <div className={styles.otherCategories} role="group" aria-label="Другие разделы каталога">{advertisementSections.filter(({ href }) => !featuredCategories.some((category) => category.href === href)).map(({ label, href }) => <Link href={href} key={href}>{label}<ArrowRight size={13} aria-hidden="true" /></Link>)}</div>
+      </nav>
 
-      <section className={`page-width ${styles.section}`} aria-labelledby="home-seller-heading">
-        <div className={styles.seller}>
-          <div className={styles.sellerMain}>
-            <div className={styles.sellerCopy}><p className={styles.eyebrow}>Для продавцов</p><h2 id="home-seller-heading">Подача объявления — в личном кабинете</h2><p>Заполните карточку автомобиля, сохраните черновик и отправьте объявление на проверку.</p>
-              <ul className={styles.benefits}><li><Check size={16} aria-hidden="true" />Черновик можно продолжить позже</li><li><Check size={16} aria-hidden="true" />Перед публикацией объявление проходит проверку</li><li><Check size={16} aria-hidden="true" />Контакты не показываются в публичной выдаче</li></ul>
-              <Link className="button button-primary" href="/sell">Подать объявление <ArrowRight size={16} aria-hidden="true" /></Link>
-            </div>
-            <Image className={styles.sellerImage} src="/vehicles/silver-wagon.png" alt="Серебристый автомобиль" width={1448} height={1086} sizes="(max-width: 600px) 100vw, 40vw" />
-          </div>
-          <ol className={styles.steps} aria-label="Три шага до отправки на проверку">
-            <li><span>01</span><div><h3>Заполните карточку</h3><p>Марка, характеристики, цена и местоположение.</p></div></li>
-            <li><span>02</span><div><h3>Добавьте фотографии</h3><p>Загрузите снимки и сохраните черновик.</p></div></li>
-            <li><span>03</span><div><h3>Отправьте на проверку</h3><p>Проверьте сведения перед отправкой модератору.</p></div></li>
-          </ol>
-        </div>
-      </section>
+      <nav className={`page-width ${styles.makes}`} aria-label="Быстрый поиск по марке"><div className={styles.makeHeading}><h2>Популярные марки</h2><Link href="/makes">Все марки <ArrowRight size={14} aria-hidden="true" /></Link></div><ul>{popularMakes.map(({ name, href }) => <li key={name}><Link href={href}>{name}</Link></li>)}</ul></nav>
 
       <section className={`page-width ${styles.section}`} aria-labelledby="home-tools-heading">
         <div className={styles.sectionHeading}><h2 id="home-tools-heading">Полезно при покупке</h2><Link className="text-link" href="/useful-information">Вся информация <ArrowRight size={16} aria-hidden="true" /></Link></div>
         <div className={styles.resources}>
           <div className={styles.tools}>{tools.map(({ href, title, description, icon: Icon }) => <Link key={href} href={href}><span className={styles.toolIcon}><Icon size={22} aria-hidden="true" /></span><div><h3>{title}</h3><p>{description}</p></div><ArrowRight size={16} aria-hidden="true" /></Link>)}</div>
           <div className={styles.dealers}><Building2 size={24} aria-hidden="true" /><h3>Автокомпании и дилеры</h3>
-            {dealerResult.status === "rejected" ? <p role="status">Список компаний временно недоступен.</p> : dealers?.items.length ? <ul>{dealers.items.slice(0, 3).map((dealer) => <li key={dealer.id}><Link href={`/dealers/${encodeURIComponent(dealer.slug)}`}>{dealer.name}<ArrowRight size={14} aria-hidden="true" /></Link></li>)}</ul> : <p>Компании и их объявления доступны в каталоге после допуска к пилоту.</p>}
+            {dealerResult.status === "rejected" ? <p role="status">Список компаний временно недоступен.</p> : dealers?.items.length ? <ul>{dealers.items.slice(0, 3).map((dealer) => <li key={dealer.id}><Link href={`/dealers/${encodeURIComponent(dealer.slug)}`}>{dealer.name}<ArrowRight size={14} aria-hidden="true" /></Link></li>)}</ul> : <p>Профили компаний появятся здесь после одобрения.</p>}
             <Link className="text-link" href="/dealers">Все компании <ArrowRight size={16} aria-hidden="true" /></Link>
           </div>
         </div>
-        <aside className={styles.partner} aria-label="Сотрудничество и реклама"><div><strong>Для вашего бизнеса</strong><p>Реклама и сотрудничество с Авторынком</p></div><Link href="/partner">О сотрудничестве <ArrowRight size={16} aria-hidden="true" /></Link></aside>
+
       </section>
     </div>
   );

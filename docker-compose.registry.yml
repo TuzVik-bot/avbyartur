@@ -1,0 +1,3 @@
+services:
+  web:
+    image: avtorinok-web:catalog-registry-20261102-r1

@@ -116,13 +116,17 @@ export function ComparisonView() {
         </div>
       </div>
 
+      <details className={styles.readingGuide}>
+      <summary>Как читать сравнение</summary>
       <p className={styles.disclaimer}>
         Сравнение основано на данных публичных объявлений и сведениях продавца. Оно не подтверждает техническое состояние, историю или юридическую чистоту автомобиля.
       </p>
       <p className={styles.legend}>
         Различающиеся характеристики выделены. Цены показаны в валюте каждого объявления; доступный эквивалент BYN указан отдельно с датой курса.
       </p>
+      </details>
       {mixedCurrencies && <p className={styles.currencyNote} role="status">Валюта цены отличается: суммы не выделяются как напрямую сопоставимые.</p>}
+      <p className={styles.ownershipLink}>Для расчёта расходов на владение и сравнения двух автомобилей откройте <Link href="/ownership-calculator">калькулятор стоимости владения</Link>.</p>
       <p className={styles.scrollHint}>На узком экране прокручивайте таблицу по горизонтали.</p>
 
       <div className={styles.tableScroll} role="region" aria-label="Таблица сравнения автомобилей" tabIndex={0}>
@@ -136,6 +140,7 @@ export function ComparisonView() {
                 return (
                   <th className={styles.vehicleHeader} scope="col" key={id}>
                     <div className={styles.vehicleHeading}>
+                      {listing && (listing.photo_urls?.find(Boolean) || listing.cover_url) && <img className={styles.photo} src={listing.photo_urls?.find(Boolean) || listing.cover_url || ""} alt={`Фотография: ${listing.title || "автомобиль"}`} />}
                       <strong>{listing?.title || (state.kind === "loaded" ? "Объявление" : "Автомобиль")}</strong>
                       <span className={`${styles.status} ${state.kind === "loaded" && state.listing.status === "sold" ? styles.sold : ""}`} role="status">{stateMessage(state)}</span>
                       {listing && <Link className={styles.openLink} href={listingHref(listing)}>Открыть объявление</Link>}

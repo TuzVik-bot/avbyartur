@@ -1,0 +1,3 @@
+services:
+  web:
+    image: avtorinok-web:google-verification-20261031-r1

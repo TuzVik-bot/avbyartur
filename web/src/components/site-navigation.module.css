@@ -92,3 +92,83 @@
 .categoryNavigation { padding-block: 24px; }
 .categoryNavigation h2 { margin: 0 0 16px; font-size: 24px; }
 @media (max-width: 760px) { .advertisementList { grid-template-columns: 1fr; gap: 2px; } }
+.header .inner { min-height: 64px; gap: 14px; }
+.catalogButton { background: transparent; color: var(--ink); padding-inline: 8px; border-radius: 6px; }
+.header .mainNav { gap: 14px; }
+.header .mainNav > a { display: inline-flex; align-items: center; gap: 5px; }
+.menuTheme { display: flex; align-items: center; }
+.header .mobileToggle span { font-size: 12px; }
+@media (max-width: 1100px) { .header .mobileToggle { display: flex; flex-direction: column; gap: 0; order: 4; }.header .actions { order: 3; margin-left: auto; }.menuTheme { padding: 8px 12px; } }
+@media (max-width: 520px) { .header .brand > span:nth-child(2) { display: inline; }.header .brand { font-size: 15px; flex: 0 1 auto; }.header .catalog { display: none; }.header .actions a:global(.header-sell) { font-size: 14px; padding: 8px; }.header .actions .accountShortcut { display: none; }.header .mobileToggle { min-width: 44px; min-height: 44px; } }
+
+.header .actions .shortcut { display: inline-flex; align-items: center; gap: 5px; padding: 0; min-height: 44px; }
+@media (max-width: 1100px) { .header .actions .shortcut { font-size: 0; width: 44px; justify-content: center; } }
+@media (max-width: 520px) { .header .actions a:global(.header-sell) { width: auto; min-width: 0; overflow: visible; gap: 4px; } }
+/* Keep the header within the viewport at all widths. */
+.header .inner { gap: 10px; }
+.header .mainNav { gap: 10px; font-size: 14px; }
+.header .actions { gap: 10px; }
+.header .actions a { padding-inline: 10px; }
+.mobileLinks, .sellShort { display: none; }
+.desktopTheme { display: none; flex: none; }
+.desktopTheme > button { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; }
+.desktopTheme > button > span { display: none; }
+.categoryBar { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.categoryBar > div { display: flex; align-items: center; gap: 26px; overflow-x: auto; scrollbar-width: thin; }
+.categoryBar a { display: inline-flex; flex: none; align-items: center; min-height: 44px; font-size: 14px; white-space: nowrap; }
+@media (max-width: 1450px) { .header .inner { gap: 8px; }.header .mainNav { gap: 8px; }.header .actions { gap: 8px; }.header .brand { font-size: 18px; } }
+@media (max-width: 1100px) {
+ .header .actions .shortcut { display: none; }
+ .mobileLinks { display: grid; gap: 4px; padding: 4px 12px; }
+ .mobileLinks > a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+ .header .catalog { display: none; }
+ .header .mainNav { z-index: 45; }
+}
+@media (max-width: 520px) {
+ .header .inner { width: calc(100% - 24px); gap: 6px; }
+ .header .brand { flex: 1 1 auto; min-width: 0; font-size: 15px; }
+ .header .brand > span:nth-child(2) { display: inline; }
+ .header .actions { margin-left: 0; }
+ .header .actions a:global(.header-sell) { min-height: 44px; padding: 8px; }
+ .sellFull { display: none; }.sellShort { display: inline; }
+ .header .mobileToggle { width: 44px; min-width: 44px; height: 44px; padding: 2px; }
+ .categoryBar { display: none; }
+}
+
+/* Match the selected editorial composition without crowding the header. */
+.desktopAccount { display: none; }
+@media (min-width: 1101px) {
+ .desktopTheme { display: flex; align-items: center; }
+ .header .inner, .categoryBar > div { width: min(1280px, calc(100% - 64px)); }
+ .header .inner { min-height: 66px; gap: 24px; }
+ .header .brand { gap: 10px; font-size: 27px; letter-spacing: -.035em; }
+ .header .brand :global(.brand-mark) { width: 38px; height: 38px; background: transparent; border: 0; }
+ .header .brand :global(.brand-mark) > span { transform: scale(1.44); }
+ .header .brand :global(.brand-country) { display: none; }
+ .header .catalog { margin-left: 30px; }
+ .catalogButton { padding-inline: 0; font-size: 14px; font-weight: 600; }
+ .header .mainNav { margin-left: 0; margin-right: auto; gap: 24px; font-weight: 500; }
+ .header .mainNav .mobileCars { display: none; }
+ .header .mainNav .mobileAuth { display: none; }
+ .header .actions { gap: 20px; }
+ .header .actions .desktopAccount { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0; font-size: 14px; font-weight: 400; }
+ .header .actions .shortcut { font-size: 14px; gap: 7px; font-weight: 400; }
+ .header .actions a:global(.header-sell) { padding-inline: 16px; }
+ .categoryBar > div { justify-content: space-between; gap: 20px; }
+}
+@media (min-width: 1101px) and (max-width: 1399px) {
+ .header .inner { gap: 14px; }
+ .header .brand { font-size: 22px; }
+ .header .catalog { margin-left: 0; }
+ .header .mainNav { gap: 14px; }
+ .header .actions { gap: 12px; }
+ .header .actions .shortcut { font-size: 0; width: 28px; justify-content: center; }
+}
+@media (max-width: 1100px) {
+ .header .brand :global(.brand-mark) > span { max-width: 100%; max-height: 100%; }
+}
+@media (max-width: 520px) {
+ .header .brand { font-size: 18px; gap: 8px; }
+ .header .brand :global(.brand-mark) { width: 28px; height: 28px; border: 0; background: transparent; }
+}
+@media (max-width: 359px) { .header .brand { font-size: 16px; gap: 6px; } }

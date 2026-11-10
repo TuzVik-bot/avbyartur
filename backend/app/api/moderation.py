@@ -20,6 +20,7 @@ from app.services import (
     fail,
     lock_owner,
     serialize_listing,
+    serialize_listings,
 )
 from app.staff_schemas import (
     ModerationCompanyQueueResponse,
@@ -106,7 +107,7 @@ def listing_queue(
     query = select(Listing).where(Listing.status == status).order_by(Listing.created_at, Listing.id)
     total = int(db.scalar(select(func.count(Listing.id)).where(Listing.status == status)) or 0)
     rows = db.scalars(query.offset((page - 1) * page_size).limit(page_size)).all()
-    items = [serialize_listing(db, listing, public=False) for listing in rows]
+    items = serialize_listings(db, rows, public=False, include_modification=True)
     risk_signals = collect_listing_risk_signals(db, rows)
     for listing, item in zip(rows, items, strict=True):
         item["risk_signals"] = risk_signals[listing.id]

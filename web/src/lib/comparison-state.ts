@@ -3,11 +3,13 @@
 import { useMemo, useSyncExternalStore } from "react";
 
 export const COMPARISON_STORAGE_KEY = "avtorinok:comparison";
+export const LEGACY_COMPARISON_STORAGE_KEY = "avtorinok.compare.v1";
 export const MAX_COMPARISON_ITEMS = 4;
 
 type ChangeListener = () => void;
 
 let memoryIds: string[] = [];
+let memoryOnly = false;
 const listeners = new Set<ChangeListener>();
 
 function normalizeIds(value: unknown): string[] {
@@ -22,10 +24,11 @@ function normalizeIds(value: unknown): string[] {
 }
 
 function readIds(): string[] {
-  if (typeof window === "undefined") return [...memoryIds];
+  if (typeof window === "undefined" || memoryOnly) return [...memoryIds];
   let value: string | null;
   try {
     value = window.localStorage.getItem(COMPARISON_STORAGE_KEY);
+    if (value === null) value = window.localStorage.getItem(LEGACY_COMPARISON_STORAGE_KEY);
   } catch {
     return [...memoryIds];
   }
@@ -47,8 +50,23 @@ function notifyListeners() {
 }
 
 function handleStorage(event: StorageEvent) {
-  if (event.key !== COMPARISON_STORAGE_KEY && event.key !== null) return;
-  if (event.key === null || event.newValue === null) memoryIds = [];
+  if (event.storageArea && event.storageArea !== window.localStorage) return;
+  if (event.key !== COMPARISON_STORAGE_KEY && event.key !== LEGACY_COMPARISON_STORAGE_KEY && event.key !== null) return;
+  if (memoryOnly) return;
+  try {
+    memoryIds = event.newValue === null ? [] : normalizeIds(JSON.parse(event.newValue));
+  } catch { memoryIds = []; }
+  try {
+    if (event.key !== null) {
+      const other = event.key === COMPARISON_STORAGE_KEY ? LEGACY_COMPARISON_STORAGE_KEY : COMPARISON_STORAGE_KEY;
+      const normalized = JSON.stringify(memoryIds);
+      if (event.newValue === null) {
+        if (window.localStorage.getItem(other) !== null) window.localStorage.removeItem(other);
+      } else if (window.localStorage.getItem(other) !== normalized) {
+        window.localStorage.setItem(other, normalized);
+      }
+    }
+  } catch { memoryOnly = true; }
   notifyListeners();
 }
 
@@ -57,7 +75,9 @@ function writeIds(ids: string[]) {
   if (typeof window !== "undefined") {
     try {
       window.localStorage.setItem(COMPARISON_STORAGE_KEY, JSON.stringify(memoryIds));
+      window.localStorage.setItem(LEGACY_COMPARISON_STORAGE_KEY, JSON.stringify(memoryIds));
     } catch {
+      memoryOnly = true;
       // Keep the in-memory selection usable when browser storage is blocked.
     }
   }

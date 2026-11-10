@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Columns2 } from "lucide-react";
 import { addComparisonId, MAX_COMPARISON_ITEMS, removeComparisonId, useComparisonIds } from "@/lib/comparison-state";
 import styles from "./comparison-action.module.css";
 
@@ -23,15 +23,9 @@ export function ComparisonAction({ listingId }: { listingId: string }) {
         disabled={isFull}
         onClick={toggleSelection}
       >
+        <Columns2 size={20} aria-hidden="true" />
         {isSelected ? "Убрать из сравнения" : "Добавить к сравнению"}
       </button>
-      <Link
-        className={styles.listLink}
-        href="/compare"
-        aria-label={`Открыть сравнение выбранных автомобилей${selectedIds.length ? `, ${selectedIds.length}` : ""}`}
-      >
-        Сравнение{selectedIds.length ? ` (${selectedIds.length})` : ""}
-      </Link>
       {isFull && <span className={styles.limitNotice} role="status">Можно выбрать не больше 4 объявлений. Удалите одно в сравнении.</span>}
     </div>
   );

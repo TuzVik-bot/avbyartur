@@ -1,0 +1,5 @@
+.savedSearch { position: relative; }
+.savedSearch summary { display: flex; align-items: center; min-height: 44px; padding: 0 10px; color: var(--accent-dark); font-size: 14px; font-weight: 600; cursor: pointer; }
+.savedSearch[open] { flex-basis: 100%; }
+.savedSearch :global(.saved-search-action) { padding: 8px 0; }
+@media (max-width: 520px) { .savedSearch { order: 3; } }

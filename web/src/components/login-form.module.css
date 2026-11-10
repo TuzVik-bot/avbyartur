@@ -1,0 +1,8 @@
+.auth h1 { margin: 8px 0; font-size: clamp(30px, 4vw, 42px); line-height: 1.05; letter-spacing: -.03em; }
+.auth > p { color: var(--muted); font-size: 16px; }
+.auth :global(.phone-auth-tabs) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin: 24px 0; }
+.auth :global(.field) { font-size: 16px; }
+.auth input:not([type="checkbox"]), .auth button { min-height: 44px; }
+.registrationNotice { margin: 0 0 24px; padding-block: 14px; border-block: 1px solid var(--line); color: var(--ink); font-size: 14px; line-height: 1.5; }
+.registrationNotice strong { display: block; margin-bottom: 6px; }
+.registrationNotice p { margin: 6px 0 0; color: var(--muted); }

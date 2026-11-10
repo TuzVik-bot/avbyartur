@@ -1,0 +1,14 @@
+services:
+  api:
+    image: avtorinok-api:feedback-20261030-r1
+    environment:
+      LISTING_AUTO_PUBLISH_ENABLED: "true"
+      PUBLIC_GUEST_CONTACT_ENABLED: "true"
+      GUEST_CONTACT_IP_HOURLY_LIMIT: "300"
+  worker:
+    image: avtorinok-api:feedback-20261030-r1
+  web:
+    image: avtorinok-web:feedback-20261030-r1
+    build:
+      args:
+        AVTORINOK_PUBLIC_INDEXING_ENABLED: "true"

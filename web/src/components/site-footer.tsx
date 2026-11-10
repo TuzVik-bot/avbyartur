@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { FooterChannels } from "./footer-channels";
 import { FooterGroup } from "./footer-group";
+import { ContactClickConsent } from "./contact-click-consent";
+import { SiteAssistant } from "./site-assistant";
+import styles from "./site-footer.module.css";
 import { advertisementSections } from "@/lib/advertisement-sections";
 
 type FooterLink = { href: string; label: string };
@@ -42,7 +45,7 @@ const footerGroups: FooterGroup[] = [
       { href: "/privacy-policy", label: "Политика конфиденциальности" },
       { href: "/cookie-policy", label: "Политика использования cookie-файлов" },
       { href: "/submitting-advert", label: "Правила подачи объявлений" },
-      { href: "/credit-policy", label: "Согласие на обработку персональных данных для фин. организаций" }
+      { href: "/credit-policy", label: "Финансовые предложения и данные" }
     ]
   },
   {
@@ -78,7 +81,11 @@ export function SiteFooter() {
           ))}
         </nav>
         <FooterChannels />
-        <p className="footer-note">Закрытый пилот. Данные и контакты предназначены для тестирования.</p>
+        <p className="footer-note">Авторынок — поиск и продажа транспорта в Беларуси. Сведения в объявлениях предоставляют продавцы и внешние источники.</p>
+        <div className={styles.utilities}>
+          <ContactClickConsent />
+          <SiteAssistant />
+        </div>
       </div>
     </footer>
   );

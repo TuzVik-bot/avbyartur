@@ -84,7 +84,7 @@ type RowDefinition = { key: ComparisonRowKey; label: string; get: (listing: List
 const rowDefinitions: RowDefinition[] = [
   { key: "vehicle", label: "Марка и модель", get: (listing) => textCell([listing.make?.name, listing.model?.name].filter(Boolean).join(" ")) },
   { key: "price", label: "Цена в объявлении", get: priceCell },
-  { key: "year", label: "Год выпуска", get: (listing) => numberCell(listing.year, " г.") },
+  { key: "year", label: "Год выпуска", get: (listing) => listing.year == null ? null : { value: `${listing.year} г.`, comparisonKey: listing.year } },
   { key: "mileage", label: "Пробег", get: (listing) => listing.mileage_km === null ? null : { value: formatMileage(listing.mileage_km), comparisonKey: listing.mileage_km } },
   { key: "engine_volume", label: "Объём двигателя", get: (listing) => numberCell(listing.engine_volume_l || listing.modification?.specs?.engine_l, " л", 2) },
   { key: "power", label: "Мощность", get: (listing) => numberCell(listing.power_hp ?? listing.modification?.specs?.power_hp, " л.с.") },

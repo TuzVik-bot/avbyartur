@@ -6,7 +6,7 @@ import { Eye, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { ComparisonAction } from "@/components/comparison/comparison-action";
+import { CompareButton } from "@/components/compare-button";
 import { ListingPhotoBadges } from "@/components/listing-photo-badges";
 import { api, ApiClientError } from "@/lib/api";
 import { formatMileage, formatMoney, listingHref, listingPhotoAlt, vehicleLabel } from "@/lib/format";
@@ -72,7 +72,7 @@ function marketTooltip(comparison: MarketComparison) {
 }
 
 function listingImageSizes(variant: "grid" | "row") {
-  if (variant === "row") return "(max-width: 520px) 118px, 220px";
+  if (variant === "row") return "(max-width: 520px) calc(100vw - 24px), 220px";
   return "(max-width: 520px) calc(100vw - 24px), (max-width: 800px) calc((100vw - 42px) / 2), (max-width: 1020px) calc((100vw - 54px) / 2), min(431px, calc((100vw - 68px) / 3))";
 }
 
@@ -88,7 +88,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
     ? engineVolumeValue.trim() ? Number(engineVolumeValue) : null
     : engineVolumeValue ?? null;
   return (
-    <article className={`listing-card ${variant === "row" ? "listing-row" : ""}`}>
+    <article className={`listing-card ${styles.card} ${variant === "row" ? "listing-row" : ""}`}>
       <div className="listing-card-media">
         <Link href={href} aria-label={`Открыть объявление ${title}`}>
           <Image src={photo} alt={hasActualPhoto ? listingPhotoAlt(title) : `Синтетическое изображение для объявления «${title}»`} width={900} height={563} sizes={listingImageSizes(variant)} priority={false} />
@@ -97,6 +97,7 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
         {hasActualPhoto && <ListingPhotoBadges badges={listing.photo_badges} />}
         {listing.promotion_badges?.includes("urgent") && <span className={styles.urgentBadge} data-urgent-badge>Срочно</span>}
         <FavoriteButton listingId={listing.id} href={href} initialSaved={saved} />
+        <CompareButton listingId={listing.id} />
       </div>
       <div className="card-body">
         <Link className="card-title" href={href}>{title}</Link>
@@ -116,12 +117,12 @@ export function ListingCard({ listing, variant = "grid", saved = false }: { list
         {age && <p className="card-published" suppressHydrationWarning>{age}</p>}
         <div className="card-footer">
           <span className={`seller-tag ${listing.seller.type === "private" ? "private" : ""}`}>
-            <span aria-hidden="true">{listing.seller.type === "company" ? "◆" : "●"}</span>
-            {listing.seller.type === "company" ? "Компания" : "Частный продавец"}
+            <span aria-hidden="true">{!listing.is_imported && listing.seller.type === "company" ? "◆" : "●"}</span>
+            {listing.is_imported ? (listing.provenance?.source_name || "Источник объявления") : listing.seller.type === "company" ? "Компания" : "Частный продавец"}
           </span>
           {listing.city?.slug ? <Link href={`/cars/city/${encodeURIComponent(listing.city.slug)}`}>{listing.city.name}</Link> : <span>{listing.manual_city || "Населённый пункт не указан"}</span>}
         </div>
-        <div className="card-actions"><ComparisonAction listingId={listing.id} />{listing.view_count != null && <span className="listing-views" role="img" aria-label={`Просмотры: ${listing.view_count}`}><Eye size={15} aria-hidden="true" /> {listing.view_count.toLocaleString("ru-BY")}</span>}</div>
+        <div className="card-actions">{listing.view_count != null && <span className="listing-views" role="img" aria-label={`Просмотры: ${listing.view_count}`}><Eye size={15} aria-hidden="true" /> {listing.view_count.toLocaleString("ru-BY")}</span>}</div>
       </div>
     </article>
   );

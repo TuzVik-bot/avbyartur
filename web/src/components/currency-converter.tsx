@@ -102,7 +102,7 @@ function ExchangeHistoryChart({ history, currencyLabel, amount }: { history: Rat
         role="img"
         aria-label={`История курса ${currencyLabel} по данным НБРБ с ${formatDate(first.date, "short")} по ${formatDate(last.date, "short")}`}
       >
-        <title>Курс {currencyLabel} в белорусских рублях</title>
+        <title>{`Курс ${currencyLabel} в белорусских рублях`}</title>
         {ticks.map((tick, index) => {
           const y = top + index * (plotHeight / 2);
           return <g key={index}>
@@ -114,7 +114,7 @@ function ExchangeHistoryChart({ history, currencyLabel, amount }: { history: Rat
         {markerIndexes.map((index) => {
           const { x, y } = position(index, points[index].value);
           return <circle className={styles.chartMarker} key={points[index].date} cx={x} cy={y} r="3.5">
-            <title>{formatDate(points[index].date)}: {formatRate(points[index].value)} BYN</title>
+            <title>{`${formatDate(points[index].date)}: ${formatRate(points[index].value)} BYN`}</title>
           </circle>;
         })}
         <text className={styles.axisLabel} x={left} y={height - 8}>{formatDate(first.date, "short")}</text>

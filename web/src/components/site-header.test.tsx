@@ -32,16 +32,24 @@ afterEach(() => {
 });
 
 describe("moderation navigation", () => {
-  it("provides direct account access outside the collapsed menu for guests and members", () => {
+  it("keeps the headlights control in the desktop header actions rather than Services", () => {
+    act(() => root.render(createElement(AuthProvider, { initialSession: null, children: createElement(SiteHeader) })));
+    expect(container.querySelector('.header-actions button[data-headlights]')).not.toBeNull();
+    expect(container.querySelector('#services-navigation button[data-headlights]')).toBeNull();
+    expect(container.querySelector('#main-navigation button[data-headlights]')).not.toBeNull();
+  });
+
+  it("provides account access in navigation for guests and members", () => {
     act(() => root.render(createElement(AuthProvider, { key: "guest", initialSession: null, children: createElement(SiteHeader) })));
-    expect(container.querySelector('.header-actions a[aria-label="Кабинет"]')?.getAttribute("href")).toBe("/login?next=%2Faccount");
+    expect(container.querySelector('#main-navigation a[href="/login"]')).not.toBeNull();
     act(() => root.render(createElement(AuthProvider, { key: "member", initialSession: makeSession("user"), children: createElement(SiteHeader) })));
-    expect(container.querySelector('.header-actions a[aria-label="Кабинет"]')?.getAttribute("href")).toBe("/account");
+    expect(container.querySelector('#main-navigation a[href="/account"]')).not.toBeNull();
   });
   it("opens catalog navigation and restores focus when Escape closes it", () => {
     act(() => root.render(createElement(AuthProvider, { initialSession: null, children: createElement(SiteHeader) })));
     const trigger = container.querySelector<HTMLButtonElement>('button[aria-controls="catalog-navigation"]');
     expect(trigger).not.toBeNull();
+    expect(trigger?.getAttribute("aria-label")).toContain(trigger?.textContent?.trim());
     expect(trigger?.getAttribute("aria-expanded")).toBe("false");
     act(() => trigger?.click());
     expect(trigger?.getAttribute("aria-expanded")).toBe("true");
@@ -95,12 +103,12 @@ describe("moderation navigation", () => {
     expect(container.querySelector('nav a[href="/currency-converter"]')?.textContent).toBe("Конвертер валют");
     expect(container.querySelector('#services-navigation a[href="/vin-check"]')?.textContent).toBe("Проверка авто по VIN");
     expect(container.querySelector('#services-navigation a[href="/sale-contract"]')?.textContent).toBe("Договор купли-продажи");
-    expect(container.querySelector('#main-navigation a[href="/account/favorites"]')).toBeNull();
+    expect(container.querySelector('#main-navigation a[href="/account/favorites"]')).not.toBeNull();
     expect(container.querySelector('nav a[href="/login"]')?.textContent).toBe("Войти");
     expect(container.querySelector('a[href="/sell"]')?.textContent).toContain("Подать объявление");
   });
 
-  it("keeps favorites inside the account navigation", () => {
+  it("keeps favorites accessible from the menu and account navigation", () => {
     act(() => {
       root.render(createElement(AuthProvider, {
         initialSession: makeSession("user"),
@@ -108,7 +116,7 @@ describe("moderation navigation", () => {
       }));
     });
 
-    expect(container.querySelector('#main-navigation a[href="/account/favorites"]')).toBeNull();
+    expect(container.querySelector('#main-navigation a[href="/account/favorites"]')).not.toBeNull();
     expect(container.querySelector('.account-nav a[href="/account/favorites"]')?.textContent).toContain("Избранное");
   });
 

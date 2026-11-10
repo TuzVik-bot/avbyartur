@@ -1,0 +1,3 @@
+services:
+  web:
+    image: avtorinok-web:card-borders-20261102-r1

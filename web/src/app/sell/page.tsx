@@ -31,16 +31,17 @@ function SellLanding({ nextPath, categoryCode, subcategory }: { nextPath: string
         <div className={styles.introCopy}>
           <p className={styles.eyebrow}>Для продавцов</p>
           <h1 id="sell-heading">{vehicle ? "От черновика до объявления в каталоге" : `Новое объявление ${categoryLabel}`}</h1>
-          <p className={styles.lead}>{vehicle ? "Заполните сведения об автомобиле, добавьте фотографии и отправьте карточку на проверку." : `Укажите характеристики ${categoryLabel}, добавьте фотографии и отправьте карточку на проверку.`} После одобрения объявление появится в каталоге, а покупатели смогут связаться с вами.</p>
+          <p className={styles.lead}>{vehicle ? "Заполните сведения об автомобиле и добавьте фотографии." : `Укажите характеристики ${categoryLabel}, добавьте фотографии.`} Сохраните черновик и вернитесь к нему в любое время.</p>
           {selectedSubcategory && <p className={styles.accountNote}>Вы выбрали: {selectedSubcategory}. Выбор сохранится после входа.</p>}
           <div className={styles.actions}>
             <Link className="button button-primary" href={loginHref}>Войти и начать <ArrowRight size={17} aria-hidden="true" /></Link>
-            <a className={styles.stepsLink} href="#sell-steps">Посмотреть этапы</a>
+            <a className={styles.stepsLink} href="#sell-guide">Подробнее о подаче</a>
           </div>
           <p className={styles.accountNote}>Для подачи нужен аккаунт. После входа вы вернётесь к форме объявления.</p>
         </div>
       </section>
 
+      <details id="sell-guide" className={styles.guide}><summary>Как подготовить объявление</summary>
       <section className={styles.stepsSection} id="sell-steps" aria-labelledby="sell-steps-heading">
         <div className={styles.sectionHeading}>
           <div><p className={styles.eyebrow}>Путь продавца</p><h2 id="sell-steps-heading">Три этапа до публикации</h2></div>
@@ -49,7 +50,7 @@ function SellLanding({ nextPath, categoryCode, subcategory }: { nextPath: string
         <ol className={styles.steps}>
           <li><span className={styles.stepNumber}>01</span><h3>Опишите {vehicle ? "автомобиль" : "технику"}</h3><p>Укажите категорию, характеристики, цену и расположение. Неизвестные марку или модель можно вписать вручную.</p></li>
           <li><span className={styles.stepNumber}>02</span><h3>Добавьте фотографии</h3><p>Загрузите снимки автомобиля и выберите главное фото. Форма подскажет допустимые форматы и количество.</p></li>
-          <li><span className={styles.stepNumber}>03</span><h3>Проверьте и отправьте</h3><p>Посмотрите карточку целиком и отправьте её модератору. В каталоге она появится после одобрения.</p></li>
+          <li><span className={styles.stepNumber}>03</span><h3>Проверьте и отправьте</h3><p>Посмотрите карточку целиком и отправьте её. Порядок публикации будет указан в форме.</p></li>
         </ol>
       </section>
 
@@ -61,7 +62,7 @@ function SellLanding({ nextPath, categoryCode, subcategory }: { nextPath: string
 
       {vehicle && <figure className={styles.vehicleFigure}>
         <Image src="/vehicles/silver-wagon.png" alt="Пример автомобиля для объявления" width={1448} height={1086} sizes="(max-width: 600px) calc(100vw - 48px), 480px" />
-        <figcaption>После проверки карточка автомобиля появится в каталоге.</figcaption>
+        <figcaption>Добавьте фотографии, чтобы покупателям было проще оценить предложение.</figcaption>
       </figure>}
 
       <section className={styles.photoGuide} aria-labelledby="sell-photo-heading">
@@ -70,6 +71,7 @@ function SellLanding({ nextPath, categoryCode, subcategory }: { nextPath: string
         <div className={styles.photoChecklist}><span><CheckCircle2 size={16} aria-hidden="true" /> Честное описание</span><span><CheckCircle2 size={16} aria-hidden="true" /> Цена и расположение</span><span><CheckCircle2 size={16} aria-hidden="true" /> Обработанные фото</span></div>
       </section>
 
+      </details>
       <div className={styles.bottomAction}>
         <div><h2>Начните с черновика</h2><p>Сохраните данные и вернитесь к объявлению, когда будете готовы.</p></div>
         <Link className="button button-primary" href={loginHref}>Войти и начать <ArrowRight size={17} aria-hidden="true" /></Link>

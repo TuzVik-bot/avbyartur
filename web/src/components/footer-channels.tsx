@@ -30,24 +30,27 @@ function Channel({ href, label, className, children }: { href: string; label: st
 }
 
 export function FooterChannels() {
+  const publishedSocials = socialChannels.filter(({ href }) => href);
+  const publishedApps = appStores.filter(({ href }) => href);
+  if (!publishedSocials.length && !publishedApps.length) return null;
   return (
     <div className={styles.channels}>
-      <section aria-labelledby="footer-social-title">
+      {publishedSocials.length > 0 && <section aria-labelledby="footer-social-title">
         <h2 className="footer-group-title" id="footer-social-title">Мы в соцсетях</h2>
         <div className={styles.socials}>
-          {socialChannels.map(({ label, href, icon }) => <Channel key={label} href={href} label={label} className={styles.social}>{icon}</Channel>)}
+          {publishedSocials.map(({ label, href, icon }) => <Channel key={label} href={href} label={label} className={styles.social}>{icon}</Channel>)}
         </div>
-      </section>
-      <section aria-labelledby="footer-apps-title">
+      </section>}
+      {publishedApps.length > 0 && <section aria-labelledby="footer-apps-title">
         <h2 className="footer-group-title" id="footer-apps-title">Мобильное приложение</h2>
         <div className={styles.stores}>
-          {appStores.map(({ label, href, icon }) => (
-            <Channel key={label} href={href} label={label} className={styles.store}>
-              {icon}<span><span className={styles.caption}>Скоро в</span><span className={styles.storeName}>{label}</span></span>
+          {publishedApps.map(({ label, href, icon }) => (
+            <Channel key={label} href={href} label={`Скачать в ${label}`} className={styles.store}>
+              {icon}<span><span className={styles.caption}>Скачать в </span><span className={styles.storeName}>{label}</span></span>
             </Channel>
           ))}
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

@@ -11,7 +11,9 @@ import { ListingPriceHistory } from "@/components/listing-price-history";
 import { RecentlyViewedListings } from "@/components/recently-viewed-listings";
 import { ListingContactActions } from "@/components/listing-contact-actions";
 import { useContactClickConsent } from "@/components/contact-click-consent";
-import { ListingTrust } from "@/components/listing-trust";
+import styles from "./listing-detail.module.css";
+import { trackFunnelEvent } from "@/lib/funnel-analytics";
+import { useMeasurementView } from "@/components/measurement-provider";
 import { ListingPhotoBadges } from "@/components/listing-photo-badges";
 import { SellerListings, type PublicSellerListing } from "@/components/seller-listings";
 import { ComparisonAction } from "@/components/comparison/comparison-action";
@@ -91,6 +93,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [guestContactRevealEnabled, setGuestContactRevealEnabled] = useState(false);
   const [canManageActiveListing, setCanManageActiveListing] = useState(false);
+  const [footerVisible, setFooterVisible] = useState(false);
   const actualPhotos = listing.photo_urls.filter(Boolean);
   const photos = actualPhotos.length ? actualPhotos : [listing.cover_url || fallbackPhoto];
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
@@ -104,7 +107,7 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   const exchangeStartPath = `${conversationStartPath}&intent=exchange`;
   const exchangeStartHref = user ? exchangeStartPath : `/login?next=${encodeURIComponent(exchangeStartPath)}`;
   const conversationStartHref = user ? conversationStartPath : `/login?next=${encodeURIComponent(conversationStartPath)}`;
-  const location = `${listing.manual_city || listing.city?.name || "Населённый пункт не указан"}, ${listing.region?.name || "Область не указана"}`;
+  const location = [listing.manual_city || listing.city?.name, listing.region?.name].filter(Boolean).join(", ") || "Местоположение не указано";
   const powerHp = listing.power_hp ?? listing.modification?.specs?.power_hp;
   const facts = [
     ["Год выпуска", listing.year ? `${listing.year} г.` : "Не указан"],
@@ -142,6 +145,16 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   const visibleRelatedListings = [...new Map(relatedListings
     .filter((item) => item.id !== listing.id)
     .map((item) => [item.id, item])).values()].slice(0, 8);
+
+  useMeasurementView("listing_opened", { source: "other" }, listing.id);
+
+  useEffect(() => {
+    const footer = document.querySelector(".site-footer");
+    if (!footer || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setFooterVisible(entry.isIntersecting));
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     setSelectedPhotoIndex(0);
@@ -200,12 +213,30 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
     selectPhoto(nextIndex);
   }
 
+  function hasAvailableMessenger(channels: ListingMessengerChannel[]) {
+    return channels.some((item) => {
+      if (!item.opted_in) return false;
+      try {
+        const url = new URL(item.uri);
+        const parts = url.pathname.split("/").filter(Boolean);
+        if (url.protocol !== "https:" || url.username || url.password || url.port || url.search || url.hash || parts.length !== 1) return false;
+        if (item.channel === "telegram") return ["t.me", "telegram.me"].includes(url.hostname.toLowerCase()) && /^[A-Za-z0-9_]{5,32}$/.test(parts[0]);
+        return item.channel === "viber" && ["viber.me", "viber.com", "www.viber.com"].includes(url.hostname.toLowerCase()) && /^[A-Za-z0-9_.+-]{1,160}$/.test(parts[0]);
+      } catch { return false; }
+    });
+  }
+
   async function revealPhone() {
     if (phoneBusy) return;
     setPhoneError("");
     setPhoneBusy(true);
     try {
       const result = await api.revealPhone(listing.id, !user);
+      if (!result.phone && !hasAvailableMessenger(result.messengers ?? [])) {
+        setPhoneError("Контакты временно недоступны. Попробуйте позже.");
+        return;
+      }
+      trackFunnelEvent("contact_reveal_succeeded", {});
       setPhone(result.phone);
       setMessengers(result.messengers ?? []);
       setContactsRevealed(true);
@@ -223,11 +254,16 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
   }
 
   return (
-    <div className="page-width detail-page">
+    <div className={`page-width detail-page ${styles.page}`}>
       <nav className="breadcrumb" aria-label="Хлебные крошки">
         <Link href="/">Главная</Link><ChevronRight size={14} /><Link href="/cars">Автомобили</Link>
         {listingCatalogBreadcrumbs(listing).map((item) => <Fragment key={item.path}><ChevronRight size={14} /><Link href={item.path}>{item.name}</Link></Fragment>)}
       </nav>
+      <header className={styles.heading}>
+        <h1 className="detail-title">{listing.title}</h1>
+        {listing.in_transit && <p className="status-pill">Авто в пути · указано продавцом</p>}
+        <p className="muted location-line"><MapPin size={15} aria-hidden="true" /> {location} · добавлено {formatDate(listing.created_at)} {listing.view_count != null && <span className="listing-views" role="img" aria-label={`Просмотры: ${listing.view_count}`}><Eye size={15} aria-hidden="true" /> {listing.view_count.toLocaleString("ru-BY")}</span>}</p>
+      </header>
       <div className="detail-layout">
         <div className="detail-main-column">
           <div className="detail-gallery" role="region" aria-label={`Фотографии автомобиля «${listing.title}»`} tabIndex={0} onKeyDown={handleGalleryKeyDown}>
@@ -246,21 +282,22 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
             </>}
           </div>
           <section className="detail-summary section">
-            <h1 className="detail-title">{listing.title}</h1>
-            {listing.in_transit && <p className="status-pill">Авто в пути · указано продавцом</p>}
-            <p className="muted location-line"><MapPin size={15} aria-hidden="true" /> {location} · добавлено {formatDate(listing.created_at)} {listing.view_count != null && <span className="listing-views" role="img" aria-label={`Просмотры: ${listing.view_count}`}><Eye size={15} aria-hidden="true" /> {listing.view_count.toLocaleString("ru-BY")}</span>}</p>
             <h2>Характеристики</h2>
             <div className="detail-facts">{facts.map(([name, value]) => <div className="detail-fact" key={name}><span>{name}</span><strong>{value}</strong></div>)}</div>
             {listing.damaged && <p className="notice">Продавец указал повреждения.</p>}
             {listing.parts_only && <p className="notice">Продаётся на запчасти.</p>}
           </section>
-          <ListingTrust claims={sellerClaims} evidence={listing.verified_evidence || []} />
+          <section className="detail-summary listing-trust" aria-labelledby="listing-trust-heading">
+            <h2 id="listing-trust-heading">Сведения об автомобиле</h2>
+            {(listing.verified_evidence || []).filter((item) => item.label.trim() && item.summary.trim() && item.source.trim() && item.scope.trim() && Number.isFinite(Date.parse(item.checked_at))).length ? <ul aria-label="Подтверждённые сведения">{(listing.verified_evidence || []).filter((item) => item.label.trim() && item.summary.trim() && item.source.trim() && item.scope.trim() && Number.isFinite(Date.parse(item.checked_at))).map((item, index) => <li key={item.id || `${item.label}-${index}`}><strong>{item.label}</strong> · {item.summary} · область: {item.scope} · источник: {item.source} · дата проверки: {new Date(item.checked_at).toLocaleDateString("ru-BY")}</li>)}</ul> : <p className="muted">Для этого объявления нет сведений, подтверждённых независимым источником. Наличие VIN само по себе не подтверждает историю автомобиля или число владельцев.</p>}
+            {sellerClaims.length > 0 && <div className="seller-claims"><h3>Указано продавцом</h3><ul>{sellerClaims.map((claim) => <li key={claim.label}>{claim.label}: {claim.value}</li>)}</ul></div>}
+          </section>
           <section className="detail-summary">
             <h2>Описание</h2>
             <p className="detail-description">{listing.description || "Продавец не добавил описание."}</p>
           </section>
         </div>
-        <aside className="detail-panel" aria-label="Цена и продавец">
+        <aside id="listing-contact-panel" className="detail-panel" aria-label="Цена и продавец">
           {listing.status === "sold" && <p className="status-pill">Продано</p>}
           <div className="detail-price-row">
             <p className="detail-price">{formatMoney(listing.price)}</p>
@@ -269,9 +306,9 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           {listing.price?.currency === "USD" && listing.price.display_byn && listing.price.rate_date && <p className="muted">В BYN по курсу на {formatDate(listing.price.rate_date)}</p>}
           <Link className="button button-secondary ownership-calculator-link" href={`/ownership-calculator?listing=${encodeURIComponent(listing.id)}`}>Рассчитать стоимость владения</Link>
           {listing.status === "active" ? <>
-            {(listing.has_phone !== false || listing.has_external_contacts === true) ? <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} revealed={contactsRevealed} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} messengers={messengers} onContactClick={recordContactClick} /> : <p className="muted">Продавец предпочитает общаться в переписке.</p>}
-            {user?.id !== listing.seller.id && <Link className={`button ${listing.has_phone === false && !listing.has_external_contacts ? "button-primary" : "button-secondary"} contact-chat`} href={conversationStartHref} onClick={() => recordContactClick("internal_chat")}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
-            {listing.exchange && user?.id !== listing.seller.id && <Link className="button button-secondary exchange-offer" href={exchangeStartHref}>Предложить обмен</Link>}
+            {(listing.has_phone !== false || listing.has_external_contacts === true) ? <ListingContactActions active={true} guestContactRevealEnabled={!user && guestContactRevealEnabled} revealed={contactsRevealed} phone={phone} busy={phoneBusy} error={phoneError} onReveal={() => { void revealPhone(); }} messengers={messengers} onContactClick={recordContactClick} /> : listing.can_chat !== false && <p className="muted">Продавец предпочитает общаться в переписке.</p>}
+            {listing.can_chat !== false && user?.id !== listing.seller.id && <Link className={`button ${listing.has_phone === false && !listing.has_external_contacts ? "button-primary" : "button-secondary"} contact-chat`} href={conversationStartHref} onClick={() => recordContactClick("internal_chat")}><MessageCircle size={17} aria-hidden="true" /> Написать продавцу</Link>}
+            {listing.can_chat !== false && listing.exchange && user?.id !== listing.seller.id && <Link className="button button-secondary exchange-offer" href={exchangeStartHref}>Предложить обмен</Link>}
           </> : <ListingContactActions active={false} guestContactRevealEnabled={false} phone="" busy={false} error="" onReveal={() => undefined} />}
           <FavoriteButton listingId={listing.id} href={href} initialSaved={initialSaved} />
           {canManageActiveListing && <Link className="button button-secondary contact-chat" href={`/account/billing?listing_id=${encodeURIComponent(listing.id)}`}>Услуги продвижения</Link>}
@@ -281,18 +318,19 @@ export function ListingDetail({ listing, initialSaved = false, relatedListings =
           </div>
           <div className="seller-box">
             <span className={`seller-tag ${listing.seller.type === "private" ? "private" : ""}`}>
-              {listing.seller.type === "company" ? <Building2 size={16} /> : <CircleUserRound size={16} />}
-              {listing.seller.type === "company" ? "Компания" : "Частный продавец"}
+              {!listing.is_imported && (listing.seller.type === "company" ? <Building2 size={16} /> : <CircleUserRound size={16} />)}
+              {listing.is_imported ? "Источник объявления" : listing.seller.type === "company" ? "Компания" : "Частный продавец"}
             </span>
-            {listing.seller.type === "company" && listing.seller.slug ? <p><Link className="text-link" href={`/dealers/${encodeURIComponent(listing.seller.slug)}`} onClick={() => { void api.trackDealerClick(listing.id).catch(() => undefined); }}>{listing.seller.name} <ChevronRight size={15} /></Link></p> : <p><strong>{listing.seller.name}</strong></p>}
+            {listing.is_imported ? listing.provenance && <p><a className="text-link" href={listing.provenance.original_url}>{listing.provenance.source_name}</a></p> : listing.seller.type === "company" && listing.seller.slug ? <p><Link className="text-link" href={`/dealers/${encodeURIComponent(listing.seller.slug)}`} onClick={() => { void api.trackDealerClick(listing.id).catch(() => undefined); }}>{listing.seller.name} <ChevronRight size={15} /></Link></p> : <p><strong>{listing.seller.name}</strong></p>}
             <p className="muted">{location}</p>
           </div>
           <ReportForm listingId={listing.id} href={href} />
-          {listing.status === "active" && <p className="privacy-note"><ShieldCheck size={15} /> {listing.has_phone === false && !listing.has_external_contacts ? "Продавец может поделиться контактом в переписке." : "Контакты открываются по запросу и не показываются в публичной выдаче."}</p>}
+          {listing.status === "active" && (listing.can_chat !== false || listing.has_phone !== false || listing.has_external_contacts) && <p className="privacy-note"><ShieldCheck size={15} /> {listing.has_phone === false && !listing.has_external_contacts ? "Продавец может поделиться контактом в переписке." : "Контакты открываются по запросу и не показываются в публичной выдаче."}</p>}
         </aside>
       </div>
+      {!footerVisible && listing.status === "active" && (listing.has_phone !== false || listing.has_external_contacts || (listing.can_chat !== false && user?.id !== listing.seller.id)) && <div className={styles.mobileDock} data-listing-contact-dock><span>{formatMoney(listing.price)}</span><a className="button button-primary" href="#listing-contact-panel">Связаться с продавцом</a></div>}
       {visibleRelatedListings.length > 0 && <section className="related-listings section" aria-labelledby="related-listings-heading"><div className="section-heading"><h2 id="related-listings-heading">Похожие объявления</h2></div><div className="listing-stack">{visibleRelatedListings.map((item) => <ListingCard key={item.id} listing={item} variant="row" />)}</div></section>}
-      <SellerListings listingId={listing.id} sellerId={listing.seller.id} items={sellerListings} />
+      {!listing.is_imported && <SellerListings listingId={listing.id} sellerId={listing.seller.id} items={sellerListings} />}
       {listing.status === "active" && <ListingPriceHistory listingId={listing.id} />}
       <RecentlyViewedListings currentListingId={listing.id} userId={user?.id ?? null} shouldRecord={listing.status === "active"} />
     </div>

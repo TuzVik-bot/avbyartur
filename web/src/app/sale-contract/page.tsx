@@ -1,79 +1,26 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { InformationalPage } from "@/components/informational-page";
 import { buildOpenGraph } from "@/lib/seo";
 import { siteUrl } from "@/lib/site-config";
-import styles from "./sale-contract.module.css";
 
-export const metadata: Metadata = {
-  title: "Договор купли-продажи",
-  description: "Раздел договора купли-продажи автомобиля на Авторынке.",
-  alternates: { canonical: siteUrl("/sale-contract") },
-  openGraph: buildOpenGraph({
-    title: "Договор купли-продажи",
-    description: "Раздел договора купли-продажи автомобиля на Авторынке.",
-    path: "/sale-contract",
-  }),
-};
+const description = "Что подготовить и проверить перед оформлением сделки с автомобилем в Беларуси.";
+export const metadata: Metadata = { title: "Договор купли-продажи автомобиля", description, alternates: { canonical: siteUrl("/sale-contract") }, openGraph: buildOpenGraph({ title: "Договор купли-продажи автомобиля", description, path: "/sale-contract" }) };
 
 export default function SaleContractPage() {
-  return (
-    <InformationalPage
-      eyebrow="Сервисы"
-      title="Договор купли-продажи"
-      description="Пример заполнения договора купли-продажи автомобиля."
-      notice={<><strong>Образец · Все данные вымышлены.</strong> Пример предназначен для демонстрации раздела. Это не готовый документ для подписания.</>}
-    >
-      <section className="info-section" aria-labelledby="sale-contract-template">
-        <p className="eyebrow">Демонстрационный договор № ОБРАЗЕЦ-001</p>
-        <h2 id="sale-contract-template">Договор купли-продажи автомобиля</h2>
-        <p>г. Минск · 13 октября 2026 года</p>
-      </section>
-      <section className="info-section" aria-labelledby="sale-contract-parties">
-        <h2 id="sale-contract-parties">1. Продавец и покупатель</h2>
-        <div className={styles.parties}>
-          <div className="info-card">
-            <h3>Продавец</h3>
-            <p><strong>Иванов Иван Иванович</strong></p>
-            <p>Документ: ОБРАЗЕЦ-ПРОДАВЕЦ</p>
-            <p>Адрес: г. Минск, ул. Вымышленная, д. 10, кв. 5</p>
-          </div>
-          <div className="info-card">
-            <h3>Покупатель</h3>
-            <p><strong>Петрова Анна Сергеевна</strong></p>
-            <p>Документ: ОБРАЗЕЦ-ПОКУПАТЕЛЬ</p>
-            <p>Адрес: г. Минск, ул. Примерная, д. 20, кв. 15</p>
-          </div>
-        </div>
-      </section>
-      <section className="info-section" aria-labelledby="sale-contract-car">
-        <h2 id="sale-contract-car">2. Автомобиль</h2>
-        <dl className={styles.details}>
-          <div><dt>Марка и модель</dt><dd>Volkswagen Passat</dd></div>
-          <div><dt>Год выпуска</dt><dd>2018</dd></div>
-          <div><dt>Цвет</dt><dd>Серебристый</dd></div>
-          <div><dt>VIN</dt><dd>DEMO-VIN-ОБРАЗЕЦ (не настоящий VIN)</dd></div>
-          <div><dt>Регистрационный знак</dt><dd>ОБРАЗЕЦ-001</dd></div>
-          <div><dt>Свидетельство о регистрации</dt><dd>ОБРАЗЕЦ-ТЕХПАСПОРТ</dd></div>
-          <div><dt>Пробег</dt><dd>125 000 км</dd></div>
-        </dl>
-      </section>
-      <section className="info-section" aria-labelledby="sale-contract-payment">
-        <h2 id="sale-contract-payment">3. Цена и расчёт</h2>
-        <p>Цена автомобиля в примере: <strong>25 000 BYN</strong> (двадцать пять тысяч белорусских рублей).</p>
-        <p>Способ расчёта в примере: банковский перевод в день передачи автомобиля, 13 октября 2026 года.</p>
-      </section>
-      <section className="info-section" aria-labelledby="sale-contract-handover">
-        <h2 id="sale-contract-handover">4. Передача автомобиля</h2>
-        <p>Место и дата в примере: г. Минск, 13 октября 2026 года.</p>
-        <p>Комплект передачи в примере: автомобиль, два ключа, свидетельство о регистрации и сервисная книжка.</p>
-      </section>
-      <section className="info-section" aria-labelledby="sale-contract-signatures">
-        <h2 id="sale-contract-signatures">5. Подписи сторон</h2>
-        <div className={styles.parties}>
-          <p>Продавец: Иванов И. И.<br /><span className="muted">Подпись отсутствует · Образец</span></p>
-          <p>Покупатель: Петрова А. С.<br /><span className="muted">Подпись отсутствует · Образец</span></p>
-        </div>
-      </section>
-    </InformationalPage>
-  );
+  return <InformationalPage eyebrow="Покупка и продажа" title="Договор купли-продажи автомобиля" description={description} sections={[
+    { id: "contract-before", title: "Подготовка к сделке" },
+    { id: "contract-parties", title: "Стороны и полномочия" },
+    { id: "contract-car", title: "Данные автомобиля" },
+    { id: "contract-payment", title: "Цена и расчёт" },
+    { id: "contract-handover", title: "Передача автомобиля" },
+    { id: "contract-registration", title: "Оформление и регистрация" },
+  ]}>
+    <section className="info-section" aria-labelledby="contract-before"><h2 id="contract-before">Подготовка к сделке</h2><p>До подписания осмотрите автомобиль, проверьте документы и согласуйте условия без спешки. При сомнениях в состоянии машины договоритесь о независимой диагностике; при расхождениях в документах отложите расчёт до выяснения обстоятельств.</p><p>Актуальную форму договора и порядок оформления для вашей ситуации уточните в регистрационном подразделении ГАИ. Этот список помогает подготовиться и не заменяет договор или индивидуальную юридическую консультацию.</p></section>
+    <section className="info-section" aria-labelledby="contract-parties"><h2 id="contract-parties">Стороны и полномочия</h2><ul className="info-list"><li>Сверьте данные продавца и покупателя с оригиналами документов, удостоверяющих личность.</li><li>Уточните, кто является собственником автомобиля. Если действует представитель, проверьте документы и полномочия на совершение сделки.</li><li>При участии компании проверьте её данные и полномочия подписанта; если обстоятельства сделки вызывают вопросы, обратитесь за консультацией.</li></ul></section>
+    <section className="info-section" aria-labelledby="contract-car"><h2 id="contract-car">Данные автомобиля</h2><p>Сверьте сведения в договоре с документами автомобиля и маркировкой на нём: марку, модель, идентификационный номер и другие предусмотренные формой данные. Исправьте расхождения до подписания.</p><p>Проверьте доступные сведения об автомобиле по официальным источникам и сопоставьте их с осмотром. <Link className="text-link" href="/useful-information/check-car-before-buying">Чеклист проверки автомобиля</Link> поможет подготовиться к встрече.</p></section>
+    <section className="info-section" aria-labelledby="contract-payment"><h2 id="contract-payment">Цена и расчёт</h2><p>Согласуйте цену, способ и момент расчёта и проверьте, что они отражены в документах. Не переводите деньги под давлением или третьему лицу без проверки его полномочий. Выберите понятный обеим сторонам способ оплаты и сохраните подтверждение.</p><p>Если стороны отдельно договариваются об авансе или задатке, стоит заранее письменно уточнить условия и последствия отказа от сделки.</p></section>
+    <section className="info-section" aria-labelledby="contract-handover"><h2 id="contract-handover">Передача автомобиля</h2><p>Заранее согласуйте дату и порядок передачи автомобиля, ключей, документов и принадлежностей. При необходимости составьте документ о передаче и перечислите известные сторонам особенности состояния, комплектность и показания одометра на момент передачи.</p><p>Перед подписанием прочитайте каждый экземпляр, проверьте одинаковость записей и сохраните свои документы о сделке и расчёте.</p></section>
+    <section className="info-section" aria-labelledby="contract-registration"><h2 id="contract-registration">Оформление и регистрация</h2><p>Порядок оформления может зависеть от участников и обстоятельств сделки. До встречи уточните в ГАИ актуальную форму, необходимые документы, порядок регистрации и применимые платежи. Не используйте демонстрационные данные вместо реальных сведений сторон и автомобиля.</p><p>При споре о правах, залоге, наследовании или полномочиях представителя обратитесь к специалисту до передачи денег и автомобиля.</p></section>
+  </InformationalPage>;
 }

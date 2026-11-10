@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogIn } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { api, ApiClientError, type AuthCapabilities, type RegistrationConsentVersions } from "@/lib/api";
 import { safeNextPath } from "@/lib/routing";
+import { trackFunnelEvent } from "@/lib/funnel-analytics";
+import styles from "./login-form.module.css";
 import { PhoneAuth } from "@/components/phone-auth";
 
 export function LoginForm({ nextPath, consentVersions = null }: { nextPath: string; consentVersions?: RegistrationConsentVersions | null }) {
   const { setSession } = useAuth();
   const router = useRouter();
+  const registrationTracked = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
@@ -44,6 +47,7 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
         if (!data.get("accept_terms") || !data.get("accept_privacy")) throw new Error("Подтвердите согласие с документами.");
         session = await api.registerEmail({ email, password, display_name: String(data.get("display_name") || "").trim(),
           accept_terms: true, accept_privacy: true, terms_version: emailConsentVersions.terms, privacy_version: emailConsentVersions.privacy });
+        if (!registrationTracked.current) { trackFunnelEvent("registration_completed", { method: "email" }); registrationTracked.current = true; }
       } else session = await api.login(email, password);
       setSession(session);
       router.replace(safeNextPath(nextPath));
@@ -58,19 +62,24 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
     }
   }
 
-  return <>
+  return <div className={styles.auth}>
+    <h1>{registering ? "Создать аккаунт" : "Вход в кабинет"}</h1>
+    <p>{registering ? "Создайте аккаунт, чтобы продолжить." : "Войдите, чтобы продолжить."}</p>
     {canRegister && <div className="phone-auth-tabs">
       <button className="button button-secondary button-small" type="button" disabled={busy} aria-pressed={!registering} onClick={() => { setRegistering(false); setError(""); }}>Войти</button>
       <button className="button button-secondary button-small" type="button" disabled={busy} aria-pressed={registering} onClick={() => { setRegistering(true); setError(""); }}>Создать аккаунт</button>
     </div>}
+    {registering && (capabilities?.email_registration_pilot || capabilities?.test_mail) && <aside className={styles.registrationNotice} aria-label="Ограничения регистрации">
+      {capabilities?.email_registration_pilot && <><strong>Регистрация в тестовом режиме</strong><p>Реквизиты оператора ещё не опубликованы. Не размещайте чувствительные данные.</p></>}
+      {capabilities?.test_mail && <p>Письма подтверждения и восстановления пока не отправляются на вашу почту. Сохраните пароль.</p>}
+    </aside>}
     <form onSubmit={submit}>
       {registering && <label className="field"><span>Имя</span><input name="display_name" autoComplete="name" required minLength={2} maxLength={120} /></label>}
       <label className="field"><span>Электронная почта</span><input name="email" type="email" autoComplete="username" required maxLength={254} /></label>
       <label className="field"><span>Пароль</span><input name="password" type="password" autoComplete={registering ? "new-password" : "current-password"} minLength={registering ? 10 : undefined} maxLength={256} required /></label>
       {registering && <>
         <label className="field"><span>Повторите пароль</span><input name="password_confirm" type="password" autoComplete="new-password" required maxLength={256} /></label>
-        <p className="muted">Не менее 10 символов. {capabilities?.test_mail ? "Письма для подтверждения и восстановления поступают в тестовый ящик администратора." : capabilities?.email_verification ? "Подтвердите почту в настройках аккаунта после регистрации." : "Подтверждение почты и восстановление пароля по письму пока недоступны."}</p>
-        <p className="muted">{capabilities?.email_registration_pilot ? "Сервис работает в тестовом режиме. Реквизиты оператора ещё не опубликованы. Не размещайте чувствительные данные." : ""}</p>
+        <p className="muted">Не менее 10 символов. {!capabilities?.test_mail && (capabilities?.email_verification ? "Подтвердите почту в настройках аккаунта после регистрации." : "Подтверждение почты и восстановление пароля по письму пока недоступны.")}</p>
         <label className="checkbox-field"><input name="accept_terms" type="checkbox" required /> Я принимаю <Link href={capabilities?.email_registration_pilot ? "/registration-terms" : "/terms-of-use"} target="_blank">условия использования</Link></label>
         <label className="checkbox-field"><input name="accept_privacy" type="checkbox" required /> Я согласен с <Link href={capabilities?.email_registration_pilot ? "/registration-privacy" : "/privacy-policy"} target="_blank">политикой обработки данных</Link></label>
       </>}
@@ -80,5 +89,5 @@ export function LoginForm({ nextPath, consentVersions = null }: { nextPath: stri
     </form>
     {capabilities?.password_recovery && <p className="login-recovery-link"><Link className="text-link" href="/recover">Не помню пароль</Link></p>}
     <PhoneAuth nextPath={nextPath} capabilities={capabilities} loadingCapabilities={!capabilitiesLoaded} consentVersions={consentVersions} />
-  </>;
+  </div>;
 }

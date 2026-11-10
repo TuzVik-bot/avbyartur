@@ -108,6 +108,20 @@ it("offers email registration when enabled with published consent versions", asy
   expect(container.querySelector('input[name="accept_privacy"]')).not.toBeNull();
 });
 
+it("explains test email delivery before registration fields while preserving pilot consent", async () => {
+  vi.mocked(api.authCapabilities).mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: true, email_registration_pilot: true, test_mail: true, email_verification: true, password_recovery: true });
+  await act(async () => { root.render(createElement(LoginForm, { nextPath: "/sell" })); });
+  const register = [...container.querySelectorAll("button")].find(button => button.textContent === "Создать аккаунт")!;
+  await act(async () => register.click());
+  const notice = container.querySelector('[aria-label="Ограничения регистрации"]');
+  expect(notice).not.toBeNull();
+  expect(notice!.textContent).toContain("не отправляются на вашу почту");
+  expect(notice!.compareDocumentPosition(container.querySelector("form")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(container.querySelector('input[name="password"]')?.getAttribute("autocomplete")).toBe("new-password");
+  expect(container.querySelector('a[href="/registration-terms"]')).not.toBeNull();
+  expect(container.querySelector('a[href="/registration-privacy"]')).not.toBeNull();
+});
+
 it("registers, starts a session and returns to listing creation", async () => {
   vi.mocked(api.authCapabilities).mockResolvedValue({ sms_login: false, sms_registration: false, email_registration: true, email_verification: false, password_recovery: false });
   vi.spyOn(api, "registerEmail").mockResolvedValue(session);

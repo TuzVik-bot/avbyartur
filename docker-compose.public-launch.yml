@@ -1,0 +1,9 @@
+services:
+  api:
+    image: avtorinok-api:catalog-gallery-skoda-plan-20261028-r1
+  worker:
+    image: avtorinok-api:catalog-gallery-skoda-plan-20261028-r1
+  web:
+    image: avtorinok-web:catalog-gallery-20261028-r1
+    environment:
+      AVTORINOK_PUBLIC_INDEXING_ENABLED: "true"

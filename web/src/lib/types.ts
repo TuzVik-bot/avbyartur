@@ -143,6 +143,9 @@ export type ListingSummary = {
   photo_urls?: string[];
   photo_badges?: PhotoBadge[];
   seller: Seller;
+  provenance?: components["schemas"]["ListingProvenanceOut"] | null;
+  is_imported?: boolean;
+  can_chat?: boolean;
   created_at: string;
   updated_at: string;
   damaged: boolean;

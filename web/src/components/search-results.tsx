@@ -1,5 +1,7 @@
 import Link from "next/link";
+import styles from "./search-results.module.css";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ResultsViewed } from "@/components/compare-button";
 import { CatalogDisplay } from "@/components/catalog-display";
 import { SearchFilters } from "@/components/search-filters";
 import { SearchSort } from "@/components/search-sort";
@@ -69,6 +71,7 @@ export function SearchResults({ search, data, title, makes, models, generations,
 
   return (
     <>
+      {!failed && data && <ResultsViewed count={total} viewKey={JSON.stringify(search)} />}
       <div className="page-head"><h1>{title}</h1><p>{total ? `${total.toLocaleString("ru-BY")} объявлений` : "Объявления Беларуси"}</p></div>
       {failed && <p className="notice" role="status">Каталог временно недоступен. Обновите страницу чуть позже.</p>}
       {catalogsFailed && <p className="notice" role="status">Часть справочников фильтров временно недоступна. Объявления остаются доступны; повторите загрузку страницы позже.</p>}
@@ -99,10 +102,10 @@ export function SearchResults({ search, data, title, makes, models, generations,
             </div>
           )}
           <CatalogDisplay entries={entries} savedListingIds={savedListingIds}
-            count={<strong>{failed ? "Каталог временно недоступен" : total ? `${total.toLocaleString("ru-BY")} предложений` : "Нет совпадений по запросу"}</strong>}
+            count={<strong key="count">{failed ? "Каталог временно недоступен" : total ? `${total.toLocaleString("ru-BY")} предложений` : "Нет совпадений по запросу"}</strong>}
             controls={<>
-              {entries.length > 0 && <SavedSearchAction search={search} title={title} />}
-              <SearchSort search={search} priceOperationsAvailable={priceOperationsAvailable} />
+              {entries.length > 0 && <details key="saved-search" className={styles.savedSearch}><summary>Сохранить поиск</summary><SavedSearchAction search={search} title={title} /></details>}
+              <SearchSort key="sort" search={search} priceOperationsAvailable={priceOperationsAvailable} />
             </>}
             emptyState={
             <div className="empty-state">

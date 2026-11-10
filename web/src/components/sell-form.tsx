@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ImagePlus, LoaderCircle, Star, Trash2 } from "lucide-react";
+import { trackFunnelEvent } from "@/lib/funnel-analytics";
+import styles from "./sell-form.module.css";
 import { matchesCatalogSearch } from "@/lib/catalog-search";
 import { api, ApiClientError, type ListingOptions } from "@/lib/api";
 import { catalogRequestsApi, type CatalogRequest } from "@/lib/catalog-requests";
@@ -17,6 +19,12 @@ const DRIVE_OPTIONS = ["front", "rear", "all", "other"] as const satisfies reado
 const CONDITION_OPTIONS = ["new", "used"] as const satisfies readonly NonNullable<ListingDraftInput["condition"]>[];
 
 type ListingValidationPolicy = Awaited<ReturnType<typeof api.listingValidationPolicy>>;
+
+export function publicationCopy(mode: "automatic" | "moderated" | undefined) {
+  if (mode === "automatic") return "После отправки объявление будет опубликовано автоматически.";
+  if (mode === "moderated") return "После отправки объявление появится в поиске после проверки модератором.";
+  return "Порядок публикации станет известен после загрузки правил подачи.";
+}
 
 function minimumPhotoCount(
   policy: ListingValidationPolicy,
@@ -587,6 +595,8 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   const [validationPolicyRetry, setValidationPolicyRetry] = useState(0);
   const [draft, setDraft] = useState<Listing | null>(initialListing);
   const draftRef = useRef<Listing | null>(initialListing);
+  const draftTracked = useRef(false);
+  const submissionTracked = useRef(false);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const buildPayload = useCallback((value: FormFields) => payloadFor(value, categoryCode, subcategory, categoryDetails), [categoryCode, subcategory, categoryDetails]);
   const savedSnapshot = useRef(initialListing ? JSON.stringify(buildPayload(firstFields)) : "");
@@ -829,6 +839,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
       setDraft(result.listing);
       savedSnapshot.current = snapshot;
       setSaveState("saved");
+      if (!draftTracked.current) { trackFunnelEvent("listing_draft_saved", { has_photos: photos.length > 0 }); draftTracked.current = true; }
     }).catch((issue) => {
       setSaveState("error");
       applyIssue(issue);
@@ -1127,6 +1138,8 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
         draftRef.current = current;
         setDraft(current);
         savedSnapshot.current = JSON.stringify(payload);
+        setSaveState("saved");
+        if (!draftTracked.current) { trackFunnelEvent("listing_draft_saved", { has_photos: photos.length > 0 }); draftTracked.current = true; }
       } else {
         await queueSave(payload);
       }
@@ -1140,6 +1153,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
       }
       setStep((value) => Math.min(6, value + 1));
     } catch (issue) {
+      if (!draftRef.current) setSaveState("error");
       applyIssue(issue);
     } finally {
       setBusy(false);
@@ -1270,6 +1284,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
       const latest = draftRef.current;
       if (!latest) throw new Error("Не удалось прочитать сохранённый черновик.");
       await api.submitListing(latest.id, latest.revision);
+      if (!submissionTracked.current) { trackFunnelEvent("listing_submission_succeeded", { has_photos: refreshedPhotos.length > 0 }); submissionTracked.current = true; }
       setSaveState("saved");
       router.push("/account/listings");
       router.refresh();
@@ -1392,10 +1407,10 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
   }
 
   return (
-    <form className="form-page" onSubmit={submitListing}>
+    <form className={`form-page ${styles.form}`} onSubmit={submitListing}>
       <header className="page-head"><p className="eyebrow">Подача объявления · {CATEGORY_LABELS[categoryCode] || "Техника"}</p><h1>{initialListing ? "Редактировать объявление" : "Новое объявление"}</h1><p role="status" aria-live="polite">Шаг {step} из 6</p></header>
       <div className="step-progress" role="progressbar" aria-label="Шаг подачи объявления" aria-valuemin={1} aria-valuemax={6} aria-valuenow={step} aria-valuetext={`Шаг ${step} из 6`}>{Array.from({ length: 6 }, (_, index) => <span key={index} className={index < step ? "is-complete" : ""} />)}</div>
-      <p className={saveState === "error" ? "inline-error" : "inline-success"} role="status">{saveCopy}{draft && ` · ревизия ${draft.revision}`}</p>
+      <p className={saveState === "error" ? "inline-error" : "inline-success"} role="status">{saveCopy}</p>
       {validationPolicyLoading && <p className="muted" role="status">Загружаем правила подачи…</p>}
       {validationPolicyError && <p className="notice wide" role="alert">Не удалось загрузить правила подачи. <button className="button button-secondary button-small" type="button" onClick={() => setValidationPolicyRetry((attempt) => attempt + 1)} disabled={validationPolicyLoading}>Повторить</button></p>}
 
@@ -1597,7 +1612,7 @@ export function SellForm({ initialListing = null, initialCategoryCode = "cars", 
             <Image src={photo.url!} alt={photo.is_cover ? "Обложка объявления" : `Фотография ${index + 1}`} width={440} height={330} unoptimized />
           </article>)}
         </div>}
-        <p className="notice">После отправки объявление появится в поиске только после проверки модератором.</p>
+        <p className="notice">{publicationCopy(validationPolicy?.publication_mode)}</p>
       </section>}
 
       {error && <p className="inline-error" role="alert">{error}</p>}

@@ -123,9 +123,8 @@ export function SiteAssistant() {
   function reset() { controller.current?.abort(); stopVoice(); recognition.current?.stop(); setMessages([greeting]); setFilters({}); setError(""); lastRequest.current = null; setDraft(""); }
   const publicPage = isPublicAssistantPage(pathname || "");
   return <>
-    <button ref={launcher} className={styles.launcher} onClick={() => setOpen((value) => !value)} aria-label="Открыть помощника Авторынка" aria-expanded={open} aria-controls="site-assistant" title="Помощник Авторынка">
-      <img src="/assistant-mascot.png" alt="" width={56} height={56} />
-      <span>Помощник</span>
+    <button ref={launcher} className={styles.launcher} onClick={() => setOpen((value) => !value)} aria-label="Помощь — открыть помощника Авторынка" aria-expanded={open} aria-controls="site-assistant" title="Помощник Авторынка">
+      <span>Помощь</span>
     </button>
     {open && <section ref={panel} id="site-assistant" className={styles.panel} role="dialog" aria-label="Помощник Авторынка">
       <header className={styles.header}>
@@ -160,7 +159,7 @@ export function SiteAssistant() {
         <div>{micAvailable && <button type="button" className={`${styles.icon} ${listening ? styles.listening : ""}`} onClick={startMic} disabled={busy} aria-pressed={listening} aria-label={listening ? "Остановить запись" : "Ввести голосом"} title={listening ? "Остановить запись" : "Ввести голосом"}>{listening ? <Square size={16} /> : <Mic size={19} />}</button>}
           <button type="submit" className={styles.send} disabled={busy || !draft.trim()} aria-label="Отправить сообщение" title="Отправить"><ArrowUp size={20} /></button></div>
       </form>
-      <p className={styles.privacy}>Не вводите личные данные. {engine === "ai" ? "Сообщения обрабатывает OpenRouter." : "Поиск без подключённой ИИ-модели."}{micAvailable ? " Голосовой ввод — через сервис браузера." : ""}</p>
+      <p className={styles.privacy}>Не вводите личные данные. {engine === "ai" ? "Сообщения передаются OpenRouter и поставщику ИИ-модели." : "Поиск без подключённой ИИ-модели."}{micAvailable ? " Голосовой ввод — через сервис браузера." : ""} <Link href="/privacy-policy" onClick={close}>Обработка данных</Link></p>
     </section>}
   </>;
 }

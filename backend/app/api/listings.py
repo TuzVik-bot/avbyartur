@@ -427,10 +427,9 @@ def _listed(
         rate_info = _latest_exchange_rate(db)
     rate, fresh = rate_info
     result = []
-    items = (
-        [serialize_listing(db, listing, public=public, include_contact=include_contact) for listing in listings]
-        if include_modification
-        else serialize_listings(db, listings, public=public, include_contact=include_contact)
+    items = serialize_listings(
+        db, listings, public=public, include_contact=include_contact,
+        include_modification=include_modification,
     )
     publication_dates = publication_dates if publication_dates is not None else listing_publication_dates(db, listings)
     market_comparisons = build_market_comparisons(db, listings, rate_info) if public else {}

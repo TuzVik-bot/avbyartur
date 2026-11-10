@@ -11,6 +11,7 @@ let container: HTMLDivElement;
 let root: Root;
 const policy = {
   current_year: 2026,
+  publication_mode: "automatic" as const,
   listing_year_min: 1886,
   new_year_max: 2027,
   used_year_max: 2026,

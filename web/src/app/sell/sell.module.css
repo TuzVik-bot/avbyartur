@@ -364,3 +364,9 @@
     width: 100%;
   }
 }
+
+.guide { border-bottom: 1px solid var(--line); padding: 20px 0; }
+.guide > summary { color: var(--accent-dark); cursor: pointer; font-weight: 700; min-height: 44px; }
+.introCopy h1 { font-size: clamp(36px, 5vw, 58px); letter-spacing: -.035em; }
+.lead { font-size: 18px; line-height: 1.5; }
+.eyebrow, .accountNote { font-size: 14px; }

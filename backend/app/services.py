@@ -597,6 +597,8 @@ def serialize_listing(
     public: bool = True,
     include_contact: bool = False,
 ) -> dict:
+    from app.listing_provenance import listing_provenance
+    origin = listing_provenance(db, [listing]).get(listing.id)
     badges = _active_promotion_badges(db, [listing.id]).get(listing.id, [])
     item = _serialize_listing(
         db,
@@ -605,6 +607,7 @@ def serialize_listing(
         include_modification=True,
         include_contact=include_contact,
         promotion_badges=badges,
+        origin=origin,
     )
     _attach_view_counts(db, [listing], [item], public=public)
     return item
@@ -644,7 +647,10 @@ def serialize_listings(
     *,
     public: bool = True,
     include_contact: bool = False,
+    include_modification: bool = False,
 ) -> list[dict]:
+    from app.listing_provenance import listing_provenance
+    origins = listing_provenance(db, listings)
     badges_by_listing = _active_promotion_badges(db, [listing.id for listing in listings])
     if len(listings) < 2:
         items = [
@@ -652,9 +658,10 @@ def serialize_listings(
                 db,
                 listing,
                 public=public,
-                include_modification=False,
+                include_modification=include_modification,
                 include_contact=include_contact,
                 promotion_badges=badges_by_listing.get(listing.id, []),
+                origin=origins.get(listing.id),
             )
             for listing in listings
         ]
@@ -673,6 +680,8 @@ def serialize_listings(
         Company: {listing.company_id for listing in listings if listing.company_id},
         User: {listing.owner_id for listing in listings},
     }
+    if include_modification:
+        references[CatalogModification] = {listing.modification_id for listing in listings if listing.modification_id}
     records = {
         model: {
             row.id: row
@@ -698,9 +707,10 @@ def serialize_listings(
             public=public,
             records=records,
             photos_by_listing=photos_by_listing,
-            include_modification=False,
+            include_modification=include_modification,
             include_contact=include_contact,
             promotion_badges=badges_by_listing.get(listing.id, []),
+            origin=origins.get(listing.id),
         )
         for listing in listings
     ]
@@ -761,6 +771,7 @@ def _serialize_listing(
     include_modification: bool = False,
     include_contact: bool = False,
     promotion_badges: list[str] | None = None,
+    origin: tuple | None = None,
 ) -> dict:
     def get_record(model, identity):
         if identity is None:
@@ -788,6 +799,10 @@ def _serialize_listing(
     seller = {"type": "company", "id": str(company.id), "name": company.name, "slug": company.slug} if company else {
         "type": "private", "id": str(user.id) if user else "", "name": user.display_name if user else "",
     }
+    # Import audit proves origin, not verified seller ownership or a chat recipient.
+    unconfirmed_import = origin is not None
+    if public and unconfirmed_import:
+        seller = {"type": "private", "id": "", "name": ""}
     visible_photos = [photo for photo in photos if not public or photo.status == "ready"]
     photo_urls = [f"/api/v1/photos/{photo.id}/768" for photo in visible_photos if photo.status == "ready"]
     title = listing.title.strip() or " ".join(filter(None, [listing.make_name_snapshot, listing.model_name_snapshot]))
@@ -829,6 +844,9 @@ def _serialize_listing(
         "call_hours": listing.call_hours,
         "has_phone": bool(listing.contact_phone and listing.contact_phone.strip()),
         "has_external_contacts": bool(validated_contact_channels(listing.telegram_contact_url, listing.viber_contact_url)),
+        "provenance": origin[1] if origin else None,
+        "is_imported": unconfirmed_import,
+        "can_chat": not unconfirmed_import,
         "promotion_badges": list(promotion_badges or []),
         "vin": None if public else listing.vin, "moderation_reason": None if public else listing.moderation_reason,
         "photo_urls": photo_urls,

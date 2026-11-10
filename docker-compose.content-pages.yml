@@ -1,0 +1,3 @@
+services:
+  web:
+    image: avtorinok-web:content-pages-20261102-r1

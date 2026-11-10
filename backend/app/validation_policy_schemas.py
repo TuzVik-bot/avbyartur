@@ -1,5 +1,7 @@
 """Public validation constraints for the listing form, without runtime secrets."""
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -23,6 +25,7 @@ class ListingValidationPolicyOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     current_year: int
+    publication_mode: Literal["automatic", "moderated"]
     listing_year_min: int
     new_year_max: int
     used_year_max: int

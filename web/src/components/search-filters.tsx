@@ -1,5 +1,7 @@
 "use client";
 
+import styles from "./search-filters.module.css";
+
 import { useEffect, useRef, useState } from "react";
 import { Filter, SlidersHorizontal, X } from "lucide-react";
 import Link from "next/link";
@@ -453,20 +455,15 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
             </select>
           </label>}
           <input type="hidden" name="category_code" value={categoryCode} />
-          {isCarCategory && <>
+          {hasVehicleYear && <>
           <div className="field filter-wide">
             <span>Марка</span>
             <input type="hidden" name="make_ids" value={makeIds} />
-            <input type="search" onKeyDown={(event) => { if (event.key === "Enter" || event.key === "ArrowDown") { event.preventDefault(); (event.currentTarget.nextElementSibling as HTMLSelectElement | null)?.focus(); } }} aria-label="Поиск марки" placeholder="Начните вводить марку" value={makeQuery} onChange={(event) => setMakeQuery(event.target.value)} />
-            <select aria-label="Добавить марку" value="" onChange={(event) => {
-              if (!event.target.value || selectedMakes.length >= 50) return;
-              setMakeIds([...selectedMakes, event.target.value].join(","));
-              setMakeQuery("");
-              changeGeneration("");
-            }}>
-              <option value="">Добавить марку</option>
-              {makes.filter((item) => !selectedMakes.includes(item.id) && matchesCatalogSearch(item, makeQuery)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            <details className={styles.catalogPicker}>
+              <summary>Выбрать марки{selectedMakes.length ? ` (${selectedMakes.length})` : ""}</summary>
+              <input type="search" aria-label="Поиск марки" onKeyDown={(event) => { if (event.key === "Enter" || event.key === "ArrowDown") { event.preventDefault(); const first = event.currentTarget.parentElement?.querySelector<HTMLButtonElement>("button"); if (event.key === "Enter") first?.click(); else first?.focus(); } }} placeholder="Начните вводить марку" value={makeQuery} onChange={(event) => setMakeQuery(event.target.value)} />
+              <div className={styles.catalogOptions} aria-label="Марки">{makes.filter((item) => !selectedMakes.includes(item.id) && matchesCatalogSearch(item, makeQuery)).map((item) => <button type="button" key={item.id} onClick={() => { if (selectedMakes.length >= 50) return; setMakeIds([...selectedMakes, item.id].join(",")); setMakeQuery(""); changeGeneration(""); }}>{item.name}</button>)}</div>
+            </details>
             <div className="active-filters">{selectedMakes.map((id) => <button className="filter-chip" type="button" key={id} onClick={() => {
               const removedModels = new Set([...models, ...searchedModels].filter((item) => item.make_id === id).map((item) => item.id));
               setMakeIds(selectedMakes.filter((item) => item !== id).join(","));
@@ -478,24 +475,43 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
             <div className="field">
               <span>Модель</span>
               <input type="hidden" name="model_ids" value={modelIds} />
-              <input type="search" onKeyDown={(event) => { if (event.key === "Enter" || event.key === "ArrowDown") { event.preventDefault(); (event.currentTarget.nextElementSibling as HTMLSelectElement | null)?.focus(); } }} aria-label="Поиск модели" placeholder="Начните вводить модель" value={modelQuery} onChange={(event) => setModelQuery(event.target.value)} disabled={!makeIds} />
-              <select aria-label="Добавить модель" value="" onChange={(event) => {
-                const id = event.target.value;
-                if (!id || selectedModels.length >= 50) return;
-                const selected = searchedModels.find((item) => item.id === id);
-                if (selected) setModels((current) => current.some((item) => item.id === selected.id) ? current : [...current, selected]);
-                setModelIds([...selectedModels, id].join(","));
-                setModelQuery("");
-                changeGeneration("");
-              }} disabled={!makeIds || (modelsLoading && !models.length)} aria-busy={modelsLoading || modelSearchLoading} aria-describedby={modelsError || modelSearchError ? "model-catalog-status" : undefined}>
-                <option value="">{!makeIds ? "Сначала выберите марку" : modelsLoading ? "Загрузка моделей…" : "Добавить модель"}</option>
-                {[...new Map([...models, ...searchedModels].map((item) => [item.id, item])).values()].filter((item) => !selectedModels.includes(item.id) && matchesCatalogSearch(item, modelQuery)).map((item) => <option key={item.id} value={item.id}>{modelLabel(item, makes)}</option>)}
-              </select>
+              <details className={styles.catalogPicker}>
+                <summary aria-disabled={!makeIds}>{!makeIds ? "Сначала выберите марку" : `Выбрать модели${selectedModels.length ? ` (${selectedModels.length})` : ""}`}</summary>
+                <input type="search" aria-label="Поиск модели" onKeyDown={(event) => { if (event.key === "Enter" || event.key === "ArrowDown") { event.preventDefault(); const first = event.currentTarget.parentElement?.querySelector<HTMLButtonElement>("button"); if (event.key === "Enter") first?.click(); else first?.focus(); } }} placeholder="Начните вводить модель" value={modelQuery} onChange={(event) => setModelQuery(event.target.value)} disabled={!makeIds} />
+                <div className={styles.catalogOptions} aria-label="Модели" aria-busy={modelsLoading || modelSearchLoading}>{[...new Map([...models, ...searchedModels].map((item) => [item.id, item])).values()].filter((item) => selectedMakes.includes(item.make_id || "") && !selectedModels.includes(item.id) && matchesCatalogSearch(item, modelQuery)).map((item) => <button type="button" key={item.id} onClick={() => { if (selectedModels.length >= 50) return; setModels((current) => current.some((entry) => entry.id === item.id) ? current : [...current, item]); setModelIds([...selectedModels, item.id].join(",")); setModelQuery(""); changeGeneration(""); }}>{modelLabel(item, makes)}</button>)}</div>
+              </details>
               <div className="active-filters">{selectedModels.map((id) => <button className="filter-chip" type="button" key={id} onClick={() => { setModelIds(selectedModels.filter((item) => item !== id).join(",")); changeGeneration(""); }}>{[...models, ...searchedModels].find((item) => item.id === id)?.name || "Модель выбрана"} <X size={13} aria-hidden="true" /></button>)}</div>
             </div>
             {modelSearchLoading && <p className="muted" role="status">Поиск моделей…</p>}
             {(modelsError || modelSearchError) && <p className="catalog-error muted" id="model-catalog-status" role="status">Не удалось загрузить модели. <button className="button button-secondary button-small" type="button" onClick={() => setModelsRetry((attempt) => attempt + 1)}>Повторить</button></p>}
           </div>
+          </>}
+          <fieldset className="filter-wide" disabled={!priceOperationsAvailable}>
+            <legend className="field-label">Цена, {search.currency || "BYN"}</legend>
+            <div className="range-fields">
+              <input name="price_min" inputMode="numeric" type="number" min="1" aria-label={`Цена от, ${search.currency || "BYN"}`} placeholder="От" defaultValue={search.price_min || ""} />
+              <input name="price_max" inputMode="numeric" type="number" min="1" aria-label={`Цена до, ${search.currency || "BYN"}`} placeholder="До" defaultValue={search.price_max || ""} />
+            </div>
+          </fieldset>
+          <input type="hidden" name="currency" value={search.currency || "BYN"} />
+          {search.q && <input type="hidden" name="q" value={search.q} />}
+          {search.sort && <input type="hidden" name="sort" value={search.sort} />}
+          {hasVehicleYear && <fieldset className="filter-wide">
+            <legend className="field-label">Год выпуска</legend>
+            <div className="range-fields">
+              <input name="year_min" inputMode="numeric" type="number" min="1886" aria-label="Год от" placeholder="От" defaultValue={search.year_min || ""} />
+              <input name="year_max" inputMode="numeric" type="number" min="1886" aria-label="Год до" placeholder="До" defaultValue={search.year_max || ""} />
+            </div>
+          </fieldset>}
+          <label className="field"><span>Область</span><select name="region_id" value={regionId} onChange={(event) => {
+            setRegionId(event.target.value);
+            setCityId("");
+            setCities([]);
+          }}><option value="">Вся Беларусь</option>{regionId && !regions.some((item) => item.id === regionId) && <option value={regionId}>Область выбрана</option>}{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          {isCarCategory && <label className="field"><span>Коробка</span><select name="transmission" defaultValue={search.transmission || ""}><option value="">Любая</option><option value="manual">Механика</option><option value="automatic">Автомат</option><option value="robot">Робот</option><option value="cvt">Вариатор</option><option value="other">Другое</option></select></label>}
+          <details className={styles.additional}><summary>Дополнительные параметры</summary>
+            <div className={styles.additionalGrid}>
+              {isCarCategory && <>
           <div className="filter-wide">
             <label className="field">
               <span>Поколение</span>
@@ -533,24 +549,7 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <label className="field"><span>Таможенный статус</span><select name="customs_status" defaultValue={search.customs_status || ""}><option value="">Любой</option><option value="cleared_rb">Оформлен в РБ</option><option value="eaeu_import">Ввезён из ЕАЭС</option><option value="uncleared">Не растаможен</option><option value="unknown">Не указан</option></select></label>
           <label className="field"><span>Техническое состояние</span><select name="technical_condition" defaultValue={search.technical_condition || ""}><option value="">Любое</option><option value="good">Исправен</option><option value="needs_repair">Требует ремонта</option><option value="non_operational">Не на ходу</option></select></label>
           <label className="field"><span>Состояние кузова</span><select name="body_condition" defaultValue={search.body_condition || ""}><option value="">Любое</option><option value="good">Без заметных повреждений</option><option value="minor_damage">Есть небольшие повреждения</option><option value="significant_damage">Есть серьёзные повреждения</option><option value="repaired">Был в ремонте</option></select></label>
-          </>}
-          <fieldset className="filter-wide" disabled={!priceOperationsAvailable}>
-            <legend className="field-label">Цена, {search.currency || "BYN"}</legend>
-            <div className="range-fields">
-              <input name="price_min" inputMode="numeric" type="number" min="1" aria-label={`Цена от, ${search.currency || "BYN"}`} placeholder="От" defaultValue={search.price_min || ""} />
-              <input name="price_max" inputMode="numeric" type="number" min="1" aria-label={`Цена до, ${search.currency || "BYN"}`} placeholder="До" defaultValue={search.price_max || ""} />
-            </div>
-          </fieldset>
-          <input type="hidden" name="currency" value={search.currency || "BYN"} />
-          {search.q && <input type="hidden" name="q" value={search.q} />}
-          {search.sort && <input type="hidden" name="sort" value={search.sort} />}
-          {hasVehicleYear && <fieldset className="filter-wide">
-            <legend className="field-label">Год выпуска</legend>
-            <div className="range-fields">
-              <input name="year_min" inputMode="numeric" type="number" min="1886" aria-label="Год от" placeholder="От" defaultValue={search.year_min || ""} />
-              <input name="year_max" inputMode="numeric" type="number" min="1886" aria-label="Год до" placeholder="До" defaultValue={search.year_max || ""} />
-            </div>
-          </fieldset>}
+              </>}
           {isCarCategory && <fieldset className="filter-wide">
             <legend className="field-label">Пробег, км</legend>
             <div className="range-fields">
@@ -562,15 +561,10 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           {isCarCategory && <fieldset className="filter-wide"><legend className="field-label">Мощность, л.с.</legend><div className="range-fields"><input name="power_min" inputMode="numeric" type="number" min="1" max="2500" aria-label="Мощность от, л.с." placeholder="От" defaultValue={search.power_min || ""} /><input name="power_max" inputMode="numeric" type="number" min="1" max="2500" aria-label="Мощность до, л.с." placeholder="До" defaultValue={search.power_max || ""} /></div></fieldset>}
           {isCarCategory && <>
           <label className="field"><span>Топливо</span><select name="fuel" defaultValue={search.fuel || ""}><option value="">Любое</option><option value="petrol">Бензин</option><option value="diesel">Дизель</option><option value="hybrid">Гибрид</option><option value="electric">Электро</option><option value="lpg">Газ</option><option value="other">Другое</option></select></label>
-          <label className="field"><span>Коробка</span><select name="transmission" defaultValue={search.transmission || ""}><option value="">Любая</option><option value="manual">Механика</option><option value="automatic">Автомат</option><option value="robot">Робот</option><option value="cvt">Вариатор</option><option value="other">Другое</option></select></label>
           <label className="field"><span>Привод</span><select name="drive" defaultValue={search.drive || ""}><option value="">Любой</option><option value="front">Передний</option><option value="rear">Задний</option><option value="all">Полный</option><option value="other">Другое</option></select></label>
           </>}
           <label className="field"><span>Состояние</span><select name="condition" defaultValue={search.condition || ""}><option value="">Любое</option><option value="new">Новый</option><option value="used">С пробегом</option></select></label>
-          <label className="field"><span>Область</span><select name="region_id" value={regionId} onChange={(event) => {
-            setRegionId(event.target.value);
-            setCityId("");
-            setCities([]);
-          }}><option value="">Вся Беларусь</option>{regionId && !regions.some((item) => item.id === regionId) && <option value={regionId}>Область выбрана</option>}{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+
           <div className="field">
             <label htmlFor="search-city">Город</label>
             <select id="search-city" name="city_id" value={cityId} onChange={(event) => setCityId(event.target.value)} disabled={!cities.length && !cityId} aria-busy={citiesLoading} aria-describedby={citiesError ? "city-catalog-status" : undefined}>
@@ -593,6 +587,8 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           {isCarCategory && <label className="field filter-wide"><span>Комплектация</span><select name="equipment" multiple size={5} defaultValue={search.equipment || []}><option value="abs">ABS</option><option value="esp">ESP</option><option value="airbags">Подушки безопасности</option><option value="air_conditioning">Кондиционер</option><option value="climate_control">Климат-контроль</option><option value="heated_seats">Подогрев сидений</option><option value="cruise_control">Круиз-контроль</option><option value="parking_sensors">Парктроники</option><option value="rear_camera">Камера заднего вида</option><option value="leather_seats">Кожаный салон</option><option value="carplay">Apple CarPlay</option><option value="android_auto">Android Auto</option></select><small className="muted">Можно выбрать несколько значений.</small></label>}
           <label className="field"><span>Район</span><input name="district" maxLength={120} defaultValue={search.district || ""} /></label>
           <label className="field"><span>Время звонков</span><input name="call_hours" maxLength={80} defaultValue={search.call_hours || ""} /></label>
+            </div>
+          </details>
           <input type="hidden" name="page_size" value={search.page_size || "25"} />
           </div>
           <div className="filter-wide filter-apply-wrap">

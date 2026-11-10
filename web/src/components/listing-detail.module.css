@@ -1,0 +1,28 @@
+.page { padding-bottom: 32px; }
+.heading { margin: 20px 0 24px; }
+.heading :global(.detail-title) { margin: 0 0 8px; font-size: clamp(32px, 3vw, 40px); line-height: 1.1; letter-spacing: -.025em; }
+.heading :global(.location-line) { margin: 0; font-size: 14px; }
+.page :global(.detail-layout) { gap: 36px; }
+.page :global(.detail-summary), .page :global(.detail-panel) { padding: 24px 0; border: 0; border-radius: 0; border-top: 1px solid var(--line); background: transparent; }
+.page :global(.detail-panel) { padding-top: 0; border-top: 0; scroll-margin-top: 100px; }
+.page :global(.detail-main-image) { border-radius: 6px; object-fit: contain; }
+.page :global(.detail-summary h2) { margin: 0 0 18px; font-size: 24px; }
+.page :global(.detail-fact span), .page :global(.detail-conversion-note), .page :global(.privacy-note), .page :global(.report-form summary) { font-size: 14px; }
+.page :global(.detail-fact) { padding: 12px 0; }
+.page :global(.detail-price) { font-size: 32px; }
+.page :global(.detail-panel > .button), .page :global(.detail-panel > a.button) { width: 100%; justify-content: center; margin-bottom: 8px; }
+.page :global(.detail-actions) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mobileDock { display: none; }
+@media (max-width: 800px) {
+  .page { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+  .page :global(.detail-layout) { display: flex; flex-direction: column; gap: 0; }
+  .page :global(.detail-main-column) { display: contents; }
+  .page :global(.detail-gallery) { order: 0; width: 100%; }
+  .page :global(.detail-panel) { order: 1; width: 100%; padding-top: 24px; }
+  .page :global(.detail-main-column > .detail-summary) { order: 2; width: 100%; }
+  .page :global(.detail-main-column > .listing-trust) { order: 3; }
+  .page :global(.detail-main-column > .detail-summary:last-child) { order: 4; }
+  .mobileDock { position: fixed; z-index: 8; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); font-size: 16px; font-weight: 700; }
+  .mobileDock a { min-height: 44px; }
+  :global(body:has([role="dialog"])) .mobileDock, :global(body:has([aria-label="Выбранные для сравнения автомобили"])) .mobileDock, :global(body:has(input:focus, textarea:focus, select:focus)) .mobileDock { display: none; }
+}

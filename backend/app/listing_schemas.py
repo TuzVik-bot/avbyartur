@@ -191,6 +191,14 @@ class ListingModificationOut(BaseModel):
     specs: ListingModificationSpecsOut | None = None
 
 
+class ListingProvenanceOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_name: str
+    original_url: str
+    imported: bool
+
+
 class ListingPublicOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -242,6 +250,11 @@ class ListingPublicOut(BaseModel):
     call_hours: str | None = None
     has_phone: bool = False
     has_external_contacts: bool = False
+    provenance: ListingProvenanceOut | None = None
+    # Import identity is independent of verified source metadata; seller stays
+    # compatible with existing private/company clients.
+    is_imported: bool = False
+    can_chat: bool = True
     view_count: int | None = None
     promotion_badges: list[Literal["bump", "highlight", "top"]] = Field(default_factory=list)
     photo_urls: list[str]

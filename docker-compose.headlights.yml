@@ -1,0 +1,3 @@
+services:
+  web:
+    image: avtorinok-web:headlights-header-20261102-r1

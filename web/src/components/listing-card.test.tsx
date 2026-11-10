@@ -109,7 +109,7 @@ describe("listing card photos", () => {
     expect(container.querySelector("img")?.getAttribute("sizes")).toContain("(max-width: 1020px)");
 
     act(() => root.render(createElement(ListingCard, { listing: listing(), variant: "row" })));
-    expect(container.querySelector("img")?.getAttribute("sizes")).toBe("(max-width: 520px) 118px, 220px");
+    expect(container.querySelector("img")?.getAttribute("sizes")).toBe("(max-width: 520px) calc(100vw - 24px), 220px");
   });
 
   it("uses the first public photo URL and omits the synthetic treatment", () => {
@@ -120,7 +120,7 @@ describe("listing card photos", () => {
 
     const image = container.querySelector("img");
     expect(image?.getAttribute("src")).toBe("/api/v1/photos/first/768");
-    expect(image?.getAttribute("alt")).toBe("Фотография: Марка Модель");
+    expect(image?.getAttribute("alt")).toBe("Продажа авто — Марка Модель");
     expect(container.querySelector(".synthetic-label")).toBeNull();
   });
 
@@ -129,7 +129,7 @@ describe("listing card photos", () => {
 
     const image = container.querySelector("img");
     expect(image?.getAttribute("src")).toBe("/legacy-cover.jpg");
-    expect(image?.getAttribute("alt")).toBe("Фотография: Марка Модель");
+    expect(image?.getAttribute("alt")).toBe("Продажа авто — Марка Модель");
     expect(container.querySelector(".synthetic-label")).toBeNull();
   });
 

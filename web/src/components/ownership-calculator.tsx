@@ -131,6 +131,7 @@ function VehicleEditor({ vehicle, index, onField, onTitle, onRemove, canRemove, 
   onRemove: () => void; canRemove: boolean; shared: Pick<OwnershipInput, "years" | "annualKm">; showResult?: boolean;
 }) {
   const { result, errors } = resultFor(vehicle, shared);
+  const feedback = errors.length > 0 && <ul className={styles.errors} role="alert">{errors.map((error) => <li key={error}>{error}</li>)}</ul>;
   return <section className={styles.vehicle} aria-label={`Автомобиль ${index + 1}`}>
     <div className={styles.vehicleHeading}>
       <label className={styles.titleField}><span>{index === 0 ? "Автомобиль" : "Сравнить с"}</span><input aria-label={`Название автомобиля ${index + 1}`} value={vehicle.title} onChange={(event) => onTitle(event.target.value)} /></label>
@@ -160,8 +161,10 @@ function VehicleEditor({ vehicle, index, onField, onTitle, onRemove, canRemove, 
         }).map((field) => <Field key={field} field={field} name={`vehicle-${index}-${field}`} value={vehicle.values[field]} onChange={(value) => onField(field, value)} />)}</div>
       </details>)}
     </div>
-    {errors.length > 0 && <ul className={styles.errors} role="alert">{errors.map((error) => <li key={error}>{error}</li>)}</ul>}
-    {showResult !== false && result && <ResultPanel result={result} index={index} />}
+    {showResult === false ? feedback : <section className={styles.vehicleResult} id={index === 0 ? "ownership-results" : `ownership-results-${index}`} tabIndex={-1} aria-label={`Результат расчёта автомобиля ${index + 1}`}>
+      {feedback}
+      {result && <ResultPanel result={result} index={index} />}
+    </section>}
   </section>;
 }
 
@@ -248,13 +251,19 @@ export function OwnershipCalculator({ initialVehicles, notices = [] }: Props) {
     : 0;
 
   return <div className={styles.calculator}>
-    <header className={styles.intro}><div><p className={styles.eyebrow}>Владение автомобилем в Беларуси</p><h2>Сколько на самом деле стоит автомобиль?</h2><p>Посчитайте расходы на покупку, топливо, обслуживание, кредит и последующую продажу.</p></div><span className={styles.stamp}>BYN<br /><small>оценка</small></span></header>
+    <section className={styles.summary} aria-label="Краткий результат расчёта">
+      <div className={styles.summaryValues}>{vehicles.map((vehicle, index) => <div className={styles.summaryValue} key={vehicle.seed?.id ?? index}>
+        <span>{vehicles.length === 1 ? "Бюджет в месяц" : vehicle.title}</span>
+        {comparisonResults[index] ? <><output aria-label={`Месячный бюджет: ${vehicle.title}`}>{money(comparisonResults[index].monthlyBudgetByn)}</output><small>на время кредита и эксплуатации</small></> : <strong>Уточните данные</strong>}
+      </div>)}</div>
+      <a className={styles.resultJump} href="#ownership-results">{comparisonResults[0] ? "Подробный расчёт ↓" : "Проверить данные ↓"}</a>
+    </section>
     <div className={styles.shared}><div><strong>Общие условия сравнения</strong><p>Одинаковые срок владения и пробег для всех автомобилей.</p></div><Field field="years" value={sharedText.years} shared onChange={(value) => setSharedText((current) => ({ ...current, years: value }))} /><Field field="annualKm" value={sharedText.annualKm} shared onChange={(value) => setSharedText((current) => ({ ...current, annualKm: value }))} /></div>
     {notices.length > 0 && <aside className={styles.notice}>{notices.map((notice) => <p key={notice}>{notice}</p>)}</aside>}
     {vehicles.length > 1 && <h2 className={styles.comparisonTitle}>Сравнение автомобилей</h2>}
     {vehicles.length === 1 ? <div className={styles.singleLayout}>
       <VehicleEditor vehicle={vehicles[0]} index={0} shared={shared} canRemove={false} showResult={false} onField={(field, value) => updateVehicle(0, { field, value })} onTitle={(title) => updateVehicle(0, { title })} onRemove={() => undefined} />
-      <section className={styles.singleResults} aria-label="Результат расчёта">
+      <section className={styles.singleResults} id="ownership-results" tabIndex={-1} aria-label="Результат расчёта">
         {comparisonResults[0] ? <ResultPanel result={comparisonResults[0]} index={0} /> : <p className={styles.resultHint}>Заполните подсвеченные поля, чтобы увидеть стоимость владения.</p>}
       </section>
     </div> : <div className={styles.vehicleList}>{vehicles.map((vehicle, index) => <VehicleEditor key={vehicle.seed?.id ?? index} vehicle={vehicle} index={index} shared={shared} canRemove={vehicles.length > 1} onField={(field, value) => updateVehicle(index, { field, value })} onTitle={(title) => updateVehicle(index, { title })} onRemove={() => setVehicles((current) => current.filter((_, position) => position !== index))} />)}</div>}

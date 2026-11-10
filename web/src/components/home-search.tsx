@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { api } from "@/lib/api";
+import { trackFunnelEvent } from "@/lib/funnel-analytics";
 import type { CatalogItem, ListingSearch } from "@/lib/types";
 
 type HomeSearchProps = {
@@ -111,13 +112,8 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "", priceOpe
   }
 
   return (
-    <form ref={formRef} className={`search-strip home-search ${className}`} action="/cars" method="get" role="search">
+    <form ref={formRef} className={`search-strip home-search ${className}`} action="/cars" method="get" role="search" onSubmit={(event) => { const search = searchFromForm(event.currentTarget); trackFunnelEvent("search_submitted", { has_filters: Object.keys(search).some((key) => key !== "category_code" && key !== "currency") }); }}>
       <input type="hidden" name="category_code" value="cars" />
-      <label className="input-wrap search-query">
-        <Search size={19} aria-hidden="true" />
-        <span className="sr-only">Марка, модель или запрос</span>
-        <input name="q" type="search" placeholder="Марка, модель или запрос" autoComplete="off" />
-      </label>
       <label className="field search-make"><span>Марка</span>
         <select name="make_id" defaultValue="" onChange={(event) => {
           setMakeId(event.target.value);
@@ -140,6 +136,14 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "", priceOpe
         <input name="price_max" disabled={!priceOperationsAvailable} aria-describedby={!priceOperationsAvailable ? "home-price-status" : undefined} type="number" min="1" inputMode="numeric" placeholder="До" aria-label="Цена до, BYN" />
       </span></div>
       <input type="hidden" name="currency" value="BYN" disabled={!hasPrice || !priceOperationsAvailable} />
+      <label className="field"><span>Область</span><select name="region_id" defaultValue=""><option value="">Вся Беларусь</option>{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <button className="button home-search-button" type="submit"><Search size={17} /> {countLoading ? "Подбираем…" : count === null ? "Показать автомобили" : `Показать ${offerLabel(count)}`}</button>
+      <details className="home-search-extra"><summary>Все параметры</summary><div className="home-search-extra-fields">
+      <label className="input-wrap search-query">
+        <Search size={19} aria-hidden="true" />
+        <span className="sr-only">Марка, модель или запрос</span>
+        <input name="q" type="search" placeholder="Марка, модель или запрос" autoComplete="off" />
+      </label>
       <div className="field search-range" role="group" aria-label="Год выпуска"><span>Год выпуска</span><span className="range-fields">
         <input name="year_min" type="number" min="1886" inputMode="numeric" placeholder="От" aria-label="Год от" />
         <input name="year_max" type="number" min="1886" inputMode="numeric" placeholder="До" aria-label="Год до" />
@@ -151,8 +155,7 @@ export function HomeSearch({ makes, regions, bodyTypes, className = "", priceOpe
       <label className="field"><span>Коробка</span><select name="transmission" defaultValue=""><option value="">Любая</option><option value="manual">Механическая</option><option value="automatic">Автоматическая</option><option value="robot">Робот</option><option value="cvt">Вариатор</option></select></label>
       <label className="field"><span>Топливо</span><select name="fuel" defaultValue=""><option value="">Любое</option><option value="petrol">Бензин</option><option value="diesel">Дизель</option><option value="hybrid">Гибрид</option><option value="electric">Электро</option><option value="lpg">Газ</option></select></label>
       <label className="field"><span>Кузов</span><select name="body_type" defaultValue=""><option value="">Любой</option>{bodyTypes.map((item) => <option key={item.id} value={item.slug}>{item.name}</option>)}</select></label>
-      <label className="field"><span>Область</span><select name="region_id" defaultValue=""><option value="">Вся Беларусь</option>{regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <button className="button home-search-button" type="submit"><Search size={17} /> {countLoading ? "Подбираем…" : count === null ? "Показать предложения" : `Показать ${offerLabel(count)}`}</button>
+      </div></details>
       {!priceOperationsAvailable && <p className="home-search-count" id="home-price-status" role="status">Фильтр по цене временно недоступен: нет подтверждённого курса НБРБ за последние 72 часа. Цены показаны в исходной валюте.</p>}
       <span className="home-search-count" aria-live="polite" data-count-state={count === null ? "generic" : "count"}>
         {countLoading ? "Подбираем подходящие предложения" : count === null ? "Поиск по опубликованным объявлениям Беларуси" : `${offerLabel(count)} по выбранным условиям`}

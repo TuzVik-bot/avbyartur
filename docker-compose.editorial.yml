@@ -1,0 +1,7 @@
+services:
+  api:
+    image: avtorinok-api:editorial-ux-20261102-r1
+  worker:
+    image: avtorinok-api:editorial-ux-20261102-r1
+  web:
+    image: avtorinok-web:editorial-ux-20261102-r2

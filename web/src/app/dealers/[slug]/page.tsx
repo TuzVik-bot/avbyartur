@@ -7,7 +7,6 @@ import { DealerReviews } from "@/components/dealer-reviews";
 import { ApiClientError } from "@/lib/api";
 import { getSavedListingIds, serverApi } from "@/lib/server-api";
 import { buildBreadcrumbJsonLd, buildDealerJsonLd, buildOpenGraph, serializeJsonLd } from "@/lib/seo";
-import { isPublicIndexingEnabled } from "@/lib/pilot-visibility";
 import { SITE_ORIGIN } from "@/lib/site-config";
 import styles from "./page.module.css";
 
@@ -79,7 +78,7 @@ export default async function DealerPage({ params, searchParams }: { params: Pro
         <p className="eyebrow">Автокомпания</p>
         {company.logo_url && <img className={styles.companyLogo} src={company.logo_url} alt={`Логотип компании «${company.name}»`} width={128} height={128} />}
         <h1>{company.name}</h1>
-        {company.status === "approved" && <p className="verified-state" role="status">{isPublicIndexingEnabled() ? "Проверенная компания" : "Допущена к пилоту"}</p>}
+        {company.status === "approved" && <p className="verified-state" role="status">Профиль одобрен</p>}
         <address className="dealer-address">{company.address || "Адрес не указан"}</address>
       </header>
       <section className="section" aria-labelledby="dealer-business-hours-title">
@@ -97,7 +96,7 @@ export default async function DealerPage({ params, searchParams }: { params: Pro
       <DealerReviews slug={company.slug} reviews={result.reviews} />
       <section className="section dealer-listings" aria-labelledby="dealer-listings-title">
         <div className="section-heading"><h2 id="dealer-listings-title">Автомобили компании</h2><span className="muted">{listings.pagination?.total ?? listings.items.length} объявлений</span></div>
-        {listings.items.length ? <div className="listing-grid">{listings.items.map((listing) => <ListingCard key={listing.id} listing={listing} saved={savedIds.has(listing.id)} />)}</div> : <div className="empty-state"><h2>Активных автомобилей пока нет</h2><p className="muted">Новые объявления компании появятся после проверки.</p></div>}
+        {listings.items.length ? <div className="listing-grid">{listings.items.map((listing) => <ListingCard key={listing.id} listing={listing} saved={savedIds.has(listing.id)} />)}</div> : <div className="empty-state"><h2>Активных автомобилей пока нет</h2><p className="muted">Опубликованные предложения компании появятся здесь.</p></div>}
         {!listings.items.length && <Link className="button button-secondary button-small dealer-empty-link" href="/cars?seller_type=company">Смотреть объявления компаний</Link>}
         {listings.pagination && pageCount > 1 && <nav className="pagination" aria-label="Страницы объявлений компании">
           {page > 1 && <Link className="button button-secondary button-small" href={pageUrl(slug, page - 1)} aria-label={`Предыдущая страница, страница ${page - 1}`}>Назад</Link>}

@@ -1,3 +1,10 @@
-.root { position: fixed; right: 16px; bottom: 16px; z-index: 20; width: min(420px, calc(100vw - 32px)); padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 28px rgb(0 0 0 / 16%); color: var(--ink); font-size: 13px; }
+.root { grid-column: 1 / -1; min-width: 0; color: var(--muted); font-size: 14px; }
+.content { max-width: 720px; padding: 8px 0 4px; color: var(--ink); }
 .root p { margin: 8px 0; color: var(--muted); line-height: 1.45; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.root summary { width: fit-content; min-height: 44px; display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; }
+.root summary::-webkit-details-marker { display: none; }
+.root summary::after { content: ""; width: 6px; height: 6px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: translateY(-2px) rotate(45deg); }
+.root[open] summary::after { transform: translateY(2px) rotate(225deg); }
+.root summary:hover { color: var(--ink); }
+.root summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: 2px; }

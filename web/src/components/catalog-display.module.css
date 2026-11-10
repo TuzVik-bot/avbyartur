@@ -14,3 +14,16 @@
 @container (min-width: 480px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (min-width: 740px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @container (min-width: 980px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 520px) {
+  .toolbar { gap: 4px; margin-bottom: 12px; }
+  .toolbar :global(.results-toolbar-actions) { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 4px 8px; width: 100%; }
+  .toolbar :global(.results-toolbar-actions) > form { flex: 1 1 150px; min-width: 0; }
+  .toolbar :global(.results-toolbar-actions) > form select { min-width: 0; width: 100%; }
+  .switcher { padding: 0; border-radius: 6px; }
+  .switcher button { width: 44px; padding: 0; }
+  .switcher button span { display: none; }
+}
+@media (max-width: 520px) {
+  .toolbar :global(.results-toolbar-actions) { flex-direction: row; justify-content: flex-start; align-items: center; }
+  .toolbar :global(.results-toolbar-actions) > form { width: auto; }
+}

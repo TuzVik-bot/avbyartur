@@ -15,7 +15,7 @@ const requiredContentLinks = {
   "/privacy-policy": { group: "Правила и политики", label: "Политика конфиденциальности" },
   "/cookie-policy": { group: "Правила и политики", label: "Политика использования cookie-файлов" },
   "/submitting-advert": { group: "Правила и политики", label: "Правила подачи объявлений" },
-  "/credit-policy": { group: "Правила и политики", label: "Согласие на обработку персональных данных для фин. организаций" },
+  "/credit-policy": { group: "Правила и политики", label: "Финансовые предложения и данные" },
   "/promotion": { group: "Разделы", label: "Продвижение" },
   "/pro-subscription": { group: "Разделы", label: "PRO-подписка" },
   "/customs-calculator": { group: "Разделы", label: "Таможенный калькулятор" },
@@ -54,25 +54,21 @@ describe("SiteFooter", () => {
     expect(Object.keys(requiredContentLinks)).toHaveLength(18);
   });
 
-  it("keeps the pilot navigation and closed-pilot notice", () => {
+  it("keeps the marketplace navigation and accurate source notice", () => {
     act(() => { root.render(createElement(SiteFooter)); });
 
     expect(container.querySelector('a[href="/"]')?.textContent).toContain("Авторынок");
     expect(container.querySelector('a[href="/help"]')).not.toBeNull();
     expect(container.querySelector('a[href="/dealers"]')).not.toBeNull();
     expect(container.querySelector('a[href="/sell"]')).not.toBeNull();
-    expect(container.querySelector(".footer-note")?.textContent).toContain("Закрытый пилот");
+    expect(container.querySelector(".footer-note")?.textContent).toContain("Сведения в объявлениях предоставляют продавцы и внешние источники");
   });
 
-  it("groups footer links into at most three sections and exposes legal links in a keyboard-operable disclosure", () => {
+  it("keeps the five existing link groups and keyboard-operable disclosures", () => {
     act(() => { root.render(createElement(SiteFooter)); });
-
     const nav = container.querySelector('nav[aria-label="Дополнительная навигация"]')!;
-    expect(nav.querySelectorAll(":scope > section, :scope > details")).toHaveLength(3);
-    const legal = nav.querySelector("details");
-    expect(legal?.querySelector("summary")?.textContent).toContain("Правовая информация");
-    expect(legal?.querySelector('a[href="/terms-of-use"]')).not.toBeNull();
-    expect(legal?.querySelector('a[href="/privacy-policy"]')).not.toBeNull();
-    expect(legal?.querySelector('a[href="/cookie-policy"]')).not.toBeNull();
+    expect(nav.querySelectorAll(":scope > section, :scope > details")).toHaveLength(5);
+    for (const group of nav.querySelectorAll("details")) expect(group.querySelector("summary")).not.toBeNull();
+    for (const href of ["/terms-of-use", "/privacy-policy", "/cookie-policy"]) expect(nav.querySelector(`a[href="${href}"]`)).not.toBeNull();
   });
 });

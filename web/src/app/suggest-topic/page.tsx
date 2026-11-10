@@ -2,30 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { InformationalPage } from "@/components/informational-page";
 
-export const metadata: Metadata = { title: "Предложить тему" };
+export const metadata: Metadata = { title: "Предложить тему", description: "Темы, которые могут помочь покупателям и продавцам разобраться в работе площадки." };
 
-export default function SuggestTopicPage() {
+export default function Page() {
   return (
-    <InformationalPage
-      eyebrow="Обратная связь"
-      title="Предложить тему"
-      description="Помогите выбрать материалы для справки и следующего этапа пилота."
-      notice="Отдельной формы отправки пока нет. Передайте предложение оператору тем же каналом, по которому получили доступ."
-    >
-      <section className="info-section">
-        <h2>Какие темы полезны</h2>
-        <ul className="info-list">
-          <li>непонятный шаг поиска, входа или подачи объявления;</li>
-          <li>пример данных, которого не хватает в каталоге;</li>
-          <li>вопрос о доступности, безопасности или приватности;</li>
-          <li>идея, которую можно проверить в пределах закрытого пилота.</li>
-        </ul>
-      </section>
-      <section className="info-section">
-        <h2>Как сформулировать предложение</h2>
-        <p>Опишите задачу пользователя, ожидаемый результат и пример. Не отправляйте пароли, токены, полные cookie, персональные данные третьих лиц или платёжные реквизиты.</p>
-        <p><Link className="text-link" href="/support">Если это ошибка, откройте инструкцию поддержки</Link></p>
-      </section>
+    <InformationalPage eyebrow="Обратная связь" title="Предложить тему" description="Темы, которые могут помочь покупателям и продавцам разобраться в работе площадки." sections={[{ id: "topics", title: "Какие темы полезны" }, { id: "prepare", title: "Как подготовить предложение" }]}>
+      <section className="info-section"><h2 id="topics">Какие темы полезны</h2><ul className="info-list"><li>Поиск автомобиля и работа с фильтрами.</li><li>Подготовка фотографий и заполнение объявления.</li><li>Работа с кабинетом, сообщениями и уведомлениями.</li><li>Проверка автомобиля и безопасное общение с продавцом.</li></ul></section>
+      <section className="info-section"><h2 id="prepare">Как подготовить предложение</h2><p>Сформулируйте вопрос, опишите задачу и укажите, какой информации вам не хватило. Не включайте пароли, платёжные данные или персональные сведения других людей.</p><p>Отдельной формы отправки предложений сейчас нет. Если речь об объявлении, используйте жалобу в его карточке; инструкции по другим ситуациям собраны в разделе поддержки.</p><div className="info-links"><Link className="button button-secondary" href="/support">Поддержка</Link><Link className="button button-secondary" href="/help">Помощь</Link></div></section>
     </InformationalPage>
   );
 }

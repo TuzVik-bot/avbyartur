@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/auth-provider";
 import { CompareProvider } from "@/components/compare-provider";
+import { GlobalCompareTray } from "@/components/compare-button";
 import { ContactClickConsentProvider } from "@/components/contact-click-consent";
+import { MeasurementProvider } from "@/components/measurement-provider";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { SiteAssistant } from "@/components/site-assistant";
 import { InstallPrompt } from "@/components/install-prompt";
 import { DEFAULT_LOCALE, getMessage } from "@/lib/i18n";
 import { isPublicIndexingEnabled, rootRobots } from "@/lib/pilot-visibility";
@@ -54,13 +55,6 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
-const GOOGLE_TAG_INIT_SCRIPT = `
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-48P5WKB0Z5');
-`;
-
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Keep public pages available if the API is temporarily offline. Protected
   // route guards call the same lookup without swallowing service failures.
@@ -69,21 +63,19 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={DEFAULT_LOCALE} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-48P5WKB0Z5" />
-        <script dangerouslySetInnerHTML={{ __html: GOOGLE_TAG_INIT_SCRIPT }} />
       </head>
       <body>
         <AuthProvider initialSession={initialSession}>
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildWebsiteJsonLd()) }} />
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildOrganizationJsonLd()) }} />
-          <ContactClickConsentProvider><CompareProvider>
+          <ContactClickConsentProvider><MeasurementProvider><CompareProvider>
             <a className="skip-link" href="#main-content">{getMessage("layout.skipToMainContent", DEFAULT_LOCALE)}</a>
             <SiteHeader />
             <main id="main-content">{children}</main>
             <SiteFooter />
-            <SiteAssistant />
             <InstallPrompt />
-          </CompareProvider></ContactClickConsentProvider>
+            <GlobalCompareTray />
+          </CompareProvider></MeasurementProvider></ContactClickConsentProvider>
         </AuthProvider>
       </body>
     </html>

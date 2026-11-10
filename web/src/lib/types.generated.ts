@@ -4375,6 +4375,17 @@ export interface components {
              * @default false
              */
             has_external_contacts: boolean;
+            provenance?: components["schemas"]["ListingProvenanceOut"] | null;
+            /**
+             * Is Imported
+             * @default false
+             */
+            is_imported: boolean;
+            /**
+             * Can Chat
+             * @default true
+             */
+            can_chat: boolean;
             /** View Count */
             view_count?: number | null;
             /** Promotion Badges */
@@ -4840,6 +4851,17 @@ export interface components {
              * @default false
              */
             has_external_contacts: boolean;
+            provenance?: components["schemas"]["ListingProvenanceOut"] | null;
+            /**
+             * Is Imported
+             * @default false
+             */
+            is_imported: boolean;
+            /**
+             * Can Chat
+             * @default true
+             */
+            can_chat: boolean;
             /** View Count */
             view_count?: number | null;
             /** Promotion Badges */
@@ -5061,6 +5083,15 @@ export interface components {
             display_currency?: ("BYN" | "USD") | null;
             market_comparison?: components["schemas"]["ListingMarketComparisonOut"] | null;
         };
+        /** ListingProvenanceOut */
+        ListingProvenanceOut: {
+            /** Source Name */
+            source_name: string;
+            /** Original Url */
+            original_url: string;
+            /** Imported */
+            imported: boolean;
+        };
         /** ListingPublicCapabilitiesOut */
         ListingPublicCapabilitiesOut: {
             /** Guest Contact Reveal Enabled */
@@ -5172,6 +5203,17 @@ export interface components {
              * @default false
              */
             has_external_contacts: boolean;
+            provenance?: components["schemas"]["ListingProvenanceOut"] | null;
+            /**
+             * Is Imported
+             * @default false
+             */
+            is_imported: boolean;
+            /**
+             * Can Chat
+             * @default true
+             */
+            can_chat: boolean;
             /** View Count */
             view_count?: number | null;
             /** Promotion Badges */
@@ -5232,6 +5274,11 @@ export interface components {
         ListingValidationPolicyOut: {
             /** Current Year */
             current_year: number;
+            /**
+             * Publication Mode
+             * @enum {string}
+             */
+            publication_mode: "automatic" | "moderated";
             /** Listing Year Min */
             listing_year_min: number;
             /** New Year Max */
@@ -5557,6 +5604,17 @@ export interface components {
              * @default false
              */
             has_external_contacts: boolean;
+            provenance?: components["schemas"]["ListingProvenanceOut"] | null;
+            /**
+             * Is Imported
+             * @default false
+             */
+            is_imported: boolean;
+            /**
+             * Can Chat
+             * @default true
+             */
+            can_chat: boolean;
             /** View Count */
             view_count?: number | null;
             /** Promotion Badges */

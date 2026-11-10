@@ -1,0 +1,6 @@
+services:
+  web:
+    image: avtorinok-web:refero-20261108-r1
+    build:
+      args:
+        AVTORINOK_PUBLIC_INDEXING_ENABLED: "true"
