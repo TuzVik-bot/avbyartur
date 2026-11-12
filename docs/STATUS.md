@@ -2,7 +2,23 @@
 
 Сводка на 11 ноября 2026, около 00:38 по Минску (2026-11-10T21:38Z), по проверкам после выкатки релиза `audit-20261111-r1` и журналам в `docs/releases/2026/`. Это записанное состояние, а не живая проверка: перед любыми действиями на VPS сверить его заново (read-only), см. `AGENTS.md`.
 
-## Текущий production: audit-20261111-r1
+## Текущий production: generation-20261112-r1 (web-only, 12 ноября 2026)
+
+Поверх `audit-20261111-r1` выкачен только web: поле «Поколение» перенесено из «Дополнительных параметров» в «Параметры поиска» сразу после «Марки»/«Модели».
+
+| Компонент | Значение |
+|---|---|
+| Активный каталог | `/home/suite/apps/avtorinok` → `/home/suite/apps/releases/generation-20261112-r1` |
+| Исходники | ветка `prod-sync-20261110`, коммит `257fd4b`; sha256 архива — `12f5b8adf1aab281ed53a3a719cd113ee2e4fc813df1885a5d560b7ec029fca0` |
+| Web | `avtorinok-web:generation-20261112-r1` (`sha256:d198bdaca538…`) |
+| API, worker, db, test-mail | без изменений (api/worker `avtorinok-api:audit-20261111-r1`, контейнеры не пересоздавались) |
+| Compose-цепочка | 17 файлов `audit-20261111-r1` + 18-й `docker-compose.generation.yml` (только образ web; создаётся на сервере, `docker-compose.audit.yml` скопирован из каталога audit) |
+
+Бэкап: `/home/suite/backups/avtorinok/generation-20261112-r1/` (`database.dump` 23 634 900 байт, `pg_restore -l` — 534 записи; `before.json`, `built.json`, `build.log`, `deploy-failed.json` первой попытки, `deployed.json`). Прежний web-образ также помечен `avtorinok-web:rollback-generation-20261112-r1`. Журнал: [RELEASE_2026-11-12-generation.md](releases/2026/RELEASE_2026-11-12-generation.md).
+
+Ниже — запись о базовом релизе `audit-20261111-r1`; она остаётся верной для api/worker/db.
+
+## Базовый релиз: audit-20261111-r1
 
 | Компонент | Значение |
 |---|---|
