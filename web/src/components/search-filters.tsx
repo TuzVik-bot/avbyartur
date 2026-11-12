@@ -485,6 +485,17 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
             {modelSearchLoading && <p className="muted" role="status">Поиск моделей…</p>}
             {(modelsError || modelSearchError) && <p className="catalog-error muted" id="model-catalog-status" role="status">Не удалось загрузить модели. <button className="button button-secondary button-small" type="button" onClick={() => setModelsRetry((attempt) => attempt + 1)}>Повторить</button></p>}
           </div>
+          {isCarCategory && <div className="filter-wide">
+            <label className="field">
+              <span>Поколение</span>
+              <select name="generation_id" value={generationId} onChange={(event) => changeGeneration(event.target.value)} disabled={(generationsLoading && !generationId) || (!generations.length && !generationId)} aria-busy={generationsLoading} aria-describedby={generationsError ? "generation-catalog-status" : undefined}>
+                <option value="">{!modelId ? "Любое поколение" : generationsLoading ? "Загрузка поколений…" : generationsError ? "Поколения временно недоступны" : generations.length ? "Любое поколение" : "Нет доступных поколений"}</option>
+                {generationId && !generations.some((item) => item.id === generationId) && <option value={generationId}>Поколение выбрано</option>}
+                {generations.map((item) => <option key={item.id} value={item.id}>{item.name}{item.year_from ? ` · ${item.year_from}${item.year_to ? `–${item.year_to}` : ""}` : ""}</option>)}
+              </select>
+            </label>
+            {generationsError && <p className="catalog-error muted" id="generation-catalog-status" role="status">Не удалось загрузить поколения. <button className="button button-secondary button-small" type="button" onClick={() => setGenerationsRetry((attempt) => attempt + 1)}>Повторить</button></p>}
+          </div>}
           </>}
           <fieldset className="filter-wide" disabled={!priceOperationsAvailable}>
             <legend className="field-label">Цена, {search.currency || "BYN"}</legend>
@@ -512,17 +523,6 @@ export function SearchFilters({ search, makes, initialModels, initialGenerations
           <details className={styles.additional}><summary>Дополнительные параметры</summary>
             <div className={styles.additionalGrid}>
               {isCarCategory && <>
-          <div className="filter-wide">
-            <label className="field">
-              <span>Поколение</span>
-              <select name="generation_id" value={generationId} onChange={(event) => changeGeneration(event.target.value)} disabled={(generationsLoading && !generationId) || (!generations.length && !generationId)} aria-busy={generationsLoading} aria-describedby={generationsError ? "generation-catalog-status" : undefined}>
-                <option value="">{!modelId ? "Любое поколение" : generationsLoading ? "Загрузка поколений…" : generationsError ? "Поколения временно недоступны" : generations.length ? "Любое поколение" : "Нет доступных поколений"}</option>
-                {generationId && !generations.some((item) => item.id === generationId) && <option value={generationId}>Поколение выбрано</option>}
-                {generations.map((item) => <option key={item.id} value={item.id}>{item.name}{item.year_from ? ` · ${item.year_from}${item.year_to ? `–${item.year_to}` : ""}` : ""}</option>)}
-              </select>
-            </label>
-            {generationsError && <p className="catalog-error muted" id="generation-catalog-status" role="status">Не удалось загрузить поколения. <button className="button button-secondary button-small" type="button" onClick={() => setGenerationsRetry((attempt) => attempt + 1)}>Повторить</button></p>}
-          </div>
           <label className="field filter-wide">
             <span>Вариант кузова</span>
             <select name="body_variant_id" value={bodyVariantId} onChange={(event) => setBodyVariantId(event.target.value)} disabled={!generationId || (bodyVariantsLoading && !bodyVariantId) || (!bodyVariants.length && !bodyVariantId && !bodyVariantsLoading && !bodyVariantsError)} aria-busy={bodyVariantsLoading} aria-describedby={bodyVariantsError ? "body-variant-catalog-status" : undefined}>
